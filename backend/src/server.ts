@@ -1,15 +1,23 @@
-import express from "express";
-import dotenv from "dotenv";
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
-app.get("/", (req, res) => {
-  res.send("Hello from Lingerie Shop Backend!");
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Routes will be added here
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
