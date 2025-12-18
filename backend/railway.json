@@ -1,9 +1,14 @@
 {
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "buildCommand": "npm install && npm run build"
   },
   "deploy": {
-    "startCommand": "npm run build && npm run start",
-    "healthcheckPath": "/api/health"
+    "startCommand": "npm run start",
+    "healthcheckPath": "/api/health",
+    "restartPolicyType": "ON_FAILURE"
+  },
+  "nixpacks": {
+    "nodeVersion": "20"
   }
 }
