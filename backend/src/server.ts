@@ -1,6 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { PrismaClient } from '@prisma/client';
+
+// Import routes
+import mediaRoutes from './routes/mediaRoutes';
 
 dotenv.config();
 
@@ -25,7 +29,8 @@ app.use(
 );
 app.use(express.json());
 
-// Routes will be added here
+// Routes
+app.use('/api/media', mediaRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

@@ -11,6 +11,30 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. Cấu hình chung (Logo, Tên web, Footer info...)
+model SystemConfig {
+  id        Int     @id @default(autoincrement())
+  key       String  @unique  // Ví dụ: 'site_logo', 'primary_color', 'hotline'
+  value     String  // Ví dụ: 'https://cloudinary...', '#e11d48', '0909...'
+  description String? // Mô tả cho admin dễ hiểu
+}
+
+// 2. Các Section trên trang chủ (Hero, Banner, Featured Products...)
+model PageSection {
+  id        Int     @id @default(autoincrement())
+  code      String  @unique // Ví dụ: 'HERO_BANNER', 'NEW_ARRIVALS'
+  name      String  // Tên hiển thị trong Admin
+  isVisible Boolean @default(true) // Ẩn/Hiện section
+  order     Int     @default(0)    // Số càng nhỏ càng nằm trên
+  
+  // Quan trọng: Lưu toàn bộ nội dung (Title, Ảnh, Link, Màu nền) dưới dạng JSON
+  content   Json?   
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Tạo thử bảng User (Khách hàng/Admin)
@@ -31,4 +55,18 @@ model Product {
   price       Float
   imageUrl    String?
   createdAt   DateTime @default(now())
+}
+
+// Media model cho CMS
+model Media {
+  id          Int      @id @default(autoincrement())
+  filename    String   // Tên file gốc
+  originalName String  // Tên file khi upload
+  mimeType    String   // image/jpeg, image/png, etc.
+  size        Int      // Kích thước file (bytes)
+  url         String   // URL từ Cloudinary
+  publicId    String   // Public ID của Cloudinary (để xóa/sửa)
+  folder      String?  // Thư mục trên Cloudinary
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
