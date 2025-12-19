@@ -13,7 +13,16 @@ app.get('/api/health', (req, res) => {
 });
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    // Cho phép Localhost (để bạn test) VÀ Domain trên Vercel
+    origin: [
+      "http://localhost:3000",
+      "https://my-lingerie-shop.vercel.app", // <-- Thay bằng link Vercel thực tế của bạn
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Routes will be added here
