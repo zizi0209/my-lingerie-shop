@@ -156,7 +156,7 @@ export default function BlogPage() {
             {featuredPosts.map(post => (
               <article key={post.id} className="group cursor-pointer">
                 <Link href={`/bai-viet/${post.slug}`}>
-                  <div className="relative aspect-[4/3] rounded-lg overflow-hidden mb-4">
+                  <div className="relative aspect-4/3 rounded-lg overflow-hidden mb-4">
                     <Image
                       src={post.image}
                       alt={post.title}
@@ -211,7 +211,7 @@ export default function BlogPage() {
             {filteredPosts.map(post => (
               <article key={post.id} className="group cursor-pointer">
                 <Link href={`/bai-viet/${post.slug}`}>
-                  <div className="relative aspect-[4/3] rounded-lg overflow-hidden mb-4">
+                  <div className="relative aspect-4/3 rounded-lg overflow-hidden mb-4">
                     <Image
                       src={post.image}
                       alt={post.title}

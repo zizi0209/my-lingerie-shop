@@ -63,7 +63,7 @@ export default function AboutPage() {
               <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
-          <div className="relative aspect-[4/5] rounded-lg overflow-hidden">
+          <div className="relative aspect-4/5 rounded-lg overflow-hidden">
             <Image
               src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2070&auto=format&fit=crop"
               alt="Brand Story"

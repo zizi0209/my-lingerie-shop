@@ -98,7 +98,7 @@ export default function CartPage() {
             <div key={item.id} className="bg-white p-6 rounded-lg border border-gray-200">
               <div className="flex gap-4">
                 {/* Product Image */}
-                <div className="relative w-24 h-32 bg-gray-50 rounded overflow-hidden flex-shrink-0">
+                <div className="relative w-24 h-32 bg-gray-50 rounded overflow-hidden shrink-0">
                   <Image
                     src={item.image}
                     alt={item.name}
@@ -137,7 +137,7 @@ export default function CartPage() {
                       >
                         <Minus className="w-4 h-4" />
                       </button>
-                      <span className="px-4 py-2 min-w-[60px] text-center">
+                      <span className="px-4 py-2 min-w-15 text-center">
                         {item.quantity}
                       </span>
                       <button

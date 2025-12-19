@@ -375,7 +375,7 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {wishlist.map((item) => (
                     <div key={item.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden group">
-                      <div className="relative aspect-[4/5]">
+                      <div className="relative aspect-4/5">
                         <Image
                           src={item.image}
                           alt={item.name}

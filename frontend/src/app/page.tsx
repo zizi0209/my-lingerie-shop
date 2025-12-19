@@ -16,7 +16,7 @@ export default function Home() {
             className="object-cover"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-black/60"></div>
+          <div className="absolute inset-0 bg-linear-to-b from-black/20 via-black/40 to-black/60"></div>
         </div>
 
         {/* Hero Content */}
@@ -71,14 +71,14 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Áo lót */}
           <Link href="/san-pham?category=ao-lot" className="group block">
-            <div className="relative aspect-[3/4] overflow-hidden rounded-lg mb-4">
+            <div className="relative aspect-3/4 overflow-hidden rounded-lg mb-4">
               <Image
                 src="https://images.unsplash.com/photo-1578915446522-f40d855e2418?q=80&w=2070&auto=format&fit=crop"
                 alt="Áo lót"
                 fill
                 className="object-cover group-hover:scale-105 transition-transform duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="absolute bottom-6 left-6 text-white">
                 <h3 className="text-2xl font-light mb-2">Áo lót</h3>
                 <span className="text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 block">
@@ -90,14 +90,14 @@ export default function Home() {
 
           {/* Đồ ngủ */}
           <Link href="/san-pham?category=do-ngu" className="group block">
-            <div className="relative aspect-[3/4] overflow-hidden rounded-lg mb-4">
+            <div className="relative aspect-3/4 overflow-hidden rounded-lg mb-4">
               <Image
                 src="https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?q=80&w=2070&auto=format&fit=crop"
                 alt="Đồ ngủ"
                 fill
                 className="object-cover group-hover:scale-105 transition-transform duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="absolute bottom-6 left-6 text-white">
                 <h3 className="text-2xl font-light mb-2">Đồ ngủ</h3>
                 <span className="text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 block">
@@ -109,14 +109,14 @@ export default function Home() {
 
           {/* Bộ nội y */}
           <Link href="/san-pham?category=bo-noi-y" className="group block">
-            <div className="relative aspect-[3/4] overflow-hidden rounded-lg mb-4">
+            <div className="relative aspect-3/4 overflow-hidden rounded-lg mb-4">
               <Image
                 src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2070&auto=format&fit=crop"
                 alt="Bộ nội y"
                 fill
                 className="object-cover group-hover:scale-105 transition-transform duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="absolute bottom-6 left-6 text-white">
                 <h3 className="text-2xl font-light mb-2">Bộ nội y</h3>
                 <span className="text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 block">
@@ -141,7 +141,7 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {/* Product 1 */}
             <div className="group">
-              <div className="relative aspect-[3/4] bg-gray-200 overflow-hidden rounded-lg mb-4">
+              <div className="relative aspect-3/4 bg-gray-200 overflow-hidden rounded-lg mb-4">
                 <Image
                   src="https://images.unsplash.com/photo-1523381294911-8d3cead13475?q=80&w=2070&auto=format&fit=crop"
                   alt="Product"
@@ -160,7 +160,7 @@ export default function Home() {
 
             {/* Product 2 */}
             <div className="group">
-              <div className="relative aspect-[3/4] bg-gray-200 overflow-hidden rounded-lg mb-4">
+              <div className="relative aspect-3/4 bg-gray-200 overflow-hidden rounded-lg mb-4">
                 <Image
                   src="https://images.unsplash.com/photo-1583410264827-9de75a320417?q=80&w=2070&auto=format&fit=crop"
                   alt="Product"
@@ -176,7 +176,7 @@ export default function Home() {
 
             {/* Product 3 */}
             <div className="group">
-              <div className="relative aspect-[3/4] bg-gray-200 overflow-hidden rounded-lg mb-4">
+              <div className="relative aspect-3/4 bg-gray-200 overflow-hidden rounded-lg mb-4">
                 <Image
                   src="https://images.unsplash.com/photo-1578915446522-f40d855e2418?q=80&w=2070&auto=format&fit=crop"
                   alt="Product"
@@ -198,7 +198,7 @@ export default function Home() {
 
             {/* Product 4 */}
             <div className="group">
-              <div className="relative aspect-[3/4] bg-gray-200 overflow-hidden rounded-lg mb-4">
+              <div className="relative aspect-3/4 bg-gray-200 overflow-hidden rounded-lg mb-4">
                 <Image
                   src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2070&auto=format&fit=crop"
                   alt="Product"
@@ -254,7 +254,7 @@ export default function Home() {
               <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
-          <div className="relative aspect-[4/5] rounded-lg overflow-hidden">
+          <div className="relative aspect-4/5 rounded-lg overflow-hidden">
             <Image
               src="https://images.unsplash.com/photo-1523381294911-8d3cead13475?q=80&w=2070&auto=format&fit=crop"
               alt="Brand Story"

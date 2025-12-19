@@ -106,28 +106,28 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20">
         {/* Product Images */}
         <div className="space-y-4">
-          <div className="relative aspect-[3/4] bg-gray-50 overflow-hidden rounded-lg">
-            <Image
-              src={product.images[selectedImage]}
-              alt={product.name}
-              fill
-              className="object-cover"
-            />
-            {product.originalPrice && (
-              <span className="absolute top-4 left-4 bg-red-600 text-white text-sm px-3 py-1">
-                -{discount}%
-              </span>
-            )}
-          </div>
+          <div className="relative aspect-3/4 bg-gray-50 overflow-hidden rounded-lg">
+             <Image
+               src={product.images[selectedImage]}
+               alt={product.name}
+               fill
+               className="object-cover"
+             />
+             {product.originalPrice && (
+               <span className="absolute top-4 left-4 bg-red-600 text-white text-sm px-3 py-1">
+                 -{discount}%
+               </span>
+             )}
+           </div>
           <div className="grid grid-cols-4 gap-2">
             {product.images.map((image, index) => (
               <button
-                key={index}
-                onClick={() => setSelectedImage(index)}
-                className={`relative aspect-[3/4] bg-gray-50 rounded overflow-hidden border-2 transition-all ${
-                  selectedImage === index ? 'border-black' : 'border-transparent'
-                }`}
-              >
+                    key={index}
+                    onClick={() => setSelectedImage(index)}
+                    className={`relative aspect-3/4 bg-gray-50 rounded overflow-hidden border-2 transition-all ${
+                      selectedImage === index ? 'border-black' : 'border-transparent'
+                    }`}
+                  >
                 <Image
                   src={image}
                   alt={`${product.name} ${index + 1}`}
@@ -371,7 +371,7 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {relatedProducts.map((relatedProduct) => (
             <div key={relatedProduct.id} className="group cursor-pointer">
-              <div className="relative aspect-[3/4] bg-gray-50 overflow-hidden rounded-lg mb-4">
+              <div className="relative aspect-3/4 bg-gray-50 overflow-hidden rounded-lg mb-4">
                 <Image
                   src={relatedProduct.image}
                   alt={relatedProduct.name}

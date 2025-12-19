@@ -245,7 +245,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
         </header>
 
         {/* Featured Image */}
-        <div className="relative aspect-[16/9] rounded-lg overflow-hidden mb-8">
+        <div className="relative aspect-video rounded-lg overflow-hidden mb-8">
           <Image
             src={post.image}
             alt={post.title}
@@ -319,7 +319,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
             {relatedPosts.map(relatedPost => (
               <article key={relatedPost.id} className="group cursor-pointer">
                 <Link href={`/bai-viet/${relatedPost.slug}`}>
-                  <div className="relative aspect-[4/3] rounded-lg overflow-hidden mb-4">
+                  <div className="relative aspect-4/3 rounded-lg overflow-hidden mb-4">
                     <Image
                       src={relatedPost.image}
                       alt={relatedPost.title}
