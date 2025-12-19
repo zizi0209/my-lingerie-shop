@@ -1,12 +1,4 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
-import "@/app/globals.css";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-playfair",
-});
 
 export const metadata: Metadata = {
   title: "Dashboard - Lingerie Shop",
@@ -18,14 +10,5 @@ export default function DashboardLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <html lang="vi">
-      <body
-        className={`${inter.variable} ${playfair.variable} font-sans text-gray-900`}
-        suppressHydrationWarning
-      >
-        {children}
-      </body>
-    </html>
-  );
+  return <>{children}</>;
 }
