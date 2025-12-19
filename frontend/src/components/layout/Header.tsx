@@ -21,7 +21,7 @@ export default function Header() {
 
         {/* 2. Logo - Căn giữa ở Mobile, Bên trái ở Desktop */}
         <Link href="/" className="text-2xl font-bold font-serif text-rose-500">
-          LINGERIE.
+          LINGERIE
         </Link>
 
         {/* 3. Navigation - Ẩn ở mobile, Hiện ở Desktop */}

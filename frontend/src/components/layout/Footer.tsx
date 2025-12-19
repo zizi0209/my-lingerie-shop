@@ -8,7 +8,7 @@ export default function Footer() {
         {/* Cột 1: Giới thiệu */}
         <div>
           <h3 className="text-2xl font-serif font-bold text-rose-400 mb-4">
-            LINGERIE.
+            LINGERIE
           </h3>
           <p className="text-gray-400 text-sm leading-relaxed">
             Tôn vinh vẻ đẹp quyến rũ của phụ nữ Việt với những thiết kế nội y
