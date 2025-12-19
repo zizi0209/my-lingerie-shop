@@ -1,5 +1,8 @@
+"use client";
+
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google"; // Thêm font Playfair cho sang
+import { Inter, Playfair_Display } from "next/font/google";
+import { usePathname } from "next/navigation";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -10,24 +13,22 @@ const playfair = Playfair_Display({
   variable: "--font-playfair",
 });
 
-export const metadata: Metadata = {
-  title: "Lingerie Shop - Nội y cao cấp",
-  description: "Vẻ đẹp quyến rũ từ bên trong",
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = usePathname();
+  const isDashboard = pathname.startsWith("/dashboard");
+
   return (
     <html lang="vi">
       <body
         className={`${inter.variable} ${playfair.variable} font-sans bg-gray-50 text-gray-900`}
       >
-        <Header />
+        {!isDashboard && <Header />}
         <main className="min-h-screen">{children}</main>
-        <Footer />
+        {!isDashboard && <Footer />}
       </body>
     </html>
   );
