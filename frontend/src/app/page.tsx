@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <div className="pb-20">
       {/* 1. Hero Section (Banner) */}
-      <section className="relative h-[600px] w-full bg-rose-50 flex items-center">
+      <section className="relative h-600px w-full bg-rose-50 flex items-center">
         {/* Sau này thay bằng thẻ <Image> background */}
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1596486489709-7756e076722b?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-80"></div>
 
@@ -36,7 +36,7 @@ export default function Home() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Item 1 */}
-          <div className="group cursor-pointer relative overflow-hidden rounded-lg aspect-[3/4]">
+          <div className="group cursor-pointer relative overflow-hidden rounded-lg aspect-3/4">
             <div className="absolute inset-0 bg-gray-200"></div>{" "}
             {/* Placeholder ảnh */}
             <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition"></div>
