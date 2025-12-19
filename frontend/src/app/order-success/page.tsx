@@ -120,7 +120,7 @@ export default function OrderSuccessPage() {
             <div className="space-y-4">
               {order.items.map((item: any, index: number) => (
                 <div key={index} className="flex gap-4 items-center">
-                  <div className="relative w-16 h-16 bg-gray-50 rounded overflow-hidden flex-shrink-0">
+                  <div className="relative w-16 h-16 bg-gray-50 rounded overflow-hidden shrink-0">
                     <Image
                       src={item.image}
                       alt={item.name}

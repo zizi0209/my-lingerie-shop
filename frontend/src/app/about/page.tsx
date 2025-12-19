@@ -6,7 +6,7 @@ export default function AboutPage() {
   return (
     <div className="pb-20">
       {/* Hero Section */}
-      <section className="relative h-[600px] w-full flex items-center justify-center overflow-hidden">
+      <section className="relative h-150 w-full flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <Image
             src="https://images.unsplash.com/photo-1523381294911-8d3cead13475?q=80&w=2070&auto=format&fit=crop"
