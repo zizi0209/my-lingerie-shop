@@ -26,11 +26,9 @@
   --rose-900: #881337;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #030712;
-    --foreground: #f5f5f5;
-  }
+.dark {
+  --background: #030712;
+  --foreground: #f5f5f5;
 }
 
 @theme inline {
@@ -47,6 +45,7 @@ body {
   font-feature-settings: 'rlig' 1, 'calt' 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Custom scrollbar */
@@ -67,18 +66,16 @@ body {
   background: var(--gray-400);
 }
 
-@media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar-track {
-    background: #1f2937;
-  }
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937;
+}
 
-  ::-webkit-scrollbar-thumb {
-    background: #4b5563;
-  }
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
-  }
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
 }
 
 /* Smooth scrolling */
@@ -92,11 +89,9 @@ html {
   color: var(--rose-900);
 }
 
-@media (prefers-color-scheme: dark) {
-  ::selection {
-    background: var(--rose-700);
-    color: var(--rose-50);
-  }
+.dark ::selection {
+  background: var(--rose-700);
+  color: var(--rose-50);
 }
 
 /* CK-style button hover effects */

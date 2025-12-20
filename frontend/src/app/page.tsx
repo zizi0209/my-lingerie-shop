@@ -58,12 +58,12 @@ export default function Home() {
       </section>
 
       {/* 2. Featured Categories */}
-      <section className="container mx-auto px-4 py-20">
+      <section className="container mx-auto px-4 py-20 bg-white dark:bg-gray-950 transition-colors">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-serif font-light mb-4">
+          <h2 className="text-4xl md:text-5xl font-serif font-light mb-4 text-gray-900 dark:text-white">
             Danh mục nổi bật
           </h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
+          <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             Lựa chọn hoàn hảo cho mọi khoảnh khắc đặc biệt
           </p>
         </div>
@@ -129,19 +129,19 @@ export default function Home() {
       </section>
 
       {/* 3. Best Sellers */}
-      <section className="bg-gray-50 py-20">
+      <section className="bg-gray-50 dark:bg-gray-900 py-20 transition-colors">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-serif font-light mb-4">
+            <h2 className="text-4xl md:text-5xl font-serif font-light mb-4 text-gray-900 dark:text-white">
               Sản phẩm bán chạy
             </h2>
-            <p className="text-gray-600">Những thiết kế được yêu thích nhất</p>
+            <p className="text-gray-600 dark:text-gray-400">Những thiết kế được yêu thích nhất</p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {/* Product 1 */}
             <div className="group">
-              <div className="relative aspect-3/4 bg-gray-200 overflow-hidden rounded-lg mb-4">
+              <div className="relative aspect-3/4 bg-gray-200 dark:bg-gray-700 overflow-hidden rounded-lg mb-4">
                 <Image
                   src="https://images.unsplash.com/photo-1523381294911-8d3cead13475?q=80&w=2070&auto=format&fit=crop"
                   alt="Product"
@@ -152,31 +152,31 @@ export default function Home() {
                   Best Seller
                 </span>
               </div>
-              <h3 className="font-medium text-gray-900 group-hover:text-rose-600 transition mb-2">
+              <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition mb-2">
                 Áo lót ren đen
               </h3>
-              <p className="text-lg font-light">890.000₫</p>
+              <p className="text-lg font-light text-gray-900 dark:text-gray-300">890.000₫</p>
             </div>
 
             {/* Product 2 */}
             <div className="group">
-              <div className="relative aspect-3/4 bg-gray-200 overflow-hidden rounded-lg mb-4">
+              <div className="relative aspect-3/4 bg-gray-200 dark:bg-gray-700 overflow-hidden rounded-lg mb-4">
                 <Image
-                  src="https://images.unsplash.com/photo-1583410264827-9de75a320417?q=80&w=2070&auto=format&fit=crop"
+                  src="https://images.unsplash.com/photo-1591080876847-e0815b4e8c08?q=80&w=2070&auto=format&fit=crop"
                   alt="Product"
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
               </div>
-              <h3 className="font-medium text-gray-900 group-hover:text-rose-600 transition mb-2">
+              <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition mb-2">
                 Quần lót ren
               </h3>
-              <p className="text-lg font-light">450.000₫</p>
+              <p className="text-lg font-light text-gray-900 dark:text-gray-300">450.000₫</p>
             </div>
 
             {/* Product 3 */}
             <div className="group">
-              <div className="relative aspect-3/4 bg-gray-200 overflow-hidden rounded-lg mb-4">
+              <div className="relative aspect-3/4 bg-gray-200 dark:bg-gray-700 overflow-hidden rounded-lg mb-4">
                 <Image
                   src="https://images.unsplash.com/photo-1578915446522-f40d855e2418?q=80&w=2070&auto=format&fit=crop"
                   alt="Product"
@@ -187,18 +187,18 @@ export default function Home() {
                   -30%
                 </span>
               </div>
-              <h3 className="font-medium text-gray-900 group-hover:text-rose-600 transition mb-2">
+              <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition mb-2">
                 Đồ ngủ lụa
               </h3>
               <div className="flex items-center gap-2">
-                <p className="text-lg font-light">1.200.000₫</p>
-                <p className="text-sm text-gray-400 line-through">1.500.000₫</p>
+                <p className="text-lg font-light text-gray-900 dark:text-gray-300">1.200.000₫</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 line-through">1.500.000₫</p>
               </div>
             </div>
 
             {/* Product 4 */}
             <div className="group">
-              <div className="relative aspect-3/4 bg-gray-200 overflow-hidden rounded-lg mb-4">
+              <div className="relative aspect-3/4 bg-gray-200 dark:bg-gray-700 overflow-hidden rounded-lg mb-4">
                 <Image
                   src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2070&auto=format&fit=crop"
                   alt="Product"
@@ -209,51 +209,51 @@ export default function Home() {
                   New
                 </span>
               </div>
-              <h3 className="font-medium text-gray-900 group-hover:text-rose-600 transition mb-2">
+              <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition mb-2">
                 Bộ nội y trắng
               </h3>
-              <p className="text-lg font-light">1.580.000₫</p>
+              <p className="text-lg font-light text-gray-900 dark:text-gray-300">1.580.000₫</p>
             </div>
-          </div>
+            </div>
 
-          <div className="text-center mt-12">
+            <div className="text-center mt-12">
             <Link
               href="/san-pham"
-              className="inline-flex items-center gap-2 border-2 border-black px-8 py-3 rounded-full hover:bg-black hover:text-white transition"
+              className="inline-flex items-center gap-2 border-2 border-black dark:border-white text-black dark:text-white px-8 py-3 rounded-full hover:bg-black dark:hover:bg-white hover:text-white dark:hover:text-black transition"
             >
               Xem tất cả sản phẩm
               <ArrowRight className="w-5 h-5" />
             </Link>
-          </div>
-        </div>
-      </section>
+            </div>
+            </div>
+            </section>
 
-      {/* 4. Brand Story */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div>
-            <h2 className="text-4xl md:text-5xl font-serif font-light mb-6">
+            {/* 4. Brand Story */}
+            <section className="container mx-auto px-4 py-20 bg-white dark:bg-gray-950 transition-colors">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div>
+            <h2 className="text-4xl md:text-5xl font-serif font-light mb-6 text-gray-900 dark:text-white">
               Vẻ đẹp từ sự
               <br />
               <span className="italic">tự tin</span>
             </h2>
-            <p className="text-gray-600 mb-6 leading-relaxed">
+            <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
               Tại Lingerie Shop, chúng tôi tin rằng vẻ đẹp thực sự đến từ sự tự
               tin. Mỗi thiết kế được tạo ra để không chỉ tôn vinh đường cong cơ
               thể mà còn mang lại cảm giác thoải mái và tự tin tuyệt đối.
             </p>
-            <p className="text-gray-600 mb-8 leading-relaxed">
+            <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
               Với chất liệu cao cấp và thiết kế tinh tế, chúng tôi cam kết mang
               đến những sản phẩm nội y hoàn hảo cho mọi phụ nữ Việt.
             </p>
             <Link
               href="/about"
-              className="inline-flex items-center gap-2 text-gray-900 hover:text-rose-600 transition"
+              className="inline-flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:text-rose-600 dark:hover:text-rose-400 transition"
             >
               Tìm hiểu thêm về chúng tôi
               <ArrowRight className="w-5 h-5" />
             </Link>
-          </div>
+            </div>
           <div className="relative aspect-4/5 rounded-lg overflow-hidden">
             <Image
               src="https://images.unsplash.com/photo-1523381294911-8d3cead13475?q=80&w=2070&auto=format&fit=crop"
@@ -266,20 +266,20 @@ export default function Home() {
       </section>
 
       {/* 5. Reviews */}
-      <section className="bg-gray-50 py-20">
+      <section className="bg-gray-50 dark:bg-gray-900 py-20 transition-colors">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-serif font-light mb-4">
+            <h2 className="text-4xl md:text-5xl font-serif font-light mb-4 text-gray-900 dark:text-white">
               Khách hàng nói gì
             </h2>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-400">
               Những chia sẻ chân thành từ khách hàng
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Review 1 */}
-            <div className="bg-white p-6 rounded-lg">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg transition-colors">
               <div className="flex mb-4">
                 {[...Array(5)].map((_, i) => (
                   <Star
@@ -288,15 +288,15 @@ export default function Home() {
                   />
                 ))}
               </div>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
                 &quot;Chất lượng sản phẩm tuyệt vời, vải rất mềm và thoải mái.
                 Mình sẽ ủng hộ shop dài dài!&quot;
               </p>
-              <p className="font-medium">- Minh Anh</p>
+              <p className="font-medium text-gray-900 dark:text-gray-100">- Minh Anh</p>
             </div>
 
             {/* Review 2 */}
-            <div className="bg-white p-6 rounded-lg">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg transition-colors">
               <div className="flex mb-4">
                 {[...Array(5)].map((_, i) => (
                   <Star
@@ -305,15 +305,15 @@ export default function Home() {
                   />
                 ))}
               </div>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
                 &quot;Thiết kế rất sang trọng, mặc lên cảm thấy tự tin hơn hẳn.
                 Đóng gói cẩn thận, giao hàng nhanh.&quot;
               </p>
-              <p className="font-medium">- Thu Trang</p>
+              <p className="font-medium text-gray-900 dark:text-gray-100">- Thu Trang</p>
             </div>
 
             {/* Review 3 */}
-            <div className="bg-white p-6 rounded-lg">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg transition-colors">
               <div className="flex mb-4">
                 {[...Array(5)].map((_, i) => (
                   <Star
@@ -322,11 +322,11 @@ export default function Home() {
                   />
                 ))}
               </div>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
                 &quot;Shop tư vấn rất nhiệt tình, sản phẩm đúng như mô tả. Chắc
                 chắn sẽ quay lại mua tiếp.&quot;
               </p>
-              <p className="font-medium">- Hồng Nhung</p>
+              <p className="font-medium text-gray-900 dark:text-gray-100">- Hồng Nhung</p>
             </div>
           </div>
         </div>
