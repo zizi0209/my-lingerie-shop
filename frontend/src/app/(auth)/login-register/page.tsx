@@ -37,7 +37,7 @@ export default function LoginRegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-md mx-auto">
           {/* Logo */}
@@ -272,13 +272,13 @@ export default function LoginRegisterPage() {
                     className="w-4 h-4 text-black border-gray-300 rounded focus:ring-black mt-0.5"
                     required
                   />
-                  <label className="text-sm text-gray-600">
+                  <label className="text-sm text-gray-600 dark:text-gray-300">
                     Tôi đồng ý với{' '}
-                    <Link href="/dieu-khoan" className="text-black hover:underline">
+                    <Link href="/dieu-khoan" className="text-black dark:text-white hover:underline">
                       điều khoản sử dụng
                     </Link>{' '}
                     và{' '}
-                    <Link href="/chinh-sach" className="text-black hover:underline">
+                    <Link href="/chinh-sach" className="text-black dark:text-white hover:underline">
                       chính sách bảo mật
                     </Link>
                   </label>
@@ -310,7 +310,7 @@ export default function LoginRegisterPage() {
 
           {/* Back to Home */}
           <div className="text-center mt-8">
-            <Link href="/" className="text-gray-600 hover:text-black transition text-sm">
+            <Link href="/" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition text-sm">
               ← Quay lại trang chủ
             </Link>
           </div>
