@@ -42,19 +42,19 @@ export default function LoginRegisterPage() {
         <div className="max-w-md mx-auto">
           {/* Logo */}
           <div className="text-center mb-8">
-            <Link href="/" className="text-3xl font-serif font-light text-black">
+            <Link href="/" className="text-3xl font-serif font-light text-black dark:text-white">
               LINGERIE.
             </Link>
           </div>
 
           {/* Tab Switcher */}
-          <div className="flex mb-8 bg-white rounded-lg p-1">
+          <div className="flex mb-8 bg-white dark:bg-gray-800 rounded-lg p-1 transition-colors">
             <button
               onClick={() => setIsLogin(true)}
               className={`flex-1 py-3 rounded-md transition-all ${
                 isLogin
-                  ? "bg-black text-white"
-                  : "text-gray-600 hover:text-black"
+                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  : "text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white"
               }`}
             >
               Đăng nhập
@@ -63,8 +63,8 @@ export default function LoginRegisterPage() {
               onClick={() => setIsLogin(false)}
               className={`flex-1 py-3 rounded-md transition-all ${
                 !isLogin
-                  ? "bg-black text-white"
-                  : "text-gray-600 hover:text-black"
+                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  : "text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white"
               }`}
             >
               Đăng ký
@@ -73,7 +73,7 @@ export default function LoginRegisterPage() {
 
           {/* Login Form */}
           {isLogin ? (
-            <div className="bg-white rounded-lg p-8 shadow-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-sm transition-colors">
               <h2 className="text-2xl font-serif font-light mb-6">
                 Chào mừng quay trở lại
               </h2>
@@ -133,7 +133,7 @@ export default function LoginRegisterPage() {
 
                 <button
                   type="submit"
-                  className="ck-button w-full bg-black text-white py-3 rounded-lg hover:bg-gray-900 transition font-medium"
+                  className="ck-button w-full bg-black text-white dark:bg-white dark:text-black py-3 rounded-lg hover:opacity-90 transition font-medium"
                 >
                   Đăng nhập
                 </button>
@@ -171,7 +171,7 @@ export default function LoginRegisterPage() {
             </div>
           ) : (
             /* Register Form */
-            <div className="bg-white rounded-lg p-8 shadow-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-sm transition-colors">
               <h2 className="text-2xl font-serif font-light mb-6">
                 Tạo tài khoản mới
               </h2>
@@ -286,7 +286,7 @@ export default function LoginRegisterPage() {
 
                 <button
                   type="submit"
-                  className="ck-button w-full bg-black text-white py-3 rounded-lg hover:bg-gray-900 transition font-medium"
+                  className="ck-button w-full bg-black text-white dark:bg-white dark:text-black py-3 rounded-lg hover:opacity-90 transition font-medium"
                 >
                   Đăng ký
                 </button>

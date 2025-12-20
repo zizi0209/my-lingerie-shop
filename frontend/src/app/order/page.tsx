@@ -327,12 +327,12 @@ export default function OrderTrackingPage() {
       {/* Help Section */}
       {!orderData && (
         <div className="max-w-2xl mx-auto">
-          <div className="bg-gray-50 rounded-lg p-8 text-center">
-            <h3 className="text-xl font-medium mb-4">Cần giúp đỡ?</h3>
-            <p className="text-gray-600 mb-6">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center transition-colors">
+            <h3 className="text-xl font-medium mb-4 text-gray-900 dark:text-white">Cần giúp đỡ?</h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
               Nếu bạn gặp vấn đề khi theo dõi đơn hàng, đừng ngần ngại liên hệ với chúng tôi
             </p>
-            <div className="space-y-3">
+            <div className="space-y-3 text-gray-700 dark:text-gray-200">
               <p className="flex items-center justify-center gap-2">
                 <Phone className="w-5 h-5" />
                 <span>Hotline: 1900 1234</span>

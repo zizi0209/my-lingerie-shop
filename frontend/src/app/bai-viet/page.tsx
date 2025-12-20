@@ -121,13 +121,13 @@ export default function BlogPage() {
           {/* Search */}
           <div className="relative w-full md:w-96">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm bài viết..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
-            />
+              <input
+                type="text"
+                placeholder="Tìm kiếm bài viết..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:border-black dark:focus:border-white bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-colors"
+              />
           </div>
 
           {/* Category Filter */}
@@ -136,10 +136,10 @@ export default function BlogPage() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black bg-white"
+              className="px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:border-black dark:focus:border-white bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-colors"
             >
               {categories.map(category => (
-                <option key={category.id} value={category.id}>
+                <option key={category.id} value={category.id} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
                   {category.name}
                 </option>
               ))}
