@@ -1,0 +1,17 @@
+{
+  "nav": {
+    "home": "TRANG CHỦ",
+    "products": "SẢN PHẨM",
+    "articles": "GỐC TỬ VĂN",
+    "orders": "TRA CỨU ĐƠN",
+    "search": "Tìm kiếm",
+    "account": "Tài khoản",
+    "cart": "Giỏ hàng"
+  },
+  "theme": {
+    "light": "Sáng",
+    "dark": "Tối",
+    "system": "Hệ thống"
+  },
+  "language": "Tiếng Việt"
+}

@@ -1,0 +1,17 @@
+{
+  "nav": {
+    "home": "HOME",
+    "products": "PRODUCTS",
+    "articles": "ARTICLES",
+    "orders": "ORDERS",
+    "search": "Search",
+    "account": "Account",
+    "cart": "Cart"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "language": "English"
+}
