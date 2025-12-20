@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React from 'react';
 import Link from 'next/link';
@@ -6,9 +6,10 @@ import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, ShoppingBag, Layers, FileText, 
   Users, UserCheck, ShoppingCart, Settings, 
-  ShieldCheck, BarChart3, MousePointer2, Home, 
-  Tag, ChevronLeft, Menu, Activity, PieChart
+  ShieldCheck, MousePointer2, Home, 
+  Tag, Menu, Activity
 } from 'lucide-react';
+import { useLanguage } from './LanguageContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -17,39 +18,40 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
   const pathname = usePathname();
+  const { t } = useLanguage();
   
   const groups = [
     {
-      label: 'Dashboard',
+      label: t('nav.dashboard'),
       items: [
-        { name: 'Default', path: '/dashboard', icon: LayoutDashboard },
-        { name: 'Analytics', path: '/dashboard/tracking', icon: Activity },
+        { name: t('nav.default'), path: '/dashboard', icon: LayoutDashboard },
+        { name: t('nav.analytics'), path: '/dashboard/tracking', icon: Activity },
       ]
     },
     {
-      label: 'Inventory',
+      label: t('nav.inventory'),
       items: [
-        { name: 'Products', path: '/dashboard/products', icon: ShoppingBag },
-        { name: 'Categories', path: '/dashboard/categories', icon: Layers },
-        { name: 'Orders', path: '/dashboard/orders', icon: ShoppingCart },
-        { name: 'Cart Tracker', path: '/dashboard/cart-tracking', icon: MousePointer2 },
+        { name: t('nav.products'), path: '/dashboard/products', icon: ShoppingBag },
+        { name: t('nav.categories'), path: '/dashboard/categories', icon: Layers },
+        { name: t('nav.orders'), path: '/dashboard/orders', icon: ShoppingCart },
+        { name: t('nav.cartTracker'), path: '/dashboard/cart-tracking', icon: MousePointer2 },
       ]
     },
     {
-      label: 'Marketing',
+      label: t('nav.marketing'),
       items: [
-        { name: 'Blog Posts', path: '/dashboard/posts', icon: FileText },
-        { name: 'Post Tags', path: '/dashboard/post-categories', icon: Tag },
-        { name: 'Home Layout', path: '/dashboard/home-component', icon: Home },
+        { name: t('nav.blogPosts'), path: '/dashboard/posts', icon: FileText },
+        { name: t('nav.postTags'), path: '/dashboard/post-categories', icon: Tag },
+        { name: t('nav.homeLayout'), path: '/dashboard/home-component', icon: Home },
       ]
     },
     {
-      label: 'System',
+      label: t('nav.system'),
       items: [
-        { name: 'Staff Users', path: '/dashboard/users', icon: Users },
-        { name: 'Customers', path: '/dashboard/customers', icon: UserCheck },
-        { name: 'Roles', path: '/dashboard/roles', icon: ShieldCheck },
-        { name: 'Settings', path: '/dashboard/settings', icon: Settings },
+        { name: t('nav.staffUsers'), path: '/dashboard/users', icon: Users },
+        { name: t('nav.customers'), path: '/dashboard/customer', icon: UserCheck },
+        { name: t('nav.roles'), path: '/dashboard/roles', icon: ShieldCheck },
+        { name: t('nav.settings'), path: '/dashboard/setting', icon: Settings },
       ]
     }
   ];

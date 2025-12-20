@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Eye, MousePointer2, UserPlus, Zap } from 'lucide-react';
+import { Eye, MousePointer2, UserPlus, Zap, Globe, MapPin } from 'lucide-react';
 import { useTheme } from '../components/ThemeContext';
 
 const trackingData = [
@@ -65,7 +65,7 @@ const Tracking: React.FC = () => {
                 <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold dark:text-slate-300 rounded-lg">LIVE FEED</span>
              </div>
           </div>
-          <div className="h-75">
+          <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trackingData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#f1f5f9'} />
@@ -97,7 +97,7 @@ const Tracking: React.FC = () => {
 
         <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col">
           <h3 className="text-lg font-black text-slate-900 dark:text-white mb-6">Traffic Origin</h3>
-          <div className="flex-1 min-h-62.5 relative">
+          <div className="flex-1 min-h-[250px] relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Plus, MoreVertical, Edit2, Trash2, Wand2, Search, Filter } from 'lucide-react';
 import { Product } from '../types';
-// import { generateProductDescription } from '../services/geminiService';
+import { generateProductDescription } from '../services/geminiService';
 
 const Products: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -15,8 +15,8 @@ const Products: React.FC = () => {
 
   const handleMagicWrite = async (name: string) => {
     setIsGenerating(true);
-    // const result = await generateProductDescription(name, "Premium lace, silk fabric, comfortable fit, sensual design");
-    alert(`AI Copywriting Suggestion:\n\nFeature coming soon...`);
+    const result = await generateProductDescription(name, "Premium lace, silk fabric, comfortable fit, sensual design");
+    alert(`AI Copywriting Suggestion:\n\n${result}`);
     setIsGenerating(false);
   };
 
