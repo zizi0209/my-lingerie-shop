@@ -50,7 +50,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               e.preventDefault();
               e.stopPropagation();
             }}
-            className="ck-button bg-white text-black p-3 rounded-full hover:bg-gray-100 transition"
+            className="ck-button bg-white dark:bg-gray-800 text-black dark:text-white p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
           >
             <ShoppingBag className="w-5 h-5" />
           </button>
@@ -60,16 +60,16 @@ export default function ProductCard({ product }: ProductCardProps) {
               e.stopPropagation();
               setIsLiked(!isLiked);
             }}
-            className="ck-button bg-white p-3 rounded-full hover:bg-gray-100 transition"
+            className="ck-button bg-white dark:bg-gray-800 p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
           >
-            <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-black'}`} />
+            <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-black dark:text-white'}`} />
           </button>
         </div>
 
         {/* Badges */}
         <div className="absolute top-4 left-4 flex flex-col gap-2">
           {product.isNew && (
-            <span className="bg-black text-white text-xs px-3 py-1 uppercase tracking-wider">
+            <span className="bg-black dark:bg-white text-white dark:text-black text-xs px-3 py-1 uppercase tracking-wider">
               New
             </span>
           )}

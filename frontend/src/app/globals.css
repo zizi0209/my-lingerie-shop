@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   /* CK-inspired color palette */
@@ -67,15 +68,16 @@ body {
 }
 
 .dark ::-webkit-scrollbar-track {
-  background: #1f2937;
+  background: var(--gray-900);
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #4b5563;
+  background: var(--gray-700);
+  border-radius: 4px;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+  background: var(--gray-600);
 }
 
 /* Smooth scrolling */

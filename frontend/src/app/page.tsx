@@ -37,7 +37,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/san-pham"
-              className="ck-button inline-flex items-center justify-center gap-2 bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition group"
+              className="ck-button inline-flex items-center justify-center gap-2 bg-white text-black dark:bg-white dark:text-black px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition group"
             >
               Khám phá ngay
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -58,7 +58,8 @@ export default function Home() {
       </section>
 
       {/* 2. Featured Categories */}
-      <section className="container mx-auto px-4 py-20 bg-white dark:bg-gray-950 transition-colors">
+      <section className="bg-white dark:bg-gray-950 py-20 transition-colors">
+        <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-serif font-light mb-4 text-gray-900 dark:text-white">
             Danh mục nổi bật
@@ -126,6 +127,7 @@ export default function Home() {
             </div>
           </Link>
         </div>
+        </div>
       </section>
 
       {/* 3. Best Sellers */}
@@ -148,7 +150,7 @@ export default function Home() {
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
-                <span className="absolute top-4 left-4 bg-black text-white text-xs px-3 py-1">
+                <span className="absolute top-4 left-4 bg-white text-black dark:bg-gray-100 dark:text-gray-900 text-xs px-3 py-1 font-medium shadow-sm">
                   Best Seller
                 </span>
               </div>
@@ -183,7 +185,7 @@ export default function Home() {
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
-                <span className="absolute top-4 left-4 bg-red-600 text-white text-xs px-3 py-1">
+                <span className="absolute top-4 left-4 bg-white text-rose-600 dark:bg-gray-100 dark:text-gray-900 text-xs px-3 py-1 font-medium shadow-sm">
                   -30%
                 </span>
               </div>
@@ -205,7 +207,7 @@ export default function Home() {
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
-                <span className="absolute top-4 left-4 bg-black text-white text-xs px-3 py-1">
+                <span className="absolute top-4 left-4 bg-white text-black dark:bg-gray-100 dark:text-gray-900 text-xs px-3 py-1 font-medium shadow-sm">
                   New
                 </span>
               </div>
@@ -229,7 +231,8 @@ export default function Home() {
             </section>
 
             {/* 4. Brand Story */}
-            <section className="container mx-auto px-4 py-20 bg-white dark:bg-gray-950 transition-colors">
+            <section className="bg-white dark:bg-gray-950 py-20 transition-colors">
+        <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div>
             <h2 className="text-4xl md:text-5xl font-serif font-light mb-6 text-gray-900 dark:text-white">
@@ -262,6 +265,7 @@ export default function Home() {
               className="object-cover"
             />
           </div>
+        </div>
         </div>
       </section>
 

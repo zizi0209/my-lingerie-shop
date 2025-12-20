@@ -133,8 +133,8 @@ export default function ProductsPage() {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4">Sản phẩm</h1>
-        <p className="text-gray-600 max-w-2xl mx-auto">
+        <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4 text-gray-900 dark:text-white">Sản phẩm</h1>
+        <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
           Khám phá bộ sưu tập nội y cao cấp với thiết kế tinh tế và chất liệu premium
         </p>
       </div>
@@ -142,17 +142,17 @@ export default function ProductsPage() {
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Filters Sidebar */}
         <aside className={`${isFilterOpen ? 'block' : 'hidden'} lg:block w-full lg:w-64 shrink-0`}>
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-medium">Bộ lọc</h2>
-              <button onClick={clearFilters} className="text-sm text-gray-500 hover:text-black">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Bộ lọc</h2>
+              <button onClick={clearFilters} className="text-sm text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition">
                 Xóa tất cả
               </button>
             </div>
 
             {/* Categories */}
             <div className="mb-8">
-              <h3 className="font-medium mb-4">Danh mục</h3>
+              <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Danh mục</h3>
               <div className="space-y-2">
                 {categories.map(category => (
                   <button
@@ -160,8 +160,8 @@ export default function ProductsPage() {
                     onClick={() => setSelectedCategory(category)}
                     className={`block w-full text-left py-2 transition-colors ${
                       selectedCategory === category
-                        ? 'text-black font-medium'
-                        : 'text-gray-600 hover:text-black'
+                        ? 'text-black dark:text-white font-medium'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
                     }`}
                   >
                     {category}
@@ -172,7 +172,7 @@ export default function ProductsPage() {
 
             {/* Sizes */}
             <div className="mb-8">
-              <h3 className="font-medium mb-4">Kích cỡ</h3>
+              <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Kích cỡ</h3>
               <div className="flex flex-wrap gap-2">
                 {sizes.map(size => (
                   <button
@@ -180,8 +180,8 @@ export default function ProductsPage() {
                     onClick={() => handleSizeToggle(size)}
                     className={`w-12 h-12 rounded border transition-all ${
                       selectedSizes.includes(size)
-                        ? 'border-black bg-black text-white'
-                        : 'border-gray-300 hover:border-black'
+                        ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-black dark:hover:border-white'
                     }`}
                   >
                     {size}
@@ -192,7 +192,7 @@ export default function ProductsPage() {
 
             {/* Colors */}
             <div className="mb-8">
-              <h3 className="font-medium mb-4">Màu sắc</h3>
+              <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Màu sắc</h3>
               <div className="space-y-2">
                 {colors.map(color => (
                   <button
@@ -200,17 +200,17 @@ export default function ProductsPage() {
                     onClick={() => handleColorToggle(color)}
                     className={`flex items-center gap-3 w-full py-2 transition-colors ${
                       selectedColors.includes(color)
-                        ? 'text-black font-medium'
-                        : 'text-gray-600 hover:text-black'
+                        ? 'text-black dark:text-white font-medium'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
                     }`}
                   >
-                    <div className={`w-4 h-4 rounded-full border border-gray-300 ${
-                      color === 'Đen' ? 'bg-black' :
-                      color === 'Trắng' ? 'bg-white' :
-                      color === 'Be' ? 'bg-stone-300' :
-                      color === 'Hồng' ? 'bg-pink-200' :
-                      color === 'Đỏ' ? 'bg-red-500' :
-                      'bg-purple-500'
+                    <div className={`w-4 h-4 rounded-full border ${
+                      color === 'Đen' ? 'bg-black border-gray-400' :
+                      color === 'Trắng' ? 'bg-white border-gray-300' :
+                      color === 'Be' ? 'bg-stone-300 border-gray-400' :
+                      color === 'Hồng' ? 'bg-pink-200 border-gray-400' :
+                      color === 'Đỏ' ? 'bg-red-500 border-gray-400' :
+                      'bg-purple-500 border-gray-400'
                     }`} />
                     {color}
                   </button>
@@ -220,24 +220,24 @@ export default function ProductsPage() {
 
             {/* Price Range */}
             <div className="mb-8">
-              <h3 className="font-medium mb-4">Khoảng giá</h3>
+              <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Khoảng giá</h3>
               <div className="space-y-3">
                 <div>
-                  <label className="text-sm text-gray-600">Từ</label>
+                  <label className="text-sm text-gray-600 dark:text-gray-400">Từ</label>
                   <input
                     type="number"
                     value={priceRange.min}
                     onChange={(e) => setPriceRange(prev => ({ ...prev, min: Number(e.target.value) }))}
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-black"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-black dark:focus:border-white bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600">Đến</label>
+                  <label className="text-sm text-gray-600 dark:text-gray-400">Đến</label>
                   <input
                     type="number"
                     value={priceRange.max}
                     onChange={(e) => setPriceRange(prev => ({ ...prev, max: Number(e.target.value) }))}
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-black"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-black dark:focus:border-white bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -249,14 +249,14 @@ export default function ProductsPage() {
         <div className="flex-1">
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-400">
               Hiển thị {filteredProducts.length} sản phẩm
             </p>
             <div className="flex items-center gap-4">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-black bg-white"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-black dark:focus:border-white bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               >
                 <option value="featured">Nổi bật</option>
                 <option value="price-low">Giá tăng dần</option>
@@ -266,12 +266,12 @@ export default function ProductsPage() {
               </select>
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="lg:hidden flex items-center gap-2 px-4 py-2 border border-gray-300 rounded"
+                className="lg:hidden flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-900 dark:text-white"
               >
                 <Filter className="w-4 h-4" />
                 Bộ lọc
                 {(selectedSizes.length > 0 || selectedColors.length > 0) && (
-                  <span className="w-2 h-2 bg-black rounded-full"></span>
+                  <span className="w-2 h-2 bg-black dark:bg-white rounded-full"></span>
                 )}
               </button>
             </div>
@@ -286,10 +286,10 @@ export default function ProductsPage() {
             </div>
           ) : (
             <div className="text-center py-20">
-              <p className="text-gray-500 text-lg mb-4">Không tìm thấy sản phẩm phù hợp</p>
+              <p className="text-gray-500 dark:text-gray-400 text-lg mb-4">Không tìm thấy sản phẩm phù hợp</p>
               <button
                 onClick={clearFilters}
-                className="text-black underline hover:no-underline"
+                className="text-black dark:text-white underline hover:no-underline"
               >
                 Xóa bộ lọc
               </button>

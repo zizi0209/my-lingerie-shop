@@ -180,14 +180,14 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                   key={color.name}
                   onClick={() => setSelectedColor(color.name)}
                   className={`relative w-12 h-12 rounded-full border-2 transition-all ${
-                    selectedColor === color.name ? 'border-black scale-110' : 'border-gray-300'
+                    selectedColor === color.name ? 'border-black dark:border-white scale-110' : 'border-gray-300 dark:border-gray-600'
                   }`}
                   style={{ backgroundColor: color.value }}
                   title={color.name}
                 >
                   {selectedColor === color.name && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    <div className="absolute bottom-0 right-0 w-8 h-8 bg-black dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black">
+                      <div className="w-2 h-2 bg-white dark:bg-black rounded-full"></div>
                     </div>
                   )}
                 </button>
@@ -211,10 +211,10 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                   disabled={!size.available}
                   className={`py-3 px-4 border rounded transition-all ${
                     !size.available
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      ? "bg-black dark:bg-white text-white dark:text-black hover:bg-gray-900 dark:hover:bg-gray-100 cursor-not-allowed"
                       : selectedSize === size.label
-                      ? 'border-black bg-black text-white'
-                      : 'border-gray-300 hover:border-black'
+                      ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
+                      : 'border-gray-300 dark:border-gray-600 hover:border-black dark:hover:border-white'
                   }`}
                 >
                   {size.label}
@@ -257,14 +257,14 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
           <div className="flex gap-4">
             <button
               onClick={handleAddToCart}
-              className="ck-button flex-1 bg-black text-white py-4 rounded-lg hover:bg-gray-900 transition flex items-center justify-center gap-2"
+              className="ck-button flex-1 bg-black dark:bg-white text-white dark:text-black py-4 rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition flex items-center justify-center gap-2"
             >
               <ShoppingBag className="w-5 h-5" />
               Thêm vào giỏ hàng
             </button>
             <button
               onClick={() => setIsLiked(!isLiked)}
-              className="p-4 border border-gray-300 rounded-lg hover:border-black transition"
+              className="ck-button px-8 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition"
             >
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
             </button>
@@ -297,8 +297,8 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
               onClick={() => setActiveTab(tab)}
               className={`pb-4 px-2 mr-8 text-sm font-medium border-b-2 transition-all ${
                 activeTab === tab
-                  ? 'border-black text-black'
-                  : 'border-transparent text-gray-600 hover:text-black'
+                  ? 'border-black dark:border-white text-black dark:text-white'
+                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
               }`}
             >
               {tab === "description" && "Mô tả"}

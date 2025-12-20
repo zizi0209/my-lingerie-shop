@@ -20,14 +20,14 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors duration-200"
+      className="p-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors duration-200"
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Chuyển sang chế độ Sáng" : "Chuyển sang chế độ Tối"}
     >
       {isDark ? (
-        <Moon className="w-5 h-5 text-slate-200" />
+        <Moon className="w-5 h-5 text-amber-300" />
       ) : (
-        <Sun className="w-5 h-5 text-yellow-500" />
+        <Sun className="w-5 h-5 text-amber-500" />
       )}
     </button>
   );

@@ -144,7 +144,7 @@ export default function ProfilePage() {
                     fill
                     className="object-cover"
                   />
-                  <button className="absolute bottom-0 right-0 w-8 h-8 bg-black rounded-full flex items-center justify-center text-white">
+                  <button className="absolute bottom-0 right-0 w-8 h-8 bg-black dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black">
                     <Camera className="w-4 h-4" />
                   </button>
                 </div>
@@ -157,7 +157,7 @@ export default function ProfilePage() {
                 <button
                   onClick={() => setActiveTab("overview")}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-                    activeTab === "overview" ? "bg-black text-white" : "hover:bg-gray-100"
+                    activeTab === "overview" ? "bg-black dark:bg-white text-white dark:text-black" : "hover:bg-gray-100 dark:hover:bg-gray-800"
                   }`}
                 >
                   <User className="w-5 h-5" />
@@ -167,7 +167,7 @@ export default function ProfilePage() {
                 <button
                   onClick={() => setActiveTab("orders")}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-                    activeTab === "orders" ? "bg-black text-white" : "hover:bg-gray-100"
+                    activeTab === "orders" ? "bg-black dark:bg-white text-white dark:text-black" : "hover:bg-gray-100 dark:hover:bg-gray-800"
                   }`}
                 >
                   <ShoppingBag className="w-5 h-5" />
@@ -177,7 +177,7 @@ export default function ProfilePage() {
                 <button
                   onClick={() => setActiveTab("wishlist")}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-                    activeTab === "wishlist" ? "bg-black text-white" : "hover:bg-gray-100"
+                    activeTab === "wishlist" ? "bg-black dark:bg-white text-white dark:text-black" : "hover:bg-gray-100 dark:hover:bg-gray-800"
                   }`}
                 >
                   <Heart className="w-5 h-5" />
@@ -187,7 +187,7 @@ export default function ProfilePage() {
                 <button
                   onClick={() => setActiveTab("addresses")}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-                    activeTab === "addresses" ? "bg-black text-white" : "hover:bg-gray-100"
+                    activeTab === "addresses" ? "bg-black dark:bg-white text-white dark:text-black" : "hover:bg-gray-100 dark:hover:bg-gray-800"
                   }`}
                 >
                   <MapPin className="w-5 h-5" />
@@ -197,7 +197,7 @@ export default function ProfilePage() {
                 <button
                   onClick={() => setActiveTab("payment")}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-                    activeTab === "payment" ? "bg-black text-white" : "hover:bg-gray-100"
+                    activeTab === "payment" ? "bg-black dark:bg-white text-white dark:text-black" : "hover:bg-gray-100 dark:hover:bg-gray-800"
                   }`}
                 >
                   <CreditCard className="w-5 h-5" />
@@ -284,7 +284,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={handleSaveProfile}
-                      className="ck-button px-8 py-3 bg-black text-white rounded-lg hover:bg-gray-900 transition"
+                      className="ck-button px-8 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition"
                     >
                       Lưu thay đổi
                     </button>
@@ -400,7 +400,7 @@ export default function ProfilePage() {
                           disabled={!item.inStock}
                           className={`w-full py-2 rounded-lg transition ${
                             item.inStock
-                              ? "bg-black text-white hover:bg-gray-900"
+                              ? "bg-black dark:bg-white text-white dark:text-black hover:bg-gray-900 dark:hover:bg-gray-100"
                               : "bg-gray-100 text-gray-400 cursor-not-allowed"
                           }`}
                         >
@@ -418,7 +418,7 @@ export default function ProfilePage() {
               <div>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-serif font-light">Sổ địa chỉ</h2>
-                  <button className="ck-button px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-900 transition">
+                  <button className="ck-button px-6 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition">
                     Thêm địa chỉ mới
                   </button>
                 </div>
@@ -461,7 +461,7 @@ export default function ProfilePage() {
               <div>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-serif font-light">Phương thức thanh toán</h2>
-                  <button className="ck-button px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-900 transition">
+                  <button className="ck-button px-6 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition">
                     Thêm thẻ mới
                   </button>
                 </div>
@@ -472,7 +472,7 @@ export default function ProfilePage() {
                   <p className="text-gray-600 mb-6">
                     Thêm thẻ tín dụng hoặc thẻ ghi nợ để thanh toán nhanh hơn
                   </p>
-                  <button className="ck-button px-8 py-3 bg-black text-white rounded-lg hover:bg-gray-900 transition">
+                  <button className="ck-button px-8 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition">
                     Thêm thẻ mới
                   </button>
                 </div>
