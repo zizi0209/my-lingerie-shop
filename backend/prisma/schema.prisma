@@ -14,59 +14,107 @@ datasource db {
   //url      = env("DATABASE_URL")
 }
 
-// 1. Cấu hình chung (Logo, Tên web, Footer info...)
-model SystemConfig {
-  id        Int     @id @default(autoincrement())
-  key       String  @unique  // Ví dụ: 'site_logo', 'primary_color', 'hotline'
-  value     String  // Ví dụ: 'https://cloudinary...', '#e11d48', '0909...'
-  description String? // Mô tả cho admin dễ hiểu
-}
 
-// 2. Các Section trên trang chủ (Hero, Banner, Featured Products...)
-model PageSection {
-  id        Int     @id @default(autoincrement())
-  code      String  @unique // Ví dụ: 'HERO_BANNER', 'NEW_ARRIVALS'
-  name      String  // Tên hiển thị trong Admin
-  isVisible Boolean @default(true) // Ẩn/Hiện section
-  order     Int     @default(0)    // Số càng nhỏ càng nằm trên
-  
-  // Quan trọng: Lưu toàn bộ nội dung (Title, Ảnh, Link, Màu nền) dưới dạng JSON
-  content   Json?   
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// Tạo thử bảng User (Khách hàng/Admin)
+// 1. NGƯỜI DÙNG (Admin & Khách)
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
   name      String?
-  role      String   @default("customer") // "admin" hoặc "customer"
+  role      String   @default("customer") // "admin" | "customer"
+  orders    Order[]
   createdAt DateTime @default(now())
 }
 
-// Tạo thử bảng Product (Sản phẩm)
-model Product {
-  id          Int      @id @default(autoincrement())
+// 2. DANH MỤC (Ví dụ: Áo lót, Quần lót, Đồ ngủ)
+model Category {
+  id          Int       @id @default(autoincrement())
   name        String
-  description String?
-  price       Float
-  imageUrl    String?
-  createdAt   DateTime @default(now())
+  slug        String    @unique // slug để làm URL đẹp (ao-lot-ren)
+  image       String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
 }
 
-// Media model cho CMS
-model Media {
+// 3. SẢN PHẨM
+model Product {
+  id          Int       @id @default(autoincrement())
+  name        String
+  slug        String    @unique
+  description String?   @db.Text
+  price       Float     // Giá gốc
+  salePrice   Float?    // Giá khuyến mãi (nếu có)
+  
+  // Quan hệ
+  categoryId  Int
+  category    Category  @relation(fields: [categoryId], references: [id])
+  
+  images      ProductImage[]
+  variants    ProductVariant[] // Size, Màu, Tồn kho nằm ở đây
+  orderItems  OrderItem[]
+
+  isFeatured  Boolean   @default(false) // Sản phẩm nổi bật
+  isVisible   Boolean   @default(true)  // Ẩn/Hiện
+  createdAt   DateTime  @default(now())
+}
+
+// 4. ẢNH SẢN PHẨM (1 SP có nhiều ảnh)
+model ProductImage {
+  id        Int     @id @default(autoincrement())
+  url       String
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// 5. BIẾN THỂ (Màu/Size/Kho)
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  size      String  // S, M, L, 34B, 36B...
+  color     String  // Đỏ, Đen, Ren trắng...
+  stock     Int     @default(0) // Số lượng tồn kho
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// 6. CẤU HÌNH CMS ĐỘNG (Cho Admin chỉnh giao diện)
+model PageSection {
+  id        Int     @id @default(autoincrement())
+  code      String  @unique // HERO, FEATURED...
+  name      String
+  isVisible Boolean @default(true)
+  order     Int     @default(0)
+  content   Json?   // Chứa Title, Banner URL, Button Text...
+}
+
+// 7. ĐƠN HÀNG
+model Order {
+  id          Int         @id @default(autoincrement())
+  userId      Int?        // Có thể null nếu mua không cần login
+  guestInfo   Json?       // Lưu tên, sđt, địa chỉ nếu là khách vãng lai
+  totalAmount Float
+  status      String      @default("PENDING") // PENDING, SHIPPING, COMPLETED, CANCELLED
+  items       OrderItem[]
+  createdAt   DateTime    @default(now())
+  user        User?       @relation(fields: [userId], references: [id])
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float   // Lưu giá tại thời điểm mua
+  variant   String? // Lưu text: "Size M - Màu Đỏ"
+}
+
+// 8. CẤU HÌNH HỆ THỐNG (Logo, Màu sắc, Hotline, SEO...)
+model SystemConfig {
   id          Int      @id @default(autoincrement())
-  filename    String   // Tên file gốc
-  originalName String  // Tên file khi upload
-  mimeType    String   // image/jpeg, image/png, etc.
-  size        Int      // Kích thước file (bytes)
-  url         String   // URL từ Cloudinary
-  publicId    String   // Public ID của Cloudinary (để xóa/sửa)
-  folder      String?  // Thư mục trên Cloudinary
+  key         String   @unique  // Tên cấu hình (vd: 'site_logo', 'hotline')
+  value       String   @db.Text // Giá trị (vd: link ảnh, số điện thoại)
+  description String?  // Mô tả (vd: 'Logo hiển thị trên Header')
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
