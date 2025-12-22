@@ -1,9 +1,7 @@
 import { Request, Response } from 'express';
 import { cloudinary } from '../config/cloudinary';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from "../lib/prisma";
 import multer from 'multer';
-
-const prisma = new PrismaClient();
 
 // Cấu hình Multer để upload file từ memory
 const storage = multer.memoryStorage();
