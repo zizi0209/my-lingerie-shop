@@ -62,3 +62,7 @@ server.log
 
 # 
 /AGENTS.md
+
+prisma.config.js
+prisma.config.d.ts.map
+prisma.config.js.map
