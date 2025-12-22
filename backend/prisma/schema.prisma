@@ -5,8 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -109,7 +108,21 @@ model OrderItem {
   variant   String? // Lưu text: "Size M - Màu Đỏ"
 }
 
-// 8. CẤU HÌNH HỆ THỐNG (Logo, Màu sắc, Hotline, SEO...)
+// 8. MEDIA (Ảnh upload lên Cloudinary)
+model Media {
+  id           Int      @id @default(autoincrement())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  url          String
+  publicId     String   @unique
+  folder       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// 9. CẤU HÌNH HỆ THỐNG (Logo, Màu sắc, Hotline, SEO...)
 model SystemConfig {
   id          Int      @id @default(autoincrement())
   key         String   @unique  // Tên cấu hình (vd: 'site_logo', 'hotline')
