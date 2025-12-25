@@ -1,30 +1,17 @@
 import { Request, Response } from 'express';
 import { cloudinary } from '../config/cloudinary';
 import { prisma } from "../lib/prisma";
-import multer from 'multer';
-
-// Cấu hình Multer để upload file từ memory
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
-  },
-  fileFilter: (req, file, cb) => {
-    // Chỉ chấp nhận ảnh
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Chỉ chấp nhận file ảnh!'));
-    }
-  },
-});
 
 // Upload single image
 export const uploadImage = async (req: Request, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Không có file được upload!' });
+    }
+
+    // Validate file type
+    if (!req.file.mimetype.startsWith('image/')) {
+      return res.status(400).json({ error: 'Chỉ chấp nhận file ảnh!' });
     }
 
     // Upload lên Cloudinary
@@ -87,6 +74,13 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
   try {
     if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
       return res.status(400).json({ error: 'Không có file được upload!' });
+    }
+
+    // Validate file types
+    for (const file of req.files) {
+      if (!file.mimetype.startsWith('image/')) {
+        return res.status(400).json({ error: 'Chỉ chấp nhận file ảnh!' });
+      }
     }
 
     const uploadPromises = req.files.map((file) => {
@@ -204,5 +198,3 @@ export const deleteMedia = async (req: Request, res: Response) => {
   }
 };
 
-// Export middleware để sử dụng trong routes
-export { upload };

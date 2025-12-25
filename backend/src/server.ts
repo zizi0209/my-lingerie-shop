@@ -2,10 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-// Import routes
-import mediaRoutes from './routes/mediaRoutes';
-
 dotenv.config();
+
+// Import routes & config AFTER dotenv.config()
+import mediaRoutes from './routes/mediaRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,12 +21,14 @@ app.use(
     // Cho phép Localhost (để bạn test) VÀ Domain trên Vercel
     origin: [
       "http://localhost:3000",
+      "http://localhost:5000",
       "https://my-lingerie-shop.vercel.app", // <-- Thay bằng link Vercel thực tế của bạn
     ],
     credentials: true,
   })
 );
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/media', mediaRoutes);

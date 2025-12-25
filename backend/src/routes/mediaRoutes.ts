@@ -4,8 +4,8 @@ import {
   uploadMultipleImages,
   getMediaList,
   deleteMedia,
-  upload
 } from '../controllers/mediaController';
+import { upload } from '../config/multer';
 
 const router = express.Router();
 
