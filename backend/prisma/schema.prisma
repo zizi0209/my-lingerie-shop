@@ -10,8 +10,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
-
 
 // 1. NGƯỜI DÙNG (Admin & Khách)
 model User {
@@ -26,34 +26,34 @@ model User {
 
 // 2. DANH MỤC (Ví dụ: Áo lót, Quần lót, Đồ ngủ)
 model Category {
-  id          Int       @id @default(autoincrement())
-  name        String
-  slug        String    @unique // slug để làm URL đẹp (ao-lot-ren)
-  image       String?
-  products    Product[]
-  createdAt   DateTime  @default(now())
+  id        Int       @id @default(autoincrement())
+  name      String
+  slug      String    @unique // slug để làm URL đẹp (ao-lot-ren)
+  image     String?
+  products  Product[]
+  createdAt DateTime  @default(now())
 }
 
 // 3. SẢN PHẨM
 model Product {
-  id          Int       @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   name        String
-  slug        String    @unique
-  description String?   @db.Text
-  price       Float     // Giá gốc
-  salePrice   Float?    // Giá khuyến mãi (nếu có)
-  
-  // Quan hệ
-  categoryId  Int
-  category    Category  @relation(fields: [categoryId], references: [id])
-  
-  images      ProductImage[]
-  variants    ProductVariant[] // Size, Màu, Tồn kho nằm ở đây
-  orderItems  OrderItem[]
+  slug        String  @unique
+  description String? @db.Text
+  price       Float // Giá gốc
+  salePrice   Float? // Giá khuyến mãi (nếu có)
 
-  isFeatured  Boolean   @default(false) // Sản phẩm nổi bật
-  isVisible   Boolean   @default(true)  // Ẩn/Hiện
-  createdAt   DateTime  @default(now())
+  // Quan hệ
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  images     ProductImage[]
+  variants   ProductVariant[] // Size, Màu, Tồn kho nằm ở đây
+  orderItems OrderItem[]
+
+  isFeatured Boolean  @default(false) // Sản phẩm nổi bật
+  isVisible  Boolean  @default(true) // Ẩn/Hiện
+  createdAt  DateTime @default(now())
 }
 
 // 4. ẢNH SẢN PHẨM (1 SP có nhiều ảnh)
@@ -67,8 +67,8 @@ model ProductImage {
 // 5. BIẾN THỂ (Màu/Size/Kho)
 model ProductVariant {
   id        Int     @id @default(autoincrement())
-  size      String  // S, M, L, 34B, 36B...
-  color     String  // Đỏ, Đen, Ren trắng...
+  size      String // S, M, L, 34B, 36B...
+  color     String // Đỏ, Đen, Ren trắng...
   stock     Int     @default(0) // Số lượng tồn kho
   productId Int
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -81,14 +81,14 @@ model PageSection {
   name      String
   isVisible Boolean @default(true)
   order     Int     @default(0)
-  content   Json?   // Chứa Title, Banner URL, Button Text...
+  content   Json? // Chứa Title, Banner URL, Button Text...
 }
 
 // 7. ĐƠN HÀNG
 model Order {
   id          Int         @id @default(autoincrement())
-  userId      Int?        // Có thể null nếu mua không cần login
-  guestInfo   Json?       // Lưu tên, sđt, địa chỉ nếu là khách vãng lai
+  userId      Int? // Có thể null nếu mua không cần login
+  guestInfo   Json? // Lưu tên, sđt, địa chỉ nếu là khách vãng lai
   totalAmount Float
   status      String      @default("PENDING") // PENDING, SHIPPING, COMPLETED, CANCELLED
   items       OrderItem[]
@@ -103,7 +103,7 @@ model OrderItem {
   productId Int
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
-  price     Float   // Lưu giá tại thời điểm mua
+  price     Float // Lưu giá tại thời điểm mua
   variant   String? // Lưu text: "Size M - Màu Đỏ"
 }
 
@@ -124,9 +124,9 @@ model Media {
 // 9. CẤU HÌNH HỆ THỐNG (Logo, Màu sắc, Hotline, SEO...)
 model SystemConfig {
   id          Int      @id @default(autoincrement())
-  key         String   @unique  // Tên cấu hình (vd: 'site_logo', 'hotline')
+  key         String   @unique // Tên cấu hình (vd: 'site_logo', 'hotline')
   value       String   @db.Text // Giá trị (vd: link ảnh, số điện thoại)
-  description String?  // Mô tả (vd: 'Logo hiển thị trên Header')
+  description String? // Mô tả (vd: 'Logo hiển thị trên Header')
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
