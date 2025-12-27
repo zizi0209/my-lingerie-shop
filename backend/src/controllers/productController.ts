@@ -349,6 +349,104 @@ export const deleteProduct = async (req: Request, res: Response) => {
   }
 };
 
+// Get all images of a product
+export const getAllProductImages = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Check if product exists
+    const product = await prisma.product.findUnique({
+      where: { id: Number(id) },
+      select: { id: true },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: 'Không tìm thấy sản phẩm!' });
+    }
+
+    // Get all images
+    const images = await prisma.productImage.findMany({
+      where: { productId: Number(id) },
+      orderBy: { id: 'asc' },
+    });
+
+    res.json({
+      success: true,
+      data: images,
+    });
+  } catch (error) {
+    console.error('Get all product images error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách ảnh sản phẩm!' });
+  }
+};
+
+// Get product image by ID
+export const getProductImageById = async (req: Request, res: Response) => {
+  try {
+    const { imageId } = req.params;
+
+    const image = await prisma.productImage.findUnique({
+      where: { id: Number(imageId) },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    if (!image) {
+      return res.status(404).json({ error: 'Không tìm thấy ảnh!' });
+    }
+
+    res.json({
+      success: true,
+      data: image,
+    });
+  } catch (error) {
+    console.error('Get product image by ID error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin ảnh!' });
+  }
+};
+
+// Update product image
+export const updateProductImage = async (req: Request, res: Response) => {
+  try {
+    const { imageId } = req.params;
+    const { url } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL ảnh là bắt buộc!' });
+    }
+
+    // Check if image exists
+    const existingImage = await prisma.productImage.findUnique({
+      where: { id: Number(imageId) },
+    });
+
+    if (!existingImage) {
+      return res.status(404).json({ error: 'Không tìm thấy ảnh!' });
+    }
+
+    // Update image
+    const image = await prisma.productImage.update({
+      where: { id: Number(imageId) },
+      data: { url },
+    });
+
+    res.json({
+      success: true,
+      data: image,
+    });
+  } catch (error) {
+    console.error('Update product image error:', error);
+    res.status(500).json({ error: 'Lỗi khi cập nhật ảnh!' });
+  }
+};
+
 // Add images to product
 export const addProductImages = async (req: Request, res: Response) => {
   try {

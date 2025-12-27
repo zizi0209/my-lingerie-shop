@@ -6,6 +6,9 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  getAllProductImages,
+  getProductImageById,
+  updateProductImage,
   addProductImages,
   deleteProductImage,
   addProductVariants,
@@ -26,8 +29,13 @@ router.post('/', authenticateToken, isAdmin, createProduct);
 router.put('/:id', authenticateToken, isAdmin, updateProduct);
 router.delete('/:id', authenticateToken, isAdmin, deleteProduct);
 
+// Public routes - Product Images
+router.get('/:id/images', getAllProductImages);
+router.get('/images/:imageId', getProductImageById);
+
 // Protected routes - Product Images (admin only)
 router.post('/:id/images', authenticateToken, isAdmin, addProductImages);
+router.put('/images/:imageId', authenticateToken, isAdmin, updateProductImage);
 router.delete('/images/:imageId', authenticateToken, isAdmin, deleteProductImage);
 
 // Protected routes - Product Variants (admin only)
