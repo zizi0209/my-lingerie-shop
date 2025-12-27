@@ -7,6 +7,7 @@ dotenv.config();
 // Import routes & config AFTER dotenv.config()
 import mediaRoutes from './routes/mediaRoutes';
 import userRoutes from './routes/userRoutes';
+import categoryRoutes from './routes/categoryRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +35,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/media', mediaRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/categories', categoryRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
