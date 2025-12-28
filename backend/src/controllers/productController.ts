@@ -513,6 +513,69 @@ export const deleteProductImage = async (req: Request, res: Response) => {
   }
 };
 
+// Get all variants of a product
+export const getAllProductVariants = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Check if product exists
+    const product = await prisma.product.findUnique({
+      where: { id: Number(id) },
+      select: { id: true },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: 'Không tìm thấy sản phẩm!' });
+    }
+
+    // Get all variants
+    const variants = await prisma.productVariant.findMany({
+      where: { productId: Number(id) },
+      orderBy: { id: 'asc' },
+    });
+
+    res.json({
+      success: true,
+      data: variants,
+    });
+  } catch (error) {
+    console.error('Get all product variants error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách biến thể!' });
+  }
+};
+
+// Get product variant by ID
+export const getProductVariantById = async (req: Request, res: Response) => {
+  try {
+    const { variantId } = req.params;
+
+    const variant = await prisma.productVariant.findUnique({
+      where: { id: Number(variantId) },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    if (!variant) {
+      return res.status(404).json({ error: 'Không tìm thấy biến thể!' });
+    }
+
+    res.json({
+      success: true,
+      data: variant,
+    });
+  } catch (error) {
+    console.error('Get product variant by ID error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin biến thể!' });
+  }
+};
+
 // Add variants to product
 export const addProductVariants = async (req: Request, res: Response) => {
   try {

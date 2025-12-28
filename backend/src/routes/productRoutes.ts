@@ -11,6 +11,8 @@ import {
   updateProductImage,
   addProductImages,
   deleteProductImage,
+  getAllProductVariants,
+  getProductVariantById,
   addProductVariants,
   updateProductVariant,
   deleteProductVariant,
@@ -37,6 +39,10 @@ router.get('/images/:imageId', getProductImageById);
 router.post('/:id/images', authenticateToken, isAdmin, addProductImages);
 router.put('/images/:imageId', authenticateToken, isAdmin, updateProductImage);
 router.delete('/images/:imageId', authenticateToken, isAdmin, deleteProductImage);
+
+// Public routes - Product Variants
+router.get('/:id/variants', getAllProductVariants);
+router.get('/variants/:variantId', getProductVariantById);
 
 // Protected routes - Product Variants (admin only)
 router.post('/:id/variants', authenticateToken, isAdmin, addProductVariants);

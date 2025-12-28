@@ -95,7 +95,7 @@ model Order {
   createdAt   DateTime    @default(now())
   user        User?       @relation(fields: [userId], references: [id])
 }
-
+// 8. 
 model OrderItem {
   id        Int     @id @default(autoincrement())
   orderId   Int
@@ -107,7 +107,7 @@ model OrderItem {
   variant   String? // Lưu text: "Size M - Màu Đỏ"
 }
 
-// 8. MEDIA (Ảnh upload lên Cloudinary)
+// 9. MEDIA (Ảnh upload lên Cloudinary)
 model Media {
   id           Int      @id @default(autoincrement())
   filename     String
@@ -121,7 +121,7 @@ model Media {
   updatedAt    DateTime @updatedAt
 }
 
-// 9. CẤU HÌNH HỆ THỐNG (Logo, Màu sắc, Hotline, SEO...)
+// 10. CẤU HÌNH HỆ THỐNG (Logo, Màu sắc, Hotline, SEO...)
 model SystemConfig {
   id          Int      @id @default(autoincrement())
   key         String   @unique // Tên cấu hình (vd: 'site_logo', 'hotline')
