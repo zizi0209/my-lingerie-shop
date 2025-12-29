@@ -598,9 +598,12 @@ export const addProductVariants = async (req: Request, res: Response) => {
     // Add variants
     const createdVariants = await prisma.productVariant.createMany({
       data: variants.map((v: any) => ({
+        sku: v.sku || `${product.slug}-${v.size}-${v.color}`.toUpperCase(),
         size: v.size,
         color: v.color,
         stock: v.stock || 0,
+        price: v.price || null,
+        salePrice: v.salePrice || null,
         productId: Number(id),
       })),
     });

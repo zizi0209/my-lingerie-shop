@@ -1,0 +1,322 @@
+import { Request, Response } from 'express';
+import { prisma } from '../lib/prisma';
+
+// Get all posts
+export const getAllPosts = async (req: Request, res: Response) => {
+  try {
+    const { page = 1, limit = 20, categoryId, isPublished, search } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const where: any = { deletedAt: null };
+    if (categoryId) where.categoryId = Number(categoryId);
+    if (isPublished !== undefined) where.isPublished = isPublished === 'true';
+    if (search) {
+      where.OR = [
+        { title: { contains: String(search), mode: 'insensitive' } },
+        { content: { contains: String(search), mode: 'insensitive' } },
+      ];
+    }
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where,
+        skip,
+        take: Number(limit),
+        orderBy: { createdAt: 'desc' },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+        },
+      }),
+      prisma.post.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      data: posts,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error) {
+    console.error('Get all posts error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách bài viết!' });
+  }
+};
+
+// Get post by ID
+export const getPostById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const post = await prisma.post.findFirst({
+      where: { 
+        id: Number(id),
+        deletedAt: null,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+          },
+        },
+        category: true,
+      },
+    });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Không tìm thấy bài viết!' });
+    }
+
+    res.json({
+      success: true,
+      data: post,
+    });
+  } catch (error) {
+    console.error('Get post by ID error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin bài viết!' });
+  }
+};
+
+// Get post by slug
+export const getPostBySlug = async (req: Request, res: Response) => {
+  try {
+    const { slug } = req.params;
+
+    const post = await prisma.post.findFirst({
+      where: { 
+        slug,
+        deletedAt: null,
+        isPublished: true,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Không tìm thấy bài viết!' });
+    }
+
+    // Increment views
+    await prisma.post.update({
+      where: { id: post.id },
+      data: { views: { increment: 1 } },
+    });
+
+    res.json({
+      success: true,
+      data: { ...post, views: post.views + 1 },
+    });
+  } catch (error) {
+    console.error('Get post by slug error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin bài viết!' });
+  }
+};
+
+// Create new post
+export const createPost = async (req: Request, res: Response) => {
+  try {
+    const {
+      title,
+      slug,
+      content,
+      excerpt,
+      thumbnail,
+      authorId,
+      categoryId,
+      isPublished,
+      publishedAt,
+    } = req.body;
+
+    if (!title || !slug || !content || !authorId || !categoryId) {
+      return res.status(400).json({ 
+        error: 'Title, slug, content, authorId và categoryId là bắt buộc!' 
+      });
+    }
+
+    const existingPost = await prisma.post.findFirst({
+      where: { 
+        slug,
+        deletedAt: null,
+      },
+    });
+
+    if (existingPost) {
+      return res.status(400).json({ error: 'Slug đã được sử dụng!' });
+    }
+
+    const post = await prisma.post.create({
+      data: {
+        title,
+        slug,
+        content,
+        excerpt: excerpt || null,
+        thumbnail: thumbnail || null,
+        authorId: Number(authorId),
+        categoryId: Number(categoryId),
+        isPublished: isPublished || false,
+        publishedAt: publishedAt ? new Date(publishedAt) : null,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        category: true,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      data: post,
+    });
+  } catch (error) {
+    console.error('Create post error:', error);
+    res.status(500).json({ error: 'Lỗi khi tạo bài viết!' });
+  }
+};
+
+// Update post
+export const updatePost = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      slug,
+      content,
+      excerpt,
+      thumbnail,
+      categoryId,
+      isPublished,
+      publishedAt,
+    } = req.body;
+
+    const existingPost = await prisma.post.findFirst({
+      where: { 
+        id: Number(id),
+        deletedAt: null,
+      },
+    });
+
+    if (!existingPost) {
+      return res.status(404).json({ error: 'Không tìm thấy bài viết!' });
+    }
+
+    if (slug && slug !== existingPost.slug) {
+      const slugExists = await prisma.post.findFirst({
+        where: { 
+          slug,
+          deletedAt: null,
+        },
+      });
+
+      if (slugExists) {
+        return res.status(400).json({ error: 'Slug đã được sử dụng!' });
+      }
+    }
+
+    const updateData: any = {};
+    if (title) updateData.title = title;
+    if (slug) updateData.slug = slug;
+    if (content) updateData.content = content;
+    if (excerpt !== undefined) updateData.excerpt = excerpt;
+    if (thumbnail !== undefined) updateData.thumbnail = thumbnail;
+    if (categoryId) updateData.categoryId = Number(categoryId);
+    if (isPublished !== undefined) {
+      updateData.isPublished = isPublished;
+      if (isPublished && !existingPost.publishedAt) {
+        updateData.publishedAt = new Date();
+      }
+    }
+    if (publishedAt) updateData.publishedAt = new Date(publishedAt);
+
+    const post = await prisma.post.update({
+      where: { id: Number(id) },
+      data: updateData,
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        category: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: post,
+    });
+  } catch (error) {
+    console.error('Update post error:', error);
+    res.status(500).json({ error: 'Lỗi khi cập nhật bài viết!' });
+  }
+};
+
+// Delete post (soft delete)
+export const deletePost = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const post = await prisma.post.findFirst({
+      where: { 
+        id: Number(id),
+        deletedAt: null,
+      },
+    });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Không tìm thấy bài viết!' });
+    }
+
+    await prisma.post.update({
+      where: { id: Number(id) },
+      data: { deletedAt: new Date() },
+    });
+
+    res.json({
+      success: true,
+      message: 'Đã xóa bài viết thành công!',
+    });
+  } catch (error) {
+    console.error('Delete post error:', error);
+    res.status(500).json({ error: 'Lỗi khi xóa bài viết!' });
+  }
+};

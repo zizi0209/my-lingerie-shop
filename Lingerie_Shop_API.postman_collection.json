@@ -1,0 +1,1462 @@
+{
+	"info": {
+		"_postman_id": "lingerie-shop-api-collection",
+		"name": "Lingerie Shop API - Comprehensive",
+		"description": "Complete API collection for Lingerie Shop backend with all endpoints for testing",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000/api",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Roles & Permissions",
+			"item": [
+				{
+					"name": "Permissions",
+					"item": [
+						{
+							"name": "Create Permission",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"products.create\",\n  \"description\": \"Quyền tạo sản phẩm mới\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/permissions",
+									"host": ["{{base_url}}"],
+									"path": ["permissions"]
+								}
+							}
+						},
+						{
+							"name": "Get All Permissions",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions",
+									"host": ["{{base_url}}"],
+									"path": ["permissions"]
+								}
+							}
+						},
+						{
+							"name": "Get Permission by ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions/1",
+									"host": ["{{base_url}}"],
+									"path": ["permissions", "1"]
+								}
+							}
+						},
+						{
+							"name": "Update Permission",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"products.edit\",\n  \"description\": \"Quyền chỉnh sửa sản phẩm\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/permissions/1",
+									"host": ["{{base_url}}"],
+									"path": ["permissions", "1"]
+								}
+							}
+						},
+						{
+							"name": "Delete Permission",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions/1",
+									"host": ["{{base_url}}"],
+									"path": ["permissions", "1"]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Roles",
+					"item": [
+						{
+							"name": "Create Role",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"admin\",\n  \"description\": \"Quản trị viên hệ thống\",\n  \"permissionIds\": [1, 2, 3]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/roles",
+									"host": ["{{base_url}}"],
+									"path": ["roles"]
+								}
+							}
+						},
+						{
+							"name": "Get All Roles",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles",
+									"host": ["{{base_url}}"],
+									"path": ["roles"]
+								}
+							}
+						},
+						{
+							"name": "Get Role by ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/1",
+									"host": ["{{base_url}}"],
+									"path": ["roles", "1"]
+								}
+							}
+						},
+						{
+							"name": "Update Role",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"manager\",\n  \"description\": \"Quản lý cửa hàng\",\n  \"permissionIds\": [1, 2]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/roles/1",
+									"host": ["{{base_url}}"],
+									"path": ["roles", "1"]
+								}
+							}
+						},
+						{
+							"name": "Delete Role",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/1",
+									"host": ["{{base_url}}"],
+									"path": ["roles", "1"]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "2. Users",
+			"item": [
+				{
+					"name": "Register User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Admin User\",\n  \"phone\": \"0123456789\",\n  \"roleId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/users/register",
+							"host": ["{{base_url}}"],
+							"path": ["users", "register"]
+						}
+					}
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/users/login",
+							"host": ["{{base_url}}"],
+							"path": ["users", "login"]
+						}
+					}
+				},
+				{
+					"name": "Get All Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/users?page=1&limit=20",
+							"host": ["{{base_url}}"],
+							"path": ["users"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get User by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/users/1",
+							"host": ["{{base_url}}"],
+							"path": ["users", "1"]
+						}
+					}
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Admin\",\n  \"phone\": \"0987654321\",\n  \"avatar\": \"https://example.com/avatar.jpg\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/users/1",
+							"host": ["{{base_url}}"],
+							"path": ["users", "1"]
+						}
+					}
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/users/1",
+							"host": ["{{base_url}}"],
+							"path": ["users", "1"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Categories",
+			"item": [
+				{
+					"name": "Create Category",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Áo lót\",\n  \"slug\": \"ao-lot\",\n  \"image\": \"https://example.com/ao-lot.jpg\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/categories",
+							"host": ["{{base_url}}"],
+							"path": ["categories"]
+						}
+					}
+				},
+				{
+					"name": "Get All Categories",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/categories?page=1&limit=20",
+							"host": ["{{base_url}}"],
+							"path": ["categories"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Category by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/categories/1",
+							"host": ["{{base_url}}"],
+							"path": ["categories", "1"]
+						}
+					}
+				},
+				{
+					"name": "Get Category by Slug",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/categories/slug/ao-lot",
+							"host": ["{{base_url}}"],
+							"path": ["categories", "slug", "ao-lot"]
+						}
+					}
+				},
+				{
+					"name": "Update Category",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Áo lót cao cấp\",\n  \"image\": \"https://example.com/ao-lot-new.jpg\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/categories/1",
+							"host": ["{{base_url}}"],
+							"path": ["categories", "1"]
+						}
+					}
+				},
+				{
+					"name": "Delete Category",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/categories/1",
+							"host": ["{{base_url}}"],
+							"path": ["categories", "1"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Products",
+			"item": [
+				{
+					"name": "Products",
+					"item": [
+						{
+							"name": "Create Product",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Áo lót ren trắng\",\n  \"slug\": \"ao-lot-ren-trang\",\n  \"description\": \"Áo lót ren cao cấp, chất liệu mềm mại\",\n  \"price\": 250000,\n  \"salePrice\": 200000,\n  \"categoryId\": 1,\n  \"isFeatured\": true,\n  \"isVisible\": true\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/products",
+									"host": ["{{base_url}}"],
+									"path": ["products"]
+								}
+							}
+						},
+						{
+							"name": "Get All Products",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products?page=1&limit=20&categoryId=1&isFeatured=true",
+									"host": ["{{base_url}}"],
+									"path": ["products"],
+									"query": [
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "20"
+										},
+										{
+											"key": "categoryId",
+											"value": "1"
+										},
+										{
+											"key": "isFeatured",
+											"value": "true"
+										}
+									]
+								}
+							}
+						},
+						{
+							"name": "Get Product by ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products/1",
+									"host": ["{{base_url}}"],
+									"path": ["products", "1"]
+								}
+							}
+						},
+						{
+							"name": "Get Product by Slug",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products/slug/ao-lot-ren-trang",
+									"host": ["{{base_url}}"],
+									"path": ["products", "slug", "ao-lot-ren-trang"]
+								}
+							}
+						},
+						{
+							"name": "Update Product",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Áo lót ren trắng Premium\",\n  \"price\": 300000,\n  \"salePrice\": 250000\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/products/1",
+									"host": ["{{base_url}}"],
+									"path": ["products", "1"]
+								}
+							}
+						},
+						{
+							"name": "Delete Product",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products/1",
+									"host": ["{{base_url}}"],
+									"path": ["products", "1"]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Product Images",
+					"item": [
+						{
+							"name": "Add Product Image",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"url\": \"https://example.com/image1.jpg\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/products/1/images",
+									"host": ["{{base_url}}"],
+									"path": ["products", "1", "images"]
+								}
+							}
+						},
+						{
+							"name": "Delete Product Image",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products/images/1",
+									"host": ["{{base_url}}"],
+									"path": ["products", "images", "1"]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Product Variants",
+					"item": [
+						{
+							"name": "Create Product Variant",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"sku\": \"AO-LOT-M-WHITE\",\n  \"size\": \"M\",\n  \"color\": \"Trắng\",\n  \"stock\": 100,\n  \"price\": 250000,\n  \"salePrice\": 200000\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/products/1/variants",
+									"host": ["{{base_url}}"],
+									"path": ["products", "1", "variants"]
+								}
+							}
+						},
+						{
+							"name": "Add Multiple Variants",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"variants\": [\n    {\n      \"sku\": \"AO-LOT-S-WHITE\",\n      \"size\": \"S\",\n      \"color\": \"Trắng\",\n      \"stock\": 50\n    },\n    {\n      \"sku\": \"AO-LOT-M-BLACK\",\n      \"size\": \"M\",\n      \"color\": \"Đen\",\n      \"stock\": 80\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/products/1/variants/bulk",
+									"host": ["{{base_url}}"],
+									"path": ["products", "1", "variants", "bulk"]
+								}
+							}
+						},
+						{
+							"name": "Update Product Variant",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"stock\": 150,\n  \"price\": 260000\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/products/variants/1",
+									"host": ["{{base_url}}"],
+									"path": ["products", "variants", "1"]
+								}
+							}
+						},
+						{
+							"name": "Delete Product Variant",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products/variants/1",
+									"host": ["{{base_url}}"],
+									"path": ["products", "variants", "1"]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "5. Post Categories",
+			"item": [
+				{
+					"name": "Create Post Category",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Tin Tức\",\n  \"slug\": \"tin-tuc\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/post-categories",
+							"host": ["{{base_url}}"],
+							"path": ["post-categories"]
+						}
+					}
+				},
+				{
+					"name": "Get All Post Categories",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/post-categories?page=1&limit=20",
+							"host": ["{{base_url}}"],
+							"path": ["post-categories"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Post Category by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/post-categories/1",
+							"host": ["{{base_url}}"],
+							"path": ["post-categories", "1"]
+						}
+					}
+				},
+				{
+					"name": "Get Post Category by Slug",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/post-categories/slug/tin-tuc",
+							"host": ["{{base_url}}"],
+							"path": ["post-categories", "slug", "tin-tuc"]
+						}
+					}
+				},
+				{
+					"name": "Update Post Category",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Tin Tức Mới\",\n  \"slug\": \"tin-tuc-moi\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/post-categories/1",
+							"host": ["{{base_url}}"],
+							"path": ["post-categories", "1"]
+						}
+					}
+				},
+				{
+					"name": "Delete Post Category",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/post-categories/1",
+							"host": ["{{base_url}}"],
+							"path": ["post-categories", "1"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Posts",
+			"item": [
+				{
+					"name": "Create Post",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Hướng dẫn chọn áo lót phù hợp\",\n  \"slug\": \"huong-dan-chon-ao-lot-phu-hop\",\n  \"content\": \"Nội dung bài viết chi tiết...\",\n  \"excerpt\": \"Tóm tắt ngắn gọn\",\n  \"thumbnail\": \"https://example.com/thumbnail.jpg\",\n  \"authorId\": 1,\n  \"categoryId\": 1,\n  \"isPublished\": true,\n  \"publishedAt\": \"2024-01-01T00:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/posts",
+							"host": ["{{base_url}}"],
+							"path": ["posts"]
+						}
+					}
+				},
+				{
+					"name": "Get All Posts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/posts?page=1&limit=20&categoryId=1&isPublished=true",
+							"host": ["{{base_url}}"],
+							"path": ["posts"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								},
+								{
+									"key": "categoryId",
+									"value": "1"
+								},
+								{
+									"key": "isPublished",
+									"value": "true"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Post by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/posts/1",
+							"host": ["{{base_url}}"],
+							"path": ["posts", "1"]
+						}
+					}
+				},
+				{
+					"name": "Get Post by Slug (Auto Increment Views)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/posts/slug/huong-dan-chon-ao-lot-phu-hop",
+							"host": ["{{base_url}}"],
+							"path": ["posts", "slug", "huong-dan-chon-ao-lot-phu-hop"]
+						}
+					}
+				},
+				{
+					"name": "Update Post",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Hướng dẫn chọn áo lót phù hợp - Update\",\n  \"content\": \"Nội dung mới...\",\n  \"isPublished\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/posts/1",
+							"host": ["{{base_url}}"],
+							"path": ["posts", "1"]
+						}
+					}
+				},
+				{
+					"name": "Delete Post",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/posts/1",
+							"host": ["{{base_url}}"],
+							"path": ["posts", "1"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "7. Cart",
+			"item": [
+				{
+					"name": "Get Cart by User ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/carts?userId=1",
+							"host": ["{{base_url}}"],
+							"path": ["carts"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Cart by Session ID (Guest)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/carts?sessionId=guest-session-123",
+							"host": ["{{base_url}}"],
+							"path": ["carts"],
+							"query": [
+								{
+									"key": "sessionId",
+									"value": "guest-session-123"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Add Item to Cart",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cartId\": 1,\n  \"productId\": 1,\n  \"variantId\": 1,\n  \"quantity\": 2\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/carts/items",
+							"host": ["{{base_url}}"],
+							"path": ["carts", "items"]
+						}
+					}
+				},
+				{
+					"name": "Update Cart Item Quantity",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"quantity\": 5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/carts/items/1",
+							"host": ["{{base_url}}"],
+							"path": ["carts", "items", "1"]
+						}
+					}
+				},
+				{
+					"name": "Remove Item from Cart",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/carts/items/1",
+							"host": ["{{base_url}}"],
+							"path": ["carts", "items", "1"]
+						}
+					}
+				},
+				{
+					"name": "Clear Cart",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/carts/1/clear",
+							"host": ["{{base_url}}"],
+							"path": ["carts", "1", "clear"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "8. Orders",
+			"item": [
+				{
+					"name": "Create Order",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": 1,\n  \"orderNumber\": \"ORD-2024-0001\",\n  \"shippingAddress\": \"123 Đường ABC, Quận 1\",\n  \"shippingCity\": \"TP. Hồ Chí Minh\",\n  \"shippingPhone\": \"0123456789\",\n  \"shippingMethod\": \"Standard\",\n  \"paymentMethod\": \"COD\",\n  \"totalAmount\": 500000,\n  \"shippingFee\": 30000,\n  \"discount\": 0,\n  \"notes\": \"Giao giờ hành chính\",\n  \"items\": [\n    {\n      \"productId\": 1,\n      \"quantity\": 2,\n      \"price\": 200000,\n      \"variant\": \"Size M - Màu Trắng\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/orders",
+							"host": ["{{base_url}}"],
+							"path": ["orders"]
+						}
+					}
+				},
+				{
+					"name": "Get All Orders",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/orders?page=1&limit=20&status=PENDING",
+							"host": ["{{base_url}}"],
+							"path": ["orders"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								},
+								{
+									"key": "status",
+									"value": "PENDING"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Order by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/orders/1",
+							"host": ["{{base_url}}"],
+							"path": ["orders", "1"]
+						}
+					}
+				},
+				{
+					"name": "Update Order Status",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"SHIPPING\",\n  \"trackingNumber\": \"TRACK-123456\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/orders/1",
+							"host": ["{{base_url}}"],
+							"path": ["orders", "1"]
+						}
+					}
+				},
+				{
+					"name": "Cancel Order",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"CANCELLED\",\n  \"cancelledAt\": \"2024-01-02T00:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/orders/1",
+							"host": ["{{base_url}}"],
+							"path": ["orders", "1"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "9. Page Sections",
+			"item": [
+				{
+					"name": "Create Page Section",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"HERO\",\n  \"name\": \"Hero Banner\",\n  \"isVisible\": true,\n  \"order\": 1,\n  \"content\": {\n    \"title\": \"Chào mừng đến với cửa hàng\",\n    \"subtitle\": \"Sản phẩm chất lượng cao\",\n    \"buttonText\": \"Mua ngay\",\n    \"buttonLink\": \"/products\",\n    \"bannerUrl\": \"https://example.com/banner.jpg\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/page-sections",
+							"host": ["{{base_url}}"],
+							"path": ["page-sections"]
+						}
+					}
+				},
+				{
+					"name": "Get All Page Sections",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/page-sections",
+							"host": ["{{base_url}}"],
+							"path": ["page-sections"]
+						}
+					}
+				},
+				{
+					"name": "Get Page Section by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/page-sections/1",
+							"host": ["{{base_url}}"],
+							"path": ["page-sections", "1"]
+						}
+					}
+				},
+				{
+					"name": "Get Page Section by Code",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/page-sections/code/HERO",
+							"host": ["{{base_url}}"],
+							"path": ["page-sections", "code", "HERO"]
+						}
+					}
+				},
+				{
+					"name": "Update Page Section",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Hero Banner Updated\",\n  \"content\": {\n    \"title\": \"Tiêu đề mới\",\n    \"bannerUrl\": \"https://example.com/new-banner.jpg\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/page-sections/1",
+							"host": ["{{base_url}}"],
+							"path": ["page-sections", "1"]
+						}
+					}
+				},
+				{
+					"name": "Delete Page Section",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/page-sections/1",
+							"host": ["{{base_url}}"],
+							"path": ["page-sections", "1"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "10. Tracking & Analytics",
+			"item": [
+				{
+					"name": "Page Views",
+					"item": [
+						{
+							"name": "Track Page View",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"path\": \"/products\",\n  \"userId\": 1,\n  \"sessionId\": \"session-123\",\n  \"ipAddress\": \"192.168.1.1\",\n  \"userAgent\": \"Mozilla/5.0...\",\n  \"referer\": \"https://google.com\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/tracking/page-views",
+									"host": ["{{base_url}}"],
+									"path": ["tracking", "page-views"]
+								}
+							}
+						},
+						{
+							"name": "Get Page View Analytics",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/tracking/page-views/analytics?startDate=2024-01-01&endDate=2024-12-31&limit=10",
+									"host": ["{{base_url}}"],
+									"path": ["tracking", "page-views", "analytics"],
+									"query": [
+										{
+											"key": "startDate",
+											"value": "2024-01-01"
+										},
+										{
+											"key": "endDate",
+											"value": "2024-12-31"
+										},
+										{
+											"key": "limit",
+											"value": "10"
+										}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Product Views",
+					"item": [
+						{
+							"name": "Track Product View",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"productId\": 1,\n  \"userId\": 1,\n  \"sessionId\": \"session-123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/tracking/product-views",
+									"host": ["{{base_url}}"],
+									"path": ["tracking", "product-views"]
+								}
+							}
+						},
+						{
+							"name": "Get Product View Analytics",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/tracking/product-views/analytics?startDate=2024-01-01&endDate=2024-12-31&limit=10",
+									"host": ["{{base_url}}"],
+									"path": ["tracking", "product-views", "analytics"],
+									"query": [
+										{
+											"key": "startDate",
+											"value": "2024-01-01"
+										},
+										{
+											"key": "endDate",
+											"value": "2024-12-31"
+										},
+										{
+											"key": "limit",
+											"value": "10"
+										}
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Cart Events",
+					"item": [
+						{
+							"name": "Track Cart Event - Add to Cart",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"event\": \"add_to_cart\",\n  \"cartId\": 1,\n  \"productId\": 1,\n  \"userId\": 1,\n  \"sessionId\": \"session-123\",\n  \"data\": {\n    \"quantity\": 2,\n    \"price\": 200000\n  }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/tracking/cart-events",
+									"host": ["{{base_url}}"],
+									"path": ["tracking", "cart-events"]
+								}
+							}
+						},
+						{
+							"name": "Track Cart Event - Remove from Cart",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"event\": \"remove_from_cart\",\n  \"cartId\": 1,\n  \"productId\": 1,\n  \"userId\": 1,\n  \"sessionId\": \"session-123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/tracking/cart-events",
+									"host": ["{{base_url}}"],
+									"path": ["tracking", "cart-events"]
+								}
+							}
+						},
+						{
+							"name": "Track Cart Event - Checkout Start",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"event\": \"checkout_start\",\n  \"cartId\": 1,\n  \"userId\": 1,\n  \"sessionId\": \"session-123\",\n  \"data\": {\n    \"totalAmount\": 500000,\n    \"itemCount\": 3\n  }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/tracking/cart-events",
+									"host": ["{{base_url}}"],
+									"path": ["tracking", "cart-events"]
+								}
+							}
+						},
+						{
+							"name": "Get Cart Event Analytics",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/tracking/cart-events/analytics?startDate=2024-01-01&endDate=2024-12-31",
+									"host": ["{{base_url}}"],
+									"path": ["tracking", "cart-events", "analytics"],
+									"query": [
+										{
+											"key": "startDate",
+											"value": "2024-01-01"
+										},
+										{
+											"key": "endDate",
+											"value": "2024-12-31"
+										}
+									]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "11. Media",
+			"item": [
+				{
+					"name": "Upload Media",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "folder",
+									"value": "products",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/media/upload",
+							"host": ["{{base_url}}"],
+							"path": ["media", "upload"]
+						}
+					}
+				},
+				{
+					"name": "Get All Media",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/media?page=1&limit=20&folder=products",
+							"host": ["{{base_url}}"],
+							"path": ["media"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								},
+								{
+									"key": "folder",
+									"value": "products"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Media by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/media/1",
+							"host": ["{{base_url}}"],
+							"path": ["media", "1"]
+						}
+					}
+				},
+				{
+					"name": "Delete Media",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/media/1",
+							"host": ["{{base_url}}"],
+							"path": ["media", "1"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": ["{{base_url}}"],
+					"path": ["health"]
+				}
+			}
+		}
+	]
+}

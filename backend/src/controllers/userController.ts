@@ -12,7 +12,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 // Register new user
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, password, name, role } = req.body;
+    const { email, password, name, roleId } = req.body;
 
     // Validate required fields
     if (!email || !password) {
@@ -37,20 +37,26 @@ export const register = async (req: Request, res: Response) => {
         email,
         password: hashedPassword,
         name: name || null,
-        role: role || 'customer',
+        roleId: roleId ? Number(roleId) : null,
       },
       select: {
         id: true,
         email: true,
         name: true,
-        role: true,
+        roleId: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         createdAt: true,
       },
     });
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
+      { userId: user.id, email: user.email, roleId: user.roleId, roleName: user.role?.name },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -81,6 +87,14 @@ export const login = async (req: Request, res: Response) => {
     // Find user
     const user = await prisma.user.findUnique({
       where: { email },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -94,9 +108,15 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Email hoặc password không đúng!' });
     }
 
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() },
+    });
+
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
+      { userId: user.id, email: user.email, roleId: user.roleId, roleName: user.role?.name },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -108,6 +128,7 @@ export const login = async (req: Request, res: Response) => {
           id: user.id,
           email: user.email,
           name: user.name,
+          roleId: user.roleId,
           role: user.role,
           createdAt: user.createdAt,
         },
@@ -123,10 +144,11 @@ export const login = async (req: Request, res: Response) => {
 // Get all users (admin only)
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 20, role } = req.query;
+    const { page = 1, limit = 20, roleId } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where = role ? { role: String(role) } : {};
+    const where: any = { deletedAt: null };
+    if (roleId) where.roleId = Number(roleId);
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
@@ -138,7 +160,16 @@ export const getAllUsers = async (req: Request, res: Response) => {
           id: true,
           email: true,
           name: true,
-          role: true,
+          phone: true,
+          roleId: true,
+          role: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          isActive: true,
+          lastLogin: true,
           createdAt: true,
         },
       }),
@@ -166,17 +197,33 @@ export const getUserById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const user = await prisma.user.findUnique({
-      where: { id: Number(id) },
+    const user = await prisma.user.findFirst({
+      where: { 
+        id: Number(id),
+        deletedAt: null,
+      },
       select: {
         id: true,
         email: true,
         name: true,
-        role: true,
+        phone: true,
+        avatar: true,
+        roleId: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          },
+        },
+        isActive: true,
+        lastLogin: true,
         createdAt: true,
+        updatedAt: true,
         orders: {
           select: {
             id: true,
+            orderNumber: true,
             status: true,
             totalAmount: true,
             createdAt: true,
@@ -203,11 +250,14 @@ export const getUserById = async (req: Request, res: Response) => {
 export const updateUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { email, name, role, password } = req.body;
+    const { email, name, phone, avatar, roleId, isActive, password } = req.body;
 
     // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { id: Number(id) },
+    const existingUser = await prisma.user.findFirst({
+      where: { 
+        id: Number(id),
+        deletedAt: null,
+      },
     });
 
     if (!existingUser) {
@@ -216,8 +266,11 @@ export const updateUser = async (req: Request, res: Response) => {
 
     // If email is being updated, check if it's already in use
     if (email && email !== existingUser.email) {
-      const emailExists = await prisma.user.findUnique({
-        where: { email },
+      const emailExists = await prisma.user.findFirst({
+        where: { 
+          email,
+          deletedAt: null,
+        },
       });
 
       if (emailExists) {
@@ -229,7 +282,10 @@ export const updateUser = async (req: Request, res: Response) => {
     const updateData: any = {};
     if (email) updateData.email = email;
     if (name !== undefined) updateData.name = name;
-    if (role) updateData.role = role;
+    if (phone !== undefined) updateData.phone = phone;
+    if (avatar !== undefined) updateData.avatar = avatar;
+    if (roleId !== undefined) updateData.roleId = roleId ? Number(roleId) : null;
+    if (isActive !== undefined) updateData.isActive = isActive;
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
     }
@@ -242,8 +298,18 @@ export const updateUser = async (req: Request, res: Response) => {
         id: true,
         email: true,
         name: true,
-        role: true,
+        phone: true,
+        avatar: true,
+        roleId: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        isActive: true,
         createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -257,23 +323,30 @@ export const updateUser = async (req: Request, res: Response) => {
   }
 };
 
-// Delete user
+// Delete user (soft delete)
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
     // Check if user exists
-    const user = await prisma.user.findUnique({
-      where: { id: Number(id) },
+    const user = await prisma.user.findFirst({
+      where: { 
+        id: Number(id),
+        deletedAt: null,
+      },
     });
 
     if (!user) {
       return res.status(404).json({ error: 'Không tìm thấy người dùng!' });
     }
 
-    // Delete user
-    await prisma.user.delete({
+    // Soft delete user
+    await prisma.user.update({
       where: { id: Number(id) },
+      data: { 
+        deletedAt: new Date(),
+        isActive: false,
+      },
     });
 
     res.json({
@@ -296,17 +369,33 @@ export const getProfile = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Chưa xác thực!' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const user = await prisma.user.findFirst({
+      where: { 
+        id: userId,
+        deletedAt: null,
+      },
       select: {
         id: true,
         email: true,
         name: true,
-        role: true,
+        phone: true,
+        avatar: true,
+        roleId: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          },
+        },
+        isActive: true,
+        lastLogin: true,
         createdAt: true,
+        updatedAt: true,
         orders: {
           select: {
             id: true,
+            orderNumber: true,
             status: true,
             totalAmount: true,
             createdAt: true,

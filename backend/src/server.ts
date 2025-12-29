@@ -10,6 +10,12 @@ import userRoutes from './routes/userRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import productRoutes from './routes/productRoutes';
 import pageSectionRoutes from './routes/pageSectionRoutes';
+import postCategoryRoutes from './routes/postCategoryRoutes';
+import postRoutes from './routes/postRoutes';
+import roleRoutes from './routes/roleRoutes';
+import permissionRoutes from './routes/permissionRoutes';
+import cartRoutes from './routes/cartRoutes';
+import trackingRoutes from './routes/trackingRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,6 +46,12 @@ app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/page-sections', pageSectionRoutes);
+app.use('/api/post-categories', postCategoryRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/permissions', permissionRoutes);
+app.use('/api/carts', cartRoutes);
+app.use('/api/tracking', trackingRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
