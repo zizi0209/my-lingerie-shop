@@ -1,8 +1,9 @@
 
 import React from 'react';
-import { Search, Bell, Moon, Sun, Languages, Settings as SettingsIcon } from 'lucide-react';
+import { Bell, Moon, Sun, Languages, Settings as SettingsIcon } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import { useLanguage } from './LanguageContext';
+import SearchInput from './SearchInput';
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -15,16 +16,14 @@ const Header: React.FC<HeaderProps> = () => {
 
   return (
     <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex-1 max-w-md relative hidden md:flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 group focus-within:ring-2 focus-within:ring-rose-500/20">
-          <Search className="text-slate-400 dark:text-slate-500" size={18} />
-          <input 
-            type="text" 
+      <div className="flex items-center justify-between gap-4">
+        <div className="hidden md:flex items-center gap-2 flex-1 max-w-md">
+          <SearchInput 
             placeholder={t('common.search')}
-            className="w-full bg-transparent py-2 px-3 outline-none text-sm dark:text-slate-200 placeholder:text-slate-400"
+            className="flex-1"
           />
-          <button className="p-1.5 bg-white dark:bg-slate-700 rounded-lg shadow-sm hover:text-rose-500">
-            <SettingsIcon size={14} />
+          <button className="p-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 hover:text-rose-500">
+            <SettingsIcon size={16} />
           </button>
         </div>
 

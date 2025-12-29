@@ -57,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
   ];
 
   return (
-    <div className={`${isOpen ? 'w-64' : 'w-20'} bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-[width] duration-300 flex flex-col h-full shadow-sm z-50`}>
+    <div className={`${isOpen ? 'w-64' : 'w-20'} bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-[width] duration-200 flex flex-col h-full shadow-sm z-50`}>
       <div className="p-6 flex items-center justify-between mb-2">
         {isOpen && (
           <div className="flex items-center space-x-2">

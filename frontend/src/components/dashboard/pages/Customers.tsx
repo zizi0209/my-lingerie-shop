@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { Customer } from '../types';
-import { Mail, Phone, MapPin, Search } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
+import SearchInput from '../components/SearchInput';
 
 const Customers: React.FC = () => {
   const customers: Customer[] = [
@@ -18,14 +19,10 @@ const Customers: React.FC = () => {
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase italic">Customer Directory</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Manage and nurture your luxury clientele.</p>
         </div>
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search VIPs..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 text-sm dark:text-slate-200"
-          />
-        </div>
+        <SearchInput 
+          placeholder="Search VIPs..." 
+          className="w-full md:w-80"
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

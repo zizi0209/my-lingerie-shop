@@ -29,19 +29,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (mounted) {
       localStorage.setItem('theme', theme);
       
-      // Force a reflow to ensure smooth transition
-      document.documentElement.classList.add('theme-transitioning');
-      
       if (theme === 'dark') {
         document.documentElement.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
       }
-      
-      // Remove transitioning class after transition completes
-      setTimeout(() => {
-        document.documentElement.classList.remove('theme-transitioning');
-      }, 200);
     }
   }, [theme, mounted]);
 

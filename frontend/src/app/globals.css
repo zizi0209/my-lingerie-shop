@@ -39,32 +39,21 @@
   --font-serif: var(--font-playfair), Georgia, serif;
 }
 
-/* Smooth theme transitions - synchronized timing for all color changes */
+/* No transitions for theme - instant switching */
 *,
 *::before,
 *::after {
-  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 180ms;
-}
-
-/* Exclude interactive elements from global transition */
-input,
-textarea,
-select,
-video,
-canvas,
-iframe {
   transition: none;
 }
 
-/* Transform animations should be separate and faster */
-.transition-transform,
-[class*="scale-"],
-[class*="translate-"],
-[class*="rotate-"] {
-  transition-property: transform;
-  transition-duration: 150ms;
+/* Only allow transitions for explicit transform animations */
+.transition-transform {
+  transition: transform 150ms ease-out;
+}
+
+/* Sidebar width animation */
+.transition-\[width\] {
+  transition: width 200ms ease-out;
 }
 
 body {
