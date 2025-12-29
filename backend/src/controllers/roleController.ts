@@ -83,11 +83,28 @@ export const createRole = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Tên vai trò đã được sử dụng!' });
     }
 
+    // Kiểm tra permission IDs có tồn tại không
+    if (permissionIds && permissionIds.length > 0) {
+      const existingPermissions = await prisma.permission.findMany({
+        where: {
+          id: { in: permissionIds },
+        },
+      });
+
+      if (existingPermissions.length !== permissionIds.length) {
+        const foundIds = existingPermissions.map((p) => p.id);
+        const missingIds = permissionIds.filter((id: number) => !foundIds.includes(id));
+        return res.status(400).json({
+          error: `Không tìm thấy permissions với IDs: ${missingIds.join(', ')}`,
+        });
+      }
+    }
+
     const role = await prisma.role.create({
       data: {
         name,
         description: description || null,
-        permissions: permissionIds
+        permissions: permissionIds && permissionIds.length > 0
           ? {
               connect: permissionIds.map((id: number) => ({ id })),
             }
