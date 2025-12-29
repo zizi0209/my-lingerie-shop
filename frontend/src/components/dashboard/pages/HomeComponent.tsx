@@ -18,8 +18,8 @@ const HomeComponent: React.FC = () => {
                 <span className="font-semibold text-slate-700 dark:text-slate-300">{s}</span>
               </div>
               <div className="flex space-x-1">
-                <button className="p-2 text-slate-400 dark:text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"><Settings size={18} /></button>
-                <button className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"><Eye size={18} /></button>
+                <button className="p-2 text-slate-400 dark:text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg"><Settings size={18} /></button>
+                <button className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg"><Eye size={18} /></button>
               </div>
             </div>
           ))}
@@ -29,7 +29,7 @@ const HomeComponent: React.FC = () => {
           <div className="w-full h-96 bg-white dark:bg-slate-900 rounded-lg shadow-inner overflow-hidden flex items-center justify-center p-8 text-center">
             <div>
               <p className="text-slate-400 dark:text-slate-500">Preview will render here as you organize sections.</p>
-              <button className="mt-4 bg-rose-500 hover:bg-rose-600 text-white px-6 py-2 rounded-xl font-bold transition-all shadow-lg shadow-rose-200 dark:shadow-none active:scale-95">Open Visual Designer</button>
+              <button className="mt-4 bg-rose-500 hover:bg-rose-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-rose-200 dark:shadow-none active:scale-95 transition-transform">Open Visual Designer</button>
             </div>
           </div>
         </div>

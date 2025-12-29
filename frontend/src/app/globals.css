@@ -39,6 +39,34 @@
   --font-serif: var(--font-playfair), Georgia, serif;
 }
 
+/* Smooth theme transitions - synchronized timing for all color changes */
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 180ms;
+}
+
+/* Exclude interactive elements from global transition */
+input,
+textarea,
+select,
+video,
+canvas,
+iframe {
+  transition: none;
+}
+
+/* Transform animations should be separate and faster */
+.transition-transform,
+[class*="scale-"],
+[class*="translate-"],
+[class*="rotate-"] {
+  transition-property: transform;
+  transition-duration: 150ms;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -46,7 +74,6 @@ body {
   font-feature-settings: 'rlig' 1, 'calt' 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Custom scrollbar */

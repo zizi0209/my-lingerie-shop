@@ -57,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
   ];
 
   return (
-    <div className={`${isOpen ? 'w-64' : 'w-20'} bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 flex flex-col h-full shadow-sm z-50`}>
+    <div className={`${isOpen ? 'w-64' : 'w-20'} bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-[width] duration-300 flex flex-col h-full shadow-sm z-50`}>
       <div className="p-6 flex items-center justify-between mb-2">
         {isOpen && (
           <div className="flex items-center space-x-2">
@@ -67,7 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
             </span>
           </div>
         )}
-        <button onClick={toggle} className="p-2 rounded-xl bg-rose-50 dark:bg-slate-800 text-rose-500 dark:text-rose-400 hover:bg-rose-100 transition-all">
+        <button onClick={toggle} className="p-2 rounded-xl bg-rose-50 dark:bg-slate-800 text-rose-500 dark:text-rose-400 hover:bg-rose-100">
           <Menu size={18} />
         </button>
       </div>
@@ -86,13 +86,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
                 <Link
                   key={item.path}
                   href={item.path}
-                  className={`flex items-center p-3 rounded-xl transition-all duration-200 group ${
+                  className={`flex items-center p-3 rounded-xl group ${
                     isActive 
                       ? 'bg-gray-100 text-gray-900 dark:bg-gray-100 dark:text-black' 
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
-                  <item.icon size={20} className={`${isActive ? 'text-gray-900 dark:text-black' : 'text-slate-400 dark:text-slate-500 group-hover:text-rose-500'} transition-colors`} />
+                  <item.icon size={20} className={`${isActive ? 'text-gray-900 dark:text-black' : 'text-slate-400 dark:text-slate-500 group-hover:text-rose-500'}`} />
                   {isOpen && <span className={`ml-3 text-[13px] font-semibold tracking-tight`}>{item.name}</span>}
                   {isActive && isOpen && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gray-900 dark:bg-black"></div>}
                 </Link>
