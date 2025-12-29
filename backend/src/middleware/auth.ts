@@ -10,7 +10,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 interface JwtPayload {
   userId: number;
   email: string;
-  role: string;
+  roleId: number | null;
+  roleName?: string;
 }
 
 declare global {
@@ -49,7 +50,8 @@ export const authenticateToken = (
 };
 
 export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (req.user?.role !== 'admin') {
+  const roleName = req.user?.roleName?.toLowerCase();
+  if (roleName !== 'admin') {
     return res.status(403).json({ error: 'Chỉ admin mới có quyền truy cập!' });
   }
   next();

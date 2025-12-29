@@ -15,6 +15,7 @@ import postRoutes from './routes/postRoutes';
 import roleRoutes from './routes/roleRoutes';
 import permissionRoutes from './routes/permissionRoutes';
 import cartRoutes from './routes/cartRoutes';
+import orderRoutes from './routes/orderRoutes';
 import trackingRoutes from './routes/trackingRoutes';
 
 const app = express();
@@ -51,6 +52,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/carts', cartRoutes);
+app.use('/api/orders', orderRoutes);
 app.use('/api/tracking', trackingRoutes);
 
 app.listen(PORT, () => {

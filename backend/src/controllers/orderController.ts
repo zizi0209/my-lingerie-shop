@@ -1,0 +1,331 @@
+import { Request, Response } from 'express';
+import { prisma } from '../lib/prisma';
+
+// Get all orders
+export const getAllOrders = async (req: Request, res: Response) => {
+  try {
+    const { page = 1, limit = 20, status, userId } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const where: any = {};
+    if (status) where.status = String(status);
+    if (userId) where.userId = Number(userId);
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        skip,
+        take: Number(limit),
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      data: orders,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error) {
+    console.error('Get all orders error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách đơn hàng!' });
+  }
+};
+
+// Get order by ID
+export const getOrderById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const order = await prisma.order.findUnique({
+      where: { id: Number(id) },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                price: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng!' });
+    }
+
+    res.json({
+      success: true,
+      data: order,
+    });
+  } catch (error) {
+    console.error('Get order by ID error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin đơn hàng!' });
+  }
+};
+
+// Create order
+export const createOrder = async (req: Request, res: Response) => {
+  try {
+    const {
+      userId,
+      guestInfo,
+      orderNumber,
+      shippingAddress,
+      shippingCity,
+      shippingPhone,
+      shippingMethod,
+      paymentMethod,
+      totalAmount,
+      shippingFee = 0,
+      discount = 0,
+      notes,
+      items,
+    } = req.body;
+
+    // Validate required fields
+    if (!shippingAddress || !shippingPhone || !totalAmount || !items || items.length === 0) {
+      return res.status(400).json({
+        error: 'Thiếu thông tin bắt buộc: shippingAddress, shippingPhone, totalAmount, items',
+      });
+    }
+
+    // Generate order number if not provided
+    const generatedOrderNumber =
+      orderNumber || `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+    // Check if order number already exists
+    const existingOrder = await prisma.order.findUnique({
+      where: { orderNumber: generatedOrderNumber },
+    });
+
+    if (existingOrder) {
+      return res.status(400).json({ error: 'Mã đơn hàng đã tồn tại!' });
+    }
+
+    // Validate products exist and have enough stock (if using variants)
+    for (const item of items) {
+      const product = await prisma.product.findUnique({
+        where: { id: item.productId },
+      });
+
+      if (!product) {
+        return res.status(404).json({
+          error: `Không tìm thấy sản phẩm với ID: ${item.productId}`,
+        });
+      }
+    }
+
+    // Create order with items
+    const order = await prisma.order.create({
+      data: {
+        orderNumber: generatedOrderNumber,
+        userId: userId ? Number(userId) : null,
+        guestInfo: guestInfo || null,
+        shippingAddress,
+        shippingCity: shippingCity || null,
+        shippingPhone,
+        shippingMethod: shippingMethod || null,
+        paymentMethod: paymentMethod || 'COD',
+        totalAmount: Number(totalAmount),
+        shippingFee: Number(shippingFee),
+        discount: Number(discount),
+        notes: notes || null,
+        status: 'PENDING',
+        items: {
+          create: items.map((item: any) => ({
+            productId: Number(item.productId),
+            quantity: Number(item.quantity),
+            price: Number(item.price),
+            variant: item.variant || null,
+          })),
+        },
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      data: order,
+    });
+  } catch (error) {
+    console.error('Create order error:', error);
+    res.status(500).json({ error: 'Lỗi khi tạo đơn hàng!' });
+  }
+};
+
+// Update order
+export const updateOrder = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      status,
+      trackingNumber,
+      shippingMethod,
+      paymentStatus,
+      paidAt,
+      notes,
+      cancelledAt,
+    } = req.body;
+
+    const existingOrder = await prisma.order.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!existingOrder) {
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng!' });
+    }
+
+    const updateData: any = {};
+    if (status) updateData.status = status;
+    if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber;
+    if (shippingMethod !== undefined) updateData.shippingMethod = shippingMethod;
+    if (paymentStatus !== undefined) updateData.paymentStatus = paymentStatus;
+    if (paidAt) updateData.paidAt = new Date(paidAt);
+    if (notes !== undefined) updateData.notes = notes;
+    if (cancelledAt) updateData.cancelledAt = new Date(cancelledAt);
+
+    const order = await prisma.order.update({
+      where: { id: Number(id) },
+      data: updateData,
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      data: order,
+    });
+  } catch (error) {
+    console.error('Update order error:', error);
+    res.status(500).json({ error: 'Lỗi khi cập nhật đơn hàng!' });
+  }
+};
+
+// Cancel order
+export const cancelOrder = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const existingOrder = await prisma.order.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!existingOrder) {
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng!' });
+    }
+
+    if (existingOrder.status === 'CANCELLED') {
+      return res.status(400).json({ error: 'Đơn hàng đã bị hủy trước đó!' });
+    }
+
+    if (existingOrder.status === 'COMPLETED' || existingOrder.status === 'SHIPPING') {
+      return res.status(400).json({
+        error: 'Không thể hủy đơn hàng đã hoàn thành hoặc đang giao!',
+      });
+    }
+
+    const order = await prisma.order.update({
+      where: { id: Number(id) },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+      },
+      include: {
+        items: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Đã hủy đơn hàng thành công!',
+      data: order,
+    });
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    res.status(500).json({ error: 'Lỗi khi hủy đơn hàng!' });
+  }
+};

@@ -451,10 +451,25 @@ export const updateProductImage = async (req: Request, res: Response) => {
 export const addProductImages = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { images } = req.body;
+    const { url, urls } = req.body;
 
-    if (!images || !Array.isArray(images) || images.length === 0) {
-      return res.status(400).json({ error: 'Danh sách ảnh là bắt buộc!' });
+    // Support both single url and multiple urls
+    let imageUrls: string[] = [];
+    
+    if (url && typeof url === 'string') {
+      // Single image: { "url": "..." }
+      imageUrls = [url];
+    } else if (urls && Array.isArray(urls)) {
+      // Multiple images: { "urls": [...] }
+      imageUrls = urls;
+    } else {
+      return res.status(400).json({ 
+        error: 'URL ảnh là bắt buộc! Gửi "url" (string) hoặc "urls" (array)' 
+      });
+    }
+
+    if (imageUrls.length === 0) {
+      return res.status(400).json({ error: 'Danh sách ảnh không được rỗng!' });
     }
 
     // Check if product exists
@@ -468,8 +483,8 @@ export const addProductImages = async (req: Request, res: Response) => {
 
     // Add images
     const createdImages = await prisma.productImage.createMany({
-      data: images.map((url: string) => ({
-        url,
+      data: imageUrls.map((imageUrl: string) => ({
+        url: imageUrl,
         productId: Number(id),
       })),
     });

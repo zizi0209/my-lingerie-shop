@@ -523,7 +523,31 @@
 					"name": "Product Images",
 					"item": [
 						{
-							"name": "Add Product Image",
+							"name": "Get All Product Images",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products/1/images",
+									"host": ["{{base_url}}"],
+									"path": ["products", "1", "images"]
+								}
+							}
+						},
+						{
+							"name": "Get Product Image by ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products/images/1",
+									"host": ["{{base_url}}"],
+									"path": ["products", "images", "1"]
+								}
+							}
+						},
+						{
+							"name": "Add Single Product Image",
 							"request": {
 								"method": "POST",
 								"header": [
@@ -534,12 +558,54 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"url\": \"https://example.com/image1.jpg\"\n}"
+									"raw": "{\n  \"url\": \"https://res.cloudinary.com/example/image/upload/v1234567890/product1.jpg\"\n}"
 								},
 								"url": {
 									"raw": "{{base_url}}/products/1/images",
 									"host": ["{{base_url}}"],
 									"path": ["products", "1", "images"]
+								}
+							}
+						},
+						{
+							"name": "Add Multiple Product Images",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"urls\": [\n    \"https://res.cloudinary.com/example/image/upload/v1234567890/product1.jpg\",\n    \"https://res.cloudinary.com/example/image/upload/v1234567890/product2.jpg\",\n    \"https://res.cloudinary.com/example/image/upload/v1234567890/product3.jpg\"\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/products/1/images",
+									"host": ["{{base_url}}"],
+									"path": ["products", "1", "images"]
+								}
+							}
+						},
+						{
+							"name": "Update Product Image",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"url\": \"https://res.cloudinary.com/example/image/upload/v1234567890/product-updated.jpg\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/products/images/1",
+									"host": ["{{base_url}}"],
+									"path": ["products", "images", "1"]
 								}
 							}
 						},
@@ -561,19 +627,10 @@
 					"name": "Product Variants",
 					"item": [
 						{
-							"name": "Create Product Variant",
+							"name": "Get All Product Variants",
 							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "Content-Type",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"sku\": \"AO-LOT-M-WHITE\",\n  \"size\": \"M\",\n  \"color\": \"Trắng\",\n  \"stock\": 100,\n  \"price\": 250000,\n  \"salePrice\": 200000\n}"
-								},
+								"method": "GET",
+								"header": [],
 								"url": {
 									"raw": "{{base_url}}/products/1/variants",
 									"host": ["{{base_url}}"],
@@ -582,7 +639,19 @@
 							}
 						},
 						{
-							"name": "Add Multiple Variants",
+							"name": "Get Product Variant by ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products/variants/1",
+									"host": ["{{base_url}}"],
+									"path": ["products", "variants", "1"]
+								}
+							}
+						},
+						{
+							"name": "Add Product Variants",
 							"request": {
 								"method": "POST",
 								"header": [
@@ -593,12 +662,12 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"variants\": [\n    {\n      \"sku\": \"AO-LOT-S-WHITE\",\n      \"size\": \"S\",\n      \"color\": \"Trắng\",\n      \"stock\": 50\n    },\n    {\n      \"sku\": \"AO-LOT-M-BLACK\",\n      \"size\": \"M\",\n      \"color\": \"Đen\",\n      \"stock\": 80\n    }\n  ]\n}"
+									"raw": "{\n  \"variants\": [\n    {\n      \"sku\": \"AO-LOT-M-WHITE\",\n      \"size\": \"M\",\n      \"color\": \"Trắng\",\n      \"stock\": 100,\n      \"price\": 250000,\n      \"salePrice\": 200000\n    },\n    {\n      \"sku\": \"AO-LOT-S-WHITE\",\n      \"size\": \"S\",\n      \"color\": \"Trắng\",\n      \"stock\": 50\n    },\n    {\n      \"sku\": \"AO-LOT-M-BLACK\",\n      \"size\": \"M\",\n      \"color\": \"Đen\",\n      \"stock\": 80\n    }\n  ]\n}"
 								},
 								"url": {
-									"raw": "{{base_url}}/products/1/variants/bulk",
+									"raw": "{{base_url}}/products/1/variants",
 									"host": ["{{base_url}}"],
-									"path": ["products", "1", "variants", "bulk"]
+									"path": ["products", "1", "variants"]
 								}
 							}
 						},
