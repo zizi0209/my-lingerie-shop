@@ -14,11 +14,14 @@ export const uploadImage = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Chỉ chấp nhận file ảnh!' });
     }
 
+    // Get folder from request body (default: 'lingerie-shop')
+    const folder = req.body.folder || 'lingerie-shop';
+
     // Upload lên Cloudinary
     const result = await cloudinary.uploader.upload_stream(
       {
         resource_type: 'image',
-        folder: 'lingerie-shop',
+        folder: folder,
         transformation: [
           { width: 1200, height: 1200, crop: 'limit' }, // Giới hạn kích thước
           { quality: 'auto' }, // Tối ưu chất lượng
@@ -44,7 +47,7 @@ export const uploadImage = async (req: Request, res: Response) => {
               size: req.file!.size,
               url: result.secure_url,
               publicId: result.public_id,
-              folder: 'lingerie-shop',
+              folder: folder,
             },
           });
 
@@ -83,12 +86,15 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
       }
     }
 
+    // Get folder from request body (default: 'lingerie-shop')
+    const folder = req.body.folder || 'lingerie-shop';
+
     const uploadPromises = req.files.map((file) => {
       return new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
           {
             resource_type: 'image',
-            folder: 'lingerie-shop',
+            folder: folder,
             transformation: [
               { width: 1200, height: 1200, crop: 'limit' },
               { quality: 'auto' },
@@ -109,7 +115,7 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
                     size: file.size,
                     url: result.secure_url,
                     publicId: result.public_id,
-                    folder: 'lingerie-shop',
+                    folder: folder,
                   },
                 });
                 resolve(media);
@@ -138,16 +144,20 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
 // Lấy danh sách media
 export const getMediaList = async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, folder } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
+
+    const where: any = {};
+    if (folder) where.folder = String(folder);
 
     const [media, total] = await Promise.all([
       prisma.media.findMany({
+        where,
         skip,
         take: Number(limit),
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.media.count(),
+      prisma.media.count({ where }),
     ]);
 
     res.json({
@@ -163,6 +173,29 @@ export const getMediaList = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Get media list error:', error);
     res.status(500).json({ error: 'Lỗi khi lấy danh sách media!' });
+  }
+};
+
+// Lấy media by ID
+export const getMediaById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const media = await prisma.media.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!media) {
+      return res.status(404).json({ error: 'Không tìm thấy media!' });
+    }
+
+    res.json({
+      success: true,
+      data: media,
+    });
+  } catch (error) {
+    console.error('Get media by ID error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin media!' });
   }
 };
 

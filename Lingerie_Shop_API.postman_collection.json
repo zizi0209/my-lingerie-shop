@@ -1437,7 +1437,7 @@
 			"name": "11. Media",
 			"item": [
 				{
-					"name": "Upload Media",
+					"name": "Upload Single Image",
 					"request": {
 						"method": "POST",
 						"header": [],
@@ -1447,12 +1447,14 @@
 								{
 									"key": "file",
 									"type": "file",
-									"src": []
+									"src": [],
+									"description": "Select image file to upload"
 								},
 								{
 									"key": "folder",
 									"value": "products",
-									"type": "text"
+									"type": "text",
+									"description": "Optional: Cloudinary folder (default: lingerie-shop)"
 								}
 							]
 						},
@@ -1460,6 +1462,35 @@
 							"raw": "{{base_url}}/media/upload",
 							"host": ["{{base_url}}"],
 							"path": ["media", "upload"]
+						}
+					}
+				},
+				{
+					"name": "Upload Multiple Images",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "images",
+									"type": "file",
+									"src": [],
+									"description": "Select multiple image files (max 10)"
+								},
+								{
+									"key": "folder",
+									"value": "products",
+									"type": "text",
+									"description": "Optional: Cloudinary folder (default: lingerie-shop)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/media/multiple",
+							"host": ["{{base_url}}"],
+							"path": ["media", "multiple"]
 						}
 					}
 				},
