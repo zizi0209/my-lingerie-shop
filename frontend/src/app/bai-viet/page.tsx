@@ -257,22 +257,22 @@ export default function BlogPage() {
       </section>
 
       {/* Newsletter */}
-      <section className="mt-16 bg-gray-50 rounded-lg p-8 text-center">
-        <h2 className="text-2xl font-serif font-light mb-4">
+      <section className="mt-16 bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center">
+        <h2 className="text-2xl font-serif font-light mb-4 text-gray-900 dark:text-white">
           Đăng ký nhận tin
         </h2>
-        <p className="text-gray-600 mb-6">
+        <p className="text-gray-600 dark:text-gray-300 mb-6">
           Nhận thông tin về sản phẩm mới, khuyến mãi và các bài viết hữu ích hàng tuần
         </p>
         <form className="flex flex-col md:flex-row gap-4 max-w-md mx-auto">
           <input
             type="email"
             placeholder="Email của bạn"
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+            className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-black dark:focus:border-white bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
           />
           <button
             type="submit"
-            className="ck-button px-8 py-3 bg-black text-white rounded-lg hover:bg-gray-900 transition"
+            className="ck-button px-8 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition"
           >
             Đăng ký
           </button>
