@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -14,6 +14,36 @@ export default function AdminLoginPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // Check if already logged in as admin
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (api.isAuthenticated()) {
+        try {
+          const response = await api.get<{ success: boolean; data: User }>('/users/profile');
+          if (response.success && isAdmin(response.data)) {
+            router.replace('/dashboard');
+            return;
+          }
+        } catch {
+          // Token invalid, continue to show login form
+          api.removeToken();
+        }
+      }
+      setChecking(false);
+    };
+    checkAuth();
+  }, [router]);
+
+  // Show loading while checking auth
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

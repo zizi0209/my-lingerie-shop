@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, User, Check } from "lucide-react";
+import { api } from "@/lib/api";
 
 export default function LoginRegisterPage() {
+  const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   const [loginForm, setLoginForm] = useState({
     email: "",
@@ -23,6 +27,35 @@ export default function LoginRegisterPage() {
     password: "",
     confirmPassword: ""
   });
+
+  // Check if already logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (api.isAuthenticated()) {
+        try {
+          const response = await api.get<{ success: boolean }>('/users/profile');
+          if (response.success) {
+            router.replace('/');
+            return;
+          }
+        } catch {
+          // Token invalid, continue to show login form
+          api.removeToken();
+        }
+      }
+      setChecking(false);
+    };
+    checkAuth();
+  }, [router]);
+
+  // Show loading while checking auth
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-black dark:border-white border-t-transparent"></div>
+      </div>
+    );
+  }
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
