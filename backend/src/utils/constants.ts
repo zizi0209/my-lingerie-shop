@@ -1,0 +1,52 @@
+export const AuditActions = {
+  // Authentication
+  LOGIN_SUCCESS: 'LOGIN_SUCCESS',
+  LOGIN_FAILED: 'LOGIN_FAILED',
+  LOGOUT: 'LOGOUT',
+  PASSWORD_CHANGE: 'PASSWORD_CHANGE',
+  TOKEN_REFRESH: 'TOKEN_REFRESH',
+  
+  // User Management
+  CREATE_USER: 'CREATE_USER',
+  UPDATE_USER: 'UPDATE_USER',
+  DELETE_USER: 'DELETE_USER',
+  CHANGE_ROLE: 'CHANGE_ROLE',
+  LOCK_USER: 'LOCK_USER',
+  UNLOCK_USER: 'UNLOCK_USER',
+  
+  // Product Management
+  CREATE_PRODUCT: 'CREATE_PRODUCT',
+  UPDATE_PRODUCT: 'UPDATE_PRODUCT',
+  UPDATE_PRODUCT_PRICE: 'UPDATE_PRODUCT_PRICE',
+  DELETE_PRODUCT: 'DELETE_PRODUCT',
+  UPDATE_PRODUCT_STOCK: 'UPDATE_PRODUCT_STOCK',
+  
+  // Category Management
+  CREATE_CATEGORY: 'CREATE_CATEGORY',
+  UPDATE_CATEGORY: 'UPDATE_CATEGORY',
+  DELETE_CATEGORY: 'DELETE_CATEGORY',
+  
+  // Order Management
+  CREATE_ORDER: 'CREATE_ORDER',
+  UPDATE_ORDER_STATUS: 'UPDATE_ORDER_STATUS',
+  CANCEL_ORDER: 'CANCEL_ORDER',
+  REFUND_ORDER: 'REFUND_ORDER',
+  
+  // Media Management
+  UPLOAD_MEDIA: 'UPLOAD_MEDIA',
+  DELETE_MEDIA: 'DELETE_MEDIA',
+  
+  // Configuration
+  UPDATE_SETTINGS: 'UPDATE_SETTINGS',
+  UPDATE_PERMISSIONS: 'UPDATE_PERMISSIONS'
+} as const;
+
+export type AuditAction = typeof AuditActions[keyof typeof AuditActions];
+
+export const AuditSeverity = {
+  INFO: 'INFO',
+  WARNING: 'WARNING',
+  CRITICAL: 'CRITICAL'
+} as const;
+
+export type AuditSeverityType = typeof AuditSeverity[keyof typeof AuditSeverity];

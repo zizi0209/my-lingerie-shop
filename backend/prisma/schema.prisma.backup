@@ -26,18 +26,10 @@ model User {
   roleId      Int?
   role        Role?     @relation(fields: [roleId], references: [id])
   
-  // Security fields
-  failedLoginAttempts   Int       @default(0)
-  lockedUntil           DateTime?
-  lastLoginAt           DateTime?
-  passwordChangedAt     DateTime?
-  tokenVersion          Int       @default(0)
-  
   // Relationships
   orders      Order[]
   posts       Post[]
   cart        Cart?
-  auditLogs   AuditLog[]
   
   // Tracking
   isActive    Boolean   @default(true)
@@ -347,46 +339,4 @@ model CartEvent {
   @@index([event, createdAt])
   @@index([userId])
   @@index([productId])
-}
-
-// 19. AUDIT LOGGING (Security)
-model AuditLog {
-  id          String   @id @default(cuid())
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  action      String
-  resource    String
-  resourceId  String?
-  
-  oldValue    Json?
-  newValue    Json?
-  
-  ipAddress   String?
-  userAgent   String?
-  severity    String   @default("INFO")
-  
-  createdAt   DateTime @default(now())
-  
-  @@index([userId])
-  @@index([action])
-  @@index([resource])
-  @@index([createdAt])
-  @@map("audit_logs")
-}
-
-// 20. ADMIN INVITATIONS (Security)
-model AdminInvitation {
-  id          String    @id @default(cuid())
-  email       String
-  token       String    @unique
-  roleId      Int
-  expiresAt   DateTime
-  usedAt      DateTime?
-  createdBy   Int
-  createdAt   DateTime  @default(now())
-  
-  @@index([token])
-  @@index([email])
-  @@map("admin_invitations")
 }

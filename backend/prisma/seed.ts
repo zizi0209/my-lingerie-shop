@@ -1,142 +1,127 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Bắt đầu seed database...');
+  console.log('🌱 Starting database seed...');
 
-  // Seed Permissions
+  // 1. Create Admin Role if not exists
+  const adminRole = await prisma.role.upsert({
+    where: { name: 'ADMIN' },
+    update: {},
+    create: {
+      name: 'ADMIN',
+      description: 'Administrator with full system access'
+    }
+  });
+
+  console.log('✅ Admin role created/updated');
+
+  // 2. Create Super Admin Role
+  const superAdminRole = await prisma.role.upsert({
+    where: { name: 'SUPER_ADMIN' },
+    update: {},
+    create: {
+      name: 'SUPER_ADMIN',
+      description: 'Super Administrator with unrestricted access'
+    }
+  });
+
+  console.log('✅ Super Admin role created/updated');
+
+  // 3. Create User Role
+  const userRole = await prisma.role.upsert({
+    where: { name: 'USER' },
+    update: {},
+    create: {
+      name: 'USER',
+      description: 'Regular customer user'
+    }
+  });
+
+  console.log('✅ User role created/updated');
+
+  // 4. Create Super Admin User
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    throw new Error('❌ ADMIN_PASSWORD environment variable is required');
+  }
+
+  if (adminPassword.length < 12) {
+    throw new Error('❌ Admin password must be at least 12 characters');
+  }
+
+  // Check password strength
+  const hasUpperCase = /[A-Z]/.test(adminPassword);
+  const hasLowerCase = /[a-z]/.test(adminPassword);
+  const hasNumber = /[0-9]/.test(adminPassword);
+  
+  if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+    throw new Error('❌ Admin password must contain uppercase, lowercase, and numbers');
+  }
+
+  const hashedPassword = await bcrypt.hash(adminPassword, 12);
+
+  const admin = await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: {
+      password: hashedPassword,
+      roleId: superAdminRole.id,
+      passwordChangedAt: new Date(),
+      isActive: true
+    },
+    create: {
+      email: adminEmail,
+      password: hashedPassword,
+      name: 'System Administrator',
+      roleId: superAdminRole.id,
+      passwordChangedAt: new Date(),
+      isActive: true,
+      failedLoginAttempts: 0,
+      tokenVersion: 0
+    }
+  });
+
+  console.log('✅ Super Admin user created/updated:');
+  console.log(`   📧 Email: ${admin.email}`);
+  console.log(`   🔑 Role: SUPER_ADMIN (ID: ${superAdminRole.id})`);
+  console.log(`   🆔 User ID: ${admin.id}`);
+  console.log('');
+  console.log('⚠️  IMPORTANT: Change the admin password after first login!');
+  console.log('⚠️  Current password is stored in .env file');
+
+  // 5. Create some basic permissions (optional)
   const permissions = [
-    { name: 'user.read', description: 'Xem danh sách người dùng' },
-    { name: 'user.create', description: 'Tạo người dùng mới' },
-    { name: 'user.update', description: 'Cập nhật người dùng' },
-    { name: 'user.delete', description: 'Xóa người dùng' },
-    
-    { name: 'role.read', description: 'Xem danh sách vai trò' },
-    { name: 'role.create', description: 'Tạo vai trò mới' },
-    { name: 'role.update', description: 'Cập nhật vai trò' },
-    { name: 'role.delete', description: 'Xóa vai trò' },
-    
-    { name: 'product.read', description: 'Xem danh sách sản phẩm' },
-    { name: 'product.create', description: 'Tạo sản phẩm mới' },
-    { name: 'product.update', description: 'Cập nhật sản phẩm' },
-    { name: 'product.delete', description: 'Xóa sản phẩm' },
-    
-    { name: 'category.read', description: 'Xem danh sách danh mục' },
-    { name: 'category.create', description: 'Tạo danh mục mới' },
-    { name: 'category.update', description: 'Cập nhật danh mục' },
-    { name: 'category.delete', description: 'Xóa danh mục' },
-    
-    { name: 'order.read', description: 'Xem danh sách đơn hàng' },
-    { name: 'order.create', description: 'Tạo đơn hàng mới' },
-    { name: 'order.update', description: 'Cập nhật đơn hàng' },
-    { name: 'order.delete', description: 'Xóa đơn hàng' },
-    
-    { name: 'post.read', description: 'Xem danh sách bài viết' },
-    { name: 'post.create', description: 'Tạo bài viết mới' },
-    { name: 'post.update', description: 'Cập nhật bài viết' },
-    { name: 'post.delete', description: 'Xóa bài viết' },
-    
-    { name: 'page-section.read', description: 'Xem cấu hình trang' },
-    { name: 'page-section.update', description: 'Cập nhật cấu hình trang' },
-    
-    { name: 'media.read', description: 'Xem thư viện media' },
-    { name: 'media.upload', description: 'Upload media' },
-    { name: 'media.delete', description: 'Xóa media' },
-    
-    { name: 'system.config', description: 'Cấu hình hệ thống' },
+    { name: 'users.read', description: 'View users' },
+    { name: 'users.write', description: 'Create/update users' },
+    { name: 'users.delete', description: 'Delete users' },
+    { name: 'products.read', description: 'View products' },
+    { name: 'products.write', description: 'Create/update products' },
+    { name: 'products.delete', description: 'Delete products' },
+    { name: 'orders.read', description: 'View orders' },
+    { name: 'orders.write', description: 'Update orders' },
+    { name: 'settings.write', description: 'Modify system settings' }
   ];
 
-  console.log('📝 Tạo permissions...');
-  for (const permission of permissions) {
+  for (const perm of permissions) {
     await prisma.permission.upsert({
-      where: { name: permission.name },
+      where: { name: perm.name },
       update: {},
-      create: permission,
+      create: perm
     });
   }
-  console.log(`✅ Đã tạo ${permissions.length} permissions`);
 
-  // Seed Roles
-  console.log('📝 Tạo roles...');
-  
-  const allPermissions = await prisma.permission.findMany();
-  
-  // Admin role - có tất cả quyền
-  await prisma.role.upsert({
-    where: { name: 'Admin' },
-    update: {},
-    create: {
-      name: 'Admin',
-      description: 'Quản trị viên - có toàn quyền',
-      permissions: {
-        connect: allPermissions.map(p => ({ id: p.id })),
-      },
-    },
-  });
-  console.log('✅ Đã tạo role Admin');
-
-  // Manager role - quản lý sản phẩm, đơn hàng
-  const managerPermissions = allPermissions.filter(p => 
-    p.name.startsWith('product.') || 
-    p.name.startsWith('category.') || 
-    p.name.startsWith('order.') ||
-    p.name.startsWith('media.')
-  );
-  
-  await prisma.role.upsert({
-    where: { name: 'Manager' },
-    update: {},
-    create: {
-      name: 'Manager',
-      description: 'Quản lý - quản lý sản phẩm và đơn hàng',
-      permissions: {
-        connect: managerPermissions.map(p => ({ id: p.id })),
-      },
-    },
-  });
-  console.log('✅ Đã tạo role Manager');
-
-  // Editor role - chỉ chỉnh sửa nội dung
-  const editorPermissions = allPermissions.filter(p => 
-    p.name.startsWith('post.') || 
-    p.name.startsWith('page-section.') ||
-    p.name.startsWith('media.')
-  );
-  
-  await prisma.role.upsert({
-    where: { name: 'Editor' },
-    update: {},
-    create: {
-      name: 'Editor',
-      description: 'Biên tập viên - quản lý nội dung',
-      permissions: {
-        connect: editorPermissions.map(p => ({ id: p.id })),
-      },
-    },
-  });
-  console.log('✅ Đã tạo role Editor');
-
-  // Customer role - khách hàng
-  await prisma.role.upsert({
-    where: { name: 'Customer' },
-    update: {},
-    create: {
-      name: 'Customer',
-      description: 'Khách hàng',
-      permissions: {
-        connect: [],
-      },
-    },
-  });
-  console.log('✅ Đã tạo role Customer');
-
-  console.log('🎉 Seed database hoàn tất!');
+  console.log(`✅ Created ${permissions.length} permissions`);
+  console.log('');
+  console.log('🎉 Database seed completed successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Lỗi khi seed database:', e);
+    console.error('❌ Seed failed:', e);
     process.exit(1);
   })
   .finally(async () => {
