@@ -34,9 +34,9 @@ export const loginSchema = z.object({
  */
 export const updateUserSchema = z.object({
   email: z.string().email().max(255).optional(),
-  name: z.string().max(255).optional(),
-  phone: z.string().max(20).optional(),
-  roleId: z.number().int().positive().optional(),
+  name: z.string().max(255).nullable().optional(),
+  phone: z.string().max(20).nullable().optional(),
+  roleId: z.number().int().positive().nullable().optional(),
   isActive: z.boolean().optional()
   // NOTE: password change should use separate endpoint
 });
