@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ import permissionRoutes from './routes/permissionRoutes';
 import cartRoutes from './routes/cartRoutes';
 import orderRoutes from './routes/orderRoutes';
 import trackingRoutes from './routes/trackingRoutes';
+import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,7 +28,13 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Middleware
+// Security Middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false // Disable for API, enable for web apps
+}));
+
+// CORS
 app.use(
   cors({
     // Cho phép Localhost (để bạn test) VÀ Domain trên Vercel
@@ -38,8 +46,13 @@ app.use(
     credentials: true,
   })
 );
+
+// Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Rate limiting for all API routes
+app.use('/api', apiLimiter);
 
 // Routes
 app.use('/api/media', mediaRoutes);

@@ -95,6 +95,74 @@ export const updateOrderStatusSchema = z.object({
 });
 
 /**
+ * Create Order Schema
+ */
+export const createOrderSchema = z.object({
+  shippingAddress: z.string().min(10, 'Shipping address must be at least 10 characters').max(500),
+  shippingCity: z.string().min(2).max(100).optional(),
+  shippingPhone: z.string().min(10, 'Phone must be at least 10 digits').max(20),
+  shippingMethod: z.string().max(100).optional(),
+  paymentMethod: z.enum(['COD', 'BANK_TRANSFER', 'CARD']).default('COD'),
+  notes: z.string().max(1000).optional(),
+  items: z.array(z.object({
+    productId: z.number().int().positive(),
+    variantId: z.number().int().positive().optional(),
+    quantity: z.number().int().positive().min(1).max(100),
+    price: z.number().positive()
+  })).min(1, 'Order must have at least 1 item')
+});
+
+/**
+ * Add to Cart Schema
+ */
+export const addToCartSchema = z.object({
+  productId: z.number().int().positive(),
+  variantId: z.number().int().positive().optional(),
+  quantity: z.number().int().positive().min(1).max(100).default(1)
+});
+
+/**
+ * Update Cart Item Schema
+ */
+export const updateCartItemSchema = z.object({
+  quantity: z.number().int().positive().min(0).max(100)
+});
+
+/**
+ * Post Category Schema
+ */
+export const postCategorySchema = z.object({
+  name: z.string().min(1).max(255),
+  slug: z.string().min(1).max(255)
+});
+
+/**
+ * Create Post Schema
+ */
+export const createPostSchema = z.object({
+  title: z.string().min(1).max(255),
+  slug: z.string().min(1).max(255),
+  content: z.string().min(10),
+  excerpt: z.string().max(500).optional(),
+  thumbnail: z.string().url().optional(),
+  categoryId: z.number().int().positive(),
+  isPublished: z.boolean().default(false)
+});
+
+/**
+ * Update Post Schema
+ */
+export const updatePostSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  slug: z.string().min(1).max(255).optional(),
+  content: z.string().min(10).optional(),
+  excerpt: z.string().max(500).optional(),
+  thumbnail: z.string().url().optional(),
+  categoryId: z.number().int().positive().optional(),
+  isPublished: z.boolean().optional()
+});
+
+/**
  * Generic validation helper
  */
 export function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
