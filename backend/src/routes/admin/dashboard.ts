@@ -255,4 +255,125 @@ router.get('/recent-activities', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/dashboard/carts
+ * Get all carts for admin tracking
+ */
+router.get('/carts', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Define abandoned threshold (e.g., 1 hour without updates)
+    const abandonedThreshold = new Date(Date.now() - 60 * 60 * 1000);
+
+    const where: Record<string, unknown> = {};
+    
+    // Get all carts with items
+    const [carts, total] = await Promise.all([
+      prisma.cart.findMany({
+        skip,
+        take: Number(limit),
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  salePrice: true,
+                  images: { take: 1, select: { url: true } },
+                },
+              },
+              variant: {
+                select: {
+                  id: true,
+                  size: true,
+                  color: true,
+                  price: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.cart.count({ where }),
+    ]);
+
+    // Calculate cart values and determine status
+    const cartsWithStats = carts.map((cart) => {
+      const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+      const totalValue = cart.items.reduce((sum, item) => {
+        const price = item.variant?.price || item.product.salePrice || item.product.price;
+        return sum + price * item.quantity;
+      }, 0);
+
+      // Determine status
+      let cartStatus: 'active' | 'abandoned' | 'empty' = 'active';
+      if (cart.items.length === 0) {
+        cartStatus = 'empty';
+      } else if (cart.updatedAt < abandonedThreshold) {
+        cartStatus = 'abandoned';
+      }
+
+      return {
+        id: cart.id,
+        sessionId: cart.sessionId,
+        user: cart.user,
+        totalItems,
+        totalValue,
+        status: cartStatus,
+        items: cart.items,
+        createdAt: cart.createdAt,
+        updatedAt: cart.updatedAt,
+      };
+    });
+
+    // Filter by status if provided
+    let filteredCarts = cartsWithStats;
+    if (status === 'abandoned') {
+      filteredCarts = cartsWithStats.filter((c) => c.status === 'abandoned');
+    } else if (status === 'active') {
+      filteredCarts = cartsWithStats.filter((c) => c.status === 'active');
+    }
+
+    // Calculate summary stats
+    const abandonedCarts = cartsWithStats.filter((c) => c.status === 'abandoned');
+    const activeCarts = cartsWithStats.filter((c) => c.status === 'active');
+    const abandonedValue = abandonedCarts.reduce((sum, c) => sum + c.totalValue, 0);
+
+    res.json({
+      success: true,
+      data: filteredCarts,
+      stats: {
+        totalCarts: total,
+        activeCarts: activeCarts.length,
+        abandonedCarts: abandonedCarts.length,
+        abandonedValue,
+      },
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error) {
+    console.error('Get carts error:', error);
+    res.status(500).json({
+      error: 'Lỗi khi lấy danh sách giỏ hàng',
+    });
+  }
+});
+
 export default router;
