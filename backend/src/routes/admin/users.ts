@@ -16,14 +16,15 @@ router.get('/', async (req, res) => {
       limit = '20',
       role,
       isActive,
-      search 
+      search,
+      hasOrders
     } = req.query;
 
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {
+    const where: Record<string, unknown> = {
       deletedAt: null
     };
 
@@ -33,7 +34,7 @@ router.get('/', async (req, res) => {
       };
     }
 
-    if (isActive !== undefined) {
+    if (isActive !== undefined && isActive !== '') {
       where.isActive = isActive === 'true';
     }
 
@@ -42,6 +43,13 @@ router.get('/', async (req, res) => {
         { email: { contains: search as string, mode: 'insensitive' } },
         { name: { contains: search as string, mode: 'insensitive' } }
       ];
+    }
+
+    // Filter users who have at least one order (customers)
+    if (hasOrders === 'true') {
+      where.orders = {
+        some: {}
+      };
     }
 
     const [users, total] = await Promise.all([
@@ -55,6 +63,16 @@ router.get('/', async (req, res) => {
               id: true,
               name: true
             }
+          },
+          _count: {
+            select: {
+              orders: true
+            }
+          },
+          orders: {
+            select: {
+              totalAmount: true
+            }
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -62,9 +80,20 @@ router.get('/', async (req, res) => {
       prisma.user.count({ where })
     ]);
 
+    // Calculate total spent for each user
+    const usersWithStats = users.map(user => {
+      const totalSpent = user.orders.reduce((sum, order) => sum + order.totalAmount, 0);
+      // Remove orders array from response to keep it clean
+      const { orders, ...userWithoutOrders } = user;
+      return {
+        ...userWithoutOrders,
+        totalSpent
+      };
+    });
+
     res.json({
       success: true,
-      data: users,
+      data: usersWithStats,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -99,6 +128,24 @@ router.get('/:id', async (req, res) => {
             id: true,
             name: true
           }
+        },
+        _count: {
+          select: {
+            orders: true
+          }
+        },
+        orders: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            totalAmount: true,
+            createdAt: true
+          },
+          orderBy: {
+            createdAt: 'desc'
+          },
+          take: 10
         }
       }
     });
@@ -109,9 +156,19 @@ router.get('/:id', async (req, res) => {
       });
     }
 
+    // Calculate total spent
+    const allOrders = await prisma.order.findMany({
+      where: { userId: Number(id) },
+      select: { totalAmount: true }
+    });
+    const totalSpent = allOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+
     res.json({
       success: true,
-      data: user
+      data: {
+        ...user,
+        totalSpent
+      }
     });
   } catch (error) {
     console.error('Admin get user error:', error);
