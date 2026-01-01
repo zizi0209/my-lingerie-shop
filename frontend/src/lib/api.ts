@@ -1,6 +1,6 @@
 // API Service với JWT Authentication
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
@@ -63,6 +63,7 @@ class ApiService {
       const response = await fetch(url, {
         ...fetchOptions,
         headers,
+        credentials: 'include', // Cho phép gửi cookies và credentials
       });
 
       // Kiểm tra lỗi authentication
@@ -117,6 +118,19 @@ class ApiService {
     });
   }
 
+  // PATCH request
+  public async patch<T>(
+    endpoint: string,
+    data?: unknown,
+    requireAuth = true
+  ): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+      requireAuth,
+    });
+  }
+
   // DELETE request
   public async delete<T>(endpoint: string, requireAuth = true): Promise<T> {
     return this.request<T>(endpoint, {
@@ -145,6 +159,7 @@ class ApiService {
         method: 'POST',
         headers,
         body: formData,
+        credentials: 'include', // Cho phép gửi cookies và credentials
       });
 
       if (response.status === 401 || response.status === 403) {

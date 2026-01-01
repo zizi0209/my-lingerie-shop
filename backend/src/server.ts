@@ -18,6 +18,7 @@ import permissionRoutes from './routes/permissionRoutes';
 import cartRoutes from './routes/cartRoutes';
 import orderRoutes from './routes/orderRoutes';
 import trackingRoutes from './routes/trackingRoutes';
+import adminRoutes from './routes/admin';
 import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
@@ -67,6 +68,9 @@ app.use('/api/permissions', permissionRoutes);
 app.use('/api/carts', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/tracking', trackingRoutes);
+
+// Admin routes (protected)
+app.use('/api/admin', adminRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

@@ -24,7 +24,7 @@ const CartTracking: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-rose-50 dark:bg-rose-500/10 p-6 rounded-[32px] border border-rose-100 dark:border-rose-500/20 flex items-center space-x-5">
+        <div className="bg-rose-50 dark:bg-rose-500/10 p-6 rounded-4xl border border-rose-100 dark:border-rose-500/20 flex items-center space-x-5">
           <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl text-rose-500 shadow-sm">
             <AlertCircle size={28} />
           </div>
@@ -33,7 +33,7 @@ const CartTracking: React.FC = () => {
             <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter mt-1">$12,450.00</h3>
           </div>
         </div>
-        <div className="bg-emerald-50 dark:bg-emerald-500/10 p-6 rounded-[32px] border border-emerald-100 dark:border-emerald-500/20 flex items-center space-x-5">
+        <div className="bg-emerald-50 dark:bg-emerald-500/10 p-6 rounded-4xl border border-emerald-100 dark:border-emerald-500/20 flex items-center space-x-5">
           <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl text-emerald-500 shadow-sm">
             <RefreshCw size={28} />
           </div>
@@ -42,7 +42,7 @@ const CartTracking: React.FC = () => {
             <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter mt-1">18.5%</h3>
           </div>
         </div>
-        <div className="bg-blue-50 dark:bg-blue-500/10 p-6 rounded-[32px] border border-blue-100 dark:border-blue-500/20 flex items-center space-x-5">
+        <div className="bg-blue-50 dark:bg-blue-500/10 p-6 rounded-4xl border border-blue-100 dark:border-blue-500/20 flex items-center space-x-5">
           <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl text-blue-500 shadow-sm">
             <ShoppingCart size={28} />
           </div>
@@ -53,7 +53,7 @@ const CartTracking: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900/50 rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+      <div className="bg-white dark:bg-slate-900/50 rounded-4xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-black tracking-widest border-b border-slate-100 dark:border-slate-800">
