@@ -2,42 +2,47 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
+import { validate, registerSchema, loginSchema, updateUserSchema } from '../utils/validation';
+import { sanitizeUser, sanitizeUsers } from '../utils/sanitize';
+import { auditLog } from '../utils/auditLog';
+import { AuditActions } from '../utils/constants';
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET không được cấu hình trong file .env!');
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const LOCKOUT_THRESHOLD = 5; // Failed login attempts before lockout
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
 
 // Register new user
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, password, name, roleId } = req.body;
-
-    // Validate required fields
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email và password là bắt buộc!' });
-    }
+    // Validate input with Zod
+    const validated = validate(registerSchema, req.body);
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: validated.email },
     });
 
     if (existingUser) {
       return res.status(400).json({ error: 'Email đã được sử dụng!' });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password with bcrypt cost 12 (security best practice)
+    const hashedPassword = await bcrypt.hash(validated.password, 12);
 
-    // Create user
+    // Create user - FORCE role to USER, never trust client input for role
     const user = await prisma.user.create({
       data: {
-        email,
+        email: validated.email,
         password: hashedPassword,
-        name: name || null,
-        roleId: roleId ? Number(roleId) : null,
+        name: validated.name || null,
+        roleId: null, // Users start without a role, admin assigns later
+        passwordChangedAt: new Date(),
+        failedLoginAttempts: 0,
+        tokenVersion: 0
       },
       select: {
         id: true,
@@ -54,9 +59,25 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
+    // Audit log
+    await auditLog({
+      userId: user.id,
+      action: AuditActions.CREATE_USER,
+      resource: 'USER',
+      resourceId: String(user.id),
+      newValue: sanitizeUser(user),
+      severity: 'INFO'
+    }, req);
+
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, email: user.email, roleId: user.roleId, roleName: user.role?.name },
+      { 
+        userId: user.id, 
+        email: user.email, 
+        roleId: user.roleId, 
+        roleName: user.role?.name,
+        tokenVersion: 0
+      },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -64,29 +85,31 @@ export const register = async (req: Request, res: Response) => {
     res.status(201).json({
       success: true,
       data: {
-        user,
+        user: sanitizeUser(user),
         token,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Register error:', error);
+    
+    // Don't expose validation errors in production
+    if (error.message && process.env.NODE_ENV !== 'production') {
+      return res.status(400).json({ error: error.message });
+    }
+    
     res.status(500).json({ error: 'Lỗi khi đăng ký!' });
   }
 };
 
-// Login user
+// Login user with account lockout protection
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
-
-    // Validate required fields
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email và password là bắt buộc!' });
-    }
+    // Validate input
+    const validated = validate(loginSchema, req.body);
 
     // Find user
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: validated.email },
       include: {
         role: {
           select: {
@@ -98,25 +121,110 @@ export const login = async (req: Request, res: Response) => {
     });
 
     if (!user) {
+      // Don't reveal if email exists
       return res.status(401).json({ error: 'Email hoặc password không đúng!' });
+    }
+
+    // Check if user is deleted
+    if (user.deletedAt) {
+      return res.status(401).json({ error: 'Tài khoản không tồn tại!' });
+    }
+
+    // Check if account is active
+    if (!user.isActive) {
+      await auditLog({
+        userId: user.id,
+        action: AuditActions.LOGIN_FAILED,
+        resource: 'USER',
+        resourceId: String(user.id),
+        severity: 'WARNING'
+      }, req);
+      
+      return res.status(403).json({ error: 'Tài khoản đã bị vô hiệu hóa!' });
+    }
+
+    // Check account lockout
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+      
+      await auditLog({
+        userId: user.id,
+        action: AuditActions.LOGIN_FAILED,
+        resource: 'USER',
+        resourceId: String(user.id),
+        severity: 'WARNING'
+      }, req);
+      
+      return res.status(403).json({
+        error: `Tài khoản bị khóa do đăng nhập sai quá nhiều. Vui lòng thử lại sau ${minutesLeft} phút.`,
+        lockedUntil: user.lockedUntil.toISOString()
+      });
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(validated.password, user.password);
 
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Email hoặc password không đúng!' });
+      // Increment failed attempts
+      const failedAttempts = user.failedLoginAttempts + 1;
+      const shouldLock = failedAttempts >= LOCKOUT_THRESHOLD;
+      
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: failedAttempts,
+          lockedUntil: shouldLock ? new Date(Date.now() + LOCKOUT_DURATION) : null
+        }
+      });
+
+      await auditLog({
+        userId: user.id,
+        action: AuditActions.LOGIN_FAILED,
+        resource: 'USER',
+        resourceId: String(user.id),
+        severity: shouldLock ? 'CRITICAL' : 'WARNING'
+      }, req);
+
+      if (shouldLock) {
+        return res.status(403).json({
+          error: `Tài khoản đã bị khóa do đăng nhập sai ${LOCKOUT_THRESHOLD} lần. Vui lòng thử lại sau 15 phút.`
+        });
+      }
+
+      return res.status(401).json({
+        error: `Email hoặc password không đúng! (Còn ${LOCKOUT_THRESHOLD - failedAttempts} lần thử)`
+      });
     }
 
-    // Update last login
+    // Success - Reset failed attempts and update last login
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLogin: new Date() },
+      data: { 
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        lastLogin: new Date(),
+        lastLoginAt: new Date()
+      },
     });
+
+    // Audit log successful login
+    await auditLog({
+      userId: user.id,
+      action: AuditActions.LOGIN_SUCCESS,
+      resource: 'USER',
+      resourceId: String(user.id),
+      severity: 'INFO'
+    }, req);
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, email: user.email, roleId: user.roleId, roleName: user.role?.name },
+      { 
+        userId: user.id, 
+        email: user.email, 
+        roleId: user.roleId, 
+        roleName: user.role?.name,
+        tokenVersion: user.tokenVersion
+      },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -124,19 +232,24 @@ export const login = async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: {
-        user: {
+        user: sanitizeUser({
           id: user.id,
           email: user.email,
           name: user.name,
           roleId: user.roleId,
           role: user.role,
           createdAt: user.createdAt,
-        },
+        }),
         token,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error);
+    
+    if (error.message && process.env.NODE_ENV !== 'production') {
+      return res.status(400).json({ error: error.message });
+    }
+    
     res.status(500).json({ error: 'Lỗi khi đăng nhập!' });
   }
 };
@@ -176,9 +289,12 @@ export const getAllUsers = async (req: Request, res: Response) => {
       prisma.user.count({ where }),
     ]);
 
+    // Sanitize all users (remove sensitive fields)
+    const sanitizedUsers = sanitizeUsers(users);
+
     res.json({
       success: true,
-      data: users,
+      data: sanitizedUsers,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -238,7 +354,7 @@ export const getUserById = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: user,
+      data: sanitizeUser(user),
     });
   } catch (error) {
     console.error('Get user by ID error:', error);
@@ -246,11 +362,13 @@ export const getUserById = async (req: Request, res: Response) => {
   }
 };
 
-// Update user
+// Update user (admin only)
 export const updateUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { email, name, phone, avatar, roleId, isActive, password } = req.body;
+    
+    // Validate input
+    const validated = validate(updateUserSchema, req.body);
 
     // Check if user exists
     const existingUser = await prisma.user.findFirst({
@@ -258,17 +376,25 @@ export const updateUser = async (req: Request, res: Response) => {
         id: Number(id),
         deletedAt: null,
       },
+      include: {
+        role: true
+      }
     });
 
     if (!existingUser) {
       return res.status(404).json({ error: 'Không tìm thấy người dùng!' });
     }
 
+    // Prevent self role change (admins shouldn't demote themselves)
+    if (validated.roleId && req.user && req.user.id === Number(id)) {
+      return res.status(400).json({ error: 'Không thể thay đổi vai trò của chính mình!' });
+    }
+
     // If email is being updated, check if it's already in use
-    if (email && email !== existingUser.email) {
+    if (validated.email && validated.email !== existingUser.email) {
       const emailExists = await prisma.user.findFirst({
         where: { 
-          email,
+          email: validated.email,
           deletedAt: null,
         },
       });
@@ -278,17 +404,13 @@ export const updateUser = async (req: Request, res: Response) => {
       }
     }
 
-    // Prepare update data
+    // Prepare update data (whitelist approach - only allow validated fields)
     const updateData: any = {};
-    if (email) updateData.email = email;
-    if (name !== undefined) updateData.name = name;
-    if (phone !== undefined) updateData.phone = phone;
-    if (avatar !== undefined) updateData.avatar = avatar;
-    if (roleId !== undefined) updateData.roleId = roleId ? Number(roleId) : null;
-    if (isActive !== undefined) updateData.isActive = isActive;
-    if (password) {
-      updateData.password = await bcrypt.hash(password, 10);
-    }
+    if (validated.email) updateData.email = validated.email;
+    if (validated.name !== undefined) updateData.name = validated.name;
+    if (validated.phone !== undefined) updateData.phone = validated.phone;
+    if (validated.roleId !== undefined) updateData.roleId = validated.roleId;
+    if (validated.isActive !== undefined) updateData.isActive = validated.isActive;
 
     // Update user
     const user = await prisma.user.update({
@@ -313,20 +435,46 @@ export const updateUser = async (req: Request, res: Response) => {
       },
     });
 
+    // Audit log (critical for role changes)
+    const severity = existingUser.roleId !== user.roleId ? 'CRITICAL' : 'INFO';
+    const action = existingUser.roleId !== user.roleId 
+      ? AuditActions.CHANGE_ROLE 
+      : AuditActions.UPDATE_USER;
+
+    await auditLog({
+      userId: req.user!.id,
+      action,
+      resource: 'USER',
+      resourceId: String(user.id),
+      oldValue: sanitizeUser(existingUser),
+      newValue: sanitizeUser(user),
+      severity
+    }, req);
+
     res.json({
       success: true,
-      data: user,
+      data: sanitizeUser(user),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update user error:', error);
+    
+    if (error.message && process.env.NODE_ENV !== 'production') {
+      return res.status(400).json({ error: error.message });
+    }
+    
     res.status(500).json({ error: 'Lỗi khi cập nhật người dùng!' });
   }
 };
 
-// Delete user (soft delete)
+// Delete user (soft delete, admin only)
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    // Prevent self-deletion
+    if (req.user && req.user.id === Number(id)) {
+      return res.status(400).json({ error: 'Không thể xóa tài khoản của chính mình!' });
+    }
 
     // Check if user exists
     const user = await prisma.user.findFirst({
@@ -334,6 +482,9 @@ export const deleteUser = async (req: Request, res: Response) => {
         id: Number(id),
         deletedAt: null,
       },
+      include: {
+        role: true
+      }
     });
 
     if (!user) {
@@ -349,6 +500,17 @@ export const deleteUser = async (req: Request, res: Response) => {
       },
     });
 
+    // Critical audit log (user deletion)
+    await auditLog({
+      userId: req.user!.id,
+      action: AuditActions.DELETE_USER,
+      resource: 'USER',
+      resourceId: String(id),
+      oldValue: sanitizeUser(user),
+      newValue: null,
+      severity: 'CRITICAL'
+    }, req);
+
     res.json({
       success: true,
       message: 'Đã xóa người dùng thành công!',
@@ -362,8 +524,8 @@ export const deleteUser = async (req: Request, res: Response) => {
 // Get current user profile (requires authentication)
 export const getProfile = async (req: Request, res: Response) => {
   try {
-    // Assumes authentication middleware adds user to request
-    const userId = (req as any).user?.userId;
+    // Get userId from authenticated request
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: 'Chưa xác thực!' });
@@ -413,7 +575,7 @@ export const getProfile = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: user,
+      data: sanitizeUser(user),
     });
   } catch (error) {
     console.error('Get profile error:', error);

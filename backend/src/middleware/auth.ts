@@ -7,19 +7,13 @@ if (!process.env.JWT_SECRET) {
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+import { AuthUser } from './requireAuth';
+
 interface JwtPayload {
   userId: number;
   email: string;
   roleId: number | null;
   roleName?: string;
-}
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: JwtPayload;
-    }
-  }
 }
 
 export const authenticateToken = (
@@ -40,7 +34,13 @@ export const authenticateToken = (
         return res.status(403).json({ error: 'Token không hợp lệ hoặc đã hết hạn!' });
       }
 
-      req.user = decoded as JwtPayload;
+      const payload = decoded as JwtPayload;
+      req.user = {
+        id: payload.userId,
+        email: payload.email,
+        roleId: payload.roleId,
+        roleName: payload.roleName ?? null
+      };
       next();
     });
   } catch (error) {
