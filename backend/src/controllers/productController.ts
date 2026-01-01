@@ -216,10 +216,13 @@ export const createProduct = async (req: Request, res: Response) => {
           : undefined,
         variants: variants
           ? {
-              create: variants.map((v: any) => ({
+              create: variants.map((v: any, index: number) => ({
+                sku: v.sku || `${slug}-${v.size}-${v.color}-${Date.now()}-${index}`.toUpperCase().replace(/\s+/g, '-'),
                 size: v.size,
                 color: v.color,
                 stock: v.stock || 0,
+                price: v.price || null,
+                salePrice: v.salePrice || null,
               })),
             }
           : undefined,

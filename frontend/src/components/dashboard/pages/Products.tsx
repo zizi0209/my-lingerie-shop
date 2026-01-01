@@ -55,6 +55,7 @@ const Products: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 });
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -204,6 +205,7 @@ const Products: React.FC = () => {
         page: pagination.page,
         limit: pagination.limit,
         search: searchQuery || undefined,
+        categoryId: categoryFilter ? Number(categoryFilter) : undefined,
       });
 
       if (response.success) {
@@ -216,7 +218,7 @@ const Products: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, searchQuery, t.loadError]);
+  }, [pagination.page, pagination.limit, searchQuery, categoryFilter, t.loadError]);
 
   useEffect(() => {
     fetchProducts();
@@ -330,24 +332,87 @@ const Products: React.FC = () => {
         setFormData(prev => ({ ...prev, newImages: [] }));
       } else {
         // Create product
+        // First, upload pending images to get URLs
+        const uploadedImageUrls: string[] = [];
+        if (uploadingImages.length > 0) {
+          setUploadProgress(t.uploading);
+          for (let i = 0; i < uploadingImages.length; i++) {
+            const img = uploadingImages[i];
+            setUploadProgress(`${t.uploading} (${i + 1}/${uploadingImages.length})`);
+            
+            const uploadFormData = new FormData();
+            uploadFormData.append('image', img.file);
+            uploadFormData.append('folder', 'products');
+
+            try {
+              const response = await api.uploadFile<{ success: boolean; data: { url: string } }>(
+                '/media/single',
+                uploadFormData
+              );
+              if (response.success && response.data?.url) {
+                uploadedImageUrls.push(response.data.url);
+              }
+            } catch (uploadErr) {
+              console.error('Upload error:', uploadErr);
+            }
+          }
+          setUploadProgress('');
+        }
+
+        // Combine URL images and uploaded images
+        const allImages = [
+          ...formData.newImages.filter(url => url.trim()),
+          ...uploadedImageUrls,
+        ];
+
+        // Validate required fields
+        const priceNum = parseFloat(formData.price);
+        const categoryIdNum = parseInt(formData.categoryId);
+        
+        if (!formData.name?.trim()) {
+          setFormError('Vui lòng nhập tên sản phẩm');
+          setSaving(false);
+          return;
+        }
+        if (!formData.slug?.trim()) {
+          setFormError('Vui lòng nhập slug');
+          setSaving(false);
+          return;
+        }
+        if (isNaN(priceNum) || priceNum <= 0) {
+          setFormError('Vui lòng nhập giá hợp lệ');
+          setSaving(false);
+          return;
+        }
+        if (isNaN(categoryIdNum) || categoryIdNum <= 0) {
+          setFormError('Vui lòng chọn danh mục');
+          setSaving(false);
+          return;
+        }
+
         const validVariants = formData.variants.filter(v => v.size && v.color);
         const createData: CreateProductData = {
-          name: formData.name,
-          slug: formData.slug,
-          description: formData.description || undefined,
-          price: Number(formData.price),
-          salePrice: formData.salePrice ? Number(formData.salePrice) : undefined,
-          categoryId: Number(formData.categoryId),
+          name: formData.name.trim(),
+          slug: formData.slug.trim(),
+          description: formData.description?.trim() || undefined,
+          price: priceNum,
+          salePrice: formData.salePrice ? parseFloat(formData.salePrice) : undefined,
+          categoryId: categoryIdNum,
           isFeatured: formData.isFeatured,
           isVisible: formData.isVisible,
-          images: formData.newImages.filter(url => url.trim()),
-          variants: validVariants.map(v => ({
+          images: allImages.length > 0 ? allImages : undefined,
+          variants: validVariants.length > 0 ? validVariants.map(v => ({
             size: v.size,
             color: v.color,
-            stock: Number(v.stock) || 0,
-          })),
+            stock: parseInt(v.stock) || 0,
+          })) : undefined,
         };
+
         await productApi.create(createData);
+        
+        // Cleanup
+        revokePreviewUrls(uploadingImages);
+        setUploadingImages([]);
         setShowModal(false);
         setRefreshTrigger(prev => prev + 1);
       }
@@ -629,10 +694,22 @@ const Products: React.FC = () => {
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               {pagination.total} {t.products}
             </span>
-            <button className="flex items-center space-x-2 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700">
-              <Filter size={16} />
-              <span>{t.filter}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <Filter size={16} className="text-slate-400" />
+              <select
+                value={categoryFilter}
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value);
+                  setPagination(prev => ({ ...prev, page: 1 }));
+                }}
+                className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-rose-500/20"
+              >
+                <option value="">{language === 'vi' ? 'Tất cả danh mục' : 'All Categories'}</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
