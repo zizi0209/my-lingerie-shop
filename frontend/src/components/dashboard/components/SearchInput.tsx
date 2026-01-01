@@ -1,19 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 
 interface SearchInputProps {
   placeholder?: string;
   value?: string;
   onChange?: (value: string) => void;
+  onSearch?: (value: string) => void;
   className?: string;
+  debounceMs?: number;
 }
 
 const SearchInput: React.FC<SearchInputProps> = ({ 
   placeholder = 'Search...', 
-  value,
+  value: controlledValue,
   onChange,
-  className = ''
+  onSearch,
+  className = '',
+  debounceMs = 500
 }) => {
+  const [localValue, setLocalValue] = useState(controlledValue || '');
+
+  useEffect(() => {
+    if (controlledValue !== undefined) {
+      setLocalValue(controlledValue);
+    }
+  }, [controlledValue]);
+
+  // Debounce search
+  useEffect(() => {
+    if (onSearch) {
+      const timer = setTimeout(() => {
+        onSearch(localValue);
+      }, debounceMs);
+
+      return () => clearTimeout(timer);
+    }
+  }, [localValue, onSearch, debounceMs]);
+
+  const handleChange = (newValue: string) => {
+    setLocalValue(newValue);
+    onChange?.(newValue);
+  };
+
   return (
     <div className={`relative ${className}`}>
       <Search 
@@ -22,8 +50,8 @@ const SearchInput: React.FC<SearchInputProps> = ({
       />
       <input 
         type="text" 
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
+        value={localValue}
+        onChange={(e) => handleChange(e.target.value)}
         placeholder={placeholder}
         className="
           w-full pl-10 pr-4 py-2.5 
