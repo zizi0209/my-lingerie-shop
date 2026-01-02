@@ -67,18 +67,21 @@ export default function CartPage() {
 
   if (cartItems.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-20">
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full mb-6 transition-colors">
-            <ShoppingBag className="w-10 h-10 text-gray-400 dark:text-gray-500" />
+      <div className="container mx-auto px-4 py-12 md:py-20">
+        <div className="text-center max-w-md mx-auto">
+          <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-gray-100 dark:bg-gray-800 rounded-full mb-4 md:mb-6 transition-colors">
+            <ShoppingBag className="w-8 h-8 md:w-10 md:h-10 text-gray-400 dark:text-gray-500" aria-hidden="true" />
           </div>
-          <h1 className="text-2xl font-serif font-light mb-4 text-gray-900 dark:text-white">Giỏ hàng trống</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-8">
+          <h1 className="text-2xl md:text-3xl font-serif font-light mb-3 md:mb-4 text-gray-900 dark:text-white">
+            Giỏ hàng trống
+          </h1>
+          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mb-6 md:mb-8">
             Hãy khám phá bộ sưu tập của chúng tôi và thêm những sản phẩm yêu thích
           </p>
           <Link
             href="/san-pham"
-            className="inline-block bg-black dark:bg-white text-white dark:text-black px-8 py-3 rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition"
+            aria-label="Tiếp tục mua sắm"
+            className="inline-flex items-center justify-center bg-black dark:bg-white text-white dark:text-black px-6 py-3 md:px-8 rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Tiếp tục mua sắm
           </Link>
@@ -88,10 +91,12 @@ export default function CartPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-serif font-light mb-8 text-gray-900 dark:text-white">Giỏ hàng ({cartItems.length} sản phẩm)</h1>
+    <div className="container mx-auto px-4 py-6 md:py-8">
+      <h1 className="text-2xl md:text-3xl font-serif font-light mb-6 md:mb-8 text-gray-900 dark:text-white">
+        Giỏ hàng ({cartItems.length} sản phẩm)
+      </h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 lg:gap-12">
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
           {cartItems.map((item) => (
@@ -117,9 +122,10 @@ export default function CartPage() {
                     </Link>
                     <button
                       onClick={() => removeItem(item.id)}
-                      className="text-gray-400 dark:text-gray-500 hover:text-black dark:hover:text-white transition"
+                      aria-label={`Xóa ${item.name} khỏi giỏ hàng`}
+                      className="text-gray-400 dark:text-gray-500 hover:text-black dark:hover:text-white transition p-2 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-5 h-5" aria-hidden="true" />
                     </button>
                   </div>
 
@@ -130,21 +136,25 @@ export default function CartPage() {
 
                   <div className="flex items-center justify-between">
                     {/* Quantity Selector */}
-                    <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 transition-colors">
+                    <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 transition-colors" role="group" aria-label={`Số lượng ${item.name}`}>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 transition text-gray-900 dark:text-white"
+                        disabled={item.quantity <= 1}
+                        aria-label="Giảm số lượng"
+                        className="p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition text-gray-900 dark:text-white min-h-[44px] min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                       >
-                        <Minus className="w-4 h-4" />
+                        <Minus className="w-4 h-4" aria-hidden="true" />
                       </button>
-                      <span className="px-4 py-2 min-w-15 text-center text-gray-900 dark:text-white">
+                      <span className="px-3 md:px-4 py-2 min-w-[3rem] text-center text-sm md:text-base text-gray-900 dark:text-white" aria-live="polite">
                         {item.quantity}
                       </span>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 transition text-gray-900 dark:text-white"
+                        disabled={item.quantity >= item.stock}
+                        aria-label="Tăng số lượng"
+                        className="p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition text-gray-900 dark:text-white min-h-[44px] min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="w-4 h-4" aria-hidden="true" />
                       </button>
                     </div>
 

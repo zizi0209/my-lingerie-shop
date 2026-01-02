@@ -22,7 +22,8 @@
     "next-themes": "^0.2.1",
     "react": "19.2.1",
     "react-dom": "19.2.1",
-    "recharts": "^2.15.4"
+    "recharts": "^2.15.4",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.1.0",

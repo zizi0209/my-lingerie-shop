@@ -130,38 +130,43 @@ export default function ProductsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-6 md:py-8">
       {/* Header */}
-      <div className="text-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4 text-gray-900 dark:text-white">Sản phẩm</h1>
-        <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+      <div className="text-center mb-8 md:mb-12">
+        <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-3 md:mb-4 text-gray-900 dark:text-white">Sản phẩm</h1>
+        <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto px-4">
           Khám phá bộ sưu tập nội y cao cấp với thiết kế tinh tế và chất liệu premium
         </p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col lg:flex-row gap-6 md:gap-8">
         {/* Filters Sidebar */}
         <aside className={`${isFilterOpen ? 'block' : 'hidden'} lg:block w-full lg:w-64 shrink-0`}>
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Bộ lọc</h2>
-              <button onClick={clearFilters} className="text-sm text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition">
+          <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors">
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <h2 className="text-base md:text-lg font-medium text-gray-900 dark:text-white">Bộ lọc</h2>
+              <button
+                onClick={clearFilters}
+                aria-label="Xóa tất cả bộ lọc"
+                className="text-sm text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition min-h-[44px] px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+              >
                 Xóa tất cả
               </button>
             </div>
 
             {/* Categories */}
-            <div className="mb-8">
-              <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Danh mục</h3>
-              <div className="space-y-2">
+            <div className="mb-6 md:mb-8">
+              <h3 className="text-sm md:text-base font-medium mb-3 md:mb-4 text-gray-900 dark:text-white">Danh mục</h3>
+              <div className="space-y-1 md:space-y-2" role="group" aria-label="Lọc theo danh mục">
                 {categories.map(category => (
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category)}
-                    className={`block w-full text-left py-2 transition-colors ${
+                    aria-pressed={selectedCategory === category}
+                    className={`block w-full text-left py-2 px-2 rounded transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                       selectedCategory === category
-                        ? 'text-black dark:text-white font-medium'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
+                        ? 'text-black dark:text-white font-medium bg-gray-100 dark:bg-gray-700'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-750'
                     }`}
                   >
                     {category}
@@ -248,15 +253,16 @@ export default function ProductsPage() {
         {/* Products Grid */}
         <div className="flex-1">
           {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-            <p className="text-gray-600 dark:text-gray-400">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-3 md:gap-4">
+            <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
               Hiển thị {filteredProducts.length} sản phẩm
             </p>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 md:gap-4 w-full sm:w-auto">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-black dark:focus:border-white bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                aria-label="Sắp xếp sản phẩm"
+                className="px-3 py-2 md:px-4 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm md:text-base min-h-[44px] flex-1 sm:flex-initial"
               >
                 <option value="featured">Nổi bật</option>
                 <option value="price-low">Giá tăng dần</option>
@@ -266,12 +272,14 @@ export default function ProductsPage() {
               </select>
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="lg:hidden flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-900 dark:text-white"
+                aria-label={isFilterOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
+                aria-expanded={isFilterOpen}
+                className="lg:hidden flex items-center gap-2 px-3 py-2 md:px-4 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-900 dark:text-white text-sm md:text-base min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
-                <Filter className="w-4 h-4" />
+                <Filter className="w-4 h-4" aria-hidden="true" />
                 Bộ lọc
                 {(selectedSizes.length > 0 || selectedColors.length > 0) && (
-                  <span className="w-2 h-2 bg-black dark:bg-white rounded-full"></span>
+                  <span className="w-2 h-2 bg-primary rounded-full" aria-label={`Có ${selectedSizes.length + selectedColors.length} bộ lọc đang áp dụng`}></span>
                 )}
               </button>
             </div>
@@ -279,17 +287,18 @@ export default function ProductsPage() {
 
           {/* Products Grid */}
           {filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
               {filteredProducts.map(product => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
           ) : (
-            <div className="text-center py-20">
-              <p className="text-gray-500 dark:text-gray-400 text-lg mb-4">Không tìm thấy sản phẩm phù hợp</p>
+            <div className="text-center py-12 md:py-20 px-4">
+              <p className="text-gray-500 dark:text-gray-400 text-base md:text-lg mb-4">Không tìm thấy sản phẩm phù hợp</p>
               <button
                 onClick={clearFilters}
-                className="text-black dark:text-white underline hover:no-underline"
+                aria-label="Xóa tất cả bộ lọc"
+                className="text-black dark:text-white underline hover:no-underline min-h-[44px] px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
               >
                 Xóa bộ lọc
               </button>
