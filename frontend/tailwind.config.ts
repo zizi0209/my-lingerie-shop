@@ -15,14 +15,36 @@ const config: Config = {
         serif: ["var(--font-playfair)"],
       },
       colors: {
-        // Bạn có thể định nghĩa thêm màu thương hiệu ở đây nếu thích
-        // Ví dụ dùng class: text-primary
+        // Dynamic primary color - uses CSS variables from SSR
+        // This allows the brand color to be changed without rebuilding
         primary: {
-          50: "#fff1f2",
-          100: "#ffe4e6",
-          500: "#f43f5e", // Màu hồng rose-500
-          600: "#e11d48",
-          900: "#881337",
+          50: "var(--primary-50)",
+          100: "var(--primary-100)",
+          200: "var(--primary-200)",
+          300: "var(--primary-300)",
+          400: "var(--primary-400)",
+          500: "var(--primary-500)",
+          600: "var(--primary-600)",
+          700: "var(--primary-700)",
+          800: "var(--primary-800)",
+          900: "var(--primary-900)",
+          950: "var(--primary-950)",
+          DEFAULT: "var(--primary-500)",
+        },
+        // Rose palette - mapped to primary CSS variables for dynamic theming
+        // This ensures existing rose-* classes use the dynamic brand color
+        rose: {
+          50: "var(--primary-50)",
+          100: "var(--primary-100)",
+          200: "var(--primary-200)",
+          300: "var(--primary-300)",
+          400: "var(--primary-400)",
+          500: "var(--primary-500)",
+          600: "var(--primary-600)",
+          700: "var(--primary-700)",
+          800: "var(--primary-800)",
+          900: "var(--primary-900)",
+          950: "var(--primary-950)",
         },
       },
     },

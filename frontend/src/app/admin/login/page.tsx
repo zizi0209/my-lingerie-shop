@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { isAdmin, User } from '@/lib/adminApi';
-import { usePublicConfig } from '@/hooks/usePublicConfig';
-import { ThemeInjector } from '@/components/ThemeInjector';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { config, loading: configLoading } = usePublicConfig();
+  // No need to fetch config - server already injected theme!
+  // Just get from DOM if needed for other purposes
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -18,10 +17,26 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [storeName, setStoreName] = useState('Admin Panel');
+  const [storeLogo, setStoreLogo] = useState<string | undefined>();
 
-  const primaryColor = config.primary_color || '#f43f5e';
-  const storeName = config.store_name || 'Admin Panel';
-  const storeLogo = config.store_logo;
+  // Fetch store branding (not color - that's already in CSS vars)
+  useEffect(() => {
+    const fetchBranding = async () => {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        const response = await fetch(`${baseUrl}/public/config`);
+        const data = await response.json();
+        if (data.success) {
+          setStoreName(data.data?.store_name || 'Admin Panel');
+          setStoreLogo(data.data?.store_logo);
+        }
+      } catch (err) {
+        // Use defaults
+      }
+    };
+    fetchBranding();
+  }, []);
 
   // Check if already logged in as admin
   useEffect(() => {
@@ -93,7 +108,7 @@ export default function AdminLoginPage() {
 
   return (
     <>
-      <ThemeInjector primaryColor={primaryColor} />
+      {/* No ThemeInjector needed - server already did it! */}
       <div 
         className="min-h-screen flex items-center justify-center"
         style={{

@@ -22,9 +22,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
   const { t } = useLanguage();
   const { config, loading } = useStoreConfig();
   
+  // Use config values but NEVER fallback to hardcoded colors!
+  // CSS variables from SSR are already in :root
   const storeName = config.store_name || 'Admin Panel';
   const storeLogo = config.store_logo;
-  const primaryColor = config.primary_color || '#f43f5e';
   
   const groups = [
     {
@@ -82,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
               <div 
                 className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-black shadow-lg"
                 style={{ 
-                  background: `linear-gradient(135deg, ${primaryColor}, ${adjustColor(primaryColor, -20)})` 
+                  background: `linear-gradient(135deg, var(--primary-500), var(--primary-700))` 
                 }}
                 aria-hidden="true"
               >
@@ -95,7 +96,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
               </span>
               <span 
                 className="text-[10px] font-semibold tracking-widest uppercase"
-                style={{ color: primaryColor }}
+                style={{ color: 'var(--primary-500)' }}
               >
                 CMS Dashboard
               </span>
@@ -106,14 +107,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
           onClick={toggle}
           aria-label={isOpen ? "Thu gọn sidebar" : "Mở rộng sidebar"}
           aria-expanded={isOpen}
-          className="p-2 md:p-2.5 rounded-xl dark:bg-slate-800 hover:dark:hover:bg-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-colors"
+          className="p-2 md:p-2.5 rounded-xl dark:bg-slate-800 hover:dark:hover:bg-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-colors bg-primary-50 text-primary-500 hover:bg-primary-100"
           style={{ 
-            backgroundColor: `${primaryColor}10`,
-            color: primaryColor,
-            ['--hover-bg' as string]: `${primaryColor}20`
+            backgroundColor: 'var(--primary-50)',
+            color: 'var(--primary-500)'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${primaryColor}20`}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${primaryColor}10`}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-100)'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-50)'}
         >
           <Menu size={18} aria-hidden="true" />
         </button>
@@ -140,13 +140,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
                       ? 'bg-gray-100 text-gray-900 dark:bg-gray-100 dark:text-black' 
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
-                  style={isActive ? {} : { ['--focus-ring-color' as string]: primaryColor }}
                 >
                   <item.icon 
                     size={20} 
                     className={`shrink-0 ${isActive ? 'text-gray-900 dark:text-black' : 'text-slate-400 dark:text-slate-500'}`}
-                    style={!isActive ? { ['--hover-color' as string]: primaryColor } : {}}
-                    onMouseEnter={(e) => !isActive && (e.currentTarget.style.color = primaryColor)}
+                    onMouseEnter={(e) => !isActive && (e.currentTarget.style.color = 'var(--primary-500)')}
                     onMouseLeave={(e) => !isActive && (e.currentTarget.style.color = '')}
                     aria-hidden="true" 
                   />
@@ -161,15 +159,5 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
     </aside>
   );
 };
-
-// Helper: Adjust color brightness
-function adjustColor(color: string, amount: number): string {
-  const hex = color.replace('#', '');
-  const num = parseInt(hex, 16);
-  const r = Math.max(0, Math.min(255, ((num >> 16) & 0xff) + amount));
-  const g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + amount));
-  const b = Math.max(0, Math.min(255, (num & 0xff) + amount));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-}
 
 export default Sidebar;

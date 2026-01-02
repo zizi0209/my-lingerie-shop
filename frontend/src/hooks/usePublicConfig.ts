@@ -23,7 +23,7 @@ export function usePublicConfig() {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
         const response = await fetch(`${baseUrl}/public/config`);
         const data = await response.json();
         

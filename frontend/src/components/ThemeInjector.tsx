@@ -7,15 +7,12 @@ interface ThemeInjectorProps {
 }
 
 /**
- * Injects CSS custom properties for monochromatic color system
- * Generates 11 shades (50-950) from primary color
+ * Client-side theme updater - only updates when admin changes color
+ * Server already injected initial theme, this just handles live updates
  */
 export function ThemeInjector({ primaryColor }: ThemeInjectorProps) {
   useEffect(() => {
     if (!primaryColor) return;
-
-    // Cache color to localStorage for instant loading
-    localStorage.setItem('primary_color', primaryColor);
 
     // Generate all shades
     const shades = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];

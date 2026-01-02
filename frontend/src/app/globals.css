@@ -16,25 +16,28 @@
   --gray-800: #262626;
   --gray-900: #171717;
   
-  /* Primary colors */
-  --primary: #f43f5e;
+  /* Primary colors - Fallback values if SSR fails */
+  /* Note: SSR in layout.tsx will override these with brand colors from DB */
+  --primary-50: #fff1f2;
+  --primary-100: #ffe4e6;
+  --primary-200: #fecdd3;
+  --primary-300: #fda4af;
+  --primary-400: #fb7185;
+  --primary-500: #f43f5e;
+  --primary-600: #e11d48;
+  --primary-700: #be123c;
+  --primary-800: #9f1239;
+  --primary-900: #881337;
+  --primary-950: #4c0519;
+  --primary: var(--primary-500);
+  --primary-hover: var(--primary-600);
+  --primary-active: var(--primary-700);
+  --primary-light: var(--primary-100);
+  --primary-dark: var(--primary-900);
   --primary-foreground: #ffffff;
   --secondary: #737373;
   --secondary-foreground: #ffffff;
-  --accent: #fda4af;
   --accent-foreground: #881337;
-  
-  /* Rose palette */
-  --rose-50: #fff1f2;
-  --rose-100: #ffe4e6;
-  --rose-200: #fecdd3;
-  --rose-300: #fda4af;
-  --rose-400: #fb7185;
-  --rose-500: #f43f5e;
-  --rose-600: #e11d48;
-  --rose-700: #be123c;
-  --rose-800: #9f1239;
-  --rose-900: #881337;
   
   /* Semantic colors */
   --success: #22c55e;
