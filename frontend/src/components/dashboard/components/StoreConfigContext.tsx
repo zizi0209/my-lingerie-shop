@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { api } from '@/lib/api';
 
 interface StoreConfig {
@@ -26,11 +26,22 @@ interface StoreConfigContextType {
 
 const StoreConfigContext = createContext<StoreConfigContextType | undefined>(undefined);
 
+// Get initial theme from SSR (stored in window by ThemeScript)
+function getInitialTheme(): string | undefined {
+  if (typeof window !== 'undefined') {
+    return (window as unknown as { __THEME_COLOR__?: string }).__THEME_COLOR__;
+  }
+  return undefined;
+}
+
 export function StoreConfigProvider({ children }: { children: ReactNode }) {
-  const [config, setConfig] = useState<StoreConfig>({});
+  // Initialize with SSR theme color to prevent flash
+  const [config, setConfig] = useState<StoreConfig>(() => ({
+    primary_color: getInitialTheme(),
+  }));
   const [loading, setLoading] = useState(true);
 
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get<{ success: boolean; data: StoreConfig }>('/admin/system-config');
@@ -42,11 +53,11 @@ export function StoreConfigProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchConfig();
-  }, []);
+  }, [fetchConfig]);
 
   return (
     <StoreConfigContext.Provider value={{ config, loading, refreshConfig: fetchConfig }}>

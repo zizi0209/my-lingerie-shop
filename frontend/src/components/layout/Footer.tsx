@@ -7,7 +7,7 @@ export default function Footer() {
       <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
         {/* Cột 1: Giới thiệu */}
         <div>
-          <h3 className="text-2xl font-serif font-bold text-rose-500 dark:text-rose-400 mb-4">
+          <h3 className="text-2xl font-serif font-bold text-primary-500 dark:text-primary-400 mb-4">
             LINGERIE
           </h3>
           <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
@@ -57,7 +57,7 @@ export default function Footer() {
               placeholder="Email của bạn..."
               className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-sm px-4 py-2 w-full rounded focus:ring-1 focus:ring-rose-500 transition"
             />
-            <button className="bg-rose-500 dark:bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-600 dark:hover:bg-rose-700 transition">
+            <button className="bg-primary-500 dark:bg-primary-600 text-white px-4 py-2 rounded text-sm hover:bg-primary-600 dark:hover:bg-primary-700 transition">
               Gửi
             </button>
           </div>

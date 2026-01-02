@@ -14,22 +14,24 @@ export function ThemeInjector({ primaryColor }: ThemeInjectorProps) {
   useEffect(() => {
     if (!primaryColor) return;
 
-    // Generate all shades
+    // Generate all shades and update CSS variables
     const shades = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
     const root = document.documentElement;
 
+    // Use setProperty with 'important' priority to override SSR styles
     shades.forEach(shade => {
       const color = generateMonochromaticShade(primaryColor, shade);
-      root.style.setProperty(`--primary-${shade}`, color);
+      root.style.setProperty(`--primary-${shade}`, color, 'important');
     });
 
-    // Set semantic variables for easy use
-    root.style.setProperty('--primary', generateMonochromaticShade(primaryColor, 500));
-    root.style.setProperty('--primary-hover', generateMonochromaticShade(primaryColor, 600));
-    root.style.setProperty('--primary-active', generateMonochromaticShade(primaryColor, 700));
-    root.style.setProperty('--primary-light', generateMonochromaticShade(primaryColor, 100));
-    root.style.setProperty('--primary-dark', generateMonochromaticShade(primaryColor, 900));
+    // Set semantic variables with important priority
+    root.style.setProperty('--primary', generateMonochromaticShade(primaryColor, 500), 'important');
+    root.style.setProperty('--primary-hover', generateMonochromaticShade(primaryColor, 600), 'important');
+    root.style.setProperty('--primary-active', generateMonochromaticShade(primaryColor, 700), 'important');
+    root.style.setProperty('--primary-light', generateMonochromaticShade(primaryColor, 100), 'important');
+    root.style.setProperty('--primary-dark', generateMonochromaticShade(primaryColor, 900), 'important');
 
+    console.log('[ThemeInjector] Updated theme to:', primaryColor);
   }, [primaryColor]);
 
   return null;

@@ -22,8 +22,8 @@ export default function Header() {
             <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
-          {/* 2. Logo */}
-          <Link href="/" className="text-xl sm:text-2xl font-bold font-serif text-rose-500">
+          {/* 2. Logo - Uses dynamic primary color */}
+          <Link href="/" className="text-xl sm:text-2xl font-bold font-serif text-primary-500">
             LINGERIE
           </Link>
         </div>
@@ -60,7 +60,7 @@ export default function Header() {
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition relative"
           >
             <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-300" />
-            <span className="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] flex items-center justify-center rounded-full">
+            <span className="absolute top-0 right-0 w-4 h-4 bg-primary-500 text-white text-[10px] flex items-center justify-center rounded-full">
               3
             </span>
           </Link>
