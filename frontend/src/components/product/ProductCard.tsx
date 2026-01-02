@@ -95,7 +95,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           href={`/san-pham/${product.id}`}
           className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
         >
-          <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-gray-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors line-clamp-2">
+          <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-300 transition-colors line-clamp-2">
             {product.name}
           </h3>
         </Link>

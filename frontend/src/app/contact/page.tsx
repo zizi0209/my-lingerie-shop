@@ -126,7 +126,7 @@ export default function ContactPage() {
             <p className="text-sm text-gray-600 mb-4">
               Tìm câu trả lời cho các câu hỏi phổ biến về sản phẩm, đặt hàng và vận chuyển.
             </p>
-            <Link href="/faq" className="text-rose-600 hover:text-rose-700 text-sm font-medium underline">
+            <Link href="/faq" className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 text-sm font-medium underline">
               Xem FAQ →
             </Link>
           </div>

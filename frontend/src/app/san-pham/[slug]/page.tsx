@@ -379,7 +379,7 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
               </div>
-              <h3 className="font-medium text-gray-900 group-hover:text-rose-600 transition-colors mb-2">
+              <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-300 transition-colors mb-2">
                 {relatedProduct.name}
               </h3>
               <p className="text-lg font-light">{relatedProduct.price.toLocaleString('vi-VN')}₫</p>

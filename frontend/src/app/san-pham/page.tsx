@@ -165,8 +165,8 @@ export default function ProductsPage() {
                     aria-pressed={selectedCategory === category}
                     className={`block w-full text-left py-2 px-2 rounded transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                       selectedCategory === category
-                        ? 'text-black dark:text-white font-medium bg-gray-100 dark:bg-gray-700'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-750'
+                        ? 'text-primary-600 dark:text-primary-400 font-medium bg-primary-50 dark:bg-primary-900/30'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     {category}
@@ -185,8 +185,8 @@ export default function ProductsPage() {
                     onClick={() => handleSizeToggle(size)}
                     className={`w-12 h-12 rounded border transition-all ${
                       selectedSizes.includes(size)
-                        ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
-                        : 'border-gray-300 dark:border-gray-600 hover:border-black dark:hover:border-white'
+                        ? 'border-primary-500 bg-primary-500 text-white'
+                        : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-300'
                     }`}
                   >
                     {size}
@@ -205,8 +205,8 @@ export default function ProductsPage() {
                     onClick={() => handleColorToggle(color)}
                     className={`flex items-center gap-3 w-full py-2 transition-colors ${
                       selectedColors.includes(color)
-                        ? 'text-black dark:text-white font-medium'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
+                        ? 'text-primary-600 dark:text-primary-400 font-medium'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300'
                     }`}
                   >
                     <div className={`w-4 h-4 rounded-full border ${

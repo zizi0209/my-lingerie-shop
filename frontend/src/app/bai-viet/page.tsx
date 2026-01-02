@@ -164,7 +164,7 @@ export default function BlogPage() {
                       className="object-cover group-hover:scale-105 transition duration-300"
                     />
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition duration-300"></div>
-                    <div className="absolute top-4 left-4 bg-rose-600 text-white px-3 py-1 rounded-full text-sm">
+                    <div className="absolute top-4 left-4 bg-primary-600 text-white px-3 py-1 rounded-full text-sm">
                       Nổi bật
                     </div>
                   </div>
@@ -179,7 +179,7 @@ export default function BlogPage() {
                         {post.readTime}
                       </span>
                     </div>
-                    <h3 className="text-xl font-medium group-hover:text-rose-600 transition">
+                    <h3 className="text-xl font-medium group-hover:text-primary-600 dark:group-hover:text-primary-300 transition">
                       {post.title}
                     </h3>
                     <p className="text-gray-600 line-clamp-2">{post.excerpt}</p>
@@ -188,7 +188,7 @@ export default function BlogPage() {
                         <User className="w-4 h-4" />
                         {post.author}
                       </span>
-                      <span className="text-rose-600 flex items-center gap-1 group-hover:gap-2 transition-all">
+                      <span className="text-primary-600 dark:text-primary-400 flex items-center gap-1 group-hover:gap-2 transition-all">
                         Đọc thêm
                         <ArrowRight className="w-4 h-4" />
                       </span>
@@ -234,7 +234,7 @@ export default function BlogPage() {
                         {post.readTime}
                       </span>
                     </div>
-                    <h3 className="text-lg font-medium group-hover:text-rose-600 transition line-clamp-2">
+                    <h3 className="text-lg font-medium group-hover:text-primary-600 dark:group-hover:text-primary-300 transition line-clamp-2">
                       {post.title}
                     </h3>
                     <p className="text-gray-600 text-sm line-clamp-2">{post.excerpt}</p>

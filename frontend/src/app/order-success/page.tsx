@@ -222,7 +222,7 @@ export default function OrderSuccessPage() {
           </p>
           <Link
             href="/san-pham"
-            className="text-rose-600 hover:text-rose-700 text-sm underline"
+            className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 text-sm underline"
           >
             Xem lại sản phẩm đã mua
           </Link>

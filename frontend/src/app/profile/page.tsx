@@ -356,7 +356,7 @@ export default function ProfilePage() {
                       </p>
                       <Link
                         href={`/order?code=${order.id}`}
-                        className="flex items-center gap-2 text-rose-600 hover:text-rose-700 transition"
+                        className="flex items-center gap-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition"
                       >
                         Xem chi tiết
                         <ChevronRight className="w-4 h-4" />

@@ -116,7 +116,7 @@ export default function CartPage() {
                 <div className="flex-1">
                   <div className="flex justify-between mb-2">
                     <Link href={`/san-pham/${item.id}`}>
-                      <h3 className="font-medium text-gray-900 dark:text-gray-100 hover:text-rose-600 dark:hover:text-rose-400 transition">
+                      <h3 className="font-medium text-gray-900 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-300 transition">
                         {item.name}
                       </h3>
                     </Link>

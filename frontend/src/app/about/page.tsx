@@ -57,7 +57,7 @@ export default function AboutPage() {
             </div>
             <Link
               href="/san-pham"
-              className="inline-flex items-center gap-2 text-black hover:text-rose-600 transition font-medium mt-8"
+              className="inline-flex items-center gap-2 text-black dark:text-white hover:text-primary-600 dark:hover:text-primary-300 transition font-medium mt-8"
             >
               Khám phá bộ sưu tập
               <ArrowRight className="w-5 h-5" />

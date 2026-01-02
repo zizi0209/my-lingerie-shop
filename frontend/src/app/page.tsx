@@ -182,7 +182,7 @@ export default function Home() {
                   Best Seller
                 </span>
               </div>
-              <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-gray-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition mb-1 md:mb-2">
+              <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-300 transition mb-1 md:mb-2">
                 Áo lót ren đen
               </h3>
               <p className="text-base md:text-lg font-light text-gray-900 dark:text-gray-300">
@@ -201,7 +201,7 @@ export default function Home() {
                   loading="lazy"
                 />
               </div>
-              <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-gray-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition mb-1 md:mb-2">
+              <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-300 transition mb-1 md:mb-2">
                 Quần lót ren
               </h3>
               <p className="text-base md:text-lg font-light text-gray-900 dark:text-gray-300">
@@ -223,7 +223,7 @@ export default function Home() {
                   -30%
                 </span>
               </div>
-              <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-gray-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition mb-1 md:mb-2">
+              <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-300 transition mb-1 md:mb-2">
                 Đồ ngủ lụa
               </h3>
               <div className="flex items-center gap-2 flex-wrap">
@@ -250,7 +250,7 @@ export default function Home() {
                   New
                 </span>
               </div>
-              <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-gray-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition mb-1 md:mb-2">
+              <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-300 transition mb-1 md:mb-2">
                 Bộ nội y trắng
               </h3>
               <p className="text-base md:text-lg font-light text-gray-900 dark:text-gray-300">
@@ -295,7 +295,7 @@ export default function Home() {
               <Link
                 href="/about"
                 aria-label="Tìm hiểu thêm về chúng tôi"
-                className="inline-flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:text-rose-600 dark:hover:text-rose-400 transition font-medium min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded px-2 -ml-2"
+                className="inline-flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-300 transition font-medium min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded px-2 -ml-2"
               >
                 Tìm hiểu thêm về chúng tôi
                 <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />

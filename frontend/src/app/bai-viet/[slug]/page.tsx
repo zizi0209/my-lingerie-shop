@@ -185,7 +185,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <h1 className="text-2xl font-medium mb-4">Bài viết không tồn tại</h1>
-          <Link href="/bai-viet" className="text-rose-600 hover:text-rose-700">
+          <Link href="/bai-viet" className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
             ← Quay lại danh sách bài viết
           </Link>
         </div>
@@ -327,7 +327,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
                       className="object-cover group-hover:scale-105 transition duration-300"
                     />
                   </div>
-                  <h4 className="font-medium group-hover:text-rose-600 transition line-clamp-2">
+                  <h4 className="font-medium group-hover:text-primary-600 dark:group-hover:text-primary-300 transition line-clamp-2">
                     {relatedPost.title}
                   </h4>
                   <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">

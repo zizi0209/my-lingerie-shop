@@ -216,7 +216,7 @@ export default function ForgetPasswordPage() {
                 <button
                   type="button"
                   onClick={handleSendOTP}
-                  className="text-rose-600 hover:text-rose-700 transition"
+                  className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition"
                 >
                   Gửi lại OTP
                 </button>
@@ -300,7 +300,7 @@ export default function ForgetPasswordPage() {
         <div className="text-center mt-8">
           <p className="text-sm text-gray-600">
             Cần trợ giúp?{" "}
-            <Link href="/contact" className="text-rose-600 hover:text-rose-700">
+            <Link href="/contact" className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
               Liên hệ chúng tôi
             </Link>
           </p>
