@@ -610,7 +610,7 @@ const Settings: React.FC = () => {
                     value={config.social_facebook || ''}
                     onChange={(e) => handleChange('social_facebook', e.target.value)}
                     placeholder="https://facebook.com/..."
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 font-medium"
                   />
                 </div>
                 <div className="space-y-2">
@@ -622,7 +622,7 @@ const Settings: React.FC = () => {
                     value={config.social_instagram || ''}
                     onChange={(e) => handleChange('social_instagram', e.target.value)}
                     placeholder="https://instagram.com/..."
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 font-medium"
                   />
                 </div>
                 <div className="space-y-2">
@@ -632,7 +632,7 @@ const Settings: React.FC = () => {
                     value={config.social_tiktok || ''}
                     onChange={(e) => handleChange('social_tiktok', e.target.value)}
                     placeholder="https://tiktok.com/..."
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 font-medium"
                   />
                 </div>
               </div>
@@ -850,7 +850,7 @@ const Settings: React.FC = () => {
                     value={config.bank_name || ''}
                     onChange={(e) => handleChange('bank_name', e.target.value)}
                     placeholder="Vietcombank, Techcombank..."
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 font-medium"
                   />
                 </div>
                 <div className="space-y-2">
@@ -870,7 +870,7 @@ const Settings: React.FC = () => {
                     value={config.bank_account_holder || ''}
                     onChange={(e) => handleChange('bank_account_holder', e.target.value)}
                     placeholder="NGUYEN VAN A"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium uppercase"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 font-medium uppercase"
                   />
                 </div>
               </div>
@@ -1042,7 +1042,7 @@ const Settings: React.FC = () => {
                     type="text"
                     value={config.seo_title || ''}
                     onChange={(e) => handleChange('seo_title', e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 font-medium"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1061,7 +1061,7 @@ const Settings: React.FC = () => {
                     value={config.seo_keywords || ''}
                     onChange={(e) => handleChange('seo_keywords', e.target.value)}
                     placeholder={language === 'vi' ? 'lingerie, nội y, đồ lót...' : 'lingerie, underwear, intimate...'}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 font-medium"
                   />
                 </div>
 
