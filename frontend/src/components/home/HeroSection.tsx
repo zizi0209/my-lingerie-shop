@@ -40,10 +40,10 @@ export default function HeroSection({ content }: HeroSectionProps) {
       </div>
 
       <div className="relative z-10 text-center text-white px-4 max-w-5xl mx-auto">
-        <h1 className="text-4xl md:text-7xl lg:text-8xl font-serif font-light mb-4 md:mb-6 leading-tight">
+        <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-light mb-4 md:mb-6 leading-tight">
           {title}
         </h1>
-        <p className="text-base md:text-lg lg:text-xl text-white/90 max-w-2xl mx-auto mb-8 md:mb-10 font-light leading-relaxed px-4">
+        <p className="text-base md:text-lg text-white/90 max-w-2xl mx-auto mb-8 md:mb-10 font-light leading-relaxed px-4">
           {subtitle}
         </p>
         <Link

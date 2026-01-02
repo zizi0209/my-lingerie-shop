@@ -33,7 +33,7 @@ export default function DynamicSections() {
           const visibleSections = data.data
             .filter((s: PageSection) => s.isVisible)
             .sort((a: PageSection, b: PageSection) => a.order - b.order);
-          console.log('[DynamicSections] Loaded sections:', visibleSections.map((s: PageSection) => s.code));
+          
           setSections(visibleSections);
         }
       } catch (err) {
@@ -53,8 +53,6 @@ export default function DynamicSections() {
       : section.code;
     const code = rawCode.toLowerCase();
 
-    console.log('[DynamicSections] Rendering section:', section.code, '-> base code:', code);
-
     switch (code) {
       case 'hero':
         return <HeroSection key={section.id} content={content} />;
@@ -71,7 +69,6 @@ export default function DynamicSections() {
       case 'newsletter':
         return <Newsletter key={section.id} content={content} />;
       default:
-        console.warn('[DynamicSections] Unknown section code:', code);
         return null;
     }
   };

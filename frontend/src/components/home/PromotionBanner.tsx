@@ -37,10 +37,10 @@ export default function PromotionBanner({ content }: PromotionBannerProps) {
       </div>
 
       <div className="relative z-10 container mx-auto px-4 text-center text-white">
-        <h2 className="text-4xl md:text-6xl font-serif font-light mb-4">
+        <h2 className="text-4xl md:text-5xl font-serif font-light mb-4">
           {title}
         </h2>
-        <p className="text-xl md:text-2xl mb-8 opacity-90">
+        <p className="text-lg md:text-xl mb-8 text-white/90">
           {subtitle}
         </p>
         <Link

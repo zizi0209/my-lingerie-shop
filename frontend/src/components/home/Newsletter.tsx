@@ -31,13 +31,13 @@ export default function Newsletter({ content }: NewsletterProps) {
   };
 
   return (
-    <section className="bg-primary-50 dark:bg-primary-900/20 py-12 md:py-20 transition-colors">
+    <section className="bg-gray-50 dark:bg-gray-900 py-12 md:py-20 transition-colors">
       <div className="container mx-auto px-4 max-w-2xl text-center">
-        <Mail className="w-12 h-12 mx-auto mb-4 text-primary-500" />
-        <h2 className="text-2xl md:text-3xl font-serif font-light mb-2 text-gray-900 dark:text-white">
+        <Mail className="w-12 h-12 mx-auto mb-4 text-primary-500 dark:text-primary-400" />
+        <h2 className="text-3xl md:text-4xl font-serif font-light mb-4 text-gray-900 dark:text-white">
           {title}
         </h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
+        <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-8">
           {subtitle}
         </p>
 

@@ -75,8 +75,8 @@ export default function CategoriesSection({ content }: CategoriesSectionProps) {
   return (
     <section className="bg-white dark:bg-gray-950 py-12 md:py-20 transition-colors">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-8 md:mb-12">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-3 text-gray-900 dark:text-white">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-5xl font-serif font-light mb-4 text-gray-900 dark:text-white">
             {title}
           </h2>
         </div>
