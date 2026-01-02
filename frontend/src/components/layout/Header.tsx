@@ -30,16 +30,16 @@ export default function Header() {
 
         {/* 3. Navigation - Center - Ẩn ở mobile, Hiện ở Desktop */}
         <nav className="hidden lg:flex items-center gap-6 xl:gap-8 text-xs xl:text-sm font-medium text-gray-600 dark:text-gray-300 flex-1 justify-center">
-          <Link href="/" className="hover:text-rose-500 dark:hover:text-rose-400 transition">
+          <Link href="/" className="hover:text-primary-500 dark:hover:text-primary-400 transition">
             TRANG CHỦ
           </Link>
-          <Link href="/san-pham" className="hover:text-rose-500 dark:hover:text-rose-400 transition">
+          <Link href="/san-pham" className="hover:text-primary-500 dark:hover:text-primary-400 transition">
             SẢN PHẨM
           </Link>
-          <Link href="/bai-viet" className="hover:text-rose-500 dark:hover:text-rose-400 transition">
+          <Link href="/bai-viet" className="hover:text-primary-500 dark:hover:text-primary-400 transition">
             GÓC TƯ VẤN
           </Link>
-          <Link href="/order" className="hover:text-rose-500 dark:hover:text-rose-400 transition">
+          <Link href="/order" className="hover:text-primary-500 dark:hover:text-primary-400 transition">
             TRA CỨU ĐƠN
           </Link>
         </nav>
@@ -80,13 +80,13 @@ export default function Header() {
       {/* Mobile Menu Dropdown */}
       {isMenuOpen && (
         <div className="md:hidden border-t bg-white dark:bg-gray-900 dark:border-gray-800 p-4 space-y-4">
-          <Link href="/" className="block py-2 text-gray-600 dark:text-gray-300 hover:text-rose-500 dark:hover:text-rose-400 transition">
+          <Link href="/" className="block py-2 text-gray-600 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-400 transition">
             Trang chủ
           </Link>
-          <Link href="/san-pham" className="block py-2 text-gray-600 dark:text-gray-300 hover:text-rose-500 dark:hover:text-rose-400 transition">
+          <Link href="/san-pham" className="block py-2 text-gray-600 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-400 transition">
             Sản phẩm
           </Link>
-          <Link href="/bai-viet" className="block py-2 text-gray-600 dark:text-gray-300 hover:text-rose-500 dark:hover:text-rose-400 transition">
+          <Link href="/bai-viet" className="block py-2 text-gray-600 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-400 transition">
             Góc tư vấn
           </Link>
           

@@ -19,15 +19,15 @@ export default function Footer() {
         {/* Cột 2: Liên kết */}
         <div>
           <h4 className="font-bold mb-4">Về chúng tôi</h4>
-          <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400 hover:[&>li>a]:text-rose-500 dark:hover:[&>li>a]:text-rose-400">
+          <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
             <li>
-              <Link href="/about" className="transition hover:text-rose-500 dark:hover:text-rose-400">Câu chuyện thương hiệu</Link>
+              <Link href="/about" className="transition hover:text-primary-500 dark:hover:text-primary-400">Câu chuyện thương hiệu</Link>
             </li>
             <li>
-              <Link href="/contact" className="transition hover:text-rose-500 dark:hover:text-rose-400">Liên hệ</Link>
+              <Link href="/contact" className="transition hover:text-primary-500 dark:hover:text-primary-400">Liên hệ</Link>
             </li>
             <li>
-              <Link href="/careers" className="transition hover:text-rose-500 dark:hover:text-rose-400">Tuyển dụng</Link>
+              <Link href="/careers" className="transition hover:text-primary-500 dark:hover:text-primary-400">Tuyển dụng</Link>
             </li>
           </ul>
         </div>
@@ -37,13 +37,13 @@ export default function Footer() {
           <h4 className="font-bold mb-4">Chính sách</h4>
           <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
             <li>
-              <Link href="/policy" className="transition hover:text-rose-500 dark:hover:text-rose-400">Chính sách đổi trả</Link>
+              <Link href="/policy" className="transition hover:text-primary-500 dark:hover:text-primary-400">Chính sách đổi trả</Link>
             </li>
             <li>
-              <Link href="/shipping" className="transition hover:text-rose-500 dark:hover:text-rose-400">Chính sách vận chuyển</Link>
+              <Link href="/shipping" className="transition hover:text-primary-500 dark:hover:text-primary-400">Chính sách vận chuyển</Link>
             </li>
             <li>
-              <Link href="/security" className="transition hover:text-rose-500 dark:hover:text-rose-400">Bảo mật thông tin</Link>
+              <Link href="/security" className="transition hover:text-primary-500 dark:hover:text-primary-400">Bảo mật thông tin</Link>
             </li>
           </ul>
         </div>
@@ -55,7 +55,7 @@ export default function Footer() {
             <input
               type="email"
               placeholder="Email của bạn..."
-              className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-sm px-4 py-2 w-full rounded focus:ring-1 focus:ring-rose-500 transition"
+              className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-sm px-4 py-2 w-full rounded focus:ring-1 focus:ring-primary-500 transition"
             />
             <button className="bg-primary-500 dark:bg-primary-600 text-white px-4 py-2 rounded text-sm hover:bg-primary-600 dark:hover:bg-primary-700 transition">
               Gửi
