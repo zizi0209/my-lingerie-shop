@@ -61,7 +61,19 @@ const Header: React.FC<HeaderProps> = () => {
           />
           <button 
             aria-label="Cài đặt tìm kiếm"
-            className="p-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 hover:text-rose-500 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 transition-colors"
+            className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-slate-500 dark:text-slate-400 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
+            style={{
+              ['--hover-bg' as string]: 'var(--primary-50)',
+              ['--hover-color' as string]: 'var(--primary-500)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--primary-50)';
+              e.currentTarget.style.color = 'var(--primary-500)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '';
+              e.currentTarget.style.color = '';
+            }}
           >
             <SettingsIcon size={16} aria-hidden="true" />
           </button>
@@ -71,7 +83,15 @@ const Header: React.FC<HeaderProps> = () => {
           <button 
             onClick={toggleLanguage}
             aria-label={`Chuyển ngôn ngữ - Hiện tại: ${language === 'vi' ? 'Tiếng Việt' : 'English'}`}
-            className="flex items-center space-x-2 px-3 py-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 transition-colors"
+            className="flex items-center space-x-2 px-3 py-2 text-slate-500 dark:text-slate-400 rounded-xl min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--primary-50)';
+              e.currentTarget.style.color = 'var(--primary-500)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '';
+              e.currentTarget.style.color = '';
+            }}
           >
             <Languages size={18} aria-hidden="true" />
             <span className="text-xs font-black uppercase tracking-widest">{language}</span>
@@ -80,17 +100,37 @@ const Header: React.FC<HeaderProps> = () => {
           <button 
             onClick={toggleTheme}
             aria-label={theme === 'light' ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'}
-            className="p-2 text-slate-500 dark:text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 transition-colors"
+            className="p-2 text-slate-500 dark:text-slate-400 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--primary-50)';
+              e.currentTarget.style.color = 'var(--primary-500)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '';
+              e.currentTarget.style.color = '';
+            }}
           >
-            {theme === 'light' ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} className="text-amber-400" aria-hidden="true" />}
+            {theme === 'light' ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
           </button>
           
           <button 
             aria-label="Thông báo - Có 1 thông báo mới"
-            className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl relative min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 transition-colors"
+            className="p-2 text-slate-500 dark:text-slate-400 rounded-xl relative min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--primary-50)';
+              e.currentTarget.style.color = 'var(--primary-500)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '';
+              e.currentTarget.style.color = '';
+            }}
           >
             <Bell size={18} aria-hidden="true" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" aria-label="Có thông báo mới"></span>
+            <span 
+              className="absolute top-2 right-2 w-2 h-2 rounded-full border-2 border-white dark:border-slate-900" 
+              style={{ backgroundColor: 'var(--primary-500)' }}
+              aria-label="Có thông báo mới"
+            ></span>
           </button>
 
           {/* Profile Dropdown */}

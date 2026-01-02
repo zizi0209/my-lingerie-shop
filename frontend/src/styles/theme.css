@@ -1,0 +1,56 @@
+/* Dynamic Theme Utilities using CSS Variables */
+
+/* Backgrounds */
+.bg-primary-50 { background-color: var(--primary-50) !important; }
+.bg-primary-100 { background-color: var(--primary-100) !important; }
+.bg-primary-200 { background-color: var(--primary-200) !important; }
+.bg-primary-500 { background-color: var(--primary-500) !important; }
+.bg-primary-600 { background-color: var(--primary-600) !important; }
+.bg-primary-900 { background-color: var(--primary-900) !important; }
+
+/* Text Colors */
+.text-primary-300 { color: var(--primary-300) !important; }
+.text-primary-400 { color: var(--primary-400) !important; }
+.text-primary-500 { color: var(--primary-500) !important; }
+.text-primary-600 { color: var(--primary-600) !important; }
+.text-primary-700 { color: var(--primary-700) !important; }
+
+/* Border Colors */
+.border-primary-200 { border-color: var(--primary-200) !important; }
+.border-primary-500 { border-color: var(--primary-500) !important; }
+
+/* Hover states */
+.hover\:bg-primary-600:hover { background-color: var(--primary-600) !important; }
+.hover\:bg-primary-100:hover { background-color: var(--primary-100) !important; }
+.hover\:bg-primary-200:hover { background-color: var(--primary-200) !important; }
+.hover\:text-primary-500:hover { color: var(--primary-500) !important; }
+
+/* Focus states */
+.focus\:ring-primary\/20:focus { 
+  --tw-ring-color: var(--primary-100) !important;
+  box-shadow: 0 0 0 3px var(--primary-100) !important;
+}
+.focus\:border-primary:focus { border-color: var(--primary-500) !important; }
+
+/* Dark mode variants */
+.dark\:bg-primary-500\/10:is(.dark *) { background-color: color-mix(in srgb, var(--primary-500) 10%, transparent) !important; }
+.dark\:bg-primary-500\/20:is(.dark *) { background-color: color-mix(in srgb, var(--primary-500) 20%, transparent) !important; }
+.dark\:border-primary-500\/20:is(.dark *) { border-color: color-mix(in srgb, var(--primary-500) 20%, transparent) !important; }
+.dark\:text-primary-400:is(.dark *) { color: var(--primary-400) !important; }
+
+/* Shadows */
+.shadow-primary-200 { 
+  --tw-shadow-color: var(--primary-200);
+  box-shadow: 0 10px 15px -3px var(--primary-200), 0 4px 6px -4px var(--primary-200) !important;
+}
+
+/* Spinner/Loading animation */
+.animate-spin-primary {
+  animation: spin 1s linear infinite;
+  color: var(--primary-500) !important;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

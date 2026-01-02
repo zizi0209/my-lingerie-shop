@@ -5,9 +5,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { isAdmin, User } from '@/lib/adminApi';
+import { usePublicConfig } from '@/hooks/usePublicConfig';
+import { ThemeInjector } from '@/components/ThemeInjector';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { config, loading: configLoading } = usePublicConfig();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -15,6 +18,10 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+
+  const primaryColor = config.primary_color || '#f43f5e';
+  const storeName = config.store_name || 'Admin Panel';
+  const storeLogo = config.store_logo;
 
   // Check if already logged in as admin
   useEffect(() => {
@@ -85,28 +92,46 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="w-full max-w-md px-6">
-        {/* Logo/Title */}
-        <div className="text-center mb-8">
-          <div className="inline-block p-4 bg-purple-600 rounded-2xl mb-4">
-            <svg
-              className="w-12 h-12 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+    <>
+      <ThemeInjector primaryColor={primaryColor} />
+      <div 
+        className="min-h-screen flex items-center justify-center"
+        style={{
+          background: `linear-gradient(135deg, #0f172a 0%, var(--primary-900) 50%, #0f172a 100%)`
+        }}
+      >
+        <div className="w-full max-w-md px-6">
+          {/* Logo/Title */}
+          <div className="text-center mb-8">
+            <div 
+              className="inline-block p-4 rounded-2xl mb-4 shadow-2xl"
+              style={{ backgroundColor: 'var(--primary-600)' }}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-              />
-            </svg>
+              {storeLogo ? (
+                <img 
+                  src={storeLogo} 
+                  alt={storeName}
+                  className="w-12 h-12 object-contain"
+                />
+              ) : (
+                <svg
+                  className="w-12 h-12 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+              )}
+            </div>
+            <h1 className="text-3xl font-bold text-white mb-2">{storeName}</h1>
+            <p style={{ color: 'var(--primary-300)' }}>Đăng nhập để quản lý hệ thống</p>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
-          <p className="text-purple-300">Đăng nhập để quản lý hệ thống</p>
-        </div>
 
         {/* Login Form */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8">
@@ -125,9 +150,12 @@ export default function AdminLoginPage() {
                 required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                style={{ ['--tw-ring-color' as string]: 'var(--primary-500)' }}
                 placeholder="admin@example.com"
                 disabled={loading}
+                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--primary-500)'}
+                onBlur={(e) => e.currentTarget.style.borderColor = ''}
               />
             </div>
 
@@ -145,9 +173,12 @@ export default function AdminLoginPage() {
                 required
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                style={{ ['--tw-ring-color' as string]: 'var(--primary-500)' }}
                 placeholder="••••••••"
                 disabled={loading}
+                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--primary-500)'}
+                onBlur={(e) => e.currentTarget.style.borderColor = ''}
               />
             </div>
 
@@ -162,7 +193,16 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 bg-linear-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 px-4 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: `linear-gradient(135deg, var(--primary-600), var(--primary-700))`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = `linear-gradient(135deg, var(--primary-700), var(--primary-800))`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = `linear-gradient(135deg, var(--primary-600), var(--primary-700))`;
+              }}
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -205,12 +245,16 @@ export default function AdminLoginPage() {
         <div className="text-center mt-6">
           <Link
             href="/"
-            className="text-sm text-purple-300 hover:text-white transition-colors"
+            className="text-sm transition-colors"
+            style={{ color: 'var(--primary-300)' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--primary-300)'}
           >
             ← Quay về trang chủ
           </Link>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

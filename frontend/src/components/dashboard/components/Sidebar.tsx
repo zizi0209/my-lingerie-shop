@@ -7,9 +7,10 @@ import {
   LayoutDashboard, ShoppingBag, Layers, FileText, 
   Users, UserCheck, ShoppingCart, Settings, 
   ShieldCheck, MousePointer2, Home, 
-  Tag, Menu, Activity
+  Tag, Menu, Activity, Store
 } from 'lucide-react';
 import { useLanguage } from './LanguageContext';
+import { useStoreConfig } from './StoreConfigContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -19,6 +20,11 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
   const pathname = usePathname();
   const { t } = useLanguage();
+  const { config, loading } = useStoreConfig();
+  
+  const storeName = config.store_name || 'Admin Panel';
+  const storeLogo = config.store_logo;
+  const primaryColor = config.primary_color || '#f43f5e';
   
   const groups = [
     {
@@ -64,19 +70,50 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
       <div className="p-4 md:p-6 flex items-center justify-between mb-2">
         {isOpen && (
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-rose-500 rounded-lg flex items-center justify-center text-white font-black italic" aria-hidden="true">
-              SL
+            {storeLogo ? (
+              <div className="w-8 h-8 rounded-xl overflow-hidden shadow-lg" aria-hidden="true">
+                <img 
+                  src={storeLogo} 
+                  alt={storeName}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : (
+              <div 
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-black shadow-lg"
+                style={{ 
+                  background: `linear-gradient(135deg, ${primaryColor}, ${adjustColor(primaryColor, -20)})` 
+                }}
+                aria-hidden="true"
+              >
+                <Store size={16} />
+              </div>
+            )}
+            <div className="flex flex-col">
+              <span className="text-base md:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                {loading ? 'Loading...' : storeName}
+              </span>
+              <span 
+                className="text-[10px] font-semibold tracking-widest uppercase"
+                style={{ color: primaryColor }}
+              >
+                CMS Dashboard
+              </span>
             </div>
-            <span className="text-base md:text-lg font-black italic tracking-tighter bg-linear-to-r from-rose-500 to-pink-600 bg-clip-text text-transparent">
-              BERRY SILK
-            </span>
           </div>
         )}
         <button 
           onClick={toggle}
           aria-label={isOpen ? "Thu gọn sidebar" : "Mở rộng sidebar"}
           aria-expanded={isOpen}
-          className="p-2 md:p-2.5 rounded-xl bg-rose-50 dark:bg-slate-800 text-rose-500 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 transition-colors"
+          className="p-2 md:p-2.5 rounded-xl dark:bg-slate-800 hover:dark:hover:bg-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-colors"
+          style={{ 
+            backgroundColor: `${primaryColor}10`,
+            color: primaryColor,
+            ['--hover-bg' as string]: `${primaryColor}20`
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${primaryColor}20`}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${primaryColor}10`}
         >
           <Menu size={18} aria-hidden="true" />
         </button>
@@ -98,13 +135,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
                   href={item.path}
                   aria-label={item.name}
                   aria-current={isActive ? "page" : undefined}
-                  className={`flex items-center p-3 rounded-xl group min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-inset ${
+                  className={`flex items-center p-3 rounded-xl group min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset ${
                     isActive 
                       ? 'bg-gray-100 text-gray-900 dark:bg-gray-100 dark:text-black' 
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
+                  style={isActive ? {} : { ['--focus-ring-color' as string]: primaryColor }}
                 >
-                  <item.icon size={20} className={`shrink-0 ${isActive ? 'text-gray-900 dark:text-black' : 'text-slate-400 dark:text-slate-500 group-hover:text-rose-500'}`} aria-hidden="true" />
+                  <item.icon 
+                    size={20} 
+                    className={`shrink-0 ${isActive ? 'text-gray-900 dark:text-black' : 'text-slate-400 dark:text-slate-500'}`}
+                    style={!isActive ? { ['--hover-color' as string]: primaryColor } : {}}
+                    onMouseEnter={(e) => !isActive && (e.currentTarget.style.color = primaryColor)}
+                    onMouseLeave={(e) => !isActive && (e.currentTarget.style.color = '')}
+                    aria-hidden="true" 
+                  />
                   {isOpen && <span className={`ml-3 text-xs md:text-[13px] font-semibold tracking-tight`}>{item.name}</span>}
                   {isActive && isOpen && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gray-900 dark:bg-black" aria-hidden="true"></div>}
                 </Link>
@@ -116,5 +161,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
     </aside>
   );
 };
+
+// Helper: Adjust color brightness
+function adjustColor(color: string, amount: number): string {
+  const hex = color.replace('#', '');
+  const num = parseInt(hex, 16);
+  const r = Math.max(0, Math.min(255, ((num >> 16) & 0xff) + amount));
+  const g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + amount));
+  const b = Math.max(0, Math.min(255, (num & 0xff) + amount));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
 
 export default Sidebar;

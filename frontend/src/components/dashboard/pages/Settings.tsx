@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useLanguage } from '../components/LanguageContext';
+import { useStoreConfig } from '../components/StoreConfigContext';
 import { compressImage, ACCEPTED_IMAGE_TYPES, formatFileSize, type CompressedImage } from '@/lib/imageUtils';
 
 interface SystemConfig {
@@ -60,9 +61,8 @@ interface SystemConfig {
   // System
   maintenance_mode?: string; // 'true' or 'false'
   
-  // Theme
+  // Theme (Monochromatic)
   primary_color?: string;
-  secondary_color?: string;
 }
 
 const defaultConfig: SystemConfig = {
@@ -95,14 +95,14 @@ const defaultConfig: SystemConfig = {
   return_policy: '',
   size_guide: '',
   maintenance_mode: 'false',
-  primary_color: '#f43f5e',
-  secondary_color: '#8b5cf6',
+  primary_color: '#f43f5e', // Rose-500 - Monochromatic base
 };
 
 type TabKey = 'general' | 'orders' | 'payment' | 'notifications' | 'integrations';
 
 const Settings: React.FC = () => {
   const { language } = useLanguage();
+  const { refreshConfig } = useStoreConfig();
   
   const [activeTab, setActiveTab] = useState<TabKey>('general');
   const [loading, setLoading] = useState(true);
@@ -205,9 +205,9 @@ const Settings: React.FC = () => {
     maintenanceMode: language === 'vi' ? 'Chế độ bảo trì' : 'Maintenance Mode',
     maintenanceModeHelp: language === 'vi' ? 'Tạm đóng cửa website để bảo trì' : 'Temporarily close website for maintenance',
     
-    // Fields - Theme
-    primaryColor: language === 'vi' ? 'Màu chính' : 'Primary Color',
-    secondaryColor: language === 'vi' ? 'Màu phụ' : 'Secondary Color',
+    // Fields - Theme (Monochromatic)
+    primaryColor: language === 'vi' ? 'Màu chủ đạo' : 'Brand Color',
+    primaryColorDesc: language === 'vi' ? 'Hệ thống sẽ tự động tạo tints/shades từ màu này' : 'System will auto-generate tints/shades',
     
     // Actions
     uploadLogo: language === 'vi' ? 'Tải logo lên' : 'Upload Logo',
@@ -339,6 +339,9 @@ const Settings: React.FC = () => {
       setUploadingOgImage(null);
       setSuccess(t.saveSuccess);
       
+      // Refresh global config context
+      await refreshConfig();
+      
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Có lỗi xảy ra';
@@ -404,7 +407,7 @@ const Settings: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 size={32} className="animate-spin text-rose-500" />
+        <Loader2 size={32} className="animate-spin text-primary-500" />
         <span className="ml-3 text-slate-500 font-medium">
           {language === 'vi' ? 'Đang tải...' : 'Loading...'}
         </span>
@@ -423,7 +426,7 @@ const Settings: React.FC = () => {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-xs flex items-center gap-2 transition-all shadow-lg shadow-rose-200 dark:shadow-none disabled:opacity-50"
+          className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-xs flex items-center gap-2 transition-all shadow-lg shadow-primary-200 dark:shadow-none disabled:opacity-50"
         >
           {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
           <span>{saving ? t.saving : t.save}</span>
@@ -432,9 +435,9 @@ const Settings: React.FC = () => {
 
       {/* Messages */}
       {error && (
-        <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl p-4 flex items-center gap-3">
-          <AlertCircle className="text-rose-500 shrink-0" size={20} />
-          <p className="text-rose-700 dark:text-rose-400 text-sm font-medium">{error}</p>
+        <div className="bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="text-primary-500 shrink-0" size={20} />
+          <p className="text-primary-700 dark:text-primary-400 text-sm font-medium">{error}</p>
         </div>
       )}
       {success && (
@@ -453,7 +456,7 @@ const Settings: React.FC = () => {
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === tab.key
-                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-200 dark:shadow-none'
+                  ? 'bg-primary-500 text-white shadow-lg shadow-primary-200 dark:shadow-none'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
@@ -473,8 +476,8 @@ const Settings: React.FC = () => {
             {/* Store Information */}
             <div className="bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
-                <div className="p-2 bg-rose-50 dark:bg-rose-500/10 rounded-xl">
-                  <Store size={20} className="text-rose-500" />
+                <div className="p-2 bg-primary-50 dark:bg-primary-500/10 rounded-xl">
+                  <Store size={20} className="text-primary-500" />
                 </div>
                 <h2 className="font-black text-slate-900 dark:text-white uppercase tracking-tight">{t.storeInfo}</h2>
               </div>
@@ -506,7 +509,7 @@ const Settings: React.FC = () => {
                         type="button"
                         onClick={() => logoInputRef.current?.click()}
                         disabled={isCompressing}
-                        className="px-4 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg flex items-center gap-2"
+                        className="px-4 py-2 text-xs font-bold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-500/10 hover:bg-primary-100 dark:hover:bg-primary-200 rounded-lg flex items-center gap-2"
                       >
                         {isCompressing ? (
                           <><Loader2 size={14} className="animate-spin" /> {t.compressing}</>
@@ -539,7 +542,7 @@ const Settings: React.FC = () => {
                       type="text"
                       value={config.store_name || ''}
                       onChange={(e) => handleChange('store_name', e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium"
                     />
                   </div>
                   <div className="space-y-2">
@@ -550,7 +553,7 @@ const Settings: React.FC = () => {
                       type="email"
                       value={config.store_email || ''}
                       onChange={(e) => handleChange('store_email', e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium"
                     />
                   </div>
                   <div className="space-y-2">
@@ -561,7 +564,7 @@ const Settings: React.FC = () => {
                       type="tel"
                       value={config.store_phone || ''}
                       onChange={(e) => handleChange('store_phone', e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium"
                     />
                   </div>
                   <div className="space-y-2">
@@ -572,7 +575,7 @@ const Settings: React.FC = () => {
                       type="text"
                       value={config.store_address || ''}
                       onChange={(e) => handleChange('store_address', e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium"
                     />
                   </div>
                 </div>
@@ -583,7 +586,7 @@ const Settings: React.FC = () => {
                     value={config.store_description || ''}
                     onChange={(e) => handleChange('store_description', e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium resize-none"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium resize-none"
                   />
                 </div>
               </div>
@@ -675,39 +678,105 @@ const Settings: React.FC = () => {
                 </div>
                 <h2 className="font-black text-slate-900 dark:text-white uppercase tracking-tight">{t.appearance}</h2>
               </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.primaryColor}</label>
+              <div className="p-6 space-y-5">
+                {/* Monochromatic Color System */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.primaryColor}</label>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t.primaryColorDesc}</p>
+                  </div>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
                       value={config.primary_color || '#f43f5e'}
                       onChange={(e) => handleChange('primary_color', e.target.value)}
-                      className="w-12 h-12 rounded-xl border-2 border-slate-200 dark:border-slate-700 cursor-pointer"
+                      className="w-14 h-14 rounded-xl border-2 border-slate-200 dark:border-slate-700 cursor-pointer shadow-sm"
                     />
                     <input
                       type="text"
                       value={config.primary_color || '#f43f5e'}
                       onChange={(e) => handleChange('primary_color', e.target.value)}
-                      className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-mono"
+                      className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-mono text-sm"
+                      placeholder="#f43f5e"
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.secondaryColor}</label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      value={config.secondary_color || '#8b5cf6'}
-                      onChange={(e) => handleChange('secondary_color', e.target.value)}
-                      className="w-12 h-12 rounded-xl border-2 border-slate-200 dark:border-slate-700 cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={config.secondary_color || '#8b5cf6'}
-                      onChange={(e) => handleChange('secondary_color', e.target.value)}
-                      className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-mono"
-                    />
+                  
+                  {/* Color Preview - Monochromatic System */}
+                  <div className="mt-4 p-5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
+                      {language === 'vi' ? '🎨 Hệ thống màu Monochromatic' : '🎨 Monochromatic Color System'}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                      {language === 'vi' 
+                        ? 'Hệ thống tự động tạo 9 sắc độ từ màu chủ đạo, sử dụng HSL color space cho gradient mượt mà'
+                        : 'System auto-generates 9 shades from your brand color using HSL color space for smooth gradients'}
+                    </p>
+                    
+                    {/* Shade Grid */}
+                    <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-2">
+                      {[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map((shade) => {
+                        const shadeColor = generateMonochromaticShade(config.primary_color || '#f43f5e', shade);
+                        
+                        return (
+                          <div key={shade} className="space-y-1.5">
+                            <div 
+                              className="h-14 rounded-lg shadow-sm border-2 border-white dark:border-slate-900 hover:scale-105 transition-transform cursor-pointer"
+                              style={{ backgroundColor: shadeColor }}
+                              title={shadeColor}
+                            />
+                            <p className="text-[9px] text-center text-slate-400 dark:text-slate-500 font-bold">{shade}</p>
+                            <p className="text-[8px] text-center text-slate-400 dark:text-slate-500 font-mono leading-tight">{shadeColor}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Usage Examples */}
+                    <div className="mt-5 pt-5 border-t border-slate-200 dark:border-slate-700 space-y-3">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                        {language === 'vi' ? 'Ví dụ ứng dụng' : 'Usage Examples'}
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Primary Button */}
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">Primary Button</p>
+                          <button 
+                            className="w-full px-4 py-2.5 rounded-xl font-bold text-white text-sm shadow-lg transition-all hover:scale-[1.02]"
+                            style={{ 
+                              backgroundColor: generateMonochromaticShade(config.primary_color || '#f43f5e', 500),
+                              boxShadow: `0 4px 14px ${generateMonochromaticShade(config.primary_color || '#f43f5e', 200)}`
+                            }}
+                          >
+                            {language === 'vi' ? 'Nút Chính' : 'Primary Action'}
+                          </button>
+                        </div>
+                        
+                        {/* Badge */}
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">Badge / Tag</p>
+                          <div className="flex gap-2 flex-wrap">
+                            <span 
+                              className="px-3 py-1.5 rounded-lg font-bold text-xs"
+                              style={{ 
+                                backgroundColor: generateMonochromaticShade(config.primary_color || '#f43f5e', 100),
+                                color: generateMonochromaticShade(config.primary_color || '#f43f5e', 700)
+                              }}
+                            >
+                              New
+                            </span>
+                            <span 
+                              className="px-3 py-1.5 rounded-lg font-bold text-xs"
+                              style={{ 
+                                backgroundColor: generateMonochromaticShade(config.primary_color || '#f43f5e', 500),
+                                color: 'white'
+                              }}
+                            >
+                              Featured
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -737,7 +806,7 @@ const Settings: React.FC = () => {
                         value={config.freeship_threshold || ''}
                         onChange={(e) => handleChange('freeship_threshold', e.target.value)}
                         placeholder="500000"
-                        className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                        className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium"
                       />
                       <span className="text-sm font-bold text-slate-600 dark:text-slate-400">{t.vnd}</span>
                     </div>
@@ -751,7 +820,7 @@ const Settings: React.FC = () => {
                         value={config.default_shipping_fee || ''}
                         onChange={(e) => handleChange('default_shipping_fee', e.target.value)}
                         placeholder="30000"
-                        className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                        className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium"
                       />
                       <span className="text-sm font-bold text-slate-600 dark:text-slate-400">{t.vnd}</span>
                     </div>
@@ -791,7 +860,7 @@ const Settings: React.FC = () => {
                     value={config.bank_account_number || ''}
                     onChange={(e) => handleChange('bank_account_number', e.target.value)}
                     placeholder="1234567890"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-mono"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-mono"
                   />
                 </div>
                 <div className="space-y-2">
@@ -853,7 +922,7 @@ const Settings: React.FC = () => {
                           onChange={(e) => handleChange('low_stock_threshold', e.target.value)}
                           placeholder="5"
                           min="0"
-                          className="w-32 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                          className="w-32 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium"
                         />
                         <span className="text-sm font-bold text-slate-600 dark:text-slate-400">{t.items}</span>
                       </div>
@@ -897,7 +966,7 @@ const Settings: React.FC = () => {
                         value={config.notification_emails || ''}
                         onChange={(e) => handleChange('notification_emails', e.target.value)}
                         placeholder="admin@example.com, owner@example.com"
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium"
                       />
                     </div>
                   )}
@@ -929,7 +998,7 @@ const Settings: React.FC = () => {
                     value={config.facebook_pixel_id || ''}
                     onChange={(e) => handleChange('facebook_pixel_id', e.target.value)}
                     placeholder="123456789012345"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-mono"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-mono"
                   />
                 </div>
                 <div className="space-y-2">
@@ -942,7 +1011,7 @@ const Settings: React.FC = () => {
                     value={config.google_analytics_id || ''}
                     onChange={(e) => handleChange('google_analytics_id', e.target.value)}
                     placeholder="G-XXXXXXXXXX or UA-XXXXXXXXX-X"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-mono"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-mono"
                   />
                 </div>
                 <div className="space-y-2">
@@ -952,7 +1021,7 @@ const Settings: React.FC = () => {
                     value={config.tiktok_pixel_id || ''}
                     onChange={(e) => handleChange('tiktok_pixel_id', e.target.value)}
                     placeholder="XXXXXXXXXXXXXX"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-mono"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-mono"
                   />
                 </div>
               </div>
@@ -982,7 +1051,7 @@ const Settings: React.FC = () => {
                     value={config.seo_description || ''}
                     onChange={(e) => handleChange('seo_description', e.target.value)}
                     rows={2}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium resize-none"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium resize-none"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1055,8 +1124,8 @@ const Settings: React.FC = () => {
             {/* Policies & Guides */}
             <div className="bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
-                <div className="p-2 bg-rose-50 dark:bg-rose-500/10 rounded-xl">
-                  <Shield size={20} className="text-rose-500" />
+                <div className="p-2 bg-primary-50 dark:bg-primary-500/10 rounded-xl">
+                  <Shield size={20} className="text-primary-500" />
                 </div>
                 <h2 className="font-black text-slate-900 dark:text-white uppercase tracking-tight">{t.policies}</h2>
               </div>
@@ -1069,7 +1138,7 @@ const Settings: React.FC = () => {
                     onChange={(e) => handleChange('return_policy', e.target.value)}
                     rows={4}
                     placeholder={language === 'vi' ? 'Nhập nội dung chính sách đổi trả hoặc URL...' : 'Enter return policy content or URL...'}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium resize-none"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium resize-none"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1080,7 +1149,7 @@ const Settings: React.FC = () => {
                     onChange={(e) => handleChange('size_guide', e.target.value)}
                     rows={4}
                     placeholder={language === 'vi' ? 'Nhập hướng dẫn chọn size hoặc URL...' : 'Enter size guide content or URL...'}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium resize-none"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium resize-none"
                   />
                 </div>
               </div>
@@ -1093,5 +1162,85 @@ const Settings: React.FC = () => {
     </div>
   );
 };
+
+// Helper function: Generate monochromatic shade using HSL color space
+function generateMonochromaticShade(hexColor: string, shade: number): string {
+  // Convert hex to RGB
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
+
+  // Convert RGB to HSL
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+
+  // Generate shade by adjusting lightness
+  let newL: number;
+  if (shade === 50) newL = 0.97;
+  else if (shade === 100) newL = 0.94;
+  else if (shade === 200) newL = 0.86;
+  else if (shade === 300) newL = 0.74;
+  else if (shade === 400) newL = 0.62;
+  else if (shade === 500) newL = l; // Base color
+  else if (shade === 600) newL = l * 0.85;
+  else if (shade === 700) newL = l * 0.7;
+  else if (shade === 800) newL = l * 0.55;
+  else if (shade === 900) newL = l * 0.4;
+  else if (shade === 950) newL = l * 0.25;
+  else newL = l;
+
+  // Adjust saturation for very light/dark shades
+  let newS = s;
+  if (shade <= 200) newS = s * 0.85;
+  if (shade >= 800) newS = s * 1.1;
+
+  // Convert HSL back to RGB
+  const hslToRgb = (h: number, s: number, l: number) => {
+    let r, g, b;
+
+    if (s === 0) {
+      r = g = b = l;
+    } else {
+      const hue2rgb = (p: number, q: number, t: number) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1/3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1/3);
+    }
+
+    const toHex = (x: number) => {
+      const hex = Math.round(x * 255).toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    };
+
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  };
+
+  return hslToRgb(h, newS, newL);
+}
 
 export default Settings;

@@ -19,6 +19,7 @@ import cartRoutes from './routes/cartRoutes';
 import orderRoutes from './routes/orderRoutes';
 import trackingRoutes from './routes/trackingRoutes';
 import adminRoutes from './routes/admin';
+import publicConfigRoutes from './routes/publicConfig';
 import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
@@ -51,6 +52,9 @@ app.use(
 // Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Public routes (no rate limit, no auth required)
+app.use('/api/public/config', publicConfigRoutes);
 
 // Rate limiting for all API routes
 app.use('/api', apiLimiter);

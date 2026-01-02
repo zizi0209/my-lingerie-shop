@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import "@/styles/theme.css";
 import RootLayoutClient from "@/components/layout/RootLayoutClient";
 import { Providers } from "@/components/layout/Providers";
+import { InitialThemeScript } from "@/components/InitialThemeScript";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const playfair = Playfair_Display({
@@ -22,6 +24,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
+      <head>
+        <InitialThemeScript />
+      </head>
       <body
         className={`${inter.variable} ${playfair.variable} font-sans bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-50 transition-colors`}
       >
