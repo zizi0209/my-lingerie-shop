@@ -26,19 +26,18 @@ interface StoreConfigContextType {
 
 const StoreConfigContext = createContext<StoreConfigContextType | undefined>(undefined);
 
-// Get initial theme from SSR (stored in window by ThemeScript)
-function getInitialTheme(): string | undefined {
+// Get initial config from SSR (stored in window by ThemeScript)
+function getInitialConfig(): StoreConfig {
   if (typeof window !== 'undefined') {
-    return (window as unknown as { __THEME_COLOR__?: string }).__THEME_COLOR__;
+    const ssrConfig = (window as unknown as { __STORE_CONFIG__?: StoreConfig }).__STORE_CONFIG__;
+    if (ssrConfig) return ssrConfig;
   }
-  return undefined;
+  return {};
 }
 
 export function StoreConfigProvider({ children }: { children: ReactNode }) {
-  // Initialize with SSR theme color to prevent flash
-  const [config, setConfig] = useState<StoreConfig>(() => ({
-    primary_color: getInitialTheme(),
-  }));
+  // Initialize with SSR config to prevent flash
+  const [config, setConfig] = useState<StoreConfig>(() => getInitialConfig());
   const [loading, setLoading] = useState(true);
 
   const fetchConfig = useCallback(async () => {

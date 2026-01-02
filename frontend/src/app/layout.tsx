@@ -6,6 +6,7 @@ import RootLayoutClient from "@/components/layout/RootLayoutClient";
 import { Providers } from "@/components/layout/Providers";
 import { getServerTheme, generateThemeCSS } from "@/lib/getServerTheme";
 import { ThemeScript } from "@/components/ThemeScript";
+import { StoreProvider } from "@/context/StoreContext";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const playfair = Playfair_Display({
@@ -34,21 +35,23 @@ export default async function RootLayout({
   return (
     <html lang="vi" suppressHydrationWarning>
       <head>
-        {/* Inject CSS variables directly from server - with !important to ensure priority */}
+        {/* Inject CSS variables directly from server */}
         <style
           id="theme-vars"
           dangerouslySetInnerHTML={{
             __html: `:root { ${themeCSS} }`,
           }}
         />
-        {/* Script to store theme in window for client-side access */}
-        <ThemeScript primaryColor={theme.primary_color} />
+        {/* Script to store config in window for client-side access */}
+        <ThemeScript config={theme} />
       </head>
       <body
         className={`${inter.variable} ${playfair.variable} font-sans bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-50 transition-colors`}
       >
         <Providers>
-          <RootLayoutClient>{children}</RootLayoutClient>
+          <StoreProvider config={theme}>
+            <RootLayoutClient>{children}</RootLayoutClient>
+          </StoreProvider>
         </Providers>
       </body>
     </html>

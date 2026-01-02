@@ -1,53 +1,61 @@
 import { cache } from 'react';
 
-interface ThemeConfig {
+export interface StoreConfig {
   primary_color: string;
   store_name: string;
   store_logo?: string;
+  store_description?: string;
+  store_email?: string;
+  store_phone?: string;
+  store_address?: string;
+  social_facebook?: string;
+  social_instagram?: string;
+  social_tiktok?: string;
 }
 
 /**
  * Server-side function to fetch theme config
  * Cached per request using React cache()
  */
-export const getServerTheme = cache(async (): Promise<ThemeConfig> => {
+export const getServerTheme = cache(async (): Promise<StoreConfig> => {
   try {
     // Use environment variable - backend runs on port 5000
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
     const url = `${baseUrl}/public/config`;
     
-    console.log('[SSR Theme] Fetching from:', url);
-    
     // Fetch with no-cache to always get fresh data
     const response = await fetch(url, {
       cache: 'no-store',
-      next: { revalidate: 0 }, // Force fresh fetch
+      next: { revalidate: 0 },
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      console.error('[SSR Theme] Response not OK:', response.status, response.statusText);
       throw new Error(`Failed to fetch theme: ${response.status}`);
     }
 
     const data = await response.json();
-    const primary = data.data?.primary_color || '#f43f5e';
-    
-    console.log('[SSR Theme] Got primary_color:', primary);
+    const config = data.data || {};
     
     return {
-      primary_color: primary,
-      store_name: data.data?.store_name || 'Admin Panel',
-      store_logo: data.data?.store_logo,
+      primary_color: config.primary_color || '#f43f5e',
+      store_name: config.store_name || 'Lingerie Shop',
+      store_logo: config.store_logo,
+      store_description: config.store_description,
+      store_email: config.store_email,
+      store_phone: config.store_phone,
+      store_address: config.store_address,
+      social_facebook: config.social_facebook,
+      social_instagram: config.social_instagram,
+      social_tiktok: config.social_tiktok,
     };
   } catch (error) {
-    console.error('[SSR Theme] Fetch error:', error);
-    // Return defaults on error
+    console.error('[SSR] Config fetch error:', error);
     return {
       primary_color: '#f43f5e',
-      store_name: 'Admin Panel',
+      store_name: 'Lingerie Shop',
     };
   }
 });

@@ -2,13 +2,16 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ShoppingBag, User, Search, Menu } from "lucide-react";
 import { useState } from "react";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { useStore } from "@/context/StoreContext";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { store_name, store_logo } = useStore();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/80 dark:bg-gray-900/80 dark:border-gray-800 backdrop-blur-md transition-colors">
@@ -22,9 +25,21 @@ export default function Header() {
             <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
-          {/* 2. Logo - Uses dynamic primary color */}
-          <Link href="/" className="text-xl sm:text-2xl font-bold font-serif text-primary-500">
-            LINGERIE
+          {/* 2. Logo - Dynamic from settings */}
+          <Link href="/" className="flex items-center gap-2">
+            {store_logo ? (
+              <Image 
+                src={store_logo} 
+                alt={store_name} 
+                width={120} 
+                height={40} 
+                className="h-8 sm:h-10 w-auto object-contain"
+              />
+            ) : (
+              <span className="text-xl sm:text-2xl font-bold font-serif text-primary-500">
+                {store_name}
+              </span>
+            )}
           </Link>
         </div>
 

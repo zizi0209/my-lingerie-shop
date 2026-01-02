@@ -17,7 +17,13 @@ router.get('/', async (req, res) => {
             'store_name',
             'store_logo',
             'primary_color',
-            'store_description'
+            'store_description',
+            'store_email',
+            'store_phone',
+            'store_address',
+            'social_facebook',
+            'social_instagram',
+            'social_tiktok'
           ]
         }
       }
