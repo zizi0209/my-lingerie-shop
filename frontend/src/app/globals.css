@@ -145,15 +145,43 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Selection style */
+/* Selection style - elegant, uses dynamic primary color */
 ::selection {
-  background: var(--rose-100);
-  color: var(--rose-900);
+  background: color-mix(in srgb, var(--primary-500) 25%, transparent);
+  color: inherit;
+  text-shadow: none;
 }
 
 .dark ::selection {
-  background: var(--rose-700);
-  color: var(--rose-50);
+  background: color-mix(in srgb, var(--primary-400) 35%, transparent);
+  color: inherit;
+  text-shadow: none;
+}
+
+/* Disable text selection on UI elements */
+button,
+nav,
+header,
+footer a,
+label,
+.select-none,
+[role="button"],
+[role="tab"],
+[role="menuitem"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Allow selection on content areas */
+article,
+p,
+h1, h2, h3, h4, h5, h6,
+.prose,
+main p,
+main h1, main h2, main h3,
+[data-selectable] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* CK-style button hover effects */
