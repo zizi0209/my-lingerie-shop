@@ -6,6 +6,7 @@ import { adminApiLimiter } from '../../middleware/rateLimiter';
 import dashboardRoutes from './dashboard';
 import usersRoutes from './users';
 import auditLogsRoutes from './auditLogs';
+import systemConfigRoutes from './systemConfig';
 
 const router = express.Router();
 
@@ -17,5 +18,6 @@ router.use(requireAdmin);     // Admin authentication & authorization
 router.use('/dashboard', dashboardRoutes);
 router.use('/users', usersRoutes);
 router.use('/audit-logs', auditLogsRoutes);
+router.use('/system-config', systemConfigRoutes);
 
 export default router;
