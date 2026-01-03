@@ -73,11 +73,12 @@ export default function DynamicSections() {
     }
   };
 
-  // Show default content while loading or if no sections configured
+  // Show skeleton while loading
   if (loading) {
-    return <DefaultHomePage />;
+    return <HeroSkeleton />;
   }
 
+  // Show default content only if API returned empty
   if (sections.length === 0) {
     return <DefaultHomePage />;
   }
@@ -85,6 +86,20 @@ export default function DynamicSections() {
   return (
     <div className="pb-12 md:pb-20">
       {sections.map(renderSection)}
+    </div>
+  );
+}
+
+// Skeleton loading for Hero section
+function HeroSkeleton() {
+  return (
+    <div className="relative h-screen w-full flex items-center justify-center overflow-hidden bg-gray-900">
+      <div className="absolute inset-0 bg-gray-800 animate-pulse" />
+      <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
+        <div className="h-12 md:h-16 bg-gray-700 rounded-lg w-3/4 mx-auto mb-6 animate-pulse" />
+        <div className="h-6 bg-gray-700 rounded w-1/2 mx-auto mb-10 animate-pulse" />
+        <div className="h-12 w-48 bg-gray-700 rounded-full mx-auto animate-pulse" />
+      </div>
     </div>
   );
 }
