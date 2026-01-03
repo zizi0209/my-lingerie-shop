@@ -247,3 +247,12 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-serif);
   font-weight: 300;
 }
+
+/* Navigation link hover effect */
+.nav-link {
+  position: relative;
+}
+
+.nav-link:hover {
+  color: var(--hover-color) !important;
+}
