@@ -5,7 +5,7 @@ import { validate, registerSchema, loginSchema } from '../utils/validation';
 import { sanitizeUser } from '../utils/sanitize';
 import { auditLog } from '../utils/auditLog';
 import { AuditActions } from '../utils/constants';
-import { AUTH_CONFIG } from '../config/auth';
+import { AUTH_CONFIG, isAdminRole } from '../config/auth';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -318,6 +318,7 @@ export const logoutAll = async (req: Request, res: Response) => {
 
     await revokeAllUserTokens(userId);
     clearRefreshTokenCookie(res);
+    clearDashboardAuthCookie(res);
 
     await auditLog({
       userId,
@@ -334,5 +335,152 @@ export const logoutAll = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Logout all error:', error);
     res.status(500).json({ error: 'Lỗi khi đăng xuất!' });
+  }
+};
+
+/**
+ * Dashboard Auth Cookie helpers
+ */
+function setDashboardAuthCookie(res: Response) {
+  res.cookie(AUTH_CONFIG.DASHBOARD_AUTH.COOKIE_NAME, 'verified', {
+    ...AUTH_CONFIG.DASHBOARD_AUTH.OPTIONS,
+    maxAge: AUTH_CONFIG.DASHBOARD_AUTH.EXPIRES_IN_MS,
+  });
+}
+
+function clearDashboardAuthCookie(res: Response) {
+  res.clearCookie(AUTH_CONFIG.DASHBOARD_AUTH.COOKIE_NAME, {
+    ...AUTH_CONFIG.DASHBOARD_AUTH.OPTIONS,
+  });
+}
+
+/**
+ * POST /api/auth/verify-password
+ * Xác thực password để vào Dashboard (Re-authentication)
+ */
+export const verifyPassword = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { password } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa xác thực!' });
+    }
+
+    if (!password) {
+      return res.status(400).json({ error: 'Vui lòng nhập mật khẩu!' });
+    }
+
+    // Lấy user từ database
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: { select: { name: true } } },
+    });
+
+    if (!user || user.deletedAt || !user.isActive) {
+      return res.status(403).json({ error: 'Tài khoản không hoạt động!' });
+    }
+
+    // Kiểm tra quyền admin
+    if (!isAdminRole(user.role?.name)) {
+      return res.status(403).json({ error: 'Bạn không có quyền truy cập Dashboard!' });
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      await auditLog({
+        userId,
+        action: 'DASHBOARD_AUTH_FAILED',
+        resource: 'USER',
+        resourceId: String(userId),
+        severity: 'WARNING',
+      }, req);
+
+      return res.status(401).json({ error: 'Mật khẩu không đúng!' });
+    }
+
+    // Set dashboard auth cookie
+    setDashboardAuthCookie(res);
+
+    await auditLog({
+      userId,
+      action: 'DASHBOARD_AUTH_SUCCESS',
+      resource: 'USER',
+      resourceId: String(userId),
+      severity: 'INFO',
+    }, req);
+
+    res.json({
+      success: true,
+      message: 'Xác thực thành công!',
+      data: {
+        expiresIn: AUTH_CONFIG.DASHBOARD_AUTH.EXPIRES_IN_MS,
+      },
+    });
+  } catch (error) {
+    console.error('Verify password error:', error);
+    res.status(500).json({ error: 'Lỗi khi xác thực!' });
+  }
+};
+
+/**
+ * GET /api/auth/check-dashboard-auth
+ * Kiểm tra trạng thái dashboard auth
+ */
+export const checkDashboardAuth = async (req: Request, res: Response) => {
+  try {
+    const dashboardAuth = req.cookies[AUTH_CONFIG.DASHBOARD_AUTH.COOKIE_NAME];
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa xác thực!' });
+    }
+
+    // Kiểm tra quyền admin
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: { select: { name: true } } },
+    });
+
+    if (!user || !isAdminRole(user.role?.name)) {
+      return res.json({
+        success: true,
+        data: {
+          isAdmin: false,
+          isDashboardAuthenticated: false,
+        },
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        isAdmin: true,
+        isDashboardAuthenticated: dashboardAuth === 'verified',
+      },
+    });
+  } catch (error) {
+    console.error('Check dashboard auth error:', error);
+    res.status(500).json({ error: 'Lỗi khi kiểm tra!' });
+  }
+};
+
+/**
+ * POST /api/auth/revoke-dashboard-auth
+ * Xóa dashboard auth (khi thoát khỏi Dashboard)
+ */
+export const revokeDashboardAuth = async (req: Request, res: Response) => {
+  try {
+    clearDashboardAuthCookie(res);
+
+    res.json({
+      success: true,
+      message: 'Đã thoát khỏi Dashboard!',
+    });
+  } catch (error) {
+    console.error('Revoke dashboard auth error:', error);
+    res.status(500).json({ error: 'Lỗi!' });
   }
 };

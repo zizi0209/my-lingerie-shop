@@ -30,6 +30,16 @@ export const AUTH_CONFIG = {
       path: '/',
     },
   },
+  DASHBOARD_AUTH: {
+    COOKIE_NAME: 'dashboardAuth',
+    EXPIRES_IN_MS: 30 * 60 * 1000, // 30 phút
+    OPTIONS: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/',
+    },
+  },
 };
 
 // Admin role names

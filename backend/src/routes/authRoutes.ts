@@ -5,6 +5,9 @@ import {
   refresh,
   logout,
   logoutAll,
+  verifyPassword,
+  checkDashboardAuth,
+  revokeDashboardAuth,
 } from '../controllers/authController';
 import { authenticateToken } from '../middleware/auth';
 import { loginLimiter, registerLimiter } from '../middleware/rateLimiter';
@@ -19,5 +22,10 @@ router.post('/logout', logout);
 
 // Protected routes
 router.post('/logout-all', authenticateToken, logoutAll);
+
+// Dashboard auth routes (protected)
+router.post('/verify-password', authenticateToken, verifyPassword);
+router.get('/check-dashboard-auth', authenticateToken, checkDashboardAuth);
+router.post('/revoke-dashboard-auth', authenticateToken, revokeDashboardAuth);
 
 export default router;
