@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
-import { validate, registerSchema, loginSchema, updateUserSchema } from '../utils/validation';
+import { validate, registerSchema, loginSchema, updateUserSchema, changePasswordSchema } from '../utils/validation';
 import { sanitizeUser, sanitizeUsers } from '../utils/sanitize';
 import { auditLog } from '../utils/auditLog';
 import { AuditActions } from '../utils/constants';
@@ -580,5 +580,153 @@ export const getProfile = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Lỗi khi lấy thông tin profile!' });
+  }
+};
+
+// Update own profile (authenticated user)
+export const updateProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa xác thực!' });
+    }
+
+    const { name, phone, avatar } = req.body;
+
+    // Check if user exists
+    const existingUser = await prisma.user.findFirst({
+      where: { 
+        id: userId,
+        deletedAt: null,
+      },
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({ error: 'Không tìm thấy người dùng!' });
+    }
+
+    // Prepare update data (only allow specific fields)
+    const updateData: { name?: string; phone?: string; avatar?: string } = {};
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (avatar !== undefined) updateData.avatar = avatar;
+
+    // Update user
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        avatar: true,
+        roleId: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    await auditLog({
+      userId,
+      action: 'UPDATE_PROFILE',
+      resource: 'USER',
+      resourceId: String(userId),
+      severity: 'INFO'
+    }, req);
+
+    res.json({
+      success: true,
+      data: sanitizeUser(user),
+      message: 'Cập nhật thông tin thành công!',
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Lỗi khi cập nhật thông tin!' });
+  }
+};
+
+// Change password (authenticated user)
+export const changePassword = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa xác thực!' });
+    }
+
+    // Validate input
+    const validated = validate(changePasswordSchema, req.body);
+
+    // Get user with password
+    const user = await prisma.user.findFirst({
+      where: { 
+        id: userId,
+        deletedAt: null,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Không tìm thấy người dùng!' });
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(validated.currentPassword, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(400).json({ error: 'Mật khẩu hiện tại không đúng!' });
+    }
+
+    // Check if new password is same as old
+    const isSamePassword = await bcrypt.compare(validated.newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({ error: 'Mật khẩu mới không được trùng với mật khẩu cũ!' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(validated.newPassword, 12);
+
+    // Update password and increment token version (invalidate all tokens)
+    await prisma.user.update({
+      where: { id: userId },
+      data: { 
+        password: hashedPassword,
+        passwordChangedAt: new Date(),
+        tokenVersion: { increment: 1 },
+      },
+    });
+
+    // Revoke all refresh tokens
+    await prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    await auditLog({
+      userId,
+      action: AuditActions.PASSWORD_CHANGE,
+      resource: 'USER',
+      resourceId: String(userId),
+      severity: 'WARNING'
+    }, req);
+
+    res.json({
+      success: true,
+      message: 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại.',
+    });
+  } catch (error: unknown) {
+    console.error('Change password error:', error);
+    const message = error instanceof Error ? error.message : 'Lỗi khi đổi mật khẩu!';
+    if (process.env.NODE_ENV !== 'production' && error instanceof Error) {
+      return res.status(400).json({ error: message });
+    }
+    res.status(500).json({ error: 'Lỗi khi đổi mật khẩu!' });
   }
 };

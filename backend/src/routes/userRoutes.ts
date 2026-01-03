@@ -7,6 +7,8 @@ import {
   updateUser,
   deleteUser,
   getProfile,
+  updateProfile,
+  changePassword,
 } from '../controllers/userController';
 import { authenticateToken } from '../middleware/auth';
 import { requireAdmin } from '../middleware/requireAdmin';
@@ -20,6 +22,8 @@ router.post('/login', loginLimiter, login);
 
 // Protected routes (require authentication)
 router.get('/profile', authenticateToken, getProfile);
+router.put('/profile', authenticateToken, updateProfile);
+router.put('/change-password', authenticateToken, changePassword);
 
 // Admin only routes
 router.get('/', requireAdmin, getAllUsers);
