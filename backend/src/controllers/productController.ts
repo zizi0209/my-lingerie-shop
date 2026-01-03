@@ -630,8 +630,20 @@ export const addProductVariants = async (req: Request, res: Response) => {
       success: true,
       message: `Đã thêm ${createdVariants.count} biến thể thành công!`,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Add product variants error:', error);
+    
+    // Check for unique constraint violation
+    if (error && typeof error === 'object' && 'code' in error) {
+      const prismaError = error as { code: string; meta?: { target?: string[] } };
+      if (prismaError.code === 'P2002') {
+        const target = prismaError.meta?.target?.join(', ') || 'size, color';
+        return res.status(400).json({ 
+          error: `Biến thể với ${target} đã tồn tại cho sản phẩm này!` 
+        });
+      }
+    }
+    
     res.status(500).json({ error: 'Lỗi khi thêm biến thể sản phẩm!' });
   }
 };

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { productApi, type Product, type ProductImage, type CreateProductData, type UpdateProductData } from '@/lib/productApi';
 import { categoryApi, type Category } from '@/lib/categoryApi';
+import { colorApi, type Color } from '@/lib/colorApi';
 import { api } from '@/lib/api';
 import { generateProductDescription } from '../services/geminiService';
 import SearchInput from '../components/SearchInput';
@@ -53,6 +54,7 @@ const Products: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [colors, setColors] = useState<Color[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
@@ -181,7 +183,7 @@ const Products: React.FC = () => {
     noVariants: language === 'vi' ? 'Chưa có biến thể nào' : 'No variants yet',
   };
 
-  // Load categories
+  // Load categories and colors
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -193,7 +195,18 @@ const Products: React.FC = () => {
         console.error('Failed to fetch categories:', err);
       }
     };
+    const fetchColors = async () => {
+      try {
+        const response = await colorApi.list(true); // activeOnly
+        if (response.success) {
+          setColors(response.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch colors:', err);
+      }
+    };
     fetchCategories();
+    fetchColors();
   }, []);
 
   // Fetch products
@@ -1268,13 +1281,18 @@ const Products: React.FC = () => {
                             placeholder={t.size}
                             className="w-24 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 text-sm"
                           />
-                          <input
-                            type="text"
+                          <select
                             value={variant.color}
                             onChange={(e) => handleVariantChange(index, 'color', e.target.value)}
-                            placeholder={t.color}
                             className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 text-sm"
-                          />
+                          >
+                            <option value="">{t.color}</option>
+                            {colors.map(c => (
+                              <option key={c.id} value={c.name}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
                           <input
                             type="number"
                             value={variant.stock}
@@ -1312,8 +1330,9 @@ const Products: React.FC = () => {
                               if (res.success) setExistingVariants(res.data);
                               setFormData(prev => ({ ...prev, variants: [{ size: '', color: '', stock: '' }] }));
                               setSuccessMessage(t.variantAdded);
-                            } catch {
-                              setFormError('Không thể thêm biến thể');
+                            } catch (err) {
+                              const msg = err instanceof Error ? err.message : 'Không thể thêm biến thể';
+                              setFormError(msg);
                             }
                           }}
                           className="w-full py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2"

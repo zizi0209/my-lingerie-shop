@@ -21,6 +21,7 @@ export const translations = {
       inventory: 'Inventory',
       products: 'Products',
       categories: 'Categories',
+      colors: 'Colors',
       orders: 'Orders',
       cartTracker: 'Cart Tracker',
       marketing: 'Marketing',
@@ -77,6 +78,7 @@ export const translations = {
       inventory: 'Kho hàng',
       products: 'Sản phẩm',
       categories: 'Danh mục',
+      colors: 'Màu sắc',
       orders: 'Đơn hàng',
       cartTracker: 'Theo dõi giỏ hàng',
       marketing: 'Tiếp thị',
@@ -118,6 +120,6 @@ export const translations = {
 
 export type TranslationKeys = 
   | 'common.search' | 'common.save' | 'common.export' | 'common.actions' | 'common.filter' | 'common.total' | 'common.status' | 'common.date' | 'common.customer'
-  | 'nav.dashboard' | 'nav.default' | 'nav.analytics' | 'nav.inventory' | 'nav.products' | 'nav.categories' | 'nav.orders' | 'nav.cartTracker' | 'nav.marketing' | 'nav.blogPosts' | 'nav.postTags' | 'nav.homeLayout' | 'nav.system' | 'nav.staffUsers' | 'nav.customers' | 'nav.roles' | 'nav.settings'
+  | 'nav.dashboard' | 'nav.default' | 'nav.analytics' | 'nav.inventory' | 'nav.products' | 'nav.categories' | 'nav.colors' | 'nav.orders' | 'nav.cartTracker' | 'nav.marketing' | 'nav.blogPosts' | 'nav.postTags' | 'nav.homeLayout' | 'nav.system' | 'nav.staffUsers' | 'nav.customers' | 'nav.roles' | 'nav.settings'
   | 'dashboard.earning' | 'dashboard.orders' | 'dashboard.income' | 'dashboard.revenue' | 'dashboard.growth' | 'dashboard.popular' | 'dashboard.bestSeller' | 'dashboard.profitGrowth' | 'dashboard.today' | 'dashboard.month' | 'dashboard.year'
   | 'settings.title' | 'settings.desc' | 'settings.storeInfo' | 'settings.storeName' | 'settings.supportEmail' | 'settings.storeDesc' | 'settings.notifications' | 'settings.orderAlerts' | 'settings.stockWarnings';

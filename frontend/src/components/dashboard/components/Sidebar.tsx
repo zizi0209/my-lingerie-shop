@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ShoppingBag, Layers, FileText, 
   Users, UserCheck, ShoppingCart, Settings, 
   ShieldCheck, MousePointer2, Home, 
-  Tag, Menu, Activity, Store
+  Tag, Menu, Activity, Store, Palette
 } from 'lucide-react';
 import { useLanguage } from './LanguageContext';
 import { useStoreConfig } from './StoreConfigContext';
@@ -40,6 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
       items: [
         { name: t('nav.products'), path: '/dashboard/products', icon: ShoppingBag },
         { name: t('nav.categories'), path: '/dashboard/categories', icon: Layers },
+        { name: t('nav.colors'), path: '/dashboard/colors', icon: Palette },
         { name: t('nav.orders'), path: '/dashboard/orders', icon: ShoppingCart },
         { name: t('nav.cartTracker'), path: '/dashboard/cart-tracking', icon: MousePointer2 },
       ]

@@ -147,7 +147,9 @@ model ProductVariant {
   id        Int        @id @default(autoincrement())
   sku       String     @unique
   size      String
-  color     String
+  color     String     // Legacy field - kept for backward compatibility
+  colorId   Int?
+  colorRef  Color?     @relation(fields: [colorId], references: [id])
   stock     Int        @default(0)
   price     Float?
   salePrice Float?
@@ -161,7 +163,22 @@ model ProductVariant {
   
   @@index([productId])
   @@index([sku])
+  @@index([colorId])
   @@unique([productId, size, color])
+}
+
+// 6.1 QUẢN LÝ MÀU SẮC (Color Attributes)
+model Color {
+  id        Int              @id @default(autoincrement())
+  name      String           @unique
+  hexCode   String           // Mã màu HEX (e.g., #FF0000)
+  isActive  Boolean          @default(true)
+  order     Int              @default(0)
+  variants  ProductVariant[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  
+  @@index([isActive, order])
 }
 
 // 7. CẤU HÌNH CMS ĐỘNG (Cho Admin chỉnh giao diện)

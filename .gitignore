@@ -65,7 +65,7 @@ prompt
 server.log
  
 # 
-/AGENTS.md
+#/AGENTS.md
 
 prisma.config.js
 prisma.config.d.ts.map

@@ -22,13 +22,19 @@ interface Category {
   slug: string;
 }
 
+interface ColorFilter {
+  id: number;
+  name: string;
+  hexCode: string;
+}
+
 const sizes = ["S", "M", "L", "XL", "XXL"];
-const colors = ["Đen", "Trắng", "Be", "Hồng", "Đỏ", "Tím"];
 const PRODUCTS_PER_PAGE = 24;
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [colors, setColors] = useState<ColorFilter[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -44,7 +50,7 @@ export default function ProductsPage() {
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
-  // Fetch categories
+  // Fetch categories and colors
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -57,7 +63,19 @@ export default function ProductsPage() {
         console.error("Error fetching categories:", err);
       }
     };
+    const fetchColors = async () => {
+      try {
+        const res = await fetch(`${baseUrl}/colors/filter`);
+        const data = await res.json();
+        if (data.success) {
+          setColors(data.data);
+        }
+      } catch (err) {
+        console.error("Error fetching colors:", err);
+      }
+    };
     fetchCategories();
+    fetchColors();
   }, [baseUrl]);
 
   // Fetch products
@@ -159,11 +177,11 @@ export default function ProductsPage() {
     );
   };
 
-  const handleColorToggle = (color: string) => {
+  const handleColorToggle = (colorName: string) => {
     setSelectedColors(prev =>
-      prev.includes(color)
-        ? prev.filter(c => c !== color)
-        : [...prev, color]
+      prev.includes(colorName)
+        ? prev.filter(c => c !== colorName)
+        : [...prev, colorName]
     );
   };
 
@@ -251,33 +269,31 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            {/* Colors */}
-            <div className="mb-8">
-              <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Màu sắc</h3>
-              <div className="space-y-2">
-                {colors.map(color => (
-                  <button
-                    key={color}
-                    onClick={() => handleColorToggle(color)}
-                    className={`flex items-center gap-3 w-full py-2 transition-colors ${
-                      selectedColors.includes(color)
-                        ? "text-primary-600 dark:text-primary-400 font-medium"
-                        : "text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300"
-                    }`}
-                  >
-                    <div className={`w-4 h-4 rounded-full border ${
-                      color === "Đen" ? "bg-black border-gray-400" :
-                      color === "Trắng" ? "bg-white border-gray-300" :
-                      color === "Be" ? "bg-stone-300 border-gray-400" :
-                      color === "Hồng" ? "bg-pink-200 border-gray-400" :
-                      color === "Đỏ" ? "bg-red-500 border-gray-400" :
-                      "bg-purple-500 border-gray-400"
-                    }`} />
-                    {color}
-                  </button>
-                ))}
+            {/* Colors - Dynamic from API */}
+            {colors.length > 0 && (
+              <div className="mb-8">
+                <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Màu sắc</h3>
+                <div className="space-y-2">
+                  {colors.map(color => (
+                    <button
+                      key={color.id}
+                      onClick={() => handleColorToggle(color.name)}
+                      className={`flex items-center gap-3 w-full py-2 transition-colors ${
+                        selectedColors.includes(color.name)
+                          ? "text-primary-600 dark:text-primary-400 font-medium"
+                          : "text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300"
+                      }`}
+                    >
+                      <div 
+                        className="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 shadow-sm"
+                        style={{ backgroundColor: color.hexCode }}
+                      />
+                      {color.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Price Range */}
             <div className="mb-8">
