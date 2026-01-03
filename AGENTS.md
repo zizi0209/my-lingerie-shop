@@ -1,7 +1,9 @@
 <coding_guidelines>
 Trả lời bằng Tiếng Việt
 Chọn Best approve
-Chọn Best practice
+Chọn Best practices
+
+Áp dụng Convenient over Configuration
 
 Tuân thủ nguyên tắc :
 
