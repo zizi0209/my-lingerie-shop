@@ -1,111 +1,155 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import ProductCard from "@/components/product/ProductCard";
-import { Filter, X } from "lucide-react";
+import { Filter, Loader2 } from "lucide-react";
 
-// Mock data - sẽ thay bằng API call sau
-const mockProducts = [
-  {
-    id: "1",
-    name: "Áo lót ren màu đen",
-    price: 890000,
-    originalPrice: 1290000,
-    image: "https://images.unsplash.com/photo-1596486489709-7756e076722b?q=80&w=2070&auto=format&fit=crop",
-    category: "Áo lót",
-    isNew: true,
-    isSale: true,
-  },
-  {
-    id: "2",
-    name: "Quần lót ren cao cấp",
-    price: 450000,
-    image: "https://images.unsplash.com/photo-1523381294911-8d3cead13475?q=80&w=2070&auto=format&fit=crop",
-    category: "Quần lót",
-    isNew: false,
-    isSale: false,
-  },
-  {
-    id: "3",
-    name: "Đồ ngủ lụa satin",
-    price: 1200000,
-    originalPrice: 1500000,
-    image: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?q=80&w=2070&auto=format&fit=crop",
-    category: "Đồ ngủ",
-    isNew: false,
-    isSale: true,
-  },
-  {
-    id: "4",
-    name: "Bộ nội y ren trắng",
-    price: 1580000,
-    image: "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2070&auto=format&fit=crop",
-    category: "Bộ nội y",
-    isNew: true,
-    isSale: false,
-  },
-  {
-    id: "5",
-    name: "Áo lót không gọng",
-    price: 790000,
-    image: "https://images.unsplash.com/photo-1578915446522-f40d855e2418?q=80&w=2070&auto=format&fit=crop",
-    category: "Áo lót",
-    isNew: false,
-    isSale: false,
-  },
-  {
-    id: "6",
-    name: "Quần lót giấy thun",
-    price: 290000,
-    originalPrice: 390000,
-    image: "https://images.unsplash.com/photo-1583410264827-9de75a320417?q=80&w=2070&auto=format&fit=crop",
-    category: "Quần lót",
-    isNew: false,
-    isSale: true,
-  },
-];
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice?: number;
+  image: string;
+  category: string;
+  isNew?: boolean;
+  isSale?: boolean;
+  slug?: string;
+}
 
-const categories = ["Tất cả", "Áo lót", "Quần lót", "Đồ ngủ", "Bộ nội y", "Áo tắm"];
+interface Category {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 const sizes = ["S", "M", "L", "XL", "XXL"];
 const colors = ["Đen", "Trắng", "Be", "Hồng", "Đỏ", "Tím"];
+const PRODUCTS_PER_PAGE = 24;
 
 export default function ProductsPage() {
-  const [selectedCategory, setSelectedCategory] = useState("Tất cả");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState({ min: 0, max: 2000000 });
-  const [sortBy, setSortBy] = useState("featured");
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 10000000 });
+  const [sortBy, setSortBy] = useState("newest");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const filteredProducts = useMemo(() => {
-    let filtered = mockProducts;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
-    // Filter by category
-    if (selectedCategory !== "Tất cả") {
-      filtered = filtered.filter(p => p.category === selectedCategory);
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch(`${baseUrl}/categories`);
+        const data = await res.json();
+        if (data.success) {
+          setCategories(data.data);
+        }
+      } catch (err) {
+        console.error("Error fetching categories:", err);
+      }
+    };
+    fetchCategories();
+  }, [baseUrl]);
+
+  // Fetch products
+  const fetchProducts = useCallback(async (pageNum: number, reset: boolean = false) => {
+    try {
+      if (reset) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const params = new URLSearchParams({
+        page: pageNum.toString(),
+        limit: PRODUCTS_PER_PAGE.toString(),
+        sortBy: sortBy === "price-low" ? "price" : sortBy === "price-high" ? "price" : "createdAt",
+        sortOrder: sortBy === "price-low" ? "asc" : "desc",
+      });
+
+      if (selectedCategory !== "all") {
+        params.append("categoryId", selectedCategory);
+      }
+
+      if (priceRange.min > 0) {
+        params.append("minPrice", priceRange.min.toString());
+      }
+
+      if (priceRange.max < 10000000) {
+        params.append("maxPrice", priceRange.max.toString());
+      }
+
+      const res = await fetch(`${baseUrl}/products?${params}`);
+      const data = await res.json();
+
+      if (data.success) {
+        const mappedProducts: Product[] = data.data.map((p: {
+          id: number;
+          name: string;
+          price: number;
+          compareAtPrice?: number;
+          images?: { url: string }[];
+          category?: { name: string };
+          slug?: string;
+          createdAt?: string;
+        }) => ({
+          id: p.id.toString(),
+          name: p.name,
+          price: p.price,
+          originalPrice: p.compareAtPrice || undefined,
+          image: p.images?.[0]?.url || "https://via.placeholder.com/400x600",
+          category: p.category?.name || "Chưa phân loại",
+          isNew: p.createdAt ? isNewProduct(p.createdAt) : false,
+          isSale: p.compareAtPrice ? p.compareAtPrice > p.price : false,
+          slug: p.slug,
+        }));
+
+        if (reset) {
+          setProducts(mappedProducts);
+        } else {
+          setProducts(prev => [...prev, ...mappedProducts]);
+        }
+
+        setTotal(data.pagination?.total || mappedProducts.length);
+        setHasMore(pageNum < (data.pagination?.totalPages || 1));
+      }
+    } catch (err) {
+      console.error("Error fetching products:", err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
     }
+  }, [baseUrl, selectedCategory, sortBy, priceRange]);
 
-    // Filter by price
-    filtered = filtered.filter(p => p.price >= priceRange.min && p.price <= priceRange.max);
+  // Check if product is new (within 30 days)
+  const isNewProduct = (createdAt: string) => {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays <= 30;
+  };
 
-    // Sort
-    switch (sortBy) {
-      case "price-low":
-        filtered = [...filtered].sort((a, b) => a.price - b.price);
-        break;
-      case "price-high":
-        filtered = [...filtered].sort((a, b) => b.price - a.price);
-        break;
-      case "new":
-        filtered = [...filtered].filter(p => p.isNew);
-        break;
-      case "sale":
-        filtered = [...filtered].filter(p => p.isSale);
-        break;
-    }
+  // Initial fetch and when filters change
+  useEffect(() => {
+    setPage(1);
+    fetchProducts(1, true);
+  }, [fetchProducts]);
 
-    return filtered;
-  }, [selectedCategory, priceRange, sortBy]);
+  // Load more handler
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchProducts(nextPage, false);
+  };
 
   const handleSizeToggle = (size: string) => {
     setSelectedSizes(prev =>
@@ -124,16 +168,20 @@ export default function ProductsPage() {
   };
 
   const clearFilters = () => {
+    setSelectedCategory("all");
     setSelectedSizes([]);
     setSelectedColors([]);
-    setPriceRange({ min: 0, max: 2000000 });
+    setPriceRange({ min: 0, max: 10000000 });
+    setSortBy("newest");
   };
 
   return (
     <div className="container mx-auto px-4 py-6 md:py-8">
       {/* Header */}
       <div className="text-center mb-8 md:mb-12">
-        <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-3 md:mb-4 text-gray-900 dark:text-white">Sản phẩm</h1>
+        <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-3 md:mb-4 text-gray-900 dark:text-white">
+          Sản phẩm
+        </h1>
         <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto px-4">
           Khám phá bộ sưu tập nội y cao cấp với thiết kế tinh tế và chất liệu premium
         </p>
@@ -141,14 +189,13 @@ export default function ProductsPage() {
 
       <div className="flex flex-col lg:flex-row gap-6 md:gap-8">
         {/* Filters Sidebar */}
-        <aside className={`${isFilterOpen ? 'block' : 'hidden'} lg:block w-full lg:w-64 shrink-0`}>
-          <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors">
+        <aside className={`${isFilterOpen ? "block" : "hidden"} lg:block w-full lg:w-64 shrink-0`}>
+          <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors sticky top-24">
             <div className="flex items-center justify-between mb-4 md:mb-6">
               <h2 className="text-base md:text-lg font-medium text-gray-900 dark:text-white">Bộ lọc</h2>
               <button
                 onClick={clearFilters}
-                aria-label="Xóa tất cả bộ lọc"
-                className="text-sm text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition min-h-[44px] px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+                className="text-sm text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition min-h-[44px] px-2"
               >
                 Xóa tất cả
               </button>
@@ -157,19 +204,28 @@ export default function ProductsPage() {
             {/* Categories */}
             <div className="mb-6 md:mb-8">
               <h3 className="text-sm md:text-base font-medium mb-3 md:mb-4 text-gray-900 dark:text-white">Danh mục</h3>
-              <div className="space-y-1 md:space-y-2" role="group" aria-label="Lọc theo danh mục">
+              <div className="space-y-1 md:space-y-2">
+                <button
+                  onClick={() => setSelectedCategory("all")}
+                  className={`block w-full text-left py-2 px-2 rounded transition-colors min-h-[44px] ${
+                    selectedCategory === "all"
+                      ? "text-primary-600 dark:text-primary-400 font-medium bg-primary-50 dark:bg-primary-900/30"
+                      : "text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  Tất cả
+                </button>
                 {categories.map(category => (
                   <button
-                    key={category}
-                    onClick={() => setSelectedCategory(category)}
-                    aria-pressed={selectedCategory === category}
-                    className={`block w-full text-left py-2 px-2 rounded transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                      selectedCategory === category
-                        ? 'text-primary-600 dark:text-primary-400 font-medium bg-primary-50 dark:bg-primary-900/30'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    key={category.id}
+                    onClick={() => setSelectedCategory(category.id.toString())}
+                    className={`block w-full text-left py-2 px-2 rounded transition-colors min-h-[44px] ${
+                      selectedCategory === category.id.toString()
+                        ? "text-primary-600 dark:text-primary-400 font-medium bg-primary-50 dark:bg-primary-900/30"
+                        : "text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                     }`}
                   >
-                    {category}
+                    {category.name}
                   </button>
                 ))}
               </div>
@@ -185,8 +241,8 @@ export default function ProductsPage() {
                     onClick={() => handleSizeToggle(size)}
                     className={`w-12 h-12 rounded border transition-all ${
                       selectedSizes.includes(size)
-                        ? 'border-primary-500 bg-primary-500 text-white'
-                        : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-300'
+                        ? "border-primary-500 bg-primary-500 text-white"
+                        : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-300"
                     }`}
                   >
                     {size}
@@ -205,17 +261,17 @@ export default function ProductsPage() {
                     onClick={() => handleColorToggle(color)}
                     className={`flex items-center gap-3 w-full py-2 transition-colors ${
                       selectedColors.includes(color)
-                        ? 'text-primary-600 dark:text-primary-400 font-medium'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300'
+                        ? "text-primary-600 dark:text-primary-400 font-medium"
+                        : "text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300"
                     }`}
                   >
                     <div className={`w-4 h-4 rounded-full border ${
-                      color === 'Đen' ? 'bg-black border-gray-400' :
-                      color === 'Trắng' ? 'bg-white border-gray-300' :
-                      color === 'Be' ? 'bg-stone-300 border-gray-400' :
-                      color === 'Hồng' ? 'bg-pink-200 border-gray-400' :
-                      color === 'Đỏ' ? 'bg-red-500 border-gray-400' :
-                      'bg-purple-500 border-gray-400'
+                      color === "Đen" ? "bg-black border-gray-400" :
+                      color === "Trắng" ? "bg-white border-gray-300" :
+                      color === "Be" ? "bg-stone-300 border-gray-400" :
+                      color === "Hồng" ? "bg-pink-200 border-gray-400" :
+                      color === "Đỏ" ? "bg-red-500 border-gray-400" :
+                      "bg-purple-500 border-gray-400"
                     }`} />
                     {color}
                   </button>
@@ -255,50 +311,77 @@ export default function ProductsPage() {
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-3 md:gap-4">
             <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
-              Hiển thị {filteredProducts.length} sản phẩm
+              Hiển thị {products.length} / {total} sản phẩm
             </p>
             <div className="flex items-center gap-3 md:gap-4 w-full sm:w-auto">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                aria-label="Sắp xếp sản phẩm"
-                className="px-3 py-2 md:px-4 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm md:text-base min-h-[44px] flex-1 sm:flex-initial"
+                className="px-3 py-2 md:px-4 border border-gray-300 dark:border-gray-600 rounded focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm md:text-base min-h-[44px] flex-1 sm:flex-initial"
               >
-                <option value="featured">Nổi bật</option>
+                <option value="newest">Mới nhất</option>
                 <option value="price-low">Giá tăng dần</option>
                 <option value="price-high">Giá giảm dần</option>
-                <option value="new">Mới nhất</option>
-                <option value="sale">Khuyến mãi</option>
               </select>
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                aria-label={isFilterOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
-                aria-expanded={isFilterOpen}
-                className="lg:hidden flex items-center gap-2 px-3 py-2 md:px-4 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-900 dark:text-white text-sm md:text-base min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="lg:hidden flex items-center gap-2 px-3 py-2 md:px-4 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-900 dark:text-white text-sm md:text-base min-h-[44px]"
               >
-                <Filter className="w-4 h-4" aria-hidden="true" />
+                <Filter className="w-4 h-4" />
                 Bộ lọc
-                {(selectedSizes.length > 0 || selectedColors.length > 0) && (
-                  <span className="w-2 h-2 bg-primary rounded-full" aria-label={`Có ${selectedSizes.length + selectedColors.length} bộ lọc đang áp dụng`}></span>
-                )}
               </button>
             </div>
           </div>
 
-          {/* Products Grid */}
-          {filteredProducts.length > 0 ? (
+          {/* Loading State */}
+          {loading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {filteredProducts.map(product => (
-                <ProductCard key={product.id} product={product} />
+              {Array.from({ length: PRODUCTS_PER_PAGE }).map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-gray-200 dark:bg-gray-700 aspect-[3/4] rounded-lg mb-4" />
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2" />
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+                </div>
               ))}
             </div>
+          ) : products.length > 0 ? (
+            <>
+              {/* Products Grid - 4 cols desktop, 3 cols tablet, 2 cols mobile */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                {products.map(product => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+
+              {/* Load More Button */}
+              {hasMore && (
+                <div className="text-center mt-12">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="inline-flex items-center justify-center gap-2 px-8 py-3 border-2 border-gray-900 dark:border-white text-gray-900 dark:text-white rounded-full font-medium hover:bg-gray-900 dark:hover:bg-white hover:text-white dark:hover:text-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Đang tải...
+                      </>
+                    ) : (
+                      "Xem thêm sản phẩm"
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-12 md:py-20 px-4">
-              <p className="text-gray-500 dark:text-gray-400 text-base md:text-lg mb-4">Không tìm thấy sản phẩm phù hợp</p>
+              <p className="text-gray-500 dark:text-gray-400 text-base md:text-lg mb-4">
+                Không tìm thấy sản phẩm phù hợp
+              </p>
               <button
                 onClick={clearFilters}
-                aria-label="Xóa tất cả bộ lọc"
-                className="text-black dark:text-white underline hover:no-underline min-h-[44px] px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+                className="text-black dark:text-white underline hover:no-underline min-h-[44px] px-4"
               >
                 Xóa bộ lọc
               </button>
