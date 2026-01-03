@@ -109,8 +109,8 @@ export default function BlogPage() {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-serif font-light mb-4">Tin tức & Bài viết</h1>
-        <p className="text-gray-600 max-w-2xl mx-auto">
+        <h1 className="text-4xl md:text-5xl font-serif font-light mb-4 text-gray-900 dark:text-white">Tin tức & Bài viết</h1>
+        <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
           Cập nhật kiến thức, bí quyết và xu hướng mới nhất về nội y để luôn tự tin và quyến rũ.
         </p>
       </div>

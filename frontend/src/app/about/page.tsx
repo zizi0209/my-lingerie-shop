@@ -32,15 +32,15 @@ export default function AboutPage() {
       <section className="container mx-auto px-4 py-20">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
-            <span className="text-sm text-gray-500 uppercase tracking-wider mb-4 block">
+            <span className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 block">
               Câu chuyện của chúng tôi
             </span>
-            <h2 className="text-4xl md:text-5xl font-serif font-light mb-6">
+            <h2 className="text-4xl md:text-5xl font-serif font-light mb-6 text-gray-900 dark:text-white">
               Khởi đầu từ tình yêu
               <br />
               với vẻ đẹp Việt
             </h2>
-            <div className="space-y-4 text-gray-600 leading-relaxed">
+            <div className="space-y-4 text-gray-500 dark:text-gray-400 leading-relaxed">
               <p>
                 Lingerie Shop ra đời vào năm 2020 với sứ mệnh mang đến những sản phẩm nội y
                 cao cấp, không chỉ đẹp về thiết kế mà còn vượt trội về chất lượng. Chúng tôi tin rằng
@@ -75,13 +75,13 @@ export default function AboutPage() {
       </section>
 
       {/* Values */}
-      <section className="bg-gray-50 py-20">
+      <section className="bg-gray-50 dark:bg-gray-900 py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-serif font-light mb-4">
+            <h2 className="text-4xl md:text-5xl font-serif font-light mb-4 text-gray-900 dark:text-white">
               Giá trị cốt lõi
             </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
+            <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
               Những nguyên tắc định hình nên Lingerie Shop
             </p>
           </div>
@@ -89,11 +89,11 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {/* Value 1 */}
             <div className="text-center">
-              <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4">
-                <Heart className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 bg-gray-900 dark:bg-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <Heart className="w-8 h-8 text-white dark:text-gray-900" />
               </div>
-              <h3 className="text-xl font-medium mb-3">Tâm huyết</h3>
-              <p className="text-gray-600 text-sm">
+              <h3 className="text-xl font-medium mb-3 text-gray-900 dark:text-white">Tâm huyết</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
                 Mỗi sản phẩm đều là kết quả của quá trình nghiên cứu và lựa chọn kỹ lưỡng,
                 đảm bảo mang lại trải nghiệm tốt nhất cho khách hàng.
               </p>
@@ -101,11 +101,11 @@ export default function AboutPage() {
 
             {/* Value 2 */}
             <div className="text-center">
-              <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4">
-                <Award className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 bg-gray-900 dark:bg-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <Award className="w-8 h-8 text-white dark:text-gray-900" />
               </div>
-              <h3 className="text-xl font-medium mb-3">Chất lượng</h3>
-              <p className="text-gray-600 text-sm">
+              <h3 className="text-xl font-medium mb-3 text-gray-900 dark:text-white">Chất lượng</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
                 Cam kết 100% sản phẩm chính hãng, chất liệu cao cấp,
                 an toàn cho sức khỏe và bền đẹp theo thời gian.
               </p>
@@ -113,11 +113,11 @@ export default function AboutPage() {
 
             {/* Value 3 */}
             <div className="text-center">
-              <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 bg-gray-900 dark:bg-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-white dark:text-gray-900" />
               </div>
-              <h3 className="text-xl font-medium mb-3">Khách hàng</h3>
-              <p className="text-gray-600 text-sm">
+              <h3 className="text-xl font-medium mb-3 text-gray-900 dark:text-white">Khách hàng</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
                 Lấy khách hàng làm trung tâm, luôn lắng nghe và cải thiện
                 để mang đến dịch vụ tốt nhất.
               </p>
@@ -125,11 +125,11 @@ export default function AboutPage() {
 
             {/* Value 4 */}
             <div className="text-center">
-              <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4">
-                <Target className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 bg-gray-900 dark:bg-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <Target className="w-8 h-8 text-white dark:text-gray-900" />
               </div>
-              <h3 className="text-xl font-medium mb-3">Sáng tạo</h3>
-              <p className="text-gray-600 text-sm">
+              <h3 className="text-xl font-medium mb-3 text-gray-900 dark:text-white">Sáng tạo</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
                 Không ngừng cập nhật xu hướng mới nhất,
                 mang đến những thiết kế độc đáo và thời thượng.
               </p>
@@ -141,10 +141,10 @@ export default function AboutPage() {
       {/* Team */}
       <section className="container mx-auto px-4 py-20">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-serif font-light mb-4">
+          <h2 className="text-4xl md:text-5xl font-serif font-light mb-4 text-gray-900 dark:text-white">
             Đội ngũ của chúng tôi
           </h2>
-          <p className="text-gray-600">
+          <p className="text-gray-500 dark:text-gray-400">
             Những người tâm huyết xây dựng Lingerie Shop
           </p>
         </div>
@@ -160,9 +160,9 @@ export default function AboutPage() {
                 className="object-cover"
               />
             </div>
-            <h3 className="text-xl font-medium mb-1">Nguyễn Thị Mai</h3>
-            <p className="text-gray-600 mb-3">Nhà sáng lập & CEO</p>
-            <p className="text-sm text-gray-500">
+            <h3 className="text-xl font-medium mb-1 text-gray-900 dark:text-white">Nguyễn Thị Mai</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-3">Nhà sáng lập & CEO</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Với hơn 10 năm kinh nghiệm trong ngành thời trang,
               chị Mai đã dẫn dắt Lingerie Shop trở thành thương hiệu uy tín.
             </p>
@@ -178,9 +178,9 @@ export default function AboutPage() {
                 className="object-cover"
               />
             </div>
-            <h3 className="text-xl font-medium mb-1">Trần Hoàng Nam</h3>
-            <p className="text-gray-600 mb-3">Giám đốc Sáng tạo</p>
-            <p className="text-sm text-gray-500">
+            <h3 className="text-xl font-medium mb-1 text-gray-900 dark:text-white">Trần Hoàng Nam</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-3">Giám đốc Sáng tạo</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Chịu trách nhiệm về thiết kế và phát triển sản phẩm,
               đảm bảo tính độc đáo và thẩm mỹ cho từng mẫu mã.
             </p>
@@ -196,9 +196,9 @@ export default function AboutPage() {
                 className="object-cover"
               />
             </div>
-            <h3 className="text-xl font-medium mb-1">Lê Thu An</h3>
-            <p className="text-gray-600 mb-3">Trưởng CSKH</p>
-            <p className="text-sm text-gray-500">
+            <h3 className="text-xl font-medium mb-1 text-gray-900 dark:text-white">Lê Thu An</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-3">Trưởng CSKH</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Đầu tư xây dựng đội ngũ chăm sóc khách hàng chuyên nghiệp,
                 luôn sẵn sàng hỗ trợ 24/7.
             </p>
@@ -207,30 +207,30 @@ export default function AboutPage() {
       </section>
 
       {/* Achievements */}
-      <section className="bg-gray-50 py-20">
+      <section className="bg-gray-50 dark:bg-gray-900 py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-serif font-light mb-4">
+            <h2 className="text-4xl md:text-5xl font-serif font-light mb-4 text-gray-900 dark:text-white">
               Thành tựu nổi bật
             </h2>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
-              <div className="text-4xl md:text-5xl font-light mb-2">50K+</div>
-              <p className="text-gray-600">Khách hàng tin tưởng</p>
+              <div className="text-4xl md:text-5xl font-light mb-2 text-gray-900 dark:text-white">50K+</div>
+              <p className="text-gray-500 dark:text-gray-400">Khách hàng tin tưởng</p>
             </div>
             <div>
-              <div className="text-4xl md:text-5xl font-light mb-2">500+</div>
-              <p className="text-gray-600">Sản phẩm đa dạng</p>
+              <div className="text-4xl md:text-5xl font-light mb-2 text-gray-900 dark:text-white">500+</div>
+              <p className="text-gray-500 dark:text-gray-400">Sản phẩm đa dạng</p>
             </div>
             <div>
-              <div className="text-4xl md:text-5xl font-light mb-2">4.9/5</div>
-              <p className="text-gray-600">Đánh giá trung bình</p>
+              <div className="text-4xl md:text-5xl font-light mb-2 text-gray-900 dark:text-white">4.9/5</div>
+              <p className="text-gray-500 dark:text-gray-400">Đánh giá trung bình</p>
             </div>
             <div>
-              <div className="text-4xl md:text-5xl font-light mb-2">15</div>
-              <p className="text-gray-600">Giải thưởng thiết kế</p>
+              <div className="text-4xl md:text-5xl font-light mb-2 text-gray-900 dark:text-white">15</div>
+              <p className="text-gray-500 dark:text-gray-400">Giải thưởng thiết kế</p>
             </div>
           </div>
         </div>
@@ -238,25 +238,25 @@ export default function AboutPage() {
 
       {/* CTA */}
       <section className="container mx-auto px-4 py-20">
-        <div className="bg-black text-white rounded-lg p-12 text-center">
+        <div className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg p-12 text-center">
           <h2 className="text-3xl md:text-4xl font-serif font-light mb-4">
             Hãy cùng chúng tôi viết tiếp câu chuyện
           </h2>
-          <p className="text-white/80 mb-8 max-w-2xl mx-auto">
+          <p className="text-white/80 dark:text-gray-600 mb-8 max-w-2xl mx-auto">
             Cảm ơn bạn đã đồng hành cùng Lingerie Shop.
             Hãy khám phá bộ sưu tập mới nhất và trải nghiệm sự khác biệt.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/san-pham"
-              className="ck-button inline-flex items-center justify-center gap-2 bg-white text-black px-8 py-3 rounded-lg hover:bg-gray-100 transition font-medium"
+              className="ck-button inline-flex items-center justify-center gap-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-8 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition font-medium"
             >
               Khám phá ngay
               <ArrowRight className="w-5 h-5" />
             </Link>
             <Link
               href="/contact"
-              className="inline-flex items-center justify-center gap-2 border-2 border-white px-8 py-3 rounded-lg hover:bg-white hover:text-black transition font-medium"
+              className="inline-flex items-center justify-center gap-2 border-2 border-white dark:border-gray-900 px-8 py-3 rounded-lg hover:bg-white dark:hover:bg-gray-900 hover:text-gray-900 dark:hover:text-white transition font-medium"
             >
               Liên hệ chúng tôi
             </Link>
