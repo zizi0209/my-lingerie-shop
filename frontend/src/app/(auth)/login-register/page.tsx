@@ -3,17 +3,20 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Mail, Lock, User, Check } from "lucide-react";
-import { api } from "@/lib/api";
+import { Eye, EyeOff, Mail, Lock, User, Check, Loader2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginRegisterPage() {
   const router = useRouter();
+  const { login, register, isAuthenticated, isLoading: authLoading } = useAuth();
+  
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
-  const [checking, setChecking] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [loginForm, setLoginForm] = useState({
     email: "",
@@ -28,27 +31,15 @@ export default function LoginRegisterPage() {
     confirmPassword: ""
   });
 
-  // Check if already logged in
+  // Redirect nếu đã đăng nhập
   useEffect(() => {
-    const checkAuth = async () => {
-      if (api.isAuthenticated()) {
-        try {
-          const response = await api.get<{ success: boolean }>('/users/profile');
-          if (response.success) {
-            router.replace('/');
-            return;
-          }
-        } catch {
-          api.removeToken();
-        }
-      }
-      setChecking(false);
-    };
-    checkAuth();
-  }, [router]);
+    if (!authLoading && isAuthenticated) {
+      router.replace('/');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
   // Show loading while checking auth
-  if (checking) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-black dark:border-white border-t-transparent" role="status" aria-label="Đang tải"></div>
@@ -56,14 +47,62 @@ export default function LoginRegisterPage() {
     );
   }
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // Đã đăng nhập thì không render gì
+  if (isAuthenticated) {
+    return null;
+  }
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login:", loginForm);
+    setError(null);
+    setIsSubmitting(true);
+
+    const result = await login({
+      email: loginForm.email,
+      password: loginForm.password,
+    });
+
+    setIsSubmitting(false);
+
+    if (result.success) {
+      router.replace('/');
+    } else {
+      setError(result.error || 'Đăng nhập thất bại');
+    }
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Register:", registerForm);
+    setError(null);
+
+    // Validate password match
+    if (registerForm.password !== registerForm.confirmPassword) {
+      setError('Mật khẩu xác nhận không khớp');
+      return;
+    }
+
+    // Validate password length
+    if (registerForm.password.length < 8) {
+      setError('Mật khẩu phải có ít nhất 8 ký tự');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const fullName = `${registerForm.firstName} ${registerForm.lastName}`.trim();
+    const result = await register({
+      email: registerForm.email,
+      password: registerForm.password,
+      name: fullName || undefined,
+    });
+
+    setIsSubmitting(false);
+
+    if (result.success) {
+      router.replace('/');
+    } else {
+      setError(result.error || 'Đăng ký thất bại');
+    }
   };
 
   return (
@@ -123,6 +162,12 @@ export default function LoginRegisterPage() {
                 Chào mừng quay trở lại
               </h2>
 
+              {error && (
+                <div className="p-3 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
+
               <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
                   <label htmlFor="login-email" className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">
@@ -163,7 +208,7 @@ export default function LoginRegisterPage() {
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-black dark:hover:text-white p-1 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset rounded"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black dark:hover:text-white p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" aria-hidden="true" /> : <Eye className="w-5 h-5" aria-hidden="true" />}
                     </button>
@@ -191,9 +236,11 @@ export default function LoginRegisterPage() {
 
                 <button
                   type="submit"
-                  className="ck-button w-full bg-black text-white dark:bg-white dark:text-black py-3 rounded-lg hover:opacity-90 transition font-medium min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  disabled={isSubmitting}
+                  className="ck-button w-full bg-black text-white dark:bg-white dark:text-black py-3 rounded-lg hover:opacity-90 transition font-medium min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Đăng nhập
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isSubmitting ? 'Đang xử lý...' : 'Đăng nhập'}
                 </button>
               </form>
 
@@ -246,6 +293,12 @@ export default function LoginRegisterPage() {
               <h2 className="text-xl md:text-2xl font-serif font-light mb-4 md:mb-6 text-gray-900 dark:text-white">
                 Tạo tài khoản mới
               </h2>
+
+              {error && (
+                <div className="p-3 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
 
               <form onSubmit={handleRegisterSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -323,7 +376,7 @@ export default function LoginRegisterPage() {
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-black dark:hover:text-white p-1 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset rounded"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black dark:hover:text-white p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" aria-hidden="true" /> : <Eye className="w-5 h-5" aria-hidden="true" />}
                     </button>
@@ -350,7 +403,7 @@ export default function LoginRegisterPage() {
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       aria-label={showConfirmPassword ? "Ẩn mật khẩu xác nhận" : "Hiện mật khẩu xác nhận"}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-black dark:hover:text-white p-1 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset rounded"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black dark:hover:text-white p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                     >
                       {showConfirmPassword ? <EyeOff className="w-5 h-5" aria-hidden="true" /> : <Eye className="w-5 h-5" aria-hidden="true" />}
                     </button>
@@ -386,9 +439,11 @@ export default function LoginRegisterPage() {
 
                 <button
                   type="submit"
-                  className="ck-button w-full bg-black text-white dark:bg-white dark:text-black py-3 rounded-lg hover:opacity-90 transition font-medium min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  disabled={isSubmitting}
+                  className="ck-button w-full bg-black text-white dark:bg-white dark:text-black py-3 rounded-lg hover:opacity-90 transition font-medium min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Đăng ký
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isSubmitting ? 'Đang xử lý...' : 'Đăng ký'}
                 </button>
               </form>
 

@@ -66,14 +66,15 @@ class ApiService {
         credentials: 'include', // Cho phép gửi cookies và credentials
       });
 
-      // Kiểm tra lỗi authentication
-      if (response.status === 401 || response.status === 403) {
-        this.removeToken();
-        throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
-      }
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        
+        // Chỉ xóa token và báo hết hạn nếu đây là request yêu cầu auth
+        if ((response.status === 401 || response.status === 403) && requireAuth) {
+          this.removeToken();
+          throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
+        }
+        
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
