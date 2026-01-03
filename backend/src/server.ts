@@ -1,11 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 
 dotenv.config();
 
 // Import routes & config AFTER dotenv.config()
+import authRoutes from './routes/authRoutes';
 import mediaRoutes from './routes/mediaRoutes';
 import userRoutes from './routes/userRoutes';
 import categoryRoutes from './routes/categoryRoutes';
@@ -52,6 +54,7 @@ app.use(
 // Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Public routes (no rate limit, no auth required)
 app.use('/api/public/config', publicConfigRoutes);
@@ -60,6 +63,7 @@ app.use('/api/public/config', publicConfigRoutes);
 app.use('/api', apiLimiter);
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);

@@ -34,10 +34,11 @@ model User {
   tokenVersion          Int       @default(0)
   
   // Relationships
-  orders      Order[]
-  posts       Post[]
-  cart        Cart?
-  auditLogs   AuditLog[]
+  orders        Order[]
+  posts         Post[]
+  cart          Cart?
+  auditLogs     AuditLog[]
+  refreshTokens RefreshToken[]
   
   // Tracking
   isActive    Boolean   @default(true)
@@ -69,6 +70,22 @@ model Permission {
   roles       Role[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// REFRESH TOKEN - Lưu refresh tokens để quản lý phiên đăng nhập
+model RefreshToken {
+  id          String    @id @default(uuid())
+  token       String    @unique
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent   String?
+  ipAddress   String?
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+  
+  @@index([token])
+  @@index([userId])
 }
 
 // 3. DANH MỤC (Ví dụ: Áo lót, Quần lót, Đồ ngủ)
