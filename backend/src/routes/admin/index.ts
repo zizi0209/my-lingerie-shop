@@ -7,6 +7,7 @@ import dashboardRoutes from './dashboard';
 import usersRoutes from './users';
 import auditLogsRoutes from './auditLogs';
 import systemConfigRoutes from './systemConfig';
+import reviewsRoutes from './reviews';
 
 const router = express.Router();
 
@@ -19,5 +20,6 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/users', usersRoutes);
 router.use('/audit-logs', auditLogsRoutes);
 router.use('/system-config', systemConfigRoutes);
+router.use('/reviews', reviewsRoutes);
 
 export default router;
