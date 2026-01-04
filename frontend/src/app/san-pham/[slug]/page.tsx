@@ -304,7 +304,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   return (
                     <button
                       key={size}
-                      onClick={() => available && setSelectedSize(size)}
+                      onClick={() => available && setSelectedSize(selectedSize === size ? "" : size)}
                       disabled={!available}
                       className={`py-3 px-4 border rounded transition-all ${
                         !available
