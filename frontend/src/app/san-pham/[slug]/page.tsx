@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import Image from "next/image";
 import { Minus, Plus, ShoppingBag, Heart, Star, Truck, Shield, RotateCcw, Loader2 } from "lucide-react";
 import Link from "next/link";
+import ReviewList from "@/components/product/ReviewList";
 
 interface ProductImage {
   id: number;
@@ -408,7 +409,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           ))}
         </div>
 
-        <div className="max-w-3xl">
+        <div className={activeTab === "description" ? "max-w-3xl" : ""}>
           {activeTab === "description" && (
             <div className="prose prose-lg dark:prose-invert">
               <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
@@ -418,11 +419,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           )}
 
           {activeTab === "reviews" && (
-            <div>
-              <h3 className="text-lg font-medium mb-6 text-gray-900 dark:text-white">Đánh giá từ khách hàng</h3>
-              <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                Chưa có đánh giá nào. Hãy là người đầu tiên đánh giá sản phẩm này!
-              </p>
+            <div className="max-w-none">
+              <ReviewList productSlug={product.slug} />
             </div>
           )}
         </div>
