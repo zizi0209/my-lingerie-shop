@@ -6,6 +6,7 @@ import { useState } from "react";
 interface Product {
   id: string;
   name: string;
+  slug?: string;
   price: number;
   originalPrice?: number;
   image: string;
@@ -26,6 +27,9 @@ export default function ProductCard({ product }: ProductCardProps) {
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0;
 
+  // Ưu tiên slug, fallback sang id
+  const productUrl = `/san-pham/${product.slug || product.id}`;
+
   return (
     <article
       className="product-card group"
@@ -35,7 +39,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="relative bg-gray-50 dark:bg-gray-800 aspect-[3/4] overflow-hidden rounded-lg">
         {/* Product Image */}
         <Link
-          href={`/san-pham/${product.id}`}
+          href={productUrl}
           className="relative w-full h-full block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           aria-label={`Xem chi tiết ${product.name}`}
         >
@@ -92,7 +96,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="mt-3 md:mt-4 space-y-1 md:space-y-2">
         <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">{product.category}</p>
         <Link
-          href={`/san-pham/${product.id}`}
+          href={productUrl}
           className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
         >
           <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-300 transition-colors line-clamp-2">

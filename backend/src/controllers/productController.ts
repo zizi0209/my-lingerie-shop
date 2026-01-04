@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { generateUniqueProductSlug } from '../utils/slugify';
 
 // Get all products
 export const getAllProducts = async (req: Request, res: Response) => {
@@ -199,7 +200,7 @@ export const createProduct = async (req: Request, res: Response) => {
   try {
     const {
       name,
-      slug,
+      slug: customSlug,
       description,
       price,
       salePrice,
@@ -210,20 +211,30 @@ export const createProduct = async (req: Request, res: Response) => {
       variants,
     } = req.body;
 
-    // Validate required fields
-    if (!name || !slug || !price || !categoryId) {
+    // Validate required fields (slug không còn bắt buộc - sẽ tự động tạo từ name)
+    if (!name || !price || !categoryId) {
       return res.status(400).json({
-        error: 'Tên, slug, giá và categoryId là bắt buộc!',
+        error: 'Tên, giá và categoryId là bắt buộc!',
       });
     }
 
-    // Check if slug already exists
-    const existingProduct = await prisma.product.findUnique({
-      where: { slug },
-    });
-
-    if (existingProduct) {
-      return res.status(400).json({ error: 'Slug đã được sử dụng!' });
+    // Tự động tạo slug từ name nếu không có customSlug
+    // Nếu có customSlug, kiểm tra trùng lặp và thêm số nếu cần
+    let slug: string;
+    if (customSlug) {
+      // Kiểm tra slug custom có tồn tại không
+      const existingProduct = await prisma.product.findUnique({
+        where: { slug: customSlug },
+      });
+      if (existingProduct) {
+        // Tạo slug unique từ customSlug
+        slug = await generateUniqueProductSlug(customSlug);
+      } else {
+        slug = customSlug;
+      }
+    } else {
+      // Tự động tạo slug từ name
+      slug = await generateUniqueProductSlug(name);
     }
 
     // Check if category exists
@@ -312,7 +323,9 @@ export const updateProduct = async (req: Request, res: Response) => {
       });
 
       if (slugExists) {
-        return res.status(400).json({ error: 'Slug đã được sử dụng!' });
+        // Tự động tạo slug unique thay vì báo lỗi
+        const uniqueSlug = await generateUniqueProductSlug(slug, Number(id));
+        req.body.slug = uniqueSlug;
       }
     }
 
@@ -330,7 +343,7 @@ export const updateProduct = async (req: Request, res: Response) => {
     // Prepare update data
     const updateData: any = {};
     if (name) updateData.name = name;
-    if (slug) updateData.slug = slug;
+    if (req.body.slug) updateData.slug = req.body.slug;
     if (description !== undefined) updateData.description = description;
     if (price) updateData.price = Number(price);
     if (salePrice !== undefined)
