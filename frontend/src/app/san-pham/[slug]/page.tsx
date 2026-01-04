@@ -164,10 +164,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   if (error || !product) {
     return (
       <div className="container mx-auto px-4 py-20 text-center">
-        <p className="text-gray-500 text-lg mb-4">{error || "Không tìm thấy sản phẩm"}</p>
+        <p className="text-gray-500 dark:text-gray-400 text-lg mb-4">{error || "Không tìm thấy sản phẩm"}</p>
         <Link
           href="/san-pham"
-          className="text-black underline hover:no-underline"
+          className="text-black dark:text-white underline hover:no-underline transition-colors"
         >
           Quay lại danh sách sản phẩm
         </Link>
@@ -182,18 +182,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Breadcrumb */}
-      <nav className="mb-8 text-sm text-gray-500">
-        <Link href="/" className="hover:text-black">Trang chủ</Link>
+      <nav className="mb-8 text-sm text-gray-500 dark:text-gray-400">
+        <Link href="/" className="hover:text-black dark:hover:text-white transition-colors">Trang chủ</Link>
         <span className="mx-2">/</span>
-        <Link href="/san-pham" className="hover:text-black">Sản phẩm</Link>
+        <Link href="/san-pham" className="hover:text-black dark:hover:text-white transition-colors">Sản phẩm</Link>
         <span className="mx-2">/</span>
-        <span className="text-black">{product.name}</span>
+        <span className="text-black dark:text-white">{product.name}</span>
       </nav>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20">
         {/* Product Images */}
         <div className="space-y-4">
-          <div className="relative aspect-3/4 bg-gray-50 overflow-hidden rounded-lg">
+          <div className="relative aspect-3/4 bg-gray-50 dark:bg-gray-800 overflow-hidden rounded-lg">
             <Image
               src={productImages[selectedImage]}
               alt={product.name}
@@ -212,8 +212,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}
-                  className={`relative aspect-3/4 bg-gray-50 rounded overflow-hidden border-2 transition-all ${
-                    selectedImage === index ? "border-black" : "border-transparent"
+                  className={`relative aspect-3/4 bg-gray-50 dark:bg-gray-800 rounded overflow-hidden border-2 transition-all ${
+                    selectedImage === index ? "border-black dark:border-white" : "border-transparent"
                   }`}
                 >
                   <Image
@@ -234,7 +234,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             <p className="text-sm text-gray-500 uppercase tracking-wide mb-2">
               {product.category.name}
             </p>
-            <h1 className="text-3xl lg:text-4xl font-serif font-light mb-4">{product.name}</h1>
+            <h1 className="text-3xl lg:text-4xl font-serif font-light mb-4 text-gray-900 dark:text-white">{product.name}</h1>
 
             {/* Rating placeholder */}
             <div className="flex items-center gap-4 mb-4">
@@ -245,13 +245,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                     className={`w-4 h-4 ${i < 4 ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
                   />
                 ))}
-                <span className="ml-2 text-sm text-gray-600">(0 đánh giá)</span>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">(0 đánh giá)</span>
               </div>
             </div>
 
             {/* Price */}
             <div className="flex items-baseline gap-3 mb-6">
-              <span className="text-3xl font-light">{displayPrice.toLocaleString("vi-VN")}₫</span>
+              <span className="text-3xl font-light text-gray-900 dark:text-white">{displayPrice.toLocaleString("vi-VN")}₫</span>
               {originalPrice && (
                 <span className="text-xl text-gray-400 line-through">
                   {originalPrice.toLocaleString("vi-VN")}₫
@@ -260,14 +260,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             </div>
 
             {product.description && (
-              <p className="text-gray-600 leading-relaxed">{product.description}</p>
+              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{product.description}</p>
             )}
           </div>
 
           {/* Color Selection */}
           {colors.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium mb-3">Màu sắc: {selectedColor}</h3>
+              <h3 className="text-sm font-medium mb-3 text-gray-900 dark:text-white">Màu sắc: {selectedColor}</h3>
               <div className="flex gap-2">
                 {colors.map((color) => (
                   <button
@@ -279,7 +279,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                     className={`px-4 py-2 border rounded transition-all ${
                       selectedColor === color
                         ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black"
-                        : "border-gray-300 dark:border-gray-600 hover:border-black dark:hover:border-white"
+                        : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white"
                     }`}
                   >
                     {color}
@@ -293,8 +293,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           {sizes.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium">Kích cỡ</h3>
-                <button className="text-sm text-gray-500 hover:text-black underline">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">Kích cỡ</h3>
+                <button className="text-sm text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white underline transition-colors">
                   Hướng dẫn chọn size
                 </button>
               </div>
@@ -308,10 +308,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                       disabled={!available}
                       className={`py-3 px-4 border rounded transition-all ${
                         !available
-                          ? "bg-gray-100 text-gray-400 cursor-not-allowed line-through"
+                          ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed line-through"
                           : selectedSize === size
                           ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black"
-                          : "border-gray-300 dark:border-gray-600 hover:border-black dark:hover:border-white"
+                          : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white"
                       }`}
                     >
                       {size}
@@ -324,12 +324,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
           {/* Quantity */}
           <div>
-            <h3 className="text-sm font-medium mb-3">Số lượng</h3>
+            <h3 className="text-sm font-medium mb-3 text-gray-900 dark:text-white">Số lượng</h3>
             <div className="flex items-center gap-4">
-              <div className="flex items-center border border-gray-300 rounded">
+              <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="p-3 hover:bg-gray-100 transition"
+                  className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition text-gray-700 dark:text-gray-300"
                 >
                   <Minus className="w-4 h-4" />
                 </button>
@@ -337,17 +337,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   type="number"
                   value={quantity}
                   onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-                  className="w-16 text-center border-x border-gray-300 py-3 focus:outline-none"
+                  className="w-16 text-center border-x border-gray-300 dark:border-gray-600 py-3 focus:outline-none bg-transparent text-gray-900 dark:text-white"
                 />
                 <button
                   onClick={() => setQuantity(quantity + 1)}
-                  className="p-3 hover:bg-gray-100 transition"
+                  className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition text-gray-700 dark:text-gray-300"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
               {selectedVariant && (
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
                   {selectedVariant.stock} sản phẩm có sẵn
                 </span>
               )}
@@ -372,17 +372,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           </div>
 
           {/* Features */}
-          <div className="space-y-3 py-6 border-y border-gray-200">
-            <div className="flex items-center gap-3 text-sm">
-              <Truck className="w-5 h-5 text-gray-600" />
+          <div className="space-y-3 py-6 border-y border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
+              <Truck className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               <span>Miễn phí vận chuyển cho đơn hàng từ 1.000.000₫</span>
             </div>
-            <div className="flex items-center gap-3 text-sm">
-              <RotateCcw className="w-5 h-5 text-gray-600" />
+            <div className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
+              <RotateCcw className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               <span>Đổi trả trong vòng 30 ngày</span>
             </div>
-            <div className="flex items-center gap-3 text-sm">
-              <Shield className="w-5 h-5 text-gray-600" />
+            <div className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
+              <Shield className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               <span>Bảo hành sản phẩm 6 tháng</span>
             </div>
           </div>
@@ -391,7 +391,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
       {/* Product Details Tabs */}
       <div className="mb-20">
-        <div className="flex border-b border-gray-200 mb-8">
+        <div className="flex border-b border-gray-200 dark:border-gray-700 mb-8">
           {["description", "reviews"].map((tab) => (
             <button
               key={tab}
@@ -410,8 +410,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
         <div className="max-w-3xl">
           {activeTab === "description" && (
-            <div className="prose prose-lg">
-              <p className="text-gray-600 leading-relaxed">
+            <div className="prose prose-lg dark:prose-invert">
+              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                 {product.description || "Chưa có mô tả cho sản phẩm này."}
               </p>
             </div>
@@ -419,8 +419,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
           {activeTab === "reviews" && (
             <div>
-              <h3 className="text-lg font-medium mb-6">Đánh giá từ khách hàng</h3>
-              <p className="text-center text-gray-500 py-8">
+              <h3 className="text-lg font-medium mb-6 text-gray-900 dark:text-white">Đánh giá từ khách hàng</h3>
+              <p className="text-center text-gray-500 dark:text-gray-400 py-8">
                 Chưa có đánh giá nào. Hãy là người đầu tiên đánh giá sản phẩm này!
               </p>
             </div>
@@ -431,7 +431,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       {/* Related Products */}
       {relatedProducts.length > 0 && (
         <div>
-          <h2 className="text-2xl font-serif font-light mb-8 text-center">Sản phẩm liên quan</h2>
+          <h2 className="text-2xl font-serif font-light mb-8 text-center text-gray-900 dark:text-white">Sản phẩm liên quan</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {relatedProducts.map((relatedProduct) => (
               <Link
@@ -439,7 +439,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 href={`/san-pham/${relatedProduct.slug}`}
                 className="group cursor-pointer"
               >
-                <div className="relative aspect-3/4 bg-gray-50 overflow-hidden rounded-lg mb-4">
+                <div className="relative aspect-3/4 bg-gray-50 dark:bg-gray-800 overflow-hidden rounded-lg mb-4">
                   <Image
                     src={relatedProduct.images[0]?.url || "https://via.placeholder.com/400x600"}
                     alt={relatedProduct.name}
@@ -450,7 +450,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-300 transition-colors mb-2">
                   {relatedProduct.name}
                 </h3>
-                <p className="text-lg font-light">{relatedProduct.price.toLocaleString("vi-VN")}₫</p>
+                <p className="text-lg font-light text-gray-900 dark:text-white">{relatedProduct.price.toLocaleString("vi-VN")}₫</p>
               </Link>
             ))}
           </div>
