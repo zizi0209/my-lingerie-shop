@@ -39,6 +39,7 @@ model User {
   cart          Cart?
   auditLogs     AuditLog[]
   refreshTokens RefreshToken[]
+  reviews       Review[]
   
   // Tracking
   isActive    Boolean   @default(true)
@@ -121,6 +122,11 @@ model Product {
   orderItems   OrderItem[]
   cartItems    CartItem[]
   productViews ProductView[]
+  reviews      Review[]
+  
+  // Denormalized Review Stats (Performance)
+  ratingAverage Float           @default(0)
+  reviewCount   Int             @default(0)
   
   isFeatured   Boolean          @default(false)
   isVisible    Boolean          @default(true)
@@ -269,6 +275,7 @@ model Order {
   
   status          String      @default("PENDING")
   items           OrderItem[]
+  reviews         Review[]
   
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -473,4 +480,83 @@ model AdminInvitation {
   @@index([token])
   @@index([email])
   @@map("admin_invitations")
+}
+
+// =============================================
+// REVIEW SYSTEM - Đánh giá sản phẩm
+// =============================================
+
+// 21. ĐÁNH GIÁ SẢN PHẨM
+model Review {
+  id          Int      @id @default(autoincrement())
+  
+  // Relationships
+  productId   Int
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId     Int?
+  order       Order?   @relation(fields: [orderId], references: [id])
+  
+  // Core Review
+  rating      Int                     // 1-5 sao
+  title       String?                 // Tiêu đề (optional)
+  content     String   @db.Text       // Nội dung đánh giá
+  
+  // Product Context (Snapshot)
+  variantName String?                 // "Màu Đỏ, Size M" - snapshot tại thời điểm mua
+  
+  // Lingerie Specific
+  fitType     String?                 // SMALL | TRUE_TO_SIZE | LARGE
+  
+  // Verification
+  isVerified  Boolean  @default(false) // Đã mua hàng thật
+  
+  // Media
+  images      ReviewImage[]
+  
+  // Moderation
+  status      String   @default("PENDING") // PENDING | APPROVED | REJECTED | HIDDEN
+  
+  // Shop Reply
+  reply       String?  @db.Text
+  repliedAt   DateTime?
+  repliedBy   Int?                    // Admin ID đã trả lời
+  
+  // Interaction
+  helpfulCount Int     @default(0)    // Số lượt "Hữu ích"
+  helpfulVotes ReviewHelpful[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([productId, userId, orderId])
+  @@index([productId, status])
+  @@index([userId])
+  @@index([status, createdAt])
+  @@index([rating])
+}
+
+// 22. ẢNH ĐÁNH GIÁ
+model ReviewImage {
+  id        Int      @id @default(autoincrement())
+  url       String
+  reviewId  Int
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  
+  @@index([reviewId])
+}
+
+// 23. HELPFUL VOTES (Theo dõi ai đã vote)
+model ReviewHelpful {
+  id        Int      @id @default(autoincrement())
+  reviewId  Int
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  visitorId String   // sessionId hoặc visitorId (cho cả guest)
+  userId    Int?     // Nếu đã đăng nhập
+  createdAt DateTime @default(now())
+  
+  @@unique([reviewId, visitorId])
+  @@index([reviewId])
 }

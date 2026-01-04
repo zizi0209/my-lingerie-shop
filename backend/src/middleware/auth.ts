@@ -56,3 +56,34 @@ export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
   }
   next();
 };
+
+// Optional auth - không bắt buộc đăng nhập, nhưng nếu có token thì parse
+export const optionalAuth = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return next(); // Không có token -> tiếp tục như guest
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+      if (!err && decoded) {
+        const payload = decoded as JwtPayload;
+        req.user = {
+          id: payload.userId,
+          email: payload.email,
+          roleId: payload.roleId,
+          roleName: payload.roleName ?? null
+        };
+      }
+      next();
+    });
+  } catch {
+    next(); // Lỗi -> tiếp tục như guest
+  }
+};
