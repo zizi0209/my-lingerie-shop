@@ -12,12 +12,21 @@ export const getAllProducts = async (req: Request, res: Response) => {
       minPrice,
       maxPrice,
       search,
+      colors, // comma-separated color names
+      sizes,  // comma-separated sizes
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
 
     // Build where clause
-    const where: any = { isVisible: true };
+    const where: {
+      isVisible: boolean;
+      categoryId?: number;
+      isFeatured?: boolean;
+      price?: { gte?: number; lte?: number };
+      OR?: { name?: { contains: string; mode: 'insensitive' }; description?: { contains: string; mode: 'insensitive' } }[];
+      variants?: { some: { colorName?: { in: string[] }; size?: { in: string[] } } };
+    } = { isVisible: true };
 
     if (categoryId) {
       where.categoryId = Number(categoryId);
@@ -38,6 +47,34 @@ export const getAllProducts = async (req: Request, res: Response) => {
         { name: { contains: String(search), mode: 'insensitive' } },
         { description: { contains: String(search), mode: 'insensitive' } },
       ];
+    }
+
+    // Filter by colors (from variant)
+    if (colors && typeof colors === 'string') {
+      const colorList = colors.split(',').map(c => c.trim()).filter(Boolean);
+      if (colorList.length > 0) {
+        where.variants = {
+          ...where.variants,
+          some: {
+            ...where.variants?.some,
+            colorName: { in: colorList },
+          },
+        };
+      }
+    }
+
+    // Filter by sizes (from variant)
+    if (sizes && typeof sizes === 'string') {
+      const sizeList = sizes.split(',').map(s => s.trim()).filter(Boolean);
+      if (sizeList.length > 0) {
+        where.variants = {
+          ...where.variants,
+          some: {
+            ...where.variants?.some,
+            size: { in: sizeList },
+          },
+        };
+      }
     }
 
     const [products, total] = await Promise.all([
@@ -64,7 +101,7 @@ export const getAllProducts = async (req: Request, res: Response) => {
             select: {
               id: true,
               size: true,
-              color: true,
+              colorName: true,
               stock: true,
             },
           },
@@ -216,10 +253,10 @@ export const createProduct = async (req: Request, res: Response) => {
           : undefined,
         variants: variants
           ? {
-              create: variants.map((v: any, index: number) => ({
-                sku: v.sku || `${slug}-${v.size}-${v.color}-${Date.now()}-${index}`.toUpperCase().replace(/\s+/g, '-'),
+              create: variants.map((v: { sku?: string; size: string; color?: string; colorName?: string; stock?: number; price?: number; salePrice?: number }, index: number) => ({
+                sku: v.sku || `${slug}-${v.size}-${v.colorName || v.color}-${Date.now()}-${index}`.toUpperCase().replace(/\s+/g, '-'),
                 size: v.size,
-                color: v.color,
+                colorName: v.colorName || v.color || '',
                 stock: v.stock || 0,
                 price: v.price || null,
                 salePrice: v.salePrice || null,
@@ -615,10 +652,10 @@ export const addProductVariants = async (req: Request, res: Response) => {
 
     // Add variants
     const createdVariants = await prisma.productVariant.createMany({
-      data: variants.map((v: any) => ({
-        sku: v.sku || `${product.slug}-${v.size}-${v.color}`.toUpperCase(),
+      data: variants.map((v: { sku?: string; size: string; color?: string; colorName?: string; stock?: number; price?: number; salePrice?: number }) => ({
+        sku: v.sku || `${product.slug}-${v.size}-${v.colorName || v.color}`.toUpperCase(),
         size: v.size,
-        color: v.color,
+        colorName: v.colorName || v.color || '',
         stock: v.stock || 0,
         price: v.price || null,
         salePrice: v.salePrice || null,
@@ -652,7 +689,7 @@ export const addProductVariants = async (req: Request, res: Response) => {
 export const updateProductVariant = async (req: Request, res: Response) => {
   try {
     const { variantId } = req.params;
-    const { size, color, stock } = req.body;
+    const { size, color, colorName, stock } = req.body;
 
     // Check if variant exists
     const existingVariant = await prisma.productVariant.findUnique({
@@ -664,9 +701,9 @@ export const updateProductVariant = async (req: Request, res: Response) => {
     }
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: { size?: string; colorName?: string; stock?: number } = {};
     if (size) updateData.size = size;
-    if (color) updateData.color = color;
+    if (colorName || color) updateData.colorName = colorName || color;
     if (stock !== undefined) updateData.stock = Number(stock);
 
     // Update variant

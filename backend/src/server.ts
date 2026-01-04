@@ -21,6 +21,7 @@ import permissionRoutes from './routes/permissionRoutes';
 import cartRoutes from './routes/cartRoutes';
 import orderRoutes from './routes/orderRoutes';
 import trackingRoutes from './routes/trackingRoutes';
+import filterRoutes from './routes/filterRoutes';
 import adminRoutes from './routes/admin';
 import publicConfigRoutes from './routes/publicConfig';
 import { apiLimiter } from './middleware/rateLimiter';
@@ -78,6 +79,7 @@ app.use('/api/permissions', permissionRoutes);
 app.use('/api/carts', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/tracking', trackingRoutes);
+app.use('/api/filters', filterRoutes);
 
 // Admin routes (protected)
 app.use('/api/admin', adminRoutes);

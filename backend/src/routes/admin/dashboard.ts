@@ -299,7 +299,7 @@ router.get('/carts', async (req, res) => {
                 select: {
                   id: true,
                   size: true,
-                  color: true,
+                  colorName: true,
                   price: true,
                 },
               },

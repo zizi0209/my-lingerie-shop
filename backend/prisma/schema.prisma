@@ -90,14 +90,15 @@ model RefreshToken {
 
 // 3. DANH MỤC (Ví dụ: Áo lót, Quần lót, Đồ ngủ)
 model Category {
-  id        Int       @id @default(autoincrement())
-  name      String
-  slug      String    @unique
-  image     String?
-  products  Product[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id         Int                 @id @default(autoincrement())
+  name       String
+  slug       String              @unique
+  image      String?
+  products   Product[]
+  attributes CategoryAttribute[] // Thuộc tính áp dụng cho danh mục này
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  deletedAt  DateTime?
   
   @@index([slug])
 }
@@ -116,6 +117,7 @@ model Product {
   
   images       ProductImage[]
   variants     ProductVariant[]
+  attributes   ProductAttributeValue[] // Giá trị thuộc tính của sản phẩm
   orderItems   OrderItem[]
   cartItems    CartItem[]
   productViews ProductView[]
@@ -142,16 +144,14 @@ model ProductImage {
   createdAt DateTime @default(now())
 }
 
-// 6. BIẾN THỂ (Màu/Size/Kho)
+// 6. BIẾN THỂ (Size/Màu/Kho) - Size lưu ở đây để quản lý tồn kho
 model ProductVariant {
   id        Int        @id @default(autoincrement())
   sku       String     @unique
-  size      String
-  color     String     // Legacy field - kept for backward compatibility
-  colorId   Int?
-  colorRef  Color?     @relation(fields: [colorId], references: [id])
+  size      String     // Size lưu ở variant để quản lý kho
+  colorName String     // Tên màu (match với AttributeValue.value của Attribute type=COLOR)
   stock     Int        @default(0)
-  price     Float?
+  price     Float?     // Giá riêng cho variant (nếu có)
   salePrice Float?
   
   productId Int
@@ -163,22 +163,72 @@ model ProductVariant {
   
   @@index([productId])
   @@index([sku])
-  @@index([colorId])
-  @@unique([productId, size, color])
+  @@index([colorName])
+  @@index([size])
+  @@unique([productId, size, colorName])
 }
 
-// 6.1 QUẢN LÝ MÀU SẮC (Color Attributes)
-model Color {
-  id        Int              @id @default(autoincrement())
-  name      String           @unique
-  hexCode   String           // Mã màu HEX (e.g., #FF0000)
-  isActive  Boolean          @default(true)
-  order     Int              @default(0)
-  variants  ProductVariant[]
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+// =============================================
+// ATTRIBUTE SYSTEM - Dynamic Faceted Filtering
+// =============================================
+
+// Định nghĩa loại thuộc tính (Màu sắc, Chất liệu, Kiểu gọng...)
+model Attribute {
+  id           Int                 @id @default(autoincrement())
+  name         String              // "Màu sắc", "Chất liệu", "Kiểu gọng"
+  slug         String              @unique // "mau-sac", "chat-lieu"
+  type         String              @default("SELECT") // SELECT, MULTI, COLOR
+  isFilterable Boolean             @default(true) // Hiển thị trong bộ lọc?
+  order        Int                 @default(0)
   
-  @@index([isActive, order])
+  values       AttributeValue[]
+  categories   CategoryAttribute[] // Thuộc tính này áp dụng cho danh mục nào
+  
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  
+  @@index([isFilterable, order])
+}
+
+// Giá trị của thuộc tính (Đen, Trắng, Ren, Cotton, Push-up...)
+model AttributeValue {
+  id          Int                     @id @default(autoincrement())
+  value       String                  // "Đen", "Ren", "Push-up"
+  slug        String                  // "den", "ren", "push-up"
+  meta        Json?                   // { "hexCode": "#000000" } cho màu
+  order       Int                     @default(0)
+  
+  attributeId Int
+  attribute   Attribute               @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  
+  products    ProductAttributeValue[]
+  
+  @@unique([attributeId, slug])
+  @@index([attributeId])
+}
+
+// Thuộc tính nào áp dụng cho danh mục nào
+model CategoryAttribute {
+  categoryId  Int
+  attributeId Int
+  order       Int       @default(0) // Thứ tự hiển thị filter trong danh mục
+  
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  
+  @@id([categoryId, attributeId])
+}
+
+// Sản phẩm có giá trị thuộc tính nào
+model ProductAttributeValue {
+  productId        Int
+  attributeValueId Int
+  
+  product          Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attributeValue   AttributeValue @relation(fields: [attributeValueId], references: [id], onDelete: Cascade)
+  
+  @@id([productId, attributeValueId])
+  @@index([attributeValueId])
 }
 
 // 7. CẤU HÌNH CMS ĐỘNG (Cho Admin chỉnh giao diện)

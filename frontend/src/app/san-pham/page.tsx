@@ -28,13 +28,25 @@ interface ColorFilter {
   hexCode: string;
 }
 
-const sizes = ["S", "M", "L", "XL", "XXL"];
+interface FiltersData {
+  colors: ColorFilter[];
+  sizes: string[];
+  priceRange: {
+    min: number;
+    max: number;
+  };
+}
+
 const PRODUCTS_PER_PAGE = 24;
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [colors, setColors] = useState<ColorFilter[]>([]);
+  const [filters, setFilters] = useState<FiltersData>({
+    colors: [],
+    sizes: [],
+    priceRange: { min: 0, max: 10000000 },
+  });
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -50,7 +62,7 @@ export default function ProductsPage() {
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
-  // Fetch categories and colors
+  // Fetch categories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -63,20 +75,28 @@ export default function ProductsPage() {
         console.error("Error fetching categories:", err);
       }
     };
-    const fetchColors = async () => {
+    fetchCategories();
+  }, [baseUrl]);
+
+  // Fetch filter options (colors, sizes from API)
+  useEffect(() => {
+    const fetchFilters = async () => {
       try {
-        const res = await fetch(`${baseUrl}/colors/filter`);
+        const params = new URLSearchParams();
+        if (selectedCategory !== "all") {
+          params.append("categoryId", selectedCategory);
+        }
+        const res = await fetch(`${baseUrl}/filters?${params}`);
         const data = await res.json();
         if (data.success) {
-          setColors(data.data);
+          setFilters(data.data);
         }
       } catch (err) {
-        console.error("Error fetching colors:", err);
+        console.error("Error fetching filters:", err);
       }
     };
-    fetchCategories();
-    fetchColors();
-  }, [baseUrl]);
+    fetchFilters();
+  }, [baseUrl, selectedCategory]);
 
   // Fetch products
   const fetchProducts = useCallback(async (pageNum: number, reset: boolean = false) => {
@@ -104,6 +124,15 @@ export default function ProductsPage() {
 
       if (priceRange.max < 10000000) {
         params.append("maxPrice", priceRange.max.toString());
+      }
+
+      // Add color and size filters
+      if (selectedColors.length > 0) {
+        params.append("colors", selectedColors.join(","));
+      }
+
+      if (selectedSizes.length > 0) {
+        params.append("sizes", selectedSizes.join(","));
       }
 
       const res = await fetch(`${baseUrl}/products?${params}`);
@@ -146,7 +175,7 @@ export default function ProductsPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [baseUrl, selectedCategory, sortBy, priceRange]);
+  }, [baseUrl, selectedCategory, sortBy, priceRange, selectedColors, selectedSizes]);
 
   // Check if product is new (within 30 days)
   const isNewProduct = (createdAt: string) => {
@@ -249,32 +278,34 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            {/* Sizes */}
-            <div className="mb-8">
-              <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Kích cỡ</h3>
-              <div className="flex flex-wrap gap-2">
-                {sizes.map(size => (
-                  <button
-                    key={size}
-                    onClick={() => handleSizeToggle(size)}
-                    className={`w-12 h-12 rounded border transition-all ${
-                      selectedSizes.includes(size)
-                        ? "border-primary-500 bg-primary-500 text-white"
-                        : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-300"
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
+            {/* Sizes - Dynamic from API */}
+            {filters.sizes.length > 0 && (
+              <div className="mb-8">
+                <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Kích cỡ</h3>
+                <div className="flex flex-wrap gap-2">
+                  {filters.sizes.map(size => (
+                    <button
+                      key={size}
+                      onClick={() => handleSizeToggle(size)}
+                      className={`min-w-[48px] h-12 px-2 rounded border transition-all ${
+                        selectedSizes.includes(size)
+                          ? "border-primary-500 bg-primary-500 text-white"
+                          : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-300"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Colors - Dynamic from API */}
-            {colors.length > 0 && (
+            {filters.colors.length > 0 && (
               <div className="mb-8">
                 <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Màu sắc</h3>
                 <div className="space-y-2">
-                  {colors.map(color => (
+                  {filters.colors.map(color => (
                     <button
                       key={color.id}
                       onClick={() => handleColorToggle(color.name)}
