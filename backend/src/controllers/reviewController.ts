@@ -397,6 +397,215 @@ export const createReview = async (req: Request, res: Response) => {
   }
 };
 
+// PUT /reviews/:id - Sửa review của mình
+export const updateReview = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as Request & { user: { id: number } }).user.id;
+    const { rating, title, content, fitType } = req.body;
+
+    const review = await prisma.review.findUnique({
+      where: { id: Number(id) }
+    });
+
+    if (!review) {
+      return res.status(404).json({ error: 'Không tìm thấy đánh giá!' });
+    }
+
+    if (review.userId !== userId) {
+      return res.status(403).json({ error: 'Bạn không có quyền sửa đánh giá này!' });
+    }
+
+    if (rating && (rating < 1 || rating > 5)) {
+      return res.status(400).json({ error: 'Rating phải từ 1-5!' });
+    }
+
+    if (fitType && !['SMALL', 'TRUE_TO_SIZE', 'LARGE'].includes(fitType)) {
+      return res.status(400).json({ error: 'fitType phải là SMALL, TRUE_TO_SIZE hoặc LARGE!' });
+    }
+
+    const updatedReview = await prisma.review.update({
+      where: { id: Number(id) },
+      data: {
+        ...(rating && { rating: Number(rating) }),
+        ...(title !== undefined && { title }),
+        ...(content && { content }),
+        ...(fitType !== undefined && { fitType }),
+        ...(content && content !== review.content && {
+          status: autoModerate(content) ? review.status : 'PENDING'
+        })
+      },
+      include: {
+        images: true,
+        user: { select: { id: true, name: true, avatar: true } }
+      }
+    });
+
+    if (rating && rating !== review.rating && updatedReview.status === 'APPROVED') {
+      await updateProductRatingStats(review.productId);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...updatedReview,
+        user: { ...updatedReview.user, name: maskName(updatedReview.user.name) }
+      }
+    });
+  } catch (error) {
+    console.error('Update review error:', error);
+    res.status(500).json({ error: 'Lỗi khi cập nhật đánh giá!' });
+  }
+};
+
+// DELETE /reviews/:id - Xóa review của mình
+export const deleteReview = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as Request & { user: { id: number } }).user.id;
+
+    const review = await prisma.review.findUnique({
+      where: { id: Number(id) }
+    });
+
+    if (!review) {
+      return res.status(404).json({ error: 'Không tìm thấy đánh giá!' });
+    }
+
+    if (review.userId !== userId) {
+      return res.status(403).json({ error: 'Bạn không có quyền xóa đánh giá này!' });
+    }
+
+    const productId = review.productId;
+    const wasApproved = review.status === 'APPROVED';
+
+    await prisma.review.delete({ where: { id: Number(id) } });
+
+    if (wasApproved) {
+      await updateProductRatingStats(productId);
+    }
+
+    res.json({ success: true, message: 'Đã xóa đánh giá thành công!' });
+  } catch (error) {
+    console.error('Delete review error:', error);
+    res.status(500).json({ error: 'Lỗi khi xóa đánh giá!' });
+  }
+};
+
+// GET /users/me/reviews - Xem reviews đã viết
+export const getMyReviews = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { user: { id: number } }).user.id;
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where: { userId },
+        skip,
+        take: Number(limit),
+        orderBy: { createdAt: 'desc' },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              images: { take: 1, select: { url: true } }
+            }
+          },
+          images: true
+        }
+      }),
+      prisma.review.count({ where: { userId } })
+    ]);
+
+    res.json({
+      success: true,
+      data: reviews,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Get my reviews error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách đánh giá!' });
+  }
+};
+
+// GET /users/me/pending-reviews - Sản phẩm chờ đánh giá
+export const getPendingReviews = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { user: { id: number } }).user.id;
+
+    const completedOrders = await prisma.order.findMany({
+      where: { userId, status: 'COMPLETED' },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                images: { take: 1, select: { url: true } }
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const reviewedProducts = await prisma.review.findMany({
+      where: { userId },
+      select: { productId: true, orderId: true }
+    });
+
+    const reviewedSet = new Set(
+      reviewedProducts.map(r => `${r.productId}-${r.orderId || 'null'}`)
+    );
+
+    interface PendingItem {
+      orderId: number;
+      orderNumber: string;
+      orderDate: Date;
+      product: { id: number; name: string; slug: string; image: string | null };
+      variant: string | null;
+    }
+
+    const pendingItems: PendingItem[] = [];
+
+    for (const order of completedOrders) {
+      for (const item of order.items) {
+        const key = `${item.productId}-${order.id}`;
+        if (!reviewedSet.has(key)) {
+          pendingItems.push({
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            orderDate: order.createdAt,
+            product: {
+              id: item.product.id,
+              name: item.product.name,
+              slug: item.product.slug,
+              image: item.product.images[0]?.url || null
+            },
+            variant: item.variant
+          });
+        }
+      }
+    }
+
+    res.json({ success: true, data: pendingItems, total: pendingItems.length });
+  } catch (error) {
+    console.error('Get pending reviews error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy sản phẩm chờ đánh giá!' });
+  }
+};
+
 // =============================================
 // HELPER FUNCTIONS
 // =============================================

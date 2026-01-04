@@ -3,7 +3,11 @@ import {
   getProductReviews,
   getProductReviewStats,
   voteHelpful,
-  createReview
+  createReview,
+  updateReview,
+  deleteReview,
+  getMyReviews,
+  getPendingReviews
 } from '../controllers/reviewController';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
 
@@ -26,7 +30,19 @@ router.post('/:id/helpful', optionalAuth, voteHelpful);
 // USER ROUTES (Authenticated)
 // =============================================
 
+// GET /reviews/me - Reviews của user hiện tại
+router.get('/me', authenticateToken, getMyReviews);
+
+// GET /reviews/pending - Sản phẩm chờ đánh giá
+router.get('/pending', authenticateToken, getPendingReviews);
+
 // POST /reviews - Tạo review mới
 router.post('/', authenticateToken, createReview);
+
+// PUT /reviews/:id - Sửa review của mình
+router.put('/:id', authenticateToken, updateReview);
+
+// DELETE /reviews/:id - Xóa review của mình
+router.delete('/:id', authenticateToken, deleteReview);
 
 export default router;
