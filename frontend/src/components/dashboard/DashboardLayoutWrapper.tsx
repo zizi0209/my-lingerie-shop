@@ -5,6 +5,7 @@ import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import { LanguageProvider } from "./components/LanguageContext";
 import { StoreConfigProvider, usePrimaryColor } from "./components/StoreConfigContext";
+import { ThemeProvider } from "./components/ThemeContext";
 import { ThemeInjector } from "@/components/ThemeInjector";
 
 interface DashboardLayoutWrapperProps {
@@ -33,11 +34,13 @@ const DashboardContent: React.FC<DashboardLayoutWrapperProps> = ({ children }) =
 
 const DashboardLayoutWrapper: React.FC<DashboardLayoutWrapperProps> = ({ children }) => {
   return (
-    <LanguageProvider>
-      <StoreConfigProvider>
-        <DashboardContent>{children}</DashboardContent>
-      </StoreConfigProvider>
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <StoreConfigProvider>
+          <DashboardContent>{children}</DashboardContent>
+        </StoreConfigProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 };
 
