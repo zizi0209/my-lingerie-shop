@@ -37,6 +37,8 @@ interface Product {
   category: Category;
   images: ProductImage[];
   variants: ProductVariant[];
+  ratingAverage: number;
+  reviewCount: number;
 }
 
 interface RelatedProduct {
@@ -237,16 +239,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             </p>
             <h1 className="text-3xl lg:text-4xl font-serif font-light mb-4 text-gray-900 dark:text-white">{product.name}</h1>
 
-            {/* Rating placeholder */}
+            {/* Rating */}
             <div className="flex items-center gap-4 mb-4">
               <div className="flex items-center">
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
-                    className={`w-4 h-4 ${i < 4 ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                    className={`w-4 h-4 ${i < Math.round(product.ratingAverage) ? "fill-yellow-400 text-yellow-400" : "text-gray-300 dark:text-gray-600"}`}
                   />
                 ))}
-                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">(0 đánh giá)</span>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                  ({product.reviewCount} đánh giá)
+                </span>
               </div>
             </div>
 

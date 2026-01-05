@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingBag, User, Search, Menu, LogOut, Package, Settings, Heart, X } from "lucide-react";
+import { ShoppingBag, User, Search, Menu, LogOut, Package, Settings, Heart, X, Star } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useStore } from "@/context/StoreContext";
@@ -174,6 +174,14 @@ export default function Header() {
                       >
                         <Heart className="w-4 h-4" />
                         Yêu thích
+                      </Link>
+                      <Link
+                        href="/tai-khoan/danh-gia"
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                      >
+                        <Star className="w-4 h-4" />
+                        Đánh giá của tôi
                       </Link>
                       {user.role?.name && ["ADMIN", "SUPER_ADMIN"].includes(user.role.name.toUpperCase()) && (
                         <Link
@@ -371,6 +379,10 @@ export default function Header() {
                 <Link href="/profile?tab=wishlist" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-600 dark:text-gray-400">
                   <Heart className="w-4 h-4" />
                   Yêu thích
+                </Link>
+                <Link href="/tai-khoan/danh-gia" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-600 dark:text-gray-400">
+                  <Star className="w-4 h-4" />
+                  Đánh giá của tôi
                 </Link>
                 {user.role?.name && ["ADMIN", "SUPER_ADMIN"].includes(user.role.name.toUpperCase()) && (
                   <Link href="/dashboard" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-600 dark:text-gray-400">

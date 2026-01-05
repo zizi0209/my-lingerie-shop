@@ -185,9 +185,14 @@ export const getProductBySlug = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Không tìm thấy sản phẩm!' });
     }
 
+    // Trả về cả ratingAverage và reviewCount
     res.json({
       success: true,
-      data: product,
+      data: {
+        ...product,
+        ratingAverage: product.ratingAverage,
+        reviewCount: product.reviewCount,
+      },
     });
   } catch (error) {
     console.error('Get product by slug error:', error);

@@ -153,11 +153,10 @@ export const getProductReviewStats = async (req: Request, res: Response) => {
       _count: { id: true }
     });
 
-    // Đếm verified reviews
+    // Đếm verified reviews (tất cả reviews có isVerified, không phân biệt status)
     const verifiedCount = await prisma.review.count({
       where: {
         productId: product.id,
-        status: 'APPROVED',
         isVerified: true
       }
     });

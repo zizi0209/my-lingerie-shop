@@ -489,6 +489,15 @@ export default function AdminReviewsPage() {
                                 <CheckCircle className="w-4 h-4" />
                               </button>
                             )}
+                            {review.status !== 'PENDING' && (
+                              <button
+                                onClick={() => handleUpdateStatus(review.id, 'PENDING')}
+                                title="Chờ duyệt"
+                                className="p-2 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 rounded-lg"
+                              >
+                                <Clock className="w-4 h-4" />
+                              </button>
+                            )}
                             {review.status !== 'REJECTED' && (
                               <button
                                 onClick={() => handleUpdateStatus(review.id, 'REJECTED')}
