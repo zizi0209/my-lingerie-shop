@@ -24,6 +24,7 @@ import trackingRoutes from './routes/trackingRoutes';
 import filterRoutes from './routes/filterRoutes';
 import reviewRoutes from './routes/reviewRoutes';
 import contactRoutes from './routes/contactRoutes';
+import wishlistRoutes from './routes/wishlistRoutes';
 import adminRoutes from './routes/admin';
 import publicConfigRoutes from './routes/publicConfig';
 import { apiLimiter } from './middleware/rateLimiter';
@@ -85,6 +86,7 @@ app.use('/api/tracking', trackingRoutes);
 app.use('/api/filters', filterRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/wishlist', wishlistRoutes);
 
 // Admin routes (protected)
 app.use('/api/admin', adminRoutes);

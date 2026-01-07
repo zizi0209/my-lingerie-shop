@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import ReviewList from "@/components/product/ReviewList";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
+import { useAuth } from "@/context/AuthContext";
 
 interface ProductImage {
   id: number;
@@ -56,19 +58,23 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const resolvedParams = use(params);
   const router = useRouter();
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const { isAuthenticated } = useAuth();
   
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [togglingWishlist, setTogglingWishlist] = useState(false);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
   const [quantity, setQuantity] = useState(1);
-  const [isLiked, setIsLiked] = useState(false);
   const [activeTab, setActiveTab] = useState("description");
+  
+  const isLiked = product ? isInWishlist(product.id) : false;
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
@@ -411,10 +417,31 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
               )}
             </button>
             <button
-              onClick={() => setIsLiked(!isLiked)}
-              className="ck-button px-8 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition"
+              onClick={async () => {
+                if (!isAuthenticated) {
+                  toast.error("Vui lòng đăng nhập để thêm vào yêu thích");
+                  router.push("/dang-nhap");
+                  return;
+                }
+                if (!product) return;
+                setTogglingWishlist(true);
+                const result = await toggleWishlist(product.id);
+                setTogglingWishlist(false);
+                if (result) {
+                  toast.success("Đã thêm vào danh sách yêu thích");
+                } else {
+                  toast.success("Đã xóa khỏi danh sách yêu thích");
+                }
+              }}
+              disabled={togglingWishlist}
+              className="px-8 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition disabled:opacity-50"
+              title={isLiked ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
             >
-              <Heart className={`w-5 h-5 ${isLiked ? "fill-red-500 text-red-500" : ""}`} />
+              {togglingWishlist ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Heart className={`w-5 h-5 ${isLiked ? "fill-red-500 text-red-500" : ""}`} />
+              )}
             </button>
           </div>
 

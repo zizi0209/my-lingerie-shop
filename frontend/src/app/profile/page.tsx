@@ -22,8 +22,10 @@ import {
   Star,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useWishlist } from "@/context/WishlistContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { api } from "@/lib/api";
+import { Trash2 } from "lucide-react";
 import type { User as UserType } from "@/types/auth";
 
 interface Order {
@@ -45,6 +47,7 @@ function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, logout, refreshUser } = useAuth();
+  const { items: wishlistItems, loading: wishlistLoading, removeFromWishlist } = useWishlist();
   
   // Get initial tab from URL or default to "overview"
   const tabFromUrl = searchParams.get("tab") as TabType | null;
@@ -637,20 +640,100 @@ function ProfileContent() {
 
               {/* Wishlist Tab */}
               {activeTab === "wishlist" && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
-                  <Heart className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    Danh sách yêu thích trống
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-6">
-                    Lưu những sản phẩm yêu thích để mua sau
-                  </p>
-                  <Link
-                    href="/san-pham"
-                    className="inline-flex px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-90 transition"
-                  >
-                    Khám phá sản phẩm
-                  </Link>
+                <div className="space-y-6">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Sản phẩm yêu thích ({wishlistItems.length})
+                  </h2>
+
+                  {wishlistLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    </div>
+                  ) : wishlistItems.length === 0 ? (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+                      <Heart className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                        Danh sách yêu thích trống
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400 mb-6">
+                        Lưu những sản phẩm yêu thích để mua sau
+                      </p>
+                      <Link
+                        href="/san-pham"
+                        className="inline-flex px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-90 transition"
+                      >
+                        Khám phá sản phẩm
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {wishlistItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden group"
+                        >
+                          <Link
+                            href={`/san-pham/${item.product.slug}`}
+                            className="block relative aspect-[3/4] bg-gray-100 dark:bg-gray-700"
+                          >
+                            {item.product.image ? (
+                              <Image
+                                src={item.product.image}
+                                alt={item.product.name}
+                                fill
+                                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <ShoppingBag className="w-12 h-12 text-gray-300 dark:text-gray-600" />
+                              </div>
+                            )}
+                            {item.product.salePrice && (
+                              <span className="absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-xs rounded">
+                                -{Math.round((1 - item.product.salePrice / item.product.price) * 100)}%
+                              </span>
+                            )}
+                          </Link>
+                          <div className="p-4">
+                            <Link
+                              href={`/san-pham/${item.product.slug}`}
+                              className="font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 line-clamp-2 mb-2 block"
+                            >
+                              {item.product.name}
+                            </Link>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                              {item.product.category.name}
+                            </p>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                {item.product.salePrice ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-red-500">
+                                      {item.product.salePrice.toLocaleString("vi-VN")}₫
+                                    </span>
+                                    <span className="text-sm text-gray-400 line-through">
+                                      {item.product.price.toLocaleString("vi-VN")}₫
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="font-medium text-gray-900 dark:text-white">
+                                    {item.product.price.toLocaleString("vi-VN")}₫
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => removeFromWishlist(item.productId)}
+                                className="p-2 text-gray-400 hover:text-red-500 transition"
+                                title="Xóa khỏi yêu thích"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
