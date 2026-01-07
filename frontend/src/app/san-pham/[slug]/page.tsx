@@ -2,9 +2,12 @@
 
 import { useState, useEffect, use } from "react";
 import Image from "next/image";
-import { Minus, Plus, ShoppingBag, Heart, Star, Truck, Shield, RotateCcw, Loader2 } from "lucide-react";
+import { Minus, Plus, ShoppingBag, Heart, Star, Truck, Shield, RotateCcw, Loader2, Check } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import ReviewList from "@/components/product/ReviewList";
+import { useCart } from "@/context/CartContext";
 
 interface ProductImage {
   id: number;
@@ -51,10 +54,14 @@ interface RelatedProduct {
 
 export default function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
+  const router = useRouter();
+  const { addToCart } = useCart();
+  
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [addingToCart, setAddingToCart] = useState(false);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState("");
@@ -135,18 +142,43 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     v => v.colorName === selectedColor && v.size === selectedSize
   );
 
-  const handleAddToCart = () => {
-    if (!selectedSize) {
-      alert("Vui lòng chọn kích cỡ");
+  const handleAddToCart = async () => {
+    if (!product) return;
+    
+    // Nếu có variants thì bắt buộc chọn size
+    if (product.variants.length > 0 && !selectedSize) {
+      toast.error("Vui lòng chọn kích cỡ");
       return;
     }
-    console.log("Added to cart:", {
-      productId: product?.id,
-      variantId: selectedVariant?.id,
-      size: selectedSize,
-      color: selectedColor,
-      quantity
-    });
+
+    setAddingToCart(true);
+    try {
+      const success = await addToCart(product.id, selectedVariant?.id, quantity);
+      
+      if (success) {
+        toast.success(
+          <div className="flex items-center gap-3">
+            <Check className="w-5 h-5 text-green-500" />
+            <div>
+              <p className="font-medium">Đã thêm vào giỏ hàng!</p>
+              <p className="text-sm text-gray-500">{product.name}</p>
+            </div>
+          </div>,
+          {
+            action: {
+              label: "Xem giỏ hàng",
+              onClick: () => router.push("/cart"),
+            },
+          }
+        );
+      } else {
+        toast.error("Không thể thêm sản phẩm vào giỏ hàng");
+      }
+    } catch {
+      toast.error("Có lỗi xảy ra, vui lòng thử lại");
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
   const discount = product?.salePrice
@@ -363,10 +395,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           <div className="flex gap-4">
             <button
               onClick={handleAddToCart}
-              className="ck-button flex-1 bg-black dark:bg-white text-white dark:text-black py-4 rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition flex items-center justify-center gap-2"
+              disabled={addingToCart}
+              className="ck-button flex-1 bg-black dark:bg-white text-white dark:text-black py-4 rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <ShoppingBag className="w-5 h-5" />
-              Thêm vào giỏ hàng
+              {addingToCart ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Đang thêm...
+                </>
+              ) : (
+                <>
+                  <ShoppingBag className="w-5 h-5" />
+                  Thêm vào giỏ hàng
+                </>
+              )}
             </button>
             <button
               onClick={() => setIsLiked(!isLiked)}

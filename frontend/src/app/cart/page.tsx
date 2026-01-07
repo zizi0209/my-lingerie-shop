@@ -3,57 +3,38 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Minus, Plus, X, ShoppingBag } from "lucide-react";
-
-// Mock cart data
-const initialCartItems = [
-  {
-    id: "1",
-    name: "Áo lót ren đen quyến rũ",
-    price: 890000,
-    originalPrice: 1290000,
-    image: "https://images.unsplash.com/photo-1596486489709-7756e076722b?q=80&w=2070&auto=format&fit=crop",
-    size: "75B",
-    color: "Đen",
-    quantity: 1,
-    stock: 15
-  },
-  {
-    id: "2",
-    name: "Quần lót ren matching",
-    price: 450000,
-    image: "https://images.unsplash.com/photo-1583410264827-9de75a320417?q=80&w=2070&auto=format&fit=crop",
-    size: "M",
-    color: "Đen",
-    quantity: 2,
-    stock: 20
-  },
-];
+import { Minus, Plus, X, ShoppingBag, Loader2, Trash2 } from "lucide-react";
+import { useCart } from "@/context/CartContext";
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState(initialCartItems);
+  const { cart, loading, error, itemCount, subtotal, updateQuantity, removeItem, clearCart } = useCart();
   const [promoCode, setPromoCode] = useState("");
   const [isPromoApplied, setIsPromoApplied] = useState(false);
+  const [updatingItems, setUpdatingItems] = useState<Set<number>>(new Set());
 
-  const updateQuantity = (id: string, newQuantity: number) => {
+  const handleUpdateQuantity = async (itemId: number, newQuantity: number) => {
     if (newQuantity < 1) return;
-
-    const item = cartItems.find(item => item.id === id);
-    if (!item || newQuantity > item.stock) return;
-
-    setCartItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
+    
+    setUpdatingItems(prev => new Set(prev).add(itemId));
+    await updateQuantity(itemId, newQuantity);
+    setUpdatingItems(prev => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
   };
 
-  const removeItem = (id: string) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
+  const handleRemoveItem = async (itemId: number) => {
+    setUpdatingItems(prev => new Set(prev).add(itemId));
+    await removeItem(itemId);
+    setUpdatingItems(prev => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const discount = isPromoApplied ? subtotal * 0.1 : 0; // 10% discount for demo
+  const discount = isPromoApplied ? subtotal * 0.1 : 0;
   const shipping = subtotal >= 1000000 ? 0 : 30000;
   const total = subtotal - discount + shipping;
 
@@ -65,12 +46,31 @@ export default function CartPage() {
     }
   };
 
-  if (cartItems.length === 0) {
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-20 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-12 md:py-20 text-center">
+        <p className="text-red-500 mb-4">{error}</p>
+        <Link href="/san-pham" className="text-black dark:text-white underline">
+          Tiếp tục mua sắm
+        </Link>
+      </div>
+    );
+  }
+
+  if (!cart || cart.items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-12 md:py-20">
         <div className="text-center max-w-md mx-auto">
           <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-gray-100 dark:bg-gray-800 rounded-full mb-4 md:mb-6 transition-colors">
-            <ShoppingBag className="w-8 h-8 md:w-10 md:h-10 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+            <ShoppingBag className="w-8 h-8 md:w-10 md:h-10 text-gray-400 dark:text-gray-500" />
           </div>
           <h1 className="text-2xl md:text-3xl font-serif font-light mb-3 md:mb-4 text-gray-900 dark:text-white">
             Giỏ hàng trống
@@ -80,8 +80,7 @@ export default function CartPage() {
           </p>
           <Link
             href="/san-pham"
-            aria-label="Tiếp tục mua sắm"
-            className="inline-flex items-center justify-center bg-black dark:bg-white text-white dark:text-black px-6 py-3 md:px-8 rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="inline-flex items-center justify-center bg-black dark:bg-white text-white dark:text-black px-6 py-3 md:px-8 rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition min-h-[44px]"
           >
             Tiếp tục mua sắm
           </Link>
@@ -92,88 +91,115 @@ export default function CartPage() {
 
   return (
     <div className="container mx-auto px-4 py-6 md:py-8">
-      <h1 className="text-2xl md:text-3xl font-serif font-light mb-6 md:mb-8 text-gray-900 dark:text-white">
-        Giỏ hàng ({cartItems.length} sản phẩm)
-      </h1>
+      <div className="flex items-center justify-between mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-serif font-light text-gray-900 dark:text-white">
+          Giỏ hàng ({itemCount} sản phẩm)
+        </h1>
+        {cart.items.length > 0 && (
+          <button
+            onClick={clearCart}
+            className="flex items-center gap-2 text-sm text-red-500 hover:text-red-600 transition"
+          >
+            <Trash2 className="w-4 h-4" />
+            Xóa tất cả
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 lg:gap-12">
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
-          {cartItems.map((item) => (
-            <div key={item.id} className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors">
-              <div className="flex gap-4">
-                {/* Product Image */}
-                <div className="relative w-24 h-32 bg-gray-50 dark:bg-gray-700 rounded overflow-hidden shrink-0 transition-colors">
-                  <Image
-                    src={item.image}
-                    alt={item.name}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
+          {cart.items.map((item) => {
+            const price = item.variant?.salePrice || item.variant?.price || item.product.salePrice || item.product.price;
+            const originalPrice = item.variant?.price || item.product.price;
+            const hasDiscount = price < originalPrice;
+            const isUpdating = updatingItems.has(item.id);
+            const stock = item.variant?.stock || 99;
 
-                {/* Product Details */}
-                <div className="flex-1">
-                  <div className="flex justify-between mb-2">
-                    <Link href={`/san-pham/${item.id}`}>
-                      <h3 className="font-medium text-gray-900 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-300 transition">
-                        {item.name}
-                      </h3>
-                    </Link>
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      aria-label={`Xóa ${item.name} khỏi giỏ hàng`}
-                      className="text-gray-400 dark:text-gray-500 hover:text-black dark:hover:text-white transition p-2 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
-                    >
-                      <X className="w-5 h-5" aria-hidden="true" />
-                    </button>
-                  </div>
+            return (
+              <div
+                key={item.id}
+                className={`bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg border border-gray-200 dark:border-gray-700 transition-opacity ${
+                  isUpdating ? "opacity-60" : ""
+                }`}
+              >
+                <div className="flex gap-4">
+                  {/* Product Image */}
+                  <Link
+                    href={`/san-pham/${item.product.slug}`}
+                    className="relative w-20 h-28 md:w-24 md:h-32 bg-gray-50 dark:bg-gray-700 rounded overflow-hidden shrink-0"
+                  >
+                    <Image
+                      src={item.product.images[0]?.url || "https://via.placeholder.com/200x300"}
+                      alt={item.product.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </Link>
 
-                  <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-4">
-                    <p>Kích cỡ: {item.size}</p>
-                    <p>Màu sắc: {item.color}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    {/* Quantity Selector */}
-                    <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 transition-colors" role="group" aria-label={`Số lượng ${item.name}`}>
+                  {/* Product Details */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between gap-2 mb-2">
+                      <Link href={`/san-pham/${item.product.slug}`}>
+                        <h3 className="font-medium text-gray-900 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-300 transition line-clamp-2">
+                          {item.product.name}
+                        </h3>
+                      </Link>
                       <button
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        disabled={item.quantity <= 1}
-                        aria-label="Giảm số lượng"
-                        className="p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition text-gray-900 dark:text-white min-h-[44px] min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+                        onClick={() => handleRemoveItem(item.id)}
+                        disabled={isUpdating}
+                        className="text-gray-400 dark:text-gray-500 hover:text-red-500 transition p-1 shrink-0 disabled:opacity-50"
                       >
-                        <Minus className="w-4 h-4" aria-hidden="true" />
-                      </button>
-                      <span className="px-3 md:px-4 py-2 min-w-[3rem] text-center text-sm md:text-base text-gray-900 dark:text-white" aria-live="polite">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        disabled={item.quantity >= item.stock}
-                        aria-label="Tăng số lượng"
-                        className="p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition text-gray-900 dark:text-white min-h-[44px] min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-                      >
-                        <Plus className="w-4 h-4" aria-hidden="true" />
+                        <X className="w-5 h-5" />
                       </button>
                     </div>
 
-                    {/* Price */}
-                    <div className="text-right">
-                      {item.originalPrice && (
-                        <p className="text-sm text-gray-400 dark:text-gray-500 line-through">
-                          {(item.originalPrice * item.quantity).toLocaleString('vi-VN')}₫
+                    {item.variant && (
+                      <div className="text-sm text-gray-600 dark:text-gray-400 space-y-0.5 mb-3">
+                        {item.variant.size && <p>Kích cỡ: {item.variant.size}</p>}
+                        {item.variant.colorName && <p>Màu sắc: {item.variant.colorName}</p>}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      {/* Quantity Selector */}
+                      <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700">
+                        <button
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                          disabled={item.quantity <= 1 || isUpdating}
+                          className="p-2 md:p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Minus className="w-3 h-3 md:w-4 md:h-4" />
+                        </button>
+                        <span className="px-3 md:px-4 py-2 min-w-[2.5rem] text-center text-sm md:text-base text-gray-900 dark:text-white">
+                          {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : item.quantity}
+                        </span>
+                        <button
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                          disabled={item.quantity >= stock || isUpdating}
+                          className="p-2 md:p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Plus className="w-3 h-3 md:w-4 md:h-4" />
+                        </button>
+                      </div>
+
+                      {/* Price */}
+                      <div className="text-right">
+                        {hasDiscount && (
+                          <p className="text-xs md:text-sm text-gray-400 dark:text-gray-500 line-through">
+                            {(originalPrice * item.quantity).toLocaleString("vi-VN")}₫
+                          </p>
+                        )}
+                        <p className="text-base md:text-lg font-light text-gray-900 dark:text-white">
+                          {(price * item.quantity).toLocaleString("vi-VN")}₫
                         </p>
-                      )}
-                      <p className="text-lg font-light text-gray-900 dark:text-white">
-                        {(item.price * item.quantity).toLocaleString('vi-VN')}₫
-                      </p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Continue Shopping */}
           <Link
@@ -219,17 +245,17 @@ export default function CartPage() {
             <div className="space-y-3 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between text-gray-600 dark:text-gray-400">
                 <span>Tạm tính</span>
-                <span>{subtotal.toLocaleString('vi-VN')}₫</span>
+                <span>{subtotal.toLocaleString("vi-VN")}₫</span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-green-600 dark:text-green-400">
                   <span>Giảm giá</span>
-                  <span>-{discount.toLocaleString('vi-VN')}₫</span>
+                  <span>-{discount.toLocaleString("vi-VN")}₫</span>
                 </div>
               )}
               <div className="flex justify-between text-gray-600 dark:text-gray-400">
                 <span>Phí vận chuyển</span>
-                <span>{shipping === 0 ? 'Miễn phí' : `${shipping.toLocaleString('vi-VN')}₫`}</span>
+                <span>{shipping === 0 ? "Miễn phí" : `${shipping.toLocaleString("vi-VN")}₫`}</span>
               </div>
               {shipping > 0 && (
                 <p className="text-xs text-gray-500 dark:text-gray-500">
@@ -239,22 +265,22 @@ export default function CartPage() {
             </div>
 
             {/* Total */}
-            <div className="flex justify-between text-lg font-light mb-8 text-gray-900 dark:text-white">
+            <div className="flex justify-between text-lg font-medium mb-8 text-gray-900 dark:text-white">
               <span>Tổng cộng</span>
-              <span>{total.toLocaleString('vi-VN')}₫</span>
+              <span>{total.toLocaleString("vi-VN")}₫</span>
             </div>
 
             {/* Checkout Button */}
             <Link
               href="/check-out"
-              className="ck-button block w-full bg-black dark:bg-white text-white dark:text-black py-4 rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition text-center"
+              className="block w-full bg-black dark:bg-white text-white dark:text-black py-4 rounded-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition text-center font-medium"
             >
               Tiến hành thanh toán
             </Link>
 
             {/* Security Note */}
-            <p className="text-xs text-gray-500 dark:text-gray-500 text-center mt-4">
-              <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-1"></span>
+            <p className="text-xs text-gray-500 dark:text-gray-500 text-center mt-4 flex items-center justify-center gap-1">
+              <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
               Thanh toán an toàn và bảo mật
             </p>
           </div>

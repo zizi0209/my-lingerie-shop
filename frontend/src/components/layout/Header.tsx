@@ -8,6 +8,7 @@ import { useState, useRef, useEffect } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useStore } from "@/context/StoreContext";
 import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -17,6 +18,7 @@ export default function Header() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { store_name, store_logo, primary_color } = useStore();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { itemCount } = useCart();
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -232,12 +234,14 @@ export default function Header() {
               aria-label="Giỏ hàng"
             >
               <ShoppingBag className="w-5 h-5 text-gray-900 dark:text-white" />
-              <span 
-                className="absolute top-1 right-1 w-4 h-4 text-white text-[10px] font-medium flex items-center justify-center rounded-full"
-                style={{ backgroundColor: primary_color }}
-              >
-                0
-              </span>
+              {itemCount > 0 && (
+                <span 
+                  className="absolute top-1 right-1 w-4 h-4 text-white text-[10px] font-medium flex items-center justify-center rounded-full"
+                  style={{ backgroundColor: primary_color }}
+                >
+                  {itemCount > 99 ? "99+" : itemCount}
+                </span>
+              )}
             </Link>
 
             {/* Theme Toggle - Desktop only */}
