@@ -82,6 +82,10 @@ export const getOrderById = async (req: Request, res: Response) => {
                 name: true,
                 slug: true,
                 price: true,
+                images: {
+                  take: 1,
+                  select: { url: true },
+                },
               },
             },
           },
@@ -99,6 +103,81 @@ export const getOrderById = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Get order by ID error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin đơn hàng!' });
+  }
+};
+
+// Get order by order number (public - for tracking)
+export const getOrderByNumber = async (req: Request, res: Response) => {
+  try {
+    const { orderNumber } = req.params;
+
+    const order = await prisma.order.findUnique({
+      where: { orderNumber },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                price: true,
+                images: {
+                  take: 1,
+                  select: { url: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Không tìm thấy đơn hàng với mã này!' 
+      });
+    }
+
+    // Mask sensitive info for public access
+    const maskedOrder = {
+      ...order,
+      shippingPhone: order.shippingPhone 
+        ? order.shippingPhone.slice(0, 4) + '****' + order.shippingPhone.slice(-2)
+        : null,
+      user: order.user ? {
+        name: order.user.name,
+        email: order.user.email 
+          ? order.user.email.split('@')[0].slice(0, 3) + '***@' + order.user.email.split('@')[1]
+          : null,
+      } : null,
+      guestInfo: order.guestInfo ? {
+        ...(order.guestInfo as Record<string, unknown>),
+        phone: (order.guestInfo as Record<string, string>).phone 
+          ? (order.guestInfo as Record<string, string>).phone.slice(0, 4) + '****' + (order.guestInfo as Record<string, string>).phone.slice(-2)
+          : null,
+        email: (order.guestInfo as Record<string, string>).email
+          ? (order.guestInfo as Record<string, string>).email.split('@')[0].slice(0, 3) + '***@' + (order.guestInfo as Record<string, string>).email.split('@')[1]
+          : null,
+      } : null,
+    };
+
+    res.json({
+      success: true,
+      data: maskedOrder,
+    });
+  } catch (error) {
+    console.error('Get order by number error:', error);
     res.status(500).json({ error: 'Lỗi khi lấy thông tin đơn hàng!' });
   }
 };

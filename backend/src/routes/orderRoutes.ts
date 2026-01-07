@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getAllOrders,
   getOrderById,
+  getOrderByNumber,
   createOrder,
   updateOrder,
   cancelOrder,
@@ -10,8 +11,9 @@ import { authenticateToken, isAdmin } from '../middleware/auth';
 
 const router = express.Router();
 
-// Public routes (authenticated users can create orders)
+// Public routes
 router.post('/', createOrder);
+router.get('/track/:orderNumber', getOrderByNumber); // Public tracking
 
 // Protected routes (authentication required)
 router.get('/', authenticateToken, getAllOrders);
