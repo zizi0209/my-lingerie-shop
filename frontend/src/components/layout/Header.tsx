@@ -152,7 +152,7 @@ export default function Header() {
                     </div>
                     <div className="py-1">
                       <Link
-                        href="/profile"
+                        href="/profile?tab=overview"
                         onClick={() => setIsUserMenuOpen(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
                       >
@@ -368,7 +368,7 @@ export default function Header() {
             {/* User Actions (if logged in) */}
             {isAuthenticated && user && (
               <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-800 space-y-1">
-                <Link href="/profile" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-600 dark:text-gray-400">
+                <Link href="/profile?tab=overview" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-600 dark:text-gray-400">
                   <User className="w-4 h-4" />
                   Tài khoản của tôi
                 </Link>
