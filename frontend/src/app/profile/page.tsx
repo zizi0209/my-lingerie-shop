@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   User,
   ShoppingBag,
@@ -43,8 +43,27 @@ type TabType = "overview" | "orders" | "security" | "wishlist" | "addresses";
 
 function ProfileContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, logout, refreshUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
+  
+  // Get initial tab from URL or default to "overview"
+  const tabFromUrl = searchParams.get("tab") as TabType | null;
+  const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl || "overview");
+  
+  // Sync tab with URL
+  useEffect(() => {
+    const currentTab = searchParams.get("tab") as TabType | null;
+    if (currentTab && currentTab !== activeTab) {
+      setActiveTab(currentTab);
+    }
+  }, [searchParams, activeTab]);
+  
+  // Update URL when tab changes
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    setMessage(null);
+    router.push(`/profile?tab=${tab}`, { scroll: false });
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -254,10 +273,7 @@ function ProfileContent() {
                   ].map((item) => (
                     <button
                       key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setMessage(null);
-                      }}
+                      onClick={() => handleTabChange(item.id)}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition text-left ${
                         activeTab === item.id
                           ? "bg-black dark:bg-white text-white dark:text-black"
@@ -280,10 +296,7 @@ function ProfileContent() {
                   
                   {/* Security tab */}
                   <button
-                    onClick={() => {
-                      setActiveTab("security");
-                      setMessage(null);
-                    }}
+                    onClick={() => handleTabChange("security")}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition text-left ${
                       activeTab === "security"
                         ? "bg-black dark:bg-white text-white dark:text-black"
