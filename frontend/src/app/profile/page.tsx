@@ -457,43 +457,57 @@ function ProfileContent() {
                       </Link>
                     </div>
                   ) : (
-                    orders.map((order) => (
-                      <div
-                        key={order.id}
-                        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6"
-                      >
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              Mã đơn: {order.orderNumber}
-                            </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              Ngày đặt: {formatDate(order.createdAt)}
-                            </p>
+                    orders.map((order) => {
+                      const canReview = order.status.toLowerCase() === "delivered" || order.status.toLowerCase() === "completed";
+                      return (
+                        <div
+                          key={order.id}
+                          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6"
+                        >
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white">
+                                Mã đơn: {order.orderNumber}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Ngày đặt: {formatDate(order.createdAt)}
+                              </p>
+                            </div>
+                            <span
+                              className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                                order.status
+                              )}`}
+                            >
+                              {getStatusText(order.status)}
+                            </span>
                           </div>
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                              order.status
-                            )}`}
-                          >
-                            {getStatusText(order.status)}
-                          </span>
-                        </div>
 
-                        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            Tổng: {order.totalAmount.toLocaleString("vi-VN")}₫
-                          </p>
-                          <Link
-                            href={`/order?code=${order.orderNumber}`}
-                            className="flex items-center gap-2 text-primary hover:underline"
-                          >
-                            Xem chi tiết
-                            <ChevronRight className="w-4 h-4" />
-                          </Link>
+                          <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              Tổng: {order.totalAmount.toLocaleString("vi-VN")}₫
+                            </p>
+                            <div className="flex items-center gap-3">
+                              {canReview && (
+                                <Link
+                                  href="/tai-khoan/danh-gia"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/40 transition"
+                                >
+                                  <Star className="w-4 h-4" />
+                                  Đánh giá
+                                </Link>
+                              )}
+                              <Link
+                                href={`/order?code=${order.orderNumber}`}
+                                className="flex items-center gap-1.5 text-primary hover:underline"
+                              >
+                                Xem chi tiết
+                                <ChevronRight className="w-4 h-4" />
+                              </Link>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}

@@ -18,7 +18,9 @@ import {
   AlertCircle,
   XCircle,
   CreditCard,
+  Star,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface OrderItem {
   id: number;
@@ -80,6 +82,7 @@ const TRACKING_STEPS = [
 function OrderTrackingContent() {
   const searchParams = useSearchParams();
   const codeFromUrl = searchParams.get("code") || "";
+  const { isAuthenticated } = useAuth();
 
   const [orderCode, setOrderCode] = useState(codeFromUrl);
   const [order, setOrder] = useState<Order | null>(null);
@@ -87,6 +90,9 @@ function OrderTrackingContent() {
   const [error, setError] = useState("");
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  
+  // Check if order can be reviewed (DELIVERED or COMPLETED)
+  const canReview = order && (order.status === "DELIVERED" || order.status === "COMPLETED");
 
   const fetchOrder = async (code: string) => {
     if (!code.trim()) {
@@ -352,13 +358,24 @@ function OrderTrackingContent() {
 
           {/* Order Items */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
-            <h3 className="font-medium mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Sản phẩm đã đặt ({order.items.length})
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Sản phẩm đã đặt ({order.items.length})
+              </h3>
+              {canReview && isAuthenticated && (
+                <Link
+                  href="/tai-khoan/danh-gia"
+                  className="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
+                >
+                  <Star className="w-4 h-4" />
+                  Đánh giá sản phẩm
+                </Link>
+              )}
+            </div>
             <div className="space-y-4">
               {order.items.map((item) => (
-                <div key={item.id} className="flex gap-4 items-center">
+                <div key={item.id} className="flex gap-4 items-start p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                   <div className="relative w-16 h-20 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden shrink-0">
                     <Image
                       src={item.product.images[0]?.url || "https://via.placeholder.com/100x120"}
@@ -378,8 +395,19 @@ function OrderTrackingContent() {
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{item.variant}</p>
                     )}
                     <p className="text-sm text-gray-500 dark:text-gray-400">x{item.quantity}</p>
+                    
+                    {/* Review button for each product when order is delivered */}
+                    {canReview && isAuthenticated && (
+                      <Link
+                        href={`/san-pham/${item.product.slug}?tab=reviews&write=true`}
+                        className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/40 transition"
+                      >
+                        <Star className="w-3.5 h-3.5" />
+                        Viết đánh giá
+                      </Link>
+                    )}
                   </div>
-                  <p className="font-medium text-gray-900 dark:text-white">
+                  <p className="font-medium text-gray-900 dark:text-white shrink-0">
                     {(item.price * item.quantity).toLocaleString("vi-VN")}₫
                   </p>
                 </div>
