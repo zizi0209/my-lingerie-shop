@@ -5,11 +5,21 @@ import Image from "next/image";
 import { Star, X, Upload, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 
+interface InitialReviewData {
+  reviewId: number;
+  rating: number;
+  title: string;
+  content: string;
+  fitType?: string;
+}
+
 interface WriteReviewFormProps {
   productId: number;
   productName: string;
   productImage?: string;
   variantName?: string;
+  editMode?: boolean;
+  initialData?: InitialReviewData;
   onSuccess?: () => void;
   onClose?: () => void;
 }
@@ -19,14 +29,16 @@ export default function WriteReviewForm({
   productName,
   productImage,
   variantName,
+  editMode = false,
+  initialData,
   onSuccess,
   onClose,
 }: WriteReviewFormProps) {
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(initialData?.rating || 0);
   const [hoverRating, setHoverRating] = useState(0);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [fitType, setFitType] = useState<string | null>(null);
+  const [title, setTitle] = useState(initialData?.title || "");
+  const [content, setContent] = useState(initialData?.content || "");
+  const [fitType, setFitType] = useState<string | null>(initialData?.fitType || null);
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -103,20 +115,33 @@ export default function WriteReviewForm({
     setSubmitting(true);
 
     try {
-      const response = await api.post<{ success: boolean; message: string }>("/reviews", {
-        productId,
-        rating,
-        title: title.trim() || null,
-        content: content.trim(),
-        fitType,
-        images: images.length > 0 ? images : undefined,
-      });
+      let response;
+      
+      if (editMode && initialData?.reviewId) {
+        // Update existing review
+        response = await api.put<{ success: boolean; message?: string }>(`/reviews/${initialData.reviewId}`, {
+          rating,
+          title: title.trim() || null,
+          content: content.trim(),
+          fitType,
+        });
+      } else {
+        // Create new review
+        response = await api.post<{ success: boolean; message: string }>("/reviews", {
+          productId,
+          rating,
+          title: title.trim() || null,
+          content: content.trim(),
+          fitType,
+          images: images.length > 0 ? images : undefined,
+        });
+      }
 
       if (response.success) {
         onSuccess?.();
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Lỗi khi gửi đánh giá";
+      const message = err instanceof Error ? err.message : editMode ? "Lỗi khi cập nhật đánh giá" : "Lỗi khi gửi đánh giá";
       setError(message);
     } finally {
       setSubmitting(false);
@@ -128,7 +153,7 @@ export default function WriteReviewForm({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-          Đánh giá sản phẩm
+          {editMode ? "Sửa đánh giá" : "Đánh giá sản phẩm"}
         </h2>
         {onClose && (
           <button
@@ -321,7 +346,7 @@ export default function WriteReviewForm({
                 Đang gửi...
               </>
             ) : (
-              "Gửi đánh giá"
+              editMode ? "Cập nhật đánh giá" : "Gửi đánh giá"
             )}
           </button>
         </div>

@@ -49,6 +49,7 @@ export default function MyReviewsPage() {
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showWriteForm, setShowWriteForm] = useState<PendingItem | null>(null);
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
 
   const fetchReviews = async () => {
     try {
@@ -95,6 +96,7 @@ export default function MyReviewsPage() {
 
   const handleReviewSuccess = () => {
     setShowWriteForm(null);
+    setEditingReview(null);
     fetchReviews();
     fetchPending();
   };
@@ -220,6 +222,13 @@ export default function MyReviewsPage() {
                         {/* Actions */}
                         <div className="flex items-center gap-1">
                           <button
+                            onClick={() => setEditingReview(review)}
+                            className="p-2 text-gray-400 hover:text-blue-500 transition"
+                            title="Sửa đánh giá"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleDeleteReview(review.id)}
                             className="p-2 text-gray-400 hover:text-red-500 transition"
                             title="Xóa"
@@ -338,6 +347,29 @@ export default function MyReviewsPage() {
               variantName={showWriteForm.variant || undefined}
               onSuccess={handleReviewSuccess}
               onClose={() => setShowWriteForm(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Edit Review Modal */}
+      {editingReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg shadow-xl">
+            <WriteReviewForm
+              productId={editingReview.product.id}
+              productName={editingReview.product.name}
+              productImage={editingReview.product.images[0]?.url}
+              editMode={true}
+              initialData={{
+                reviewId: editingReview.id,
+                rating: editingReview.rating,
+                title: editingReview.title || "",
+                content: editingReview.content,
+                fitType: editingReview.fitType || undefined,
+              }}
+              onSuccess={handleReviewSuccess}
+              onClose={() => setEditingReview(null)}
             />
           </div>
         </div>
