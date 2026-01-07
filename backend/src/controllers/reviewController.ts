@@ -423,6 +423,11 @@ export const updateReview = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'fitType phải là SMALL, TRUE_TO_SIZE hoặc LARGE!' });
     }
 
+    // Check if content changed - require re-approval if review was approved
+    const contentChanged = content && content !== review.content;
+    const titleChanged = title !== undefined && title !== review.title;
+    const needsReApproval = (contentChanged || titleChanged) && review.status === 'APPROVED';
+
     const updatedReview = await prisma.review.update({
       where: { id: Number(id) },
       data: {
@@ -430,9 +435,8 @@ export const updateReview = async (req: Request, res: Response) => {
         ...(title !== undefined && { title }),
         ...(content && { content }),
         ...(fitType !== undefined && { fitType }),
-        ...(content && content !== review.content && {
-          status: autoModerate(content) ? review.status : 'PENDING'
-        })
+        // Always set to PENDING if content/title changed on approved review
+        ...(needsReApproval && { status: 'PENDING' })
       },
       include: {
         images: true,
