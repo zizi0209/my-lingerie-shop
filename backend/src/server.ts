@@ -49,7 +49,8 @@ app.use(
     origin: [
       "http://localhost:3000",
       "http://localhost:5000",
-      "https://my-lingerie-shop.vercel.app", // <-- Thay bằng link Vercel thực tế của bạn
+      "https://my-lingerie-shop.vercel.app",
+      "https://lingerie.zyth.id.vn",
     ],
     credentials: true,
   })
