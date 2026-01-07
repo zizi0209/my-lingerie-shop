@@ -1,10 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingBag, Heart } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ShoppingBag, Heart, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { useWishlist } from "@/context/WishlistContext";
+import { useAuth } from "@/context/AuthContext";
 
 interface Product {
-  id: string;
+  id: string | number;
   name: string;
   slug?: string;
   price: number;
@@ -20,8 +24,15 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
+  const router = useRouter();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const { isAuthenticated } = useAuth();
+  
   const [isHovered, setIsHovered] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
+  const [togglingWishlist, setTogglingWishlist] = useState(false);
+  
+  const productId = typeof product.id === 'string' ? parseInt(product.id, 10) : product.id;
+  const isLiked = isInWishlist(productId);
 
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
@@ -65,15 +76,32 @@ export default function ProductCard({ product }: ProductCardProps) {
             <ShoppingBag className="w-5 h-5" aria-hidden="true" />
           </button>
           <button
-            onClick={(e) => {
+            onClick={async (e) => {
               e.preventDefault();
               e.stopPropagation();
-              setIsLiked(!isLiked);
+              if (!isAuthenticated) {
+                toast.error("Vui lòng đăng nhập để thêm vào yêu thích");
+                router.push("/dang-nhap");
+                return;
+              }
+              setTogglingWishlist(true);
+              const result = await toggleWishlist(productId);
+              setTogglingWishlist(false);
+              if (result) {
+                toast.success("Đã thêm vào danh sách yêu thích");
+              } else {
+                toast.success("Đã xóa khỏi danh sách yêu thích");
+              }
             }}
+            disabled={togglingWishlist}
             aria-label={isLiked ? `Bỏ thích ${product.name}` : `Yêu thích ${product.name}`}
-            className="ck-button bg-white dark:bg-gray-800 p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition min-h-[44px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
+            className="bg-white dark:bg-gray-800 p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition min-h-[44px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:opacity-50"
           >
-            <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-black dark:text-white'}`} aria-hidden="true" />
+            {togglingWishlist ? (
+              <Loader2 className="w-5 h-5 animate-spin text-black dark:text-white" aria-hidden="true" />
+            ) : (
+              <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-black dark:text-white'}`} aria-hidden="true" />
+            )}
           </button>
         </div>
 
