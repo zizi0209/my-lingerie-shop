@@ -19,6 +19,7 @@ import {
   Eye,
   EyeOff,
   Check,
+  Star,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -268,6 +269,15 @@ function ProfileContent() {
                       <span className="text-sm font-medium">{item.label}</span>
                     </button>
                   ))}
+                  
+                  {/* Link to Reviews page */}
+                  <Link
+                    href="/tai-khoan/danh-gia"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <Star className="w-5 h-5" />
+                    <span className="text-sm font-medium">Đánh giá của tôi</span>
+                  </Link>
                 </nav>
 
                 {/* Logout */}
