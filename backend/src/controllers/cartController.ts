@@ -157,29 +157,96 @@ export const addToCart = async (req: Request, res: Response) => {
   }
 };
 
-// Update cart item quantity
+// Update cart item quantity and/or variant
 export const updateCartItem = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { quantity } = req.body;
+    const { quantity, variantId } = req.body;
 
-    if (!quantity || quantity < 1) {
+    if (quantity !== undefined && quantity < 1) {
       return res.status(400).json({ error: 'Số lượng phải lớn hơn 0!' });
     }
 
     const cartItem = await prisma.cartItem.findUnique({
       where: { id: Number(id) },
+      include: { cart: true }
     });
 
     if (!cartItem) {
       return res.status(404).json({ error: 'Không tìm thấy sản phẩm trong giỏ hàng!' });
     }
 
+    // If changing variant, check if new variant exists and has stock
+    if (variantId !== undefined) {
+      const newVariant = await prisma.productVariant.findUnique({
+        where: { id: Number(variantId) }
+      });
+
+      if (!newVariant) {
+        return res.status(404).json({ error: 'Không tìm thấy phân loại sản phẩm!' });
+      }
+
+      if (newVariant.productId !== cartItem.productId) {
+        return res.status(400).json({ error: 'Phân loại không thuộc sản phẩm này!' });
+      }
+
+      const requestedQty = quantity || cartItem.quantity;
+      if (newVariant.stock < requestedQty) {
+        return res.status(400).json({ error: `Chỉ còn ${newVariant.stock} sản phẩm trong kho!` });
+      }
+
+      // Check if same variant already exists in cart (merge if so)
+      const existingItem = await prisma.cartItem.findFirst({
+        where: {
+          cartId: cartItem.cartId,
+          productId: cartItem.productId,
+          variantId: Number(variantId),
+          id: { not: cartItem.id }
+        }
+      });
+
+      if (existingItem) {
+        // Merge: add quantity to existing item and delete current
+        const newQuantity = Math.min(existingItem.quantity + (quantity || cartItem.quantity), newVariant.stock);
+        
+        await prisma.$transaction([
+          prisma.cartItem.update({
+            where: { id: existingItem.id },
+            data: { quantity: newQuantity }
+          }),
+          prisma.cartItem.delete({
+            where: { id: cartItem.id }
+          })
+        ]);
+
+        const mergedItem = await prisma.cartItem.findUnique({
+          where: { id: existingItem.id },
+          include: {
+            product: {
+              include: { images: { take: 1 } }
+            },
+            variant: true
+          }
+        });
+
+        return res.json({
+          success: true,
+          data: mergedItem,
+          merged: true
+        });
+      }
+    }
+
     const updatedItem = await prisma.cartItem.update({
       where: { id: Number(id) },
-      data: { quantity: Number(quantity) },
+      data: {
+        ...(quantity !== undefined && { quantity: Number(quantity) }),
+        ...(variantId !== undefined && { variantId: Number(variantId) })
+      },
       include: {
-        product: true,
+        product: {
+          include: { images: { take: 1 } }
+        },
         variant: true,
       },
     });

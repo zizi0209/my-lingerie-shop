@@ -1,16 +1,52 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Minus, Plus, X, ShoppingBag, Loader2, Trash2 } from "lucide-react";
-import { useCart } from "@/context/CartContext";
+import { Minus, Plus, X, ShoppingBag, Loader2, Trash2, Edit2, Check } from "lucide-react";
+import { useCart, CartItem } from "@/context/CartContext";
+
+interface ProductVariant {
+  id: number;
+  size: string;
+  colorName: string;
+  colorCode: string | null;
+  stock: number;
+  price: number | null;
+  salePrice: number | null;
+}
 
 export default function CartPage() {
-  const { cart, loading, error, itemCount, subtotal, updateQuantity, removeItem, clearCart } = useCart();
+  const { cart, loading, error, itemCount, subtotal, updateQuantity, updateVariant, removeItem, clearCart } = useCart();
   const [promoCode, setPromoCode] = useState("");
   const [isPromoApplied, setIsPromoApplied] = useState(false);
   const [updatingItems, setUpdatingItems] = useState<Set<number>>(new Set());
+  const [editingItem, setEditingItem] = useState<number | null>(null);
+  const [productVariants, setProductVariants] = useState<Record<number, ProductVariant[]>>({});
+  const [loadingVariants, setLoadingVariants] = useState<Set<number>>(new Set());
+
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
+  const fetchVariants = useCallback(async (productId: number) => {
+    if (productVariants[productId]) return;
+    
+    setLoadingVariants(prev => new Set(prev).add(productId));
+    try {
+      const res = await fetch(`${baseUrl}/products/${productId}/variants`);
+      const data = await res.json();
+      if (data.success) {
+        setProductVariants(prev => ({ ...prev, [productId]: data.data }));
+      }
+    } catch (err) {
+      console.error("Fetch variants error:", err);
+    } finally {
+      setLoadingVariants(prev => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
+    }
+  }, [baseUrl, productVariants]);
 
   const handleUpdateQuantity = async (itemId: number, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -155,9 +191,42 @@ export default function CartPage() {
                     </div>
 
                     {item.variant && (
-                      <div className="text-sm text-gray-600 dark:text-gray-400 space-y-0.5 mb-3">
-                        {item.variant.size && <p>Kích cỡ: {item.variant.size}</p>}
-                        {item.variant.colorName && <p>Màu sắc: {item.variant.colorName}</p>}
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        {editingItem === item.id ? (
+                          <VariantSelector
+                            item={item}
+                            variants={productVariants[item.productId] || []}
+                            loading={loadingVariants.has(item.productId)}
+                            onSelect={async (variantId) => {
+                              setUpdatingItems(prev => new Set(prev).add(item.id));
+                              await updateVariant(item.id, variantId);
+                              setUpdatingItems(prev => {
+                                const next = new Set(prev);
+                                next.delete(item.id);
+                                return next;
+                              });
+                              setEditingItem(null);
+                            }}
+                            onCancel={() => setEditingItem(null)}
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="space-y-0.5">
+                              {item.variant.size && <p>Kích cỡ: {item.variant.size}</p>}
+                              {item.variant.colorName && <p>Màu sắc: {item.variant.colorName}</p>}
+                            </div>
+                            <button
+                              onClick={() => {
+                                setEditingItem(item.id);
+                                fetchVariants(item.productId);
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition"
+                              title="Đổi phân loại"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -285,6 +354,146 @@ export default function CartPage() {
             </p>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Variant Selector Component
+function VariantSelector({
+  item,
+  variants,
+  loading,
+  onSelect,
+  onCancel,
+}: {
+  item: CartItem;
+  variants: ProductVariant[];
+  loading: boolean;
+  onSelect: (variantId: number) => void;
+  onCancel: () => void;
+}) {
+  const [selectedVariantId, setSelectedVariantId] = useState(item.variantId);
+
+  // Get unique sizes and colors
+  const sizes = [...new Set(variants.map(v => v.size))];
+  const colors = [...new Set(variants.map(v => v.colorName))];
+  
+  const currentVariant = variants.find(v => v.id === selectedVariantId);
+  const selectedSize = currentVariant?.size || item.variant?.size;
+  const selectedColor = currentVariant?.colorName || item.variant?.colorName;
+
+  const handleSizeChange = (size: string) => {
+    const variant = variants.find(v => v.size === size && v.colorName === selectedColor);
+    if (variant) setSelectedVariantId(variant.id);
+  };
+
+  const handleColorChange = (color: string) => {
+    const variant = variants.find(v => v.colorName === color && v.size === selectedSize);
+    if (variant) setSelectedVariantId(variant.id);
+  };
+
+  const getVariantStock = (size: string, color: string) => {
+    const variant = variants.find(v => v.size === size && v.colorName === color);
+    return variant?.stock || 0;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-2">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        <span>Đang tải...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+      {/* Size Selector */}
+      {sizes.length > 0 && (
+        <div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Kích cỡ:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {sizes.map(size => {
+              const stock = getVariantStock(size, selectedColor || "");
+              const isSelected = size === selectedSize;
+              const isDisabled = stock === 0;
+
+              return (
+                <button
+                  key={size}
+                  onClick={() => handleSizeChange(size)}
+                  disabled={isDisabled}
+                  className={`px-2.5 py-1 text-xs border rounded transition ${
+                    isSelected
+                      ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black"
+                      : isDisabled
+                        ? "border-gray-200 dark:border-gray-600 text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                        : "border-gray-300 dark:border-gray-500 hover:border-black dark:hover:border-white"
+                  }`}
+                >
+                  {size}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Color Selector */}
+      {colors.length > 0 && (
+        <div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Màu sắc:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {colors.map(color => {
+              const stock = getVariantStock(selectedSize || "", color);
+              const isSelected = color === selectedColor;
+              const isDisabled = stock === 0;
+              const variant = variants.find(v => v.colorName === color);
+
+              return (
+                <button
+                  key={color}
+                  onClick={() => handleColorChange(color)}
+                  disabled={isDisabled}
+                  className={`px-2.5 py-1 text-xs border rounded transition flex items-center gap-1.5 ${
+                    isSelected
+                      ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black"
+                      : isDisabled
+                        ? "border-gray-200 dark:border-gray-600 text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                        : "border-gray-300 dark:border-gray-500 hover:border-black dark:hover:border-white"
+                  }`}
+                >
+                  {variant?.colorCode && (
+                    <span
+                      className="w-3 h-3 rounded-full border border-gray-300"
+                      style={{ backgroundColor: variant.colorCode }}
+                    />
+                  )}
+                  {color}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          onClick={() => selectedVariantId && onSelect(selectedVariantId)}
+          disabled={!selectedVariantId || selectedVariantId === item.variantId}
+          className="px-3 py-1.5 text-xs bg-black dark:bg-white text-white dark:text-black rounded hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+        >
+          <Check className="w-3.5 h-3.5" />
+          Xác nhận
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-500 rounded hover:border-gray-400 dark:hover:border-gray-400 transition"
+        >
+          Hủy
+        </button>
       </div>
     </div>
   );

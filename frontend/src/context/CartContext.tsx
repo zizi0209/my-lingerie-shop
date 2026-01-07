@@ -47,6 +47,7 @@ interface CartContextType {
   subtotal: number;
   addToCart: (productId: number, variantId?: number, quantity?: number) => Promise<boolean>;
   updateQuantity: (itemId: number, quantity: number) => Promise<void>;
+  updateVariant: (itemId: number, variantId: number) => Promise<boolean>;
   removeItem: (itemId: number) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
@@ -162,6 +163,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateVariant = async (itemId: number, variantId: number): Promise<boolean> => {
+    try {
+      const res = await fetch(`${baseUrl}/carts/items/${itemId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variantId }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        await fetchCart();
+        return true;
+      } else {
+        setError(data.error || "Không thể cập nhật phân loại");
+        return false;
+      }
+    } catch (err) {
+      console.error("Update variant error:", err);
+      setError("Lỗi kết nối server");
+      return false;
+    }
+  };
+
   const removeItem = async (itemId: number) => {
     try {
       const res = await fetch(`${baseUrl}/carts/items/${itemId}`, {
@@ -219,6 +244,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         subtotal,
         addToCart,
         updateQuantity,
+        updateVariant,
         removeItem,
         clearCart,
         refreshCart: fetchCart,
