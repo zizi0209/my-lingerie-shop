@@ -249,9 +249,8 @@ function ProfileContent() {
                   {[
                     { id: "overview" as TabType, icon: User, label: "Thông tin cá nhân" },
                     { id: "orders" as TabType, icon: ShoppingBag, label: "Đơn hàng của tôi" },
-                    { id: "security" as TabType, icon: Lock, label: "Bảo mật" },
-                    { id: "wishlist" as TabType, icon: Heart, label: "Yêu thích" },
                     { id: "addresses" as TabType, icon: MapPin, label: "Sổ địa chỉ" },
+                    { id: "wishlist" as TabType, icon: Heart, label: "Sản phẩm yêu thích" },
                   ].map((item) => (
                     <button
                       key={item.id}
@@ -278,6 +277,22 @@ function ProfileContent() {
                     <Star className="w-5 h-5" />
                     <span className="text-sm font-medium">Đánh giá của tôi</span>
                   </Link>
+                  
+                  {/* Security tab */}
+                  <button
+                    onClick={() => {
+                      setActiveTab("security");
+                      setMessage(null);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition text-left ${
+                      activeTab === "security"
+                        ? "bg-black dark:bg-white text-white dark:text-black"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    <Lock className="w-5 h-5" />
+                    <span className="text-sm font-medium">Bảo mật</span>
+                  </button>
                 </nav>
 
                 {/* Logout */}
