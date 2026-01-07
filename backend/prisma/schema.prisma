@@ -560,3 +560,19 @@ model ReviewHelpful {
   @@unique([reviewId, visitorId])
   @@index([reviewId])
 }
+
+// 24. CONTACT MESSAGE (Tin nhắn liên hệ)
+model ContactMessage {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    String   @default("NEW") // NEW, READ, REPLIED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([status])
+  @@index([createdAt])
+}
