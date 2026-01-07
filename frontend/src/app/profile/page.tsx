@@ -62,7 +62,9 @@ function ProfileContent() {
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     setMessage(null);
-    router.push(`/profile?tab=${tab}`, { scroll: false });
+    // "overview" uses clean /profile URL
+    const url = tab === "overview" ? "/profile" : `/profile?tab=${tab}`;
+    router.push(url, { scroll: false });
   };
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
