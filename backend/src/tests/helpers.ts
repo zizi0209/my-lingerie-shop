@@ -13,20 +13,32 @@ export async function createTestUser(overrides: Partial<{
   roleName: string;
   isActive: boolean;
 }> = {}) {
+  // Generate unique email with timestamp
+  const uniqueEmail = overrides.email || `test_${Date.now()}_${Math.random().toString(36).slice(2)}@example.com`;
   const {
-    email = faker.internet.email(),
     password = 'Password123!',
     name = faker.person.fullName(),
     roleName = 'USER',
     isActive = true,
   } = overrides;
 
-  // Get or create role
-  const role = await prisma.role.upsert({
+  // Get or create role - use findFirst + create pattern to avoid upsert race conditions
+  let role = await prisma.role.findFirst({
     where: { name: roleName },
-    update: {},
-    create: { name: roleName },
   });
+  
+  if (!role) {
+    try {
+      role = await prisma.role.create({
+        data: { name: roleName },
+      });
+    } catch {
+      // Race condition - role was created by another test
+      role = await prisma.role.findFirst({
+        where: { name: roleName },
+      });
+    }
+  }
 
   // Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -34,10 +46,10 @@ export async function createTestUser(overrides: Partial<{
   // Create user
   const user = await prisma.user.create({
     data: {
-      email,
+      email: uniqueEmail,
       password: hashedPassword,
       name,
-      roleId: role.id,
+      roleId: role?.id || null,
       isActive,
     },
     include: {
@@ -110,6 +122,78 @@ export async function createTestOrder(userId: number, overrides: Partial<{
       totalAmount,
       shippingAddress: faker.location.streetAddress(),
       shippingPhone: faker.phone.number(),
+    },
+  });
+}
+
+// Create test coupon
+export async function createTestCoupon(overrides: Partial<{
+  code: string;
+  name: string;
+  discountType: string;
+  discountValue: number;
+  minOrderValue: number;
+  maxDiscount: number;
+  couponType: string;
+  isPublic: boolean;
+  isActive: boolean;
+  quantity: number;
+  endDate: Date;
+}> = {}) {
+  const code = overrides.code || `TEST${faker.string.alphanumeric(6).toUpperCase()}`;
+
+  return prisma.coupon.create({
+    data: {
+      code,
+      name: overrides.name || `Test Coupon ${code}`,
+      discountType: overrides.discountType || 'FIXED_AMOUNT',
+      discountValue: overrides.discountValue || 50000,
+      minOrderValue: overrides.minOrderValue || 300000,
+      maxDiscount: overrides.maxDiscount || null,
+      couponType: overrides.couponType || 'PUBLIC',
+      isPublic: overrides.isPublic ?? true,
+      isActive: overrides.isActive ?? true,
+      quantity: overrides.quantity || null,
+      maxUsagePerUser: 1,
+      startDate: new Date(),
+      endDate: overrides.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
+}
+
+// Create test point reward
+export async function createTestPointReward(overrides: Partial<{
+  name: string;
+  pointCost: number;
+  rewardType: string;
+  discountValue: number;
+  isActive: boolean;
+}> = {}) {
+  return prisma.pointReward.create({
+    data: {
+      name: overrides.name || 'Test Reward',
+      pointCost: overrides.pointCost || 500,
+      rewardType: overrides.rewardType || 'DISCOUNT',
+      discountValue: overrides.discountValue || 50000,
+      discountType: 'FIXED_AMOUNT',
+      isActive: overrides.isActive ?? true,
+    },
+  });
+}
+
+// Create user coupon (add to wallet)
+export async function addCouponToUserWallet(userId: number, couponId: number, overrides: Partial<{
+  status: string;
+  source: string;
+  expiresAt: Date;
+}> = {}) {
+  return prisma.userCoupon.create({
+    data: {
+      userId,
+      couponId,
+      status: overrides.status || 'AVAILABLE',
+      source: overrides.source || 'COLLECTED',
+      expiresAt: overrides.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
   });
 }

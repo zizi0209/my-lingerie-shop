@@ -17,28 +17,35 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  // Clean up test data after each test
-  const tables = [
-    'AuditLog',
-    'OrderItem',
-    'Order',
-    'CartItem',
-    'ProductImage',
-    'ProductVariant',
-    'Product',
-    'Category',
-    'PageSection',
-    'MediaFile',
-    'User',
-    'Role',
-  ];
-
-  for (const table of tables) {
-    try {
-      await prisma.$executeRawUnsafe(`DELETE FROM "${table}";`);
-    } catch (error) {
-      // Table might not exist, ignore
-    }
+  // Clean up test data after each test (respecting FK constraints order)
+  // Note: We keep Role table as it's seeded and reused
+  try {
+    // First delete tables with foreign keys
+    await prisma.auditLog.deleteMany({});
+    await prisma.rewardRedemption.deleteMany({});
+    await prisma.pointHistory.deleteMany({});
+    await prisma.couponUsage.deleteMany({});
+    await prisma.userCoupon.deleteMany({});
+    await prisma.orderItem.deleteMany({});
+    await prisma.order.deleteMany({});
+    await prisma.cartItem.deleteMany({});
+    await prisma.refreshToken.deleteMany({});
+    await prisma.productView.deleteMany({});
+    
+    // Then delete main tables
+    await prisma.pointReward.deleteMany({});
+    await prisma.coupon.deleteMany({});
+    await prisma.campaign.deleteMany({});
+    await prisma.productImage.deleteMany({});
+    await prisma.productVariant.deleteMany({});
+    await prisma.product.deleteMany({});
+    await prisma.category.deleteMany({});
+    await prisma.pageSection.deleteMany({});
+    await prisma.media.deleteMany({});
+    await prisma.user.deleteMany({});
+    // Keep Role - it's reused across tests
+  } catch (error) {
+    // Silently ignore cleanup errors - they don't affect test results
   }
 });
 
