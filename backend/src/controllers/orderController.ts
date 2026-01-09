@@ -1,6 +1,107 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 
+// Point multiplier by member tier
+const TIER_POINT_RATES: Record<string, number> = {
+  BRONZE: 0.01,    // 1% = 1 point per 100đ
+  SILVER: 0.015,   // 1.5%
+  GOLD: 0.02,      // 2%
+  PLATINUM: 0.03,  // 3%
+};
+
+// Helper function to award points for completed order
+async function awardPointsForOrder(userId: number, orderId: number, orderTotal: number) {
+  // Get user's member tier
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { memberTier: true, birthday: true },
+  });
+
+  if (!user) return;
+
+  // Calculate point rate based on tier
+  let pointRate = TIER_POINT_RATES[user.memberTier || 'BRONZE'] || 0.01;
+
+  // Double points during birthday month
+  if (user.birthday) {
+    const now = new Date();
+    const birthday = new Date(user.birthday);
+    if (now.getMonth() === birthday.getMonth()) {
+      pointRate *= 2;
+    }
+  }
+
+  // Calculate points (1 point per 100đ at base rate)
+  const pointsEarned = Math.floor((orderTotal / 100) * (pointRate / 0.01));
+
+  if (pointsEarned <= 0) return;
+
+  // Get current balance for history
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { pointBalance: true },
+  });
+
+  const newBalance = (currentUser?.pointBalance || 0) + pointsEarned;
+
+  // Update user points and total spent using transaction
+  await prisma.$transaction([
+    // Update user
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        pointBalance: { increment: pointsEarned },
+        totalSpent: { increment: orderTotal },
+      },
+    }),
+    // Update order with points earned
+    prisma.order.update({
+      where: { id: orderId },
+      data: { pointsEarned: pointsEarned },
+    }),
+    // Record point history
+    prisma.pointHistory.create({
+      data: {
+        userId: userId,
+        amount: pointsEarned,
+        balance: newBalance,
+        type: 'EARN',
+        source: 'ORDER',
+        sourceId: String(orderId),
+        description: `Tích điểm đơn hàng #${orderId}`,
+      },
+    }),
+  ]);
+
+  // Get updated user and check tier
+  const updatedUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { totalSpent: true },
+  });
+
+  if (updatedUser) {
+    // Check and update member tier based on total spent
+    await updateMemberTier(userId, updatedUser.totalSpent);
+  }
+}
+
+// Helper function to update member tier
+async function updateMemberTier(userId: number, totalSpent: number) {
+  let newTier = 'BRONZE';
+  if (totalSpent >= 10000000) {
+    newTier = 'PLATINUM';
+  } else if (totalSpent >= 5000000) {
+    newTier = 'GOLD';
+  } else if (totalSpent >= 2000000) {
+    newTier = 'SILVER';
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { memberTier: newTier },
+  });
+}
+
 // Get all orders
 export const getAllOrders = async (req: Request, res: Response) => {
   try {
@@ -377,7 +478,7 @@ export const updateOrder = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Không tìm thấy đơn hàng!' });
     }
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (status) updateData.status = status;
     if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber;
     if (shippingMethod !== undefined) updateData.shippingMethod = shippingMethod;
@@ -406,10 +507,20 @@ export const updateOrder = async (req: Request, res: Response) => {
             id: true,
             name: true,
             email: true,
+            memberTier: true,
           },
         },
       },
     });
+
+    // Award points when order is DELIVERED
+    if (status === 'DELIVERED' && existingOrder.status !== 'DELIVERED' && order.userId) {
+      try {
+        await awardPointsForOrder(order.userId, order.id, order.totalAmount);
+      } catch (pointError) {
+        console.error('Failed to award points:', pointError);
+      }
+    }
 
     res.json({
       success: true,

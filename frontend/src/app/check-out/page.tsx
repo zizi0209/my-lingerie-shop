@@ -34,6 +34,13 @@ export default function CheckoutPage() {
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   
+  // Points preview
+  const [pointsPreview, setPointsPreview] = useState<{
+    pointsToEarn: number;
+    tier: string | null;
+    isBirthdayMonth: boolean;
+  } | null>(null);
+  
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -84,6 +91,23 @@ export default function CheckoutPage() {
   useEffect(() => {
     fetchMyVouchers();
   }, [fetchMyVouchers]);
+
+  // Fetch points preview
+  const fetchPointsPreview = useCallback(async () => {
+    if (total <= 0) return;
+    try {
+      const response = await userVoucherApi.calculatePoints(total);
+      if (response.success) {
+        setPointsPreview(response.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch points preview:", err);
+    }
+  }, [total]);
+
+  useEffect(() => {
+    fetchPointsPreview();
+  }, [fetchPointsPreview]);
 
   // Apply voucher
   const handleApplyVoucher = async (code: string) => {
@@ -686,11 +710,33 @@ export default function CheckoutPage() {
               </div>
             </div>
 
+            {/* Points Preview */}
+            {pointsPreview && pointsPreview.pointsToEarn > 0 && (
+              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                  </svg>
+                  <span className="text-sm font-medium">
+                    +{pointsPreview.pointsToEarn} diem tich luy
+                  </span>
+                  {pointsPreview.isBirthdayMonth && (
+                    <span className="text-xs bg-amber-200 dark:bg-amber-800 px-1.5 py-0.5 rounded">x2 sinh nhat</span>
+                  )}
+                </div>
+                {!isAuthenticated && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    <Link href="/login-register" className="underline">Dang nhap</Link> de tich diem
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Security Note */}
             <div className="flex items-center gap-2 mb-6 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
               <Shield className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
               <p className="text-xs text-green-700 dark:text-green-300">
-                Thông tin của bạn được bảo mật an toàn
+                Thong tin cua ban duoc bao mat an toan
               </p>
             </div>
 

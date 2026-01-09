@@ -330,4 +330,19 @@ export const userVoucherApi = {
   }> => {
     return api.post(`/rewards/${rewardId}/redeem`, {});
   },
+
+  // Calculate points preview for checkout
+  calculatePoints: async (orderTotal: number): Promise<{
+    success: boolean;
+    data: {
+      pointsToEarn: number;
+      pointRate: number;
+      tier: string | null;
+      currentPoints?: number;
+      isBirthdayMonth: boolean;
+      message?: string;
+    };
+  }> => {
+    return api.post('/points/calculate', { orderTotal }, false);
+  },
 };

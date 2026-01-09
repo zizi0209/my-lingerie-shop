@@ -1236,3 +1236,74 @@ export const redeemReward = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Lỗi khi đổi quà!' });
   }
 };
+
+// Calculate points preview for checkout
+const TIER_POINT_RATES: Record<string, number> = {
+  BRONZE: 0.01,
+  SILVER: 0.015,
+  GOLD: 0.02,
+  PLATINUM: 0.03,
+};
+
+export const calculatePointsPreview = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { orderTotal } = req.body;
+
+    if (!orderTotal || orderTotal <= 0) {
+      return res.status(400).json({ error: 'Giá trị đơn hàng không hợp lệ!' });
+    }
+
+    // Guest users - show base rate
+    if (!userId) {
+      const basePoints = Math.floor(orderTotal / 100);
+      return res.json({
+        success: true,
+        data: {
+          pointsToEarn: basePoints,
+          pointRate: 1,
+          tier: null,
+          isBirthdayMonth: false,
+          message: 'Đăng nhập để tích điểm thưởng!',
+        },
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { memberTier: true, birthday: true, pointBalance: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Không tìm thấy người dùng!' });
+    }
+
+    let pointRate = TIER_POINT_RATES[user.memberTier || 'BRONZE'] || 0.01;
+    let isBirthdayMonth = false;
+
+    if (user.birthday) {
+      const now = new Date();
+      const birthday = new Date(user.birthday);
+      if (now.getMonth() === birthday.getMonth()) {
+        pointRate *= 2;
+        isBirthdayMonth = true;
+      }
+    }
+
+    const pointsToEarn = Math.floor((orderTotal / 100) * (pointRate / 0.01));
+
+    res.json({
+      success: true,
+      data: {
+        pointsToEarn,
+        pointRate: pointRate * 100,
+        tier: user.memberTier || 'BRONZE',
+        currentPoints: user.pointBalance,
+        isBirthdayMonth,
+      },
+    });
+  } catch (error) {
+    console.error('Calculate points preview error:', error);
+    res.status(500).json({ error: 'Lỗi khi tính điểm!' });
+  }
+};

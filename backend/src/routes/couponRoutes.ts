@@ -28,6 +28,7 @@ import {
   getMyPoints,
   getAvailableRewards,
   redeemReward,
+  calculatePointsPreview,
 } from '../controllers/couponController';
 import { authenticateToken, isAdmin } from '../middleware/auth';
 
@@ -76,5 +77,6 @@ router.post('/vouchers/validate', validateVoucher); // Validate voucher (can be 
 router.get('/my-points', authenticateToken, getMyPoints); // Get user's points
 router.get('/rewards', getAvailableRewards); // Public: get available rewards
 router.post('/rewards/:id/redeem', authenticateToken, redeemReward); // Redeem points
+router.post('/points/calculate', calculatePointsPreview); // Preview points for checkout
 
 export default router;
