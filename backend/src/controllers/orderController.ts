@@ -199,6 +199,9 @@ export const createOrder = async (req: Request, res: Response) => {
       discount = 0,
       notes,
       items,
+      // Coupon support
+      couponCode,
+      couponDiscount = 0,
     } = req.body;
 
     // Validate required fields
@@ -234,6 +237,23 @@ export const createOrder = async (req: Request, res: Response) => {
       }
     }
 
+    // Validate and process coupon if provided
+    let validatedCouponCode: string | null = null;
+    let validatedCouponDiscount = 0;
+    let couponId: number | null = null;
+
+    if (couponCode && userId) {
+      const coupon = await prisma.coupon.findUnique({
+        where: { code: couponCode.toUpperCase() },
+      });
+
+      if (coupon && coupon.isActive) {
+        validatedCouponCode = coupon.code;
+        validatedCouponDiscount = Number(couponDiscount) || 0;
+        couponId = coupon.id;
+      }
+    }
+
     // Create order with items
     const order = await prisma.order.create({
       data: {
@@ -247,16 +267,21 @@ export const createOrder = async (req: Request, res: Response) => {
         paymentMethod: paymentMethod || 'COD',
         totalAmount: Number(totalAmount),
         shippingFee: Number(shippingFee),
-        discount: Number(discount),
+        discount: Number(discount) + validatedCouponDiscount,
+        couponCode: validatedCouponCode,
+        couponDiscount: validatedCouponDiscount,
         notes: notes || null,
         status: 'PENDING',
         items: {
-          create: items.map((item: any) => ({
-            productId: Number(item.productId),
-            quantity: Number(item.quantity),
-            price: Number(item.price),
-            variant: item.variant || null,
-          })),
+          create: items.map((item: unknown) => {
+            const orderItem = item as { productId: number; quantity: number; price: number; variant?: string };
+            return {
+              productId: Number(orderItem.productId),
+              quantity: Number(orderItem.quantity),
+              price: Number(orderItem.price),
+              variant: orderItem.variant || null,
+            };
+          }),
         },
       },
       include: {
@@ -280,6 +305,45 @@ export const createOrder = async (req: Request, res: Response) => {
         },
       },
     });
+
+    // Update coupon usage if coupon was applied
+    if (couponId && userId) {
+      try {
+        // Update UserCoupon status
+        await prisma.userCoupon.updateMany({
+          where: {
+            userId: Number(userId),
+            couponId: couponId,
+            status: 'AVAILABLE',
+          },
+          data: {
+            status: 'USED',
+            usedAt: new Date(),
+            usedOrderId: order.id,
+          },
+        });
+
+        // Increment coupon usedCount
+        await prisma.coupon.update({
+          where: { id: couponId },
+          data: { usedCount: { increment: 1 } },
+        });
+
+        // Record coupon usage
+        await prisma.couponUsage.create({
+          data: {
+            couponId: couponId,
+            userId: Number(userId),
+            orderId: order.id,
+            discountAmount: validatedCouponDiscount,
+            orderTotal: Number(totalAmount),
+          },
+        });
+      } catch (couponError) {
+        // Log but don't fail the order
+        console.error('Failed to update coupon usage:', couponError);
+      }
+    }
 
     res.status(201).json({
       success: true,
