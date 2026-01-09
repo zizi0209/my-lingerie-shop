@@ -29,6 +29,11 @@ import {
   getAvailableRewards,
   redeemReward,
   calculatePointsPreview,
+  // Birthday
+  checkBirthdayVoucher,
+  processBirthdayVouchers,
+  // Tier
+  getTierProgress,
 } from '../controllers/couponController';
 import { authenticateToken, isAdmin } from '../middleware/auth';
 
@@ -75,8 +80,15 @@ router.post('/vouchers/validate', validateVoucher); // Validate voucher (can be 
 // USER ROUTES - Loyalty Points
 // =============================================
 router.get('/my-points', authenticateToken, getMyPoints); // Get user's points
+router.get('/my-tier', authenticateToken, getTierProgress); // Get user's tier progress
 router.get('/rewards', getAvailableRewards); // Public: get available rewards
 router.post('/rewards/:id/redeem', authenticateToken, redeemReward); // Redeem points
 router.post('/points/calculate', calculatePointsPreview); // Preview points for checkout
+
+// =============================================
+// BIRTHDAY VOUCHER
+// =============================================
+router.get('/birthday-voucher', authenticateToken, checkBirthdayVoucher); // User check birthday voucher
+router.post('/admin/birthday-vouchers/process', authenticateToken, isAdmin, processBirthdayVouchers); // Admin cron
 
 export default router;

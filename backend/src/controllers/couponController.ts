@@ -1307,3 +1307,285 @@ export const calculatePointsPreview = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Lỗi khi tính điểm!' });
   }
 };
+
+// Birthday voucher values by tier
+const BIRTHDAY_VOUCHER_VALUES: Record<string, number> = {
+  BRONZE: 30000,
+  SILVER: 50000,
+  GOLD: 100000,
+  PLATINUM: 200000,
+};
+
+// Check and award birthday voucher for a user
+export const checkBirthdayVoucher = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Vui lòng đăng nhập!' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, birthday: true, memberTier: true, name: true },
+    });
+
+    if (!user || !user.birthday) {
+      return res.json({
+        success: true,
+        data: { eligible: false, message: 'Chưa cập nhật ngày sinh' },
+      });
+    }
+
+    const now = new Date();
+    const birthday = new Date(user.birthday);
+
+    // Check if current month is birthday month
+    if (now.getMonth() !== birthday.getMonth()) {
+      return res.json({
+        success: true,
+        data: { eligible: false, message: 'Không phải tháng sinh nhật' },
+      });
+    }
+
+    // Check if already received birthday voucher this year
+    const year = now.getFullYear();
+    const existingVoucher = await prisma.userCoupon.findFirst({
+      where: {
+        userId,
+        source: 'BIRTHDAY',
+        createdAt: {
+          gte: new Date(year, 0, 1),
+          lt: new Date(year + 1, 0, 1),
+        },
+      },
+    });
+
+    if (existingVoucher) {
+      return res.json({
+        success: true,
+        data: { eligible: false, message: 'Đã nhận voucher sinh nhật năm nay', voucher: existingVoucher },
+      });
+    }
+
+    // Create birthday voucher
+    const tier = user.memberTier || 'BRONZE';
+    const voucherValue = BIRTHDAY_VOUCHER_VALUES[tier] || 30000;
+    const code = `BD${year}${userId}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+    const coupon = await prisma.coupon.create({
+      data: {
+        code,
+        name: `Voucher sinh nhật ${user.name || 'Khách hàng'}`,
+        description: `Chúc mừng sinh nhật! Giảm ${voucherValue.toLocaleString('vi-VN')}đ cho đơn hàng tiếp theo`,
+        couponType: 'BIRTHDAY',
+        discountType: 'FIXED_AMOUNT',
+        discountValue: voucherValue,
+        minOrderValue: voucherValue * 3,
+        quantity: 1,
+        maxUsagePerUser: 1,
+        startDate: new Date(),
+        endDate: new Date(year, now.getMonth() + 1, 0), // End of birthday month
+        isActive: true,
+        isPublic: false,
+      },
+    });
+
+    const userCoupon = await prisma.userCoupon.create({
+      data: {
+        userId,
+        couponId: coupon.id,
+        status: 'AVAILABLE',
+        source: 'BIRTHDAY',
+        expiresAt: coupon.endDate,
+      },
+      include: { coupon: true },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        eligible: true,
+        message: 'Chúc mừng sinh nhật! Bạn đã nhận được voucher',
+        voucher: userCoupon,
+      },
+    });
+  } catch (error) {
+    console.error('Check birthday voucher error:', error);
+    res.status(500).json({ error: 'Lỗi khi kiểm tra voucher sinh nhật!' });
+  }
+};
+
+// Admin: Process birthday vouchers for all eligible users (cron job endpoint)
+export const processBirthdayVouchers = async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const year = now.getFullYear();
+
+    // Find users with birthday this month who haven't received voucher
+    const eligibleUsers = await prisma.user.findMany({
+      where: {
+        birthday: { not: null },
+        userCoupons: {
+          none: {
+            source: 'BIRTHDAY',
+            createdAt: {
+              gte: new Date(year, 0, 1),
+              lt: new Date(year + 1, 0, 1),
+            },
+          },
+        },
+      },
+      select: { id: true, birthday: true, memberTier: true, name: true },
+    });
+
+    // Filter by birthday month
+    const birthdayUsers = eligibleUsers.filter(u => {
+      if (!u.birthday) return false;
+      const bd = new Date(u.birthday);
+      return bd.getMonth() === currentMonth;
+    });
+
+    const results: { userId: number; code: string }[] = [];
+
+    for (const user of birthdayUsers) {
+      const tier = user.memberTier || 'BRONZE';
+      const voucherValue = BIRTHDAY_VOUCHER_VALUES[tier] || 30000;
+      const code = `BD${year}${user.id}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+      const coupon = await prisma.coupon.create({
+        data: {
+          code,
+          name: `Voucher sinh nhật ${user.name || 'Khách hàng'}`,
+          description: `Chúc mừng sinh nhật! Giảm ${voucherValue.toLocaleString('vi-VN')}đ`,
+          couponType: 'BIRTHDAY',
+          discountType: 'FIXED_AMOUNT',
+          discountValue: voucherValue,
+          minOrderValue: voucherValue * 3,
+          quantity: 1,
+          maxUsagePerUser: 1,
+          startDate: new Date(),
+          endDate: new Date(year, currentMonth + 1, 0),
+          isActive: true,
+          isPublic: false,
+        },
+      });
+
+      await prisma.userCoupon.create({
+        data: {
+          userId: user.id,
+          couponId: coupon.id,
+          status: 'AVAILABLE',
+          source: 'BIRTHDAY',
+          expiresAt: coupon.endDate,
+        },
+      });
+
+      results.push({ userId: user.id, code });
+    }
+
+    res.json({
+      success: true,
+      message: `Đã tạo ${results.length} voucher sinh nhật`,
+      data: results,
+    });
+  } catch (error) {
+    console.error('Process birthday vouchers error:', error);
+    res.status(500).json({ error: 'Lỗi khi xử lý voucher sinh nhật!' });
+  }
+};
+
+// Tier thresholds
+const TIER_THRESHOLDS = {
+  BRONZE: 0,
+  SILVER: 2000000,
+  GOLD: 5000000,
+  PLATINUM: 10000000,
+};
+
+const TIER_BENEFITS: Record<string, { pointRate: string; birthdayVoucher: number; perks: string[] }> = {
+  BRONZE: {
+    pointRate: '1%',
+    birthdayVoucher: 30000,
+    perks: ['Tích điểm cơ bản'],
+  },
+  SILVER: {
+    pointRate: '1.5%',
+    birthdayVoucher: 50000,
+    perks: ['Tích điểm 1.5%', 'Voucher sinh nhật 50K'],
+  },
+  GOLD: {
+    pointRate: '2%',
+    birthdayVoucher: 100000,
+    perks: ['Tích điểm 2%', 'Voucher sinh nhật 100K', 'Freeship đơn từ 300K'],
+  },
+  PLATINUM: {
+    pointRate: '3%',
+    birthdayVoucher: 200000,
+    perks: ['Tích điểm 3%', 'Voucher sinh nhật 200K', 'Freeship không giới hạn', 'Ưu tiên hỗ trợ'],
+  },
+};
+
+// Get user's tier progress and info
+export const getTierProgress = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Vui lòng đăng nhập!' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { totalSpent: true, memberTier: true, pointBalance: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Không tìm thấy người dùng!' });
+    }
+
+    const currentTier = user.memberTier || 'BRONZE';
+    const totalSpent = user.totalSpent || 0;
+
+    // Calculate progress to next tier
+    let nextTier: string | null = null;
+    let nextTierThreshold = 0;
+    let progressToNextTier = 100;
+
+    const tiers = ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'];
+    const currentTierIndex = tiers.indexOf(currentTier);
+
+    if (currentTierIndex < tiers.length - 1) {
+      nextTier = tiers[currentTierIndex + 1];
+      nextTierThreshold = TIER_THRESHOLDS[nextTier as keyof typeof TIER_THRESHOLDS];
+      const currentTierThreshold = TIER_THRESHOLDS[currentTier as keyof typeof TIER_THRESHOLDS];
+      progressToNextTier = Math.min(
+        100,
+        Math.round(((totalSpent - currentTierThreshold) / (nextTierThreshold - currentTierThreshold)) * 100)
+      );
+    }
+
+    res.json({
+      success: true,
+      data: {
+        currentTier,
+        totalSpent,
+        pointBalance: user.pointBalance,
+        benefits: TIER_BENEFITS[currentTier],
+        nextTier,
+        nextTierThreshold,
+        amountToNextTier: nextTier ? Math.max(0, nextTierThreshold - totalSpent) : 0,
+        progressToNextTier,
+        allTiers: Object.entries(TIER_THRESHOLDS).map(([tier, threshold]) => ({
+          tier,
+          threshold,
+          benefits: TIER_BENEFITS[tier],
+          isCurrentTier: tier === currentTier,
+          isAchieved: totalSpent >= threshold,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Get tier progress error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin hạng!' });
+  }
+};
