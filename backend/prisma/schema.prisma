@@ -33,6 +33,12 @@ model User {
   passwordChangedAt     DateTime?
   tokenVersion          Int       @default(0)
   
+  // Loyalty System
+  pointBalance    Int       @default(0)
+  totalSpent      Float     @default(0)
+  memberTier      String    @default("BRONZE") // BRONZE | SILVER | GOLD | PLATINUM
+  birthday        DateTime?
+  
   // Relationships
   orders        Order[]
   posts         Post[]
@@ -41,6 +47,8 @@ model User {
   refreshTokens RefreshToken[]
   reviews       Review[]
   wishlistItems WishlistItem[]
+  userCoupons   UserCoupon[]
+  pointHistory  PointHistory[]
   
   // Tracking
   isActive    Boolean   @default(true)
@@ -52,6 +60,7 @@ model User {
   
   @@index([email])
   @@index([roleId])
+  @@index([memberTier])
 }
 
 // 2. ROLES & PERMISSIONS
@@ -275,6 +284,15 @@ model Order {
   discount        Float       @default(0)
   notes           String?     @db.Text
   
+  // Voucher/Coupon
+  couponCode      String?
+  couponDiscount  Float       @default(0)
+  
+  // Loyalty Points
+  pointsEarned    Int         @default(0)
+  pointsUsed      Int         @default(0)
+  pointsDiscount  Float       @default(0)
+  
   status          String      @default("PENDING")
   items           OrderItem[]
   reviews         Review[]
@@ -286,6 +304,7 @@ model Order {
   @@index([userId])
   @@index([orderNumber])
   @@index([status, createdAt])
+  @@index([couponCode])
 }
 
 // 9. CHI TIẾT ĐƠN HÀNG
@@ -591,4 +610,210 @@ model WishlistItem {
   @@unique([userId, productId])
   @@index([userId])
   @@index([productId])
+}
+
+// =============================================
+// PROMOTION & LOYALTY SYSTEM
+// =============================================
+
+// CHIẾN DỊCH KHUYẾN MÃI
+model Campaign {
+  id          Int       @id @default(autoincrement())
+  name        String
+  slug        String    @unique
+  description String?   @db.Text
+  
+  startDate   DateTime
+  endDate     DateTime
+  
+  isActive    Boolean   @default(true)
+  coupons     Coupon[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([isActive, startDate, endDate])
+  @@index([slug])
+}
+
+// MÃ GIẢM GIÁ (VOUCHER/COUPON)
+model Coupon {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  name        String
+  description String?   @db.Text
+  
+  // Loại giảm giá
+  discountType    String    // PERCENTAGE | FIXED_AMOUNT | FREE_SHIPPING | BUY_X_GET_Y
+  discountValue   Float
+  
+  // Giới hạn
+  maxDiscount     Float?
+  minOrderValue   Float?
+  
+  // Số lượng
+  quantity        Int?
+  usedCount       Int       @default(0)
+  maxUsagePerUser Int       @default(1)
+  
+  // Phân loại
+  couponType  String    @default("PUBLIC") // NEW_USER | PUBLIC | PRIVATE | PRODUCT | SHIPPING
+  isSystem    Boolean   @default(false)
+  isPublic    Boolean   @default(true)
+  
+  // Điều kiện phức tạp (JSON)
+  conditions  Json?
+  
+  // Thời gian hiệu lực
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  
+  // Campaign (optional)
+  campaignId  Int?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id])
+  
+  // Relationships
+  userCoupons  UserCoupon[]
+  usageHistory CouponUsage[]
+  
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([code])
+  @@index([couponType, isActive])
+  @@index([isPublic, isActive])
+  @@index([startDate, endDate])
+  @@index([campaignId])
+}
+
+// VÍ VOUCHER CỦA USER
+model UserCoupon {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  couponId    Int
+  coupon      Coupon    @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  
+  // Trạng thái
+  status      String    @default("AVAILABLE") // AVAILABLE | USED | EXPIRED
+  
+  // Thời hạn riêng cho user này
+  expiresAt   DateTime?
+  
+  // Tracking
+  usedAt      DateTime?
+  usedOrderId Int?
+  
+  // Source
+  source      String    @default("COLLECTED") // COLLECTED | SYSTEM | REWARD | REFERRAL
+  
+  createdAt   DateTime  @default(now())
+  
+  @@unique([userId, couponId])
+  @@index([userId, status])
+  @@index([couponId])
+  @@index([expiresAt])
+}
+
+// LỊCH SỬ SỬ DỤNG VOUCHER
+model CouponUsage {
+  id             Int      @id @default(autoincrement())
+  couponId       Int
+  coupon         Coupon   @relation(fields: [couponId], references: [id])
+  userId         Int?
+  orderId        Int
+  
+  discountAmount Float
+  orderTotal     Float
+  
+  createdAt      DateTime @default(now())
+  
+  @@index([couponId])
+  @@index([userId])
+  @@index([orderId])
+}
+
+// LỊCH SỬ ĐIỂM THƯỞNG
+model PointHistory {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Loại giao dịch
+  type        String    // EARN | BURN | EXPIRE | ADJUST
+  amount      Int
+  balance     Int
+  
+  // Nguồn
+  source      String    // ORDER | REVIEW | BIRTHDAY | REFERRAL | REDEEM | ADMIN_ADJUST
+  sourceId    String?
+  
+  description String?
+  
+  // Admin adjust
+  adjustedBy  Int?
+  
+  expiresAt   DateTime?
+  
+  createdAt   DateTime  @default(now())
+  
+  @@index([userId, createdAt])
+  @@index([type])
+  @@index([source])
+}
+
+// QUÀ ĐỔI ĐIỂM
+model PointReward {
+  id            Int       @id @default(autoincrement())
+  name          String
+  description   String?   @db.Text
+  
+  pointCost     Int
+  
+  // Loại quà
+  rewardType    String    // VOUCHER | GIFT | DISCOUNT
+  
+  // Nếu là VOUCHER
+  couponId      Int?
+  
+  // Giá trị nếu là DISCOUNT trực tiếp
+  discountValue Float?
+  discountType  String?   // PERCENTAGE | FIXED_AMOUNT
+  
+  // Giới hạn
+  quantity      Int?
+  redeemedCount Int       @default(0)
+  maxPerUser    Int?
+  
+  isActive      Boolean   @default(true)
+  startDate     DateTime  @default(now())
+  endDate       DateTime?
+  
+  // Relationships
+  redemptions   RewardRedemption[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([isActive, pointCost])
+}
+
+// LỊCH SỬ ĐỔI QUÀ
+model RewardRedemption {
+  id          Int         @id @default(autoincrement())
+  userId      Int
+  rewardId    Int
+  reward      PointReward @relation(fields: [rewardId], references: [id])
+  
+  pointSpent  Int
+  
+  // Kết quả
+  resultType  String      // VOUCHER | GIFT | DISCOUNT
+  resultId    String?
+  
+  createdAt   DateTime    @default(now())
+  
+  @@index([userId])
+  @@index([rewardId])
 }

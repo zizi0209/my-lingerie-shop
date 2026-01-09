@@ -29,6 +29,9 @@ export const translations = {
       blogPosts: 'Blog Posts',
       postTags: 'Post Tags',
       homeLayout: 'Home Layout',
+      coupons: 'Coupons',
+      campaigns: 'Campaigns',
+      rewards: 'Point Rewards',
       system: 'System',
       staffUsers: 'Staff Users',
       customers: 'Customers',
@@ -87,6 +90,9 @@ export const translations = {
       blogPosts: 'Bài viết',
       postTags: 'Thẻ bài viết',
       homeLayout: 'Bố cục trang chủ',
+      coupons: 'Mã giảm giá',
+      campaigns: 'Chiến dịch',
+      rewards: 'Kho quà',
       system: 'Hệ thống',
       staffUsers: 'Nhân viên',
       customers: 'Khách hàng',
@@ -122,6 +128,6 @@ export const translations = {
 
 export type TranslationKeys = 
   | 'common.search' | 'common.save' | 'common.export' | 'common.actions' | 'common.filter' | 'common.total' | 'common.status' | 'common.date' | 'common.customer'
-  | 'nav.dashboard' | 'nav.default' | 'nav.analytics' | 'nav.inventory' | 'nav.products' | 'nav.categories' | 'nav.colors' | 'nav.orders' | 'nav.reviews' | 'nav.cartTracker' | 'nav.marketing' | 'nav.blogPosts' | 'nav.postTags' | 'nav.homeLayout' | 'nav.system' | 'nav.staffUsers' | 'nav.customers' | 'nav.roles' | 'nav.settings'
+  | 'nav.dashboard' | 'nav.default' | 'nav.analytics' | 'nav.inventory' | 'nav.products' | 'nav.categories' | 'nav.colors' | 'nav.orders' | 'nav.reviews' | 'nav.cartTracker' | 'nav.marketing' | 'nav.blogPosts' | 'nav.postTags' | 'nav.homeLayout' | 'nav.coupons' | 'nav.campaigns' | 'nav.rewards' | 'nav.system' | 'nav.staffUsers' | 'nav.customers' | 'nav.roles' | 'nav.settings'
   | 'dashboard.earning' | 'dashboard.orders' | 'dashboard.income' | 'dashboard.revenue' | 'dashboard.growth' | 'dashboard.popular' | 'dashboard.bestSeller' | 'dashboard.profitGrowth' | 'dashboard.today' | 'dashboard.month' | 'dashboard.year'
   | 'settings.title' | 'settings.desc' | 'settings.storeInfo' | 'settings.storeName' | 'settings.supportEmail' | 'settings.storeDesc' | 'settings.notifications' | 'settings.orderAlerts' | 'settings.stockWarnings';

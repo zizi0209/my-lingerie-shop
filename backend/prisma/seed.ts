@@ -115,6 +115,94 @@ async function main() {
   }
 
   console.log(`✅ Created ${permissions.length} permissions`);
+
+  // 6. Create New User Welcome Coupon (System coupon)
+  const newUserCoupon = await prisma.coupon.upsert({
+    where: { code: 'NEWUSER50K' },
+    update: {
+      name: 'Giảm 50K cho thành viên mới',
+      discountType: 'FIXED_AMOUNT',
+      discountValue: 50000,
+      minOrderValue: 300000,
+      couponType: 'NEW_USER',
+      isSystem: true,
+      isPublic: false,
+      isActive: true
+    },
+    create: {
+      code: 'NEWUSER50K',
+      name: 'Giảm 50K cho thành viên mới',
+      description: 'Voucher chào mừng thành viên mới - Giảm 50,000đ cho đơn hàng từ 300,000đ',
+      discountType: 'FIXED_AMOUNT',
+      discountValue: 50000,
+      minOrderValue: 300000,
+      maxUsagePerUser: 1,
+      couponType: 'NEW_USER',
+      isSystem: true,
+      isPublic: false,
+      isActive: true
+    }
+  });
+
+  console.log(`✅ New User Welcome Coupon created: ${newUserCoupon.code}`);
+
+  // 7. Create sample public coupon for testing
+  const publicCoupon = await prisma.coupon.upsert({
+    where: { code: 'WELCOME10' },
+    update: {
+      name: 'Giảm 10% đơn hàng',
+      discountType: 'PERCENTAGE',
+      discountValue: 10,
+      maxDiscount: 100000,
+      minOrderValue: 200000,
+      couponType: 'PUBLIC',
+      isSystem: false,
+      isPublic: true,
+      isActive: true
+    },
+    create: {
+      code: 'WELCOME10',
+      name: 'Giảm 10% đơn hàng',
+      description: 'Giảm 10% tối đa 100K cho đơn từ 200K',
+      discountType: 'PERCENTAGE',
+      discountValue: 10,
+      maxDiscount: 100000,
+      minOrderValue: 200000,
+      quantity: 1000,
+      maxUsagePerUser: 1,
+      couponType: 'PUBLIC',
+      isSystem: false,
+      isPublic: true,
+      isActive: true
+    }
+  });
+
+  console.log(`✅ Public Coupon created: ${publicCoupon.code}`);
+
+  // 8. Create sample Point Reward
+  const pointReward = await prisma.pointReward.upsert({
+    where: { id: 1 },
+    update: {
+      name: 'Voucher giảm 50K',
+      pointCost: 500,
+      rewardType: 'DISCOUNT',
+      discountValue: 50000,
+      discountType: 'FIXED_AMOUNT',
+      isActive: true
+    },
+    create: {
+      name: 'Voucher giảm 50K',
+      description: 'Đổi 500 điểm lấy voucher giảm 50,000đ',
+      pointCost: 500,
+      rewardType: 'DISCOUNT',
+      discountValue: 50000,
+      discountType: 'FIXED_AMOUNT',
+      isActive: true
+    }
+  });
+
+  console.log(`✅ Point Reward created: ${pointReward.name} (${pointReward.pointCost} điểm)`);
+
   console.log('');
   console.log('🎉 Database seed completed successfully!');
 }
