@@ -12,7 +12,7 @@ export default function WelcomeOffer() {
 
   const handleGetOffer = () => {
     markEmailSubmitted();
-    router.push("/register");
+    router.push("/login-register");
   };
 
   return (

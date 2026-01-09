@@ -43,7 +43,7 @@ export function useWelcomeOffer() {
   const pathname = usePathname();
 
   // Các trang không hiện popup
-  const excludedPaths = ["/login", "/register", "/dashboard", "/checkout"];
+  const excludedPaths = ["/login", "/register", "/login-register", "/dashboard", "/checkout"];
   const isExcludedPage = excludedPaths.some((path) => pathname.startsWith(path));
 
   // Kiểm tra có nên hiện popup không
