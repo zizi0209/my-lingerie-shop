@@ -256,3 +256,19 @@ h1, h2, h3, h4, h5, h6 {
 .nav-link:hover {
   color: var(--hover-color) !important;
 }
+
+/* Welcome Offer slide-in animation */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}

@@ -153,7 +153,10 @@ class ApiService {
           return this.request<T>(endpoint, { ...options, _retry: true });
         }
         this.removeToken();
-        throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
+        // Throw silent error for auth check (không hiện thông báo cho user)
+        const error = new Error('SESSION_EXPIRED');
+        (error as Error & { silent?: boolean }).silent = true;
+        throw error;
       }
 
       if (!response.ok) {
@@ -161,7 +164,10 @@ class ApiService {
 
         if ((response.status === 401 || response.status === 403) && requireAuth) {
           this.removeToken();
-          throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
+          // Throw silent error for auth check
+          const error = new Error('SESSION_EXPIRED');
+          (error as Error & { silent?: boolean }).silent = true;
+          throw error;
         }
 
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);

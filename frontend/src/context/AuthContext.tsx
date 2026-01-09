@@ -62,6 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
         }
       } catch {
+        // Silent fail - chỉ cleanup token, không hiện thông báo lỗi
+        // Đây là trường hợp token cũ hết hạn khi user mở web lần đầu
         api.removeToken();
         setState({
           user: null,

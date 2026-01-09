@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Header from "./Header";
 import Footer from "./Footer";
+import WelcomeOffer from "@/components/WelcomeOffer";
 
 export default function RootLayoutClient({
   children,
@@ -17,6 +18,7 @@ export default function RootLayoutClient({
       {!isDashboard && <Header />}
       <main className="min-h-screen">{children}</main>
       {!isDashboard && <Footer />}
+      {!isDashboard && <WelcomeOffer />}
     </>
   );
 }
