@@ -78,6 +78,32 @@ export const register = async (req: Request, res: Response) => {
       severity: 'INFO',
     }, req);
 
+    // Auto-assign welcome voucher for new user
+    try {
+      const welcomeCoupon = await prisma.coupon.findFirst({
+        where: {
+          couponType: 'NEW_USER',
+          isActive: true,
+          isSystem: true,
+        },
+      });
+
+      if (welcomeCoupon) {
+        await prisma.userCoupon.create({
+          data: {
+            userId: user.id,
+            couponId: welcomeCoupon.id,
+            status: 'AVAILABLE',
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            source: 'SYSTEM',
+          },
+        });
+      }
+    } catch (couponError) {
+      // Silent fail - don't block registration if voucher assignment fails
+      console.error('Failed to assign welcome voucher:', couponError);
+    }
+
     // Generate tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = await generateRefreshToken(user, req);

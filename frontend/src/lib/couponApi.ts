@@ -232,3 +232,102 @@ export const pointRewardApi = {
     return api.delete(`/admin/rewards/${id}`);
   },
 };
+
+// =============================================
+// USER-FACING API
+// =============================================
+
+export interface UserCoupon {
+  id: number;
+  userId: number;
+  couponId: number;
+  status: 'AVAILABLE' | 'USED' | 'EXPIRED';
+  expiresAt: string | null;
+  usedAt: string | null;
+  usedOrderId: number | null;
+  source: 'COLLECTED' | 'SYSTEM' | 'REWARD' | 'REFERRAL';
+  createdAt: string;
+  coupon: {
+    id: number;
+    code: string;
+    name: string;
+    description: string | null;
+    discountType: string;
+    discountValue: number;
+    maxDiscount: number | null;
+    minOrderValue: number | null;
+    couponType: string;
+    startDate: string;
+    endDate: string | null;
+    isActive: boolean;
+  };
+}
+
+export interface PointInfo {
+  balance: number;
+  totalSpent: number;
+  tier: string;
+  history: Array<{
+    id: number;
+    type: string;
+    amount: number;
+    balance: number;
+    source: string;
+    description: string | null;
+    createdAt: string;
+  }>;
+}
+
+export const userVoucherApi = {
+  // Get public vouchers that can be collected
+  getPublicVouchers: async (): Promise<SingleResponse<Coupon[]>> => {
+    return api.get('/vouchers', false);
+  },
+
+  // Get user's voucher wallet
+  getMyVouchers: async (): Promise<SingleResponse<UserCoupon[]>> => {
+    return api.get('/my-vouchers');
+  },
+
+  // Collect a voucher
+  collectVoucher: async (code: string): Promise<SingleResponse<UserCoupon>> => {
+    return api.post(`/my-vouchers/collect/${code}`, {});
+  },
+
+  // Validate voucher for checkout
+  validateVoucher: async (code: string, orderTotal: number): Promise<{
+    success: boolean;
+    data: {
+      coupon: { id: number; code: string; name: string; discountType: string; discountValue: number };
+      discountAmount: number;
+      finalTotal: number;
+    };
+    error?: string;
+  }> => {
+    return api.post('/vouchers/validate', { code, orderTotal }, false);
+  },
+
+  // Get user's points
+  getMyPoints: async (): Promise<SingleResponse<PointInfo>> => {
+    return api.get('/my-points');
+  },
+
+  // Get available rewards
+  getRewards: async (): Promise<SingleResponse<PointReward[]>> => {
+    return api.get('/rewards', false);
+  },
+
+  // Redeem points for reward
+  redeemReward: async (rewardId: number): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      pointsSpent: number;
+      newBalance: number;
+      reward: string;
+      voucher?: Coupon;
+    };
+  }> => {
+    return api.post(`/rewards/${rewardId}/redeem`, {});
+  },
+};

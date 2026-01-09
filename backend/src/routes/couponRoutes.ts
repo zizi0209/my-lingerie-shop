@@ -20,6 +20,14 @@ import {
   createPointReward,
   updatePointReward,
   deletePointReward,
+  // User-facing
+  getPublicVouchers,
+  getMyVouchers,
+  collectVoucher,
+  validateVoucher,
+  getMyPoints,
+  getAvailableRewards,
+  redeemReward,
 } from '../controllers/couponController';
 import { authenticateToken, isAdmin } from '../middleware/auth';
 
@@ -53,5 +61,20 @@ router.get('/admin/rewards/:id', authenticateToken, isAdmin, getPointRewardById)
 router.post('/admin/rewards', authenticateToken, isAdmin, createPointReward);
 router.put('/admin/rewards/:id', authenticateToken, isAdmin, updatePointReward);
 router.delete('/admin/rewards/:id', authenticateToken, isAdmin, deletePointReward);
+
+// =============================================
+// USER ROUTES - Voucher Wallet
+// =============================================
+router.get('/vouchers', getPublicVouchers); // Public: get available vouchers
+router.get('/my-vouchers', authenticateToken, getMyVouchers); // Get user's wallet
+router.post('/my-vouchers/collect/:code', authenticateToken, collectVoucher); // Collect voucher
+router.post('/vouchers/validate', validateVoucher); // Validate voucher (can be guest)
+
+// =============================================
+// USER ROUTES - Loyalty Points
+// =============================================
+router.get('/my-points', authenticateToken, getMyPoints); // Get user's points
+router.get('/rewards', getAvailableRewards); // Public: get available rewards
+router.post('/rewards/:id/redeem', authenticateToken, redeemReward); // Redeem points
 
 export default router;

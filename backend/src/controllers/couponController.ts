@@ -720,3 +720,519 @@ export const deletePointReward = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Lỗi khi xóa quà!' });
   }
 };
+
+// =============================================
+// USER: PUBLIC VOUCHERS & WALLET
+// =============================================
+
+// Get public vouchers (can be collected)
+export const getPublicVouchers = async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+
+    const vouchers = await prisma.coupon.findMany({
+      where: {
+        isActive: true,
+        isPublic: true,
+        isSystem: false,
+        startDate: { lte: now },
+        AND: [
+          {
+            OR: [
+              { endDate: null },
+              { endDate: { gte: now } },
+            ],
+          },
+        ],
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        discountType: true,
+        discountValue: true,
+        maxDiscount: true,
+        minOrderValue: true,
+        quantity: true,
+        usedCount: true,
+        startDate: true,
+        endDate: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    res.json({ success: true, data: vouchers });
+  } catch (error) {
+    console.error('Get public vouchers error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách voucher!' });
+  }
+};
+
+// Get user's voucher wallet
+export const getMyVouchers = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Vui lòng đăng nhập!' });
+    }
+
+    const now = new Date();
+
+    const userCoupons = await prisma.userCoupon.findMany({
+      where: {
+        userId,
+        status: 'AVAILABLE',
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gte: now } },
+        ],
+      },
+      include: {
+        coupon: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            description: true,
+            discountType: true,
+            discountValue: true,
+            maxDiscount: true,
+            minOrderValue: true,
+            couponType: true,
+            startDate: true,
+            endDate: true,
+            isActive: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Filter out inactive coupons
+    const validCoupons = userCoupons.filter(uc => uc.coupon.isActive);
+
+    res.json({ success: true, data: validCoupons });
+  } catch (error) {
+    console.error('Get my vouchers error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy ví voucher!' });
+  }
+};
+
+// Collect (save) a public voucher to wallet
+export const collectVoucher = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Vui lòng đăng nhập!' });
+    }
+
+    const { code } = req.params;
+    const now = new Date();
+
+    // Find coupon
+    const coupon = await prisma.coupon.findUnique({
+      where: { code: code.toUpperCase() },
+    });
+
+    if (!coupon) {
+      return res.status(404).json({ error: 'Không tìm thấy mã giảm giá!' });
+    }
+
+    // Validate coupon
+    if (!coupon.isActive) {
+      return res.status(400).json({ error: 'Mã giảm giá đã hết hiệu lực!' });
+    }
+
+    if (!coupon.isPublic && coupon.couponType !== 'NEW_USER') {
+      return res.status(400).json({ error: 'Mã giảm giá không công khai!' });
+    }
+
+    if (coupon.startDate > now) {
+      return res.status(400).json({ error: 'Mã giảm giá chưa bắt đầu!' });
+    }
+
+    if (coupon.endDate && coupon.endDate < now) {
+      return res.status(400).json({ error: 'Mã giảm giá đã hết hạn!' });
+    }
+
+    // Check quantity
+    if (coupon.quantity !== null && coupon.usedCount >= coupon.quantity) {
+      return res.status(400).json({ error: 'Mã giảm giá đã hết lượt sử dụng!' });
+    }
+
+    // Check if already collected
+    const existing = await prisma.userCoupon.findUnique({
+      where: {
+        userId_couponId: { userId, couponId: coupon.id },
+      },
+    });
+
+    if (existing) {
+      return res.status(400).json({ error: 'Bạn đã lưu mã này rồi!' });
+    }
+
+    // Calculate expiry for user (use coupon endDate or 30 days from now)
+    const expiresAt = coupon.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    // Create user coupon
+    const userCoupon = await prisma.userCoupon.create({
+      data: {
+        userId,
+        couponId: coupon.id,
+        status: 'AVAILABLE',
+        expiresAt,
+        source: 'COLLECTED',
+      },
+      include: {
+        coupon: {
+          select: {
+            code: true,
+            name: true,
+            discountType: true,
+            discountValue: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Đã lưu mã giảm giá vào ví!',
+      data: userCoupon,
+    });
+  } catch (error) {
+    console.error('Collect voucher error:', error);
+    res.status(500).json({ error: 'Lỗi khi lưu mã giảm giá!' });
+  }
+};
+
+// Validate voucher for checkout
+export const validateVoucher = async (req: Request, res: Response) => {
+  try {
+    const { code, orderTotal } = req.body;
+    const userId = (req as any).user?.id;
+    const now = new Date();
+
+    if (!code) {
+      return res.status(400).json({ error: 'Vui lòng nhập mã giảm giá!' });
+    }
+
+    // Find coupon
+    const coupon = await prisma.coupon.findUnique({
+      where: { code: code.toUpperCase() },
+    });
+
+    if (!coupon) {
+      return res.status(404).json({ error: 'Mã giảm giá không tồn tại!' });
+    }
+
+    // Basic validation
+    if (!coupon.isActive) {
+      return res.status(400).json({ error: 'Mã giảm giá đã hết hiệu lực!' });
+    }
+
+    if (coupon.startDate > now) {
+      return res.status(400).json({ error: 'Mã giảm giá chưa bắt đầu!' });
+    }
+
+    if (coupon.endDate && coupon.endDate < now) {
+      return res.status(400).json({ error: 'Mã giảm giá đã hết hạn!' });
+    }
+
+    // Check quantity
+    if (coupon.quantity !== null && coupon.usedCount >= coupon.quantity) {
+      return res.status(400).json({ error: 'Mã giảm giá đã hết lượt!' });
+    }
+
+    // Check min order value
+    if (coupon.minOrderValue && orderTotal < coupon.minOrderValue) {
+      return res.status(400).json({
+        error: `Đơn hàng tối thiểu ${coupon.minOrderValue.toLocaleString('vi-VN')}đ`,
+      });
+    }
+
+    // Check user-specific usage if logged in
+    if (userId) {
+      const usageCount = await prisma.couponUsage.count({
+        where: { couponId: coupon.id, userId },
+      });
+
+      if (usageCount >= coupon.maxUsagePerUser) {
+        return res.status(400).json({ error: 'Bạn đã sử dụng hết lượt cho mã này!' });
+      }
+
+      // Check private coupon - must be in user's wallet
+      if (coupon.couponType === 'PRIVATE' || coupon.couponType === 'NEW_USER') {
+        const userCoupon = await prisma.userCoupon.findUnique({
+          where: { userId_couponId: { userId, couponId: coupon.id } },
+        });
+
+        if (!userCoupon || userCoupon.status !== 'AVAILABLE') {
+          return res.status(400).json({ error: 'Mã giảm giá không có trong ví của bạn!' });
+        }
+      }
+    }
+
+    // Calculate discount
+    let discountAmount = 0;
+    if (coupon.discountType === 'PERCENTAGE') {
+      discountAmount = (orderTotal * coupon.discountValue) / 100;
+      if (coupon.maxDiscount && discountAmount > coupon.maxDiscount) {
+        discountAmount = coupon.maxDiscount;
+      }
+    } else if (coupon.discountType === 'FIXED_AMOUNT') {
+      discountAmount = coupon.discountValue;
+    } else if (coupon.discountType === 'FREE_SHIPPING') {
+      discountAmount = 0; // Handled separately in checkout
+    }
+
+    // Don't discount more than order total
+    if (discountAmount > orderTotal) {
+      discountAmount = orderTotal;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        coupon: {
+          id: coupon.id,
+          code: coupon.code,
+          name: coupon.name,
+          discountType: coupon.discountType,
+          discountValue: coupon.discountValue,
+        },
+        discountAmount: Math.round(discountAmount),
+        finalTotal: Math.round(orderTotal - discountAmount),
+      },
+    });
+  } catch (error) {
+    console.error('Validate voucher error:', error);
+    res.status(500).json({ error: 'Lỗi khi kiểm tra mã giảm giá!' });
+  }
+};
+
+// Get user's points info
+export const getMyPoints = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Vui lòng đăng nhập!' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        pointBalance: true,
+        totalSpent: true,
+        memberTier: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Không tìm thấy user!' });
+    }
+
+    // Get recent point history
+    const history = await prisma.pointHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        balance: user.pointBalance,
+        totalSpent: user.totalSpent,
+        tier: user.memberTier,
+        history,
+      },
+    });
+  } catch (error) {
+    console.error('Get my points error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin điểm!' });
+  }
+};
+
+// Get available rewards for user
+export const getAvailableRewards = async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+
+    const rewards = await prisma.pointReward.findMany({
+      where: {
+        isActive: true,
+        startDate: { lte: now },
+        OR: [
+          { endDate: null },
+          { endDate: { gte: now } },
+        ],
+      },
+      orderBy: { pointCost: 'asc' },
+    });
+
+    res.json({ success: true, data: rewards });
+  } catch (error) {
+    console.error('Get available rewards error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách quà!' });
+  }
+};
+
+// Redeem points for reward
+export const redeemReward = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Vui lòng đăng nhập!' });
+    }
+
+    const { id } = req.params;
+    const now = new Date();
+
+    // Get user and reward
+    const [user, reward] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.pointReward.findUnique({ where: { id: Number(id) } }),
+    ]);
+
+    if (!user) {
+      return res.status(404).json({ error: 'Không tìm thấy user!' });
+    }
+
+    if (!reward) {
+      return res.status(404).json({ error: 'Không tìm thấy quà!' });
+    }
+
+    // Validate reward
+    if (!reward.isActive) {
+      return res.status(400).json({ error: 'Quà đã hết hiệu lực!' });
+    }
+
+    if (reward.startDate > now) {
+      return res.status(400).json({ error: 'Quà chưa bắt đầu!' });
+    }
+
+    if (reward.endDate && reward.endDate < now) {
+      return res.status(400).json({ error: 'Quà đã hết hạn!' });
+    }
+
+    // Check quantity
+    if (reward.quantity !== null && reward.redeemedCount >= reward.quantity) {
+      return res.status(400).json({ error: 'Quà đã hết!' });
+    }
+
+    // Check user's points
+    if (user.pointBalance < reward.pointCost) {
+      return res.status(400).json({
+        error: `Bạn cần ${reward.pointCost} điểm, hiện có ${user.pointBalance} điểm`,
+      });
+    }
+
+    // Check max per user
+    if (reward.maxPerUser) {
+      const userRedemptions = await prisma.rewardRedemption.count({
+        where: { userId, rewardId: reward.id },
+      });
+      if (userRedemptions >= reward.maxPerUser) {
+        return res.status(400).json({ error: 'Bạn đã đổi tối đa quà này!' });
+      }
+    }
+
+    // Process redemption in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Deduct points
+      const newBalance = user.pointBalance - reward.pointCost;
+      await tx.user.update({
+        where: { id: userId },
+        data: { pointBalance: newBalance },
+      });
+
+      // Create point history
+      await tx.pointHistory.create({
+        data: {
+          userId,
+          type: 'BURN',
+          amount: -reward.pointCost,
+          balance: newBalance,
+          source: 'REDEEM',
+          sourceId: String(reward.id),
+          description: `Đổi quà: ${reward.name}`,
+        },
+      });
+
+      // Update reward count
+      await tx.pointReward.update({
+        where: { id: reward.id },
+        data: { redeemedCount: { increment: 1 } },
+      });
+
+      // Create redemption record
+      const redemption = await tx.rewardRedemption.create({
+        data: {
+          userId,
+          rewardId: reward.id,
+          pointSpent: reward.pointCost,
+          resultType: reward.rewardType,
+        },
+      });
+
+      // If reward type is DISCOUNT, create a coupon for user
+      let userCoupon = null;
+      if (reward.rewardType === 'DISCOUNT' && reward.discountValue) {
+        // Create private coupon
+        const couponCode = `RWD${Date.now().toString(36).toUpperCase()}`;
+        const coupon = await tx.coupon.create({
+          data: {
+            code: couponCode,
+            name: reward.name,
+            description: `Đổi từ ${reward.pointCost} điểm`,
+            discountType: reward.discountType || 'FIXED_AMOUNT',
+            discountValue: reward.discountValue,
+            quantity: 1,
+            maxUsagePerUser: 1,
+            couponType: 'PRIVATE',
+            isSystem: true,
+            isPublic: false,
+            isActive: true,
+            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          },
+        });
+
+        userCoupon = await tx.userCoupon.create({
+          data: {
+            userId,
+            couponId: coupon.id,
+            status: 'AVAILABLE',
+            expiresAt: coupon.endDate,
+            source: 'REWARD',
+          },
+          include: { coupon: true },
+        });
+
+        // Update redemption with result
+        await tx.rewardRedemption.update({
+          where: { id: redemption.id },
+          data: { resultId: String(userCoupon.id) },
+        });
+      }
+
+      return { redemption, userCoupon, newBalance };
+    });
+
+    res.json({
+      success: true,
+      message: 'Đổi quà thành công!',
+      data: {
+        pointsSpent: reward.pointCost,
+        newBalance: result.newBalance,
+        reward: reward.name,
+        voucher: result.userCoupon?.coupon,
+      },
+    });
+  } catch (error) {
+    console.error('Redeem reward error:', error);
+    res.status(500).json({ error: 'Lỗi khi đổi quà!' });
+  }
+};
