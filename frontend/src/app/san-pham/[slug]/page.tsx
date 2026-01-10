@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import ReviewList from "@/components/product/ReviewList";
+import SizeGuideModal from "@/components/product/SizeGuideModal";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
@@ -73,6 +74,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const [selectedColor, setSelectedColor] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   
   const isLiked = product ? isInWishlist(product.id) : false;
 
@@ -337,7 +339,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white">Kích cỡ</h3>
-                <button className="text-sm text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white underline transition-colors">
+                <button 
+                  onClick={() => setSizeGuideOpen(true)}
+                  className="text-sm text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white underline transition-colors"
+                >
                   Hướng dẫn chọn size
                 </button>
               </div>
@@ -527,6 +532,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
       )}
+
+      {/* Size Guide Modal */}
+      <SizeGuideModal
+        isOpen={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        categorySlug={product?.category?.slug}
+      />
     </div>
   );
 }
