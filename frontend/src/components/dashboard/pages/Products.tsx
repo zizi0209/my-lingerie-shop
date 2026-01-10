@@ -13,6 +13,7 @@ import { type ProductType, type SizeChartData, fetchSizeChartByType } from '@/li
 import { generateProductDescription } from '../services/geminiService';
 import SearchInput from '../components/SearchInput';
 import { useLanguage } from '../components/LanguageContext';
+import { LexicalEditor } from '@/components/editor';
 import { 
   compressImage, 
   type CompressedImage, 
@@ -1049,11 +1050,11 @@ const Products: React.FC = () => {
 
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.description}</label>
-                      <textarea
-                        value={formData.description}
-                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                        rows={3}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium resize-none"
+                      <LexicalEditor
+                        initialValue={formData.description}
+                        onChange={(html) => setFormData(prev => ({ ...prev, description: html }))}
+                        placeholder={language === 'vi' ? 'Nhập mô tả chi tiết sản phẩm...' : 'Enter product description...'}
+                        minHeight="120px"
                       />
                     </div>
 
