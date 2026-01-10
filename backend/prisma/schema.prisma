@@ -80,17 +80,20 @@ model RefreshToken {
 }
 
 model Category {
-  id         Int                 @id @default(autoincrement())
-  name       String
-  slug       String              @unique
-  image      String?
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
-  deletedAt  DateTime?
-  attributes CategoryAttribute[]
-  products   Product[]
+  id          Int                 @id @default(autoincrement())
+  name        String
+  slug        String              @unique
+  description String?
+  image       String?
+  productType ProductType         @default(SLEEPWEAR)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  deletedAt   DateTime?
+  attributes  CategoryAttribute[]
+  products    Product[]
 
   @@index([slug])
+  @@index([productType])
 }
 
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.

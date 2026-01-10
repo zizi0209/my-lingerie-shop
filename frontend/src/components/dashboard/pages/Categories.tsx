@@ -6,6 +6,7 @@ import {
   Image as ImageIcon, CheckCircle, FolderOpen, Package, Upload
 } from 'lucide-react';
 import { categoryApi, type Category, type CreateCategoryData, type UpdateCategoryData } from '@/lib/categoryApi';
+import { type ProductType } from '@/lib/sizeTemplateApi';
 import { api } from '@/lib/api';
 import SearchInput from '../components/SearchInput';
 import { useLanguage } from '../components/LanguageContext';
@@ -22,6 +23,7 @@ interface CategoryFormData {
   slug: string;
   description: string;
   image: string;
+  productType: ProductType;
 }
 
 const initialFormData: CategoryFormData = {
@@ -29,7 +31,17 @@ const initialFormData: CategoryFormData = {
   slug: '',
   description: '',
   image: '',
+  productType: 'SLEEPWEAR',
 };
+
+const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: { vi: string; en: string }; icon: string; color: string }[] = [
+  { value: 'BRA', label: { vi: 'Áo ngực', en: 'Bras' }, icon: '👙', color: 'rose' },
+  { value: 'PANTY', label: { vi: 'Quần lót', en: 'Panties' }, icon: '🩲', color: 'pink' },
+  { value: 'SET', label: { vi: 'Bộ đồ', en: 'Sets' }, icon: '💝', color: 'purple' },
+  { value: 'SLEEPWEAR', label: { vi: 'Đồ ngủ', en: 'Sleepwear' }, icon: '👗', color: 'indigo' },
+  { value: 'SHAPEWEAR', label: { vi: 'Đồ định hình', en: 'Shapewear' }, icon: '🎀', color: 'amber' },
+  { value: 'ACCESSORY', label: { vi: 'Phụ kiện', en: 'Accessories' }, icon: '✨', color: 'slate' },
+];
 
 const Categories: React.FC = () => {
   const { language } = useLanguage();
@@ -39,6 +51,7 @@ const Categories: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 });
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterProductType, setFilterProductType] = useState<ProductType | 'ALL'>('ALL');
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -93,6 +106,8 @@ const Categories: React.FC = () => {
     webpOptimized: language === 'vi' ? 'Tự động chuyển WebP' : 'Auto-converted to WebP',
     clearImage: language === 'vi' ? 'Xóa ảnh' : 'Clear image',
     hasProducts: language === 'vi' ? 'Danh mục có sản phẩm, không thể xóa' : 'Category has products, cannot delete',
+    productType: language === 'vi' ? 'Loại sản phẩm' : 'Product Type',
+    allTypes: language === 'vi' ? 'Tất cả' : 'All Types',
   };
 
   // Generate slug from name
@@ -121,9 +136,14 @@ const Categories: React.FC = () => {
 
       if (response.success) {
         let filtered = response.data;
+        // Filter by productType
+        if (filterProductType !== 'ALL') {
+          filtered = filtered.filter(cat => cat.productType === filterProductType);
+        }
+        // Filter by search
         if (searchQuery) {
           const query = searchQuery.toLowerCase();
-          filtered = response.data.filter(cat => 
+          filtered = filtered.filter(cat => 
             cat.name.toLowerCase().includes(query) ||
             cat.slug.toLowerCase().includes(query)
           );
@@ -137,7 +157,7 @@ const Categories: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, searchQuery, t.loadError]);
+  }, [pagination.page, pagination.limit, searchQuery, filterProductType, t.loadError]);
 
   useEffect(() => {
     fetchCategories();
@@ -162,6 +182,7 @@ const Categories: React.FC = () => {
       slug: category.slug,
       description: category.description || '',
       image: category.image || '',
+      productType: category.productType || 'SLEEPWEAR',
     });
     setFormError(null);
     setSuccessMessage(null);
@@ -237,6 +258,7 @@ const Categories: React.FC = () => {
           slug: formData.slug,
           description: formData.description || undefined,
           image: imageUrl || undefined,
+          productType: formData.productType,
         };
         await categoryApi.update(editingCategory.id, updateData);
       } else {
@@ -246,6 +268,7 @@ const Categories: React.FC = () => {
           slug: formData.slug,
           description: formData.description || undefined,
           image: imageUrl || undefined,
+          productType: formData.productType,
         };
         await categoryApi.create(createData);
       }
@@ -325,13 +348,44 @@ const Categories: React.FC = () => {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="max-w-md">
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder={t.search}
-        />
+      {/* Filter Bar */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Search */}
+        <div className="flex-1 max-w-md">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder={t.search}
+          />
+        </div>
+
+        {/* Product Type Filter */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setFilterProductType('ALL')}
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+              filterProductType === 'ALL'
+                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            {t.allTypes}
+          </button>
+          {PRODUCT_TYPE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setFilterProductType(opt.value)}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                filterProductType === opt.value
+                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <span>{opt.icon}</span>
+              <span>{language === 'vi' ? opt.label.vi : opt.label.en}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Error */}
@@ -376,9 +430,20 @@ const Categories: React.FC = () => {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-black text-slate-900 dark:text-white group-hover:text-rose-600 transition-colors uppercase tracking-tight truncate">
-                      {cat.name}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-black text-slate-900 dark:text-white group-hover:text-rose-600 transition-colors uppercase tracking-tight truncate">
+                        {cat.name}
+                      </h3>
+                      {/* Product Type Badge */}
+                      {(() => {
+                        const typeOpt = PRODUCT_TYPE_OPTIONS.find(o => o.value === cat.productType);
+                        return typeOpt ? (
+                          <span className="text-xs shrink-0" title={language === 'vi' ? typeOpt.label.vi : typeOpt.label.en}>
+                            {typeOpt.icon}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                     <p className="text-xs text-slate-400 dark:text-slate-500 font-mono truncate">/{cat.slug}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <Package size={14} className="text-slate-400" />
@@ -515,6 +580,34 @@ const Categories: React.FC = () => {
                   rows={3}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium resize-none"
                 />
+              </div>
+
+              {/* Product Type */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.productType} *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {PRODUCT_TYPE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, productType: opt.value }))}
+                      className={`p-3 rounded-xl text-center transition-all border-2 ${
+                        formData.productType === opt.value
+                          ? 'border-rose-500 bg-rose-50 dark:bg-rose-500/10'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <span className="text-xl block mb-1">{opt.icon}</span>
+                      <span className={`text-[10px] font-bold block ${
+                        formData.productType === opt.value
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}>
+                        {language === 'vi' ? opt.label.vi : opt.label.en}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Image */}

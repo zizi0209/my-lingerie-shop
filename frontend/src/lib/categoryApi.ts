@@ -1,4 +1,5 @@
 import { api } from './api';
+import { type ProductType } from './sizeTemplateApi';
 
 export interface Category {
   id: number;
@@ -6,6 +7,7 @@ export interface Category {
   slug: string;
   description: string | null;
   image: string | null;
+  productType: ProductType;
   createdAt: Date;
   updatedAt: Date;
   _count?: {
@@ -29,6 +31,7 @@ export interface CreateCategoryData {
   slug: string;
   description?: string;
   image?: string;
+  productType?: ProductType;
 }
 
 export interface UpdateCategoryData {
@@ -36,6 +39,7 @@ export interface UpdateCategoryData {
   slug?: string;
   description?: string;
   image?: string;
+  productType?: ProductType;
 }
 
 export const categoryApi = {

@@ -124,7 +124,7 @@ export const getCategoryBySlug = async (req: Request, res: Response) => {
 // Create new category
 export const createCategory = async (req: Request, res: Response) => {
   try {
-    const { name, slug, image } = req.body;
+    const { name, slug, description, image, productType } = req.body;
 
     // Validate required fields
     if (!name || !slug) {
@@ -145,7 +145,9 @@ export const createCategory = async (req: Request, res: Response) => {
       data: {
         name,
         slug,
+        description: description || null,
         image: image || null,
+        productType: productType || 'SLEEPWEAR',
       },
     });
 
@@ -163,7 +165,7 @@ export const createCategory = async (req: Request, res: Response) => {
 export const updateCategory = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, slug, image } = req.body;
+    const { name, slug, description, image, productType } = req.body;
 
     // Check if category exists
     const existingCategory = await prisma.category.findUnique({
@@ -186,10 +188,12 @@ export const updateCategory = async (req: Request, res: Response) => {
     }
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (name) updateData.name = name;
     if (slug) updateData.slug = slug;
-    if (image !== undefined) updateData.image = image;
+    if (description !== undefined) updateData.description = description || null;
+    if (image !== undefined) updateData.image = image || null;
+    if (productType) updateData.productType = productType;
 
     // Update category
     const category = await prisma.category.update({
