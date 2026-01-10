@@ -99,6 +99,18 @@ model RefreshToken {
   @@index([userId])
 }
 
+// =============================================
+// PRODUCT TYPE ENUM (Loại sản phẩm - Cứng)
+// =============================================
+enum ProductType {
+  BRA        // Áo lót - Size: Band + Cup (70A, 75B, 80C)
+  PANTY      // Quần lót - Size: Alpha (S, M, L, XL)
+  SET        // Set đồ lót (Bra + Panty) - Size: Alpha với mapping
+  SLEEPWEAR  // Đồ ngủ & mặc nhà - Size: Alpha + Body
+  SHAPEWEAR  // Đồ định hình - Size: Alpha (thông số chặt hơn)
+  ACCESSORY  // Phụ kiện - KHÔNG CÓ SIZE
+}
+
 // 3. DANH MỤC (Ví dụ: Áo lót, Quần lót, Đồ ngủ)
 model Category {
   id         Int                 @id @default(autoincrement())
@@ -122,6 +134,10 @@ model Product {
   description  String?          @db.Text
   price        Float
   salePrice    Float?
+  
+  // Product Type - Quyết định bảng size hiển thị
+  productType     ProductType      @default(SLEEPWEAR)
+  customSizeChart Json?            // Override bảng size riêng (nếu cần)
   
   categoryId   Int
   category     Category         @relation(fields: [categoryId], references: [id])
@@ -147,6 +163,7 @@ model Product {
   deletedAt    DateTime?
   
   @@index([categoryId])
+  @@index([productType])
   @@index([isFeatured, isVisible])
   @@index([createdAt])
   @@index([slug])
@@ -871,4 +888,48 @@ model SearchKeyword {
   
   @@index([isActive, order])
   @@index([keyword])
+}
+
+// ==========================================
+// SIZE CHART TEMPLATE SYSTEM
+// ==========================================
+
+// Bảng size mẫu theo Product Type
+model SizeChartTemplate {
+  id          Int         @id @default(autoincrement())
+  
+  // Link với Product Type (1-1)
+  productType ProductType @unique
+  
+  // Thông tin hiển thị
+  name        String      // "Áo lót", "Quần lót", "Đồ ngủ"
+  description String?     @db.Text
+  
+  // Dữ liệu bảng size (JSON)
+  headers     Json        // ["Size", "Vòng ngực", "Vòng ngực dưới", "Cup"]
+  sizes       Json        // [{ size: "70A", bust: "78-80", ... }, ...]
+  
+  // Hướng dẫn cách đo (JSON)
+  measurements Json       // [{ name: "Vòng ngực", description: "Đo ngang..." }, ...]
+  
+  // Mẹo chọn size (JSON)
+  tips        Json        // ["Nếu phân vân...", "Đo vào buổi sáng..."]
+  
+  // Quy đổi quốc tế (JSON) - Optional
+  internationalSizes Json? // { "US": {...}, "UK": {...}, "EU": {...} }
+  
+  // Hình ảnh minh họa
+  measurementImage String? // URL ảnh hướng dẫn đo
+  
+  // Note đặc biệt
+  note        String?     @db.Text
+  
+  // Trạng thái
+  isActive    Boolean     @default(true)
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@index([productType])
+  @@index([isActive])
 }
