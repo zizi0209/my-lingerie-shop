@@ -1,19 +1,21 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
+import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { ListNode, ListItemNode } from '@lexical/list';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
-import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
-import { $getRoot, $insertNodes } from 'lexical';
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
+import { LinkNode } from '@lexical/link';
 
 import ToolbarPlugin from './plugins/ToolbarPlugin';
+import OnChangePlugin from './plugins/OnChangePlugin';
+import InitialContentPlugin from './plugins/InitialContentPlugin';
+import AutoFocusPlugin from './plugins/AutoFocusPlugin';
 import { editorTheme } from './themes/EditorTheme';
 
 interface LexicalEditorProps {
@@ -21,47 +23,7 @@ interface LexicalEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   minHeight?: string;
-}
-
-// Plugin to handle onChange
-function OnChangePlugin({ onChange }: { onChange: (html: string) => void }) {
-  const [editor] = useLexicalComposerContext();
-
-  useEffect(() => {
-    return editor.registerUpdateListener(({ editorState }) => {
-      editorState.read(() => {
-        const html = $generateHtmlFromNodes(editor);
-        // Remove empty paragraph wrapper if content is empty
-        const cleanHtml = html === '<p class="mb-2 last:mb-0"><br></p>' ? '' : html;
-        onChange(cleanHtml);
-      });
-    });
-  }, [editor, onChange]);
-
-  return null;
-}
-
-// Plugin to load initial HTML content
-function InitialContentPlugin({ initialValue }: { initialValue?: string }) {
-  const [editor] = useLexicalComposerContext();
-
-  useEffect(() => {
-    if (!initialValue) return;
-
-    editor.update(() => {
-      const root = $getRoot();
-      // Only set if empty
-      if (root.getTextContent().trim() === '') {
-        const parser = new DOMParser();
-        const dom = parser.parseFromString(initialValue, 'text/html');
-        const nodes = $generateNodesFromDOM(editor, dom);
-        root.clear();
-        $insertNodes(nodes);
-      }
-    });
-  }, [editor, initialValue]);
-
-  return null;
+  autoFocus?: boolean;
 }
 
 export default function LexicalEditor({
@@ -69,15 +31,20 @@ export default function LexicalEditor({
   onChange,
   placeholder = 'Nhập nội dung...',
   minHeight = '150px',
+  autoFocus = false,
 }: LexicalEditorProps) {
-  const initialConfig = {
-    namespace: 'RichTextEditor',
-    theme: editorTheme,
-    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode],
-    onError: (error: Error) => {
-      console.error('Lexical error:', error);
-    },
-  };
+  // Memoize config to prevent re-initialization
+  const initialConfig = useMemo(
+    () => ({
+      namespace: 'RichTextEditor',
+      theme: editorTheme,
+      nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode],
+      onError: (error: Error) => {
+        console.error('Lexical error:', error);
+      },
+    }),
+    []
+  );
 
   // Memoize onChange to prevent unnecessary re-renders
   const handleChange = useCallback(
@@ -95,22 +62,25 @@ export default function LexicalEditor({
           <RichTextPlugin
             contentEditable={
               <ContentEditable
-                className="outline-none p-4 text-slate-900 dark:text-slate-200"
+                className="outline-none p-4 text-slate-900 dark:text-slate-200 prose dark:prose-invert max-w-none prose-p:mb-2 prose-p:last:mb-0"
                 style={{ minHeight }}
+                aria-placeholder={placeholder}
+                placeholder={
+                  <div className="absolute top-4 left-4 text-slate-400 dark:text-slate-500 pointer-events-none select-none">
+                    {placeholder}
+                  </div>
+                }
               />
-            }
-            placeholder={
-              <div className="absolute top-4 left-4 text-slate-400 dark:text-slate-500 pointer-events-none select-none">
-                {placeholder}
-              </div>
             }
             ErrorBoundary={LexicalErrorBoundary}
           />
         </div>
         <HistoryPlugin />
         <ListPlugin />
+        <LinkPlugin />
         <OnChangePlugin onChange={handleChange} />
-        <InitialContentPlugin initialValue={initialValue} />
+        {initialValue && <InitialContentPlugin initialHtml={initialValue} />}
+        {autoFocus && <AutoFocusPlugin />}
       </div>
     </LexicalComposer>
   );

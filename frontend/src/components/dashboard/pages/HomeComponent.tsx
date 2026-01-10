@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useLanguage } from '../components/LanguageContext';
+import { LexicalEditor } from '@/components/editor';
 
 interface PageSection {
   id: number;
@@ -535,12 +536,23 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, onSave, onClose,
         </div>
         
         <div className="p-6 overflow-y-auto max-h-[50vh] space-y-4">
-          {Object.entries(content).map(([key, value]) => (
+          {Object.entries(content).map(([key, value]) => {
+            // Check if this is a rich text field (content field in text sections)
+            const isRichTextField = key === 'content' && section.code.startsWith('text');
+            
+            return (
             <div key={key} className="space-y-2">
               <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 {key.replace(/_/g, ' ')}
               </label>
-              {typeof value === 'string' && value.length > 100 ? (
+              {isRichTextField ? (
+                <LexicalEditor
+                  initialValue={(value as string) || ''}
+                  onChange={(html) => updateField(key, html)}
+                  placeholder="Nhập nội dung văn bản..."
+                  minHeight="200px"
+                />
+              ) : typeof value === 'string' && value.length > 100 ? (
                 <textarea
                   value={value as string}
                   onChange={(e) => updateField(key, e.target.value)}
@@ -575,7 +587,8 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, onSave, onClose,
                 />
               )}
             </div>
-          ))}
+          );
+          })}
         </div>
 
         <div className="p-6 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">

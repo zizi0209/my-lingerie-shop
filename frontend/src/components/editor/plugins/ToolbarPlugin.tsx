@@ -4,12 +4,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
   FORMAT_TEXT_COMMAND,
+  FORMAT_ELEMENT_COMMAND,
   $getSelection,
   $isRangeSelection,
+  $createParagraphNode,
   UNDO_COMMAND,
   REDO_COMMAND,
   CAN_UNDO_COMMAND,
   CAN_REDO_COMMAND,
+  COMMAND_PRIORITY_LOW,
 } from 'lexical';
 import {
   INSERT_UNORDERED_LIST_COMMAND,
@@ -18,8 +21,9 @@ import {
   $isListNode,
   ListNode,
 } from '@lexical/list';
+import { $isHeadingNode, $createHeadingNode, HeadingTagType } from '@lexical/rich-text';
+import { $setBlocksType } from '@lexical/selection';
 import { $getNearestNodeOfType } from '@lexical/utils';
-import { $isHeadingNode } from '@lexical/rich-text';
 import {
   Bold,
   Italic,
@@ -29,48 +33,67 @@ import {
   ListOrdered,
   Undo2,
   Redo2,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Heading1,
+  Heading2,
+  Heading3,
+  Type,
 } from 'lucide-react';
+
+type BlockType = 'paragraph' | 'h1' | 'h2' | 'h3';
 
 export default function ToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
+  // Text format states
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
   const [isStrikethrough, setIsStrikethrough] = useState(false);
+  
+  // Block states
+  const [blockType, setBlockType] = useState<BlockType>('paragraph');
   const [listType, setListType] = useState<'bullet' | 'number' | null>(null);
+  
+  // History states
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
   const updateToolbar = useCallback(() => {
     const selection = $getSelection();
-    if ($isRangeSelection(selection)) {
-      setIsBold(selection.hasFormat('bold'));
-      setIsItalic(selection.hasFormat('italic'));
-      setIsUnderline(selection.hasFormat('underline'));
-      setIsStrikethrough(selection.hasFormat('strikethrough'));
+    if (!$isRangeSelection(selection)) return;
 
-      const anchorNode = selection.anchor.getNode();
-      const element =
-        anchorNode.getKey() === 'root'
-          ? anchorNode
-          : anchorNode.getTopLevelElementOrThrow();
+    // Text formats
+    setIsBold(selection.hasFormat('bold'));
+    setIsItalic(selection.hasFormat('italic'));
+    setIsUnderline(selection.hasFormat('underline'));
+    setIsStrikethrough(selection.hasFormat('strikethrough'));
 
-      if ($isListNode(element)) {
-        const type = element.getListType();
-        setListType(type === 'bullet' ? 'bullet' : 'number');
+    // Block type detection
+    const anchorNode = selection.anchor.getNode();
+    const element = anchorNode.getKey() === 'root'
+      ? anchorNode
+      : anchorNode.getTopLevelElementOrThrow();
+
+    if ($isHeadingNode(element)) {
+      setBlockType(element.getTag() as BlockType);
+    } else {
+      setBlockType('paragraph');
+    }
+
+    // List type detection
+    if ($isListNode(element)) {
+      const type = element.getListType();
+      setListType(type === 'bullet' ? 'bullet' : 'number');
+    } else {
+      const parent = anchorNode.getParent();
+      if (parent) {
+        const listNode = $getNearestNodeOfType(parent, ListNode);
+        setListType(listNode ? (listNode.getListType() === 'bullet' ? 'bullet' : 'number') : null);
       } else {
-        const parent = anchorNode.getParent();
-        if (parent) {
-          const listNode = $getNearestNodeOfType(parent, ListNode);
-          if (listNode) {
-            const type = listNode.getListType();
-            setListType(type === 'bullet' ? 'bullet' : 'number');
-          } else {
-            setListType(null);
-          }
-        } else {
-          setListType(null);
-        }
+        setListType(null);
       }
     }
   }, []);
@@ -88,7 +111,7 @@ export default function ToolbarPlugin() {
         setCanUndo(payload);
         return false;
       },
-      1
+      COMMAND_PRIORITY_LOW
     );
   }, [editor]);
 
@@ -99,19 +122,33 @@ export default function ToolbarPlugin() {
         setCanRedo(payload);
         return false;
       },
-      1
+      COMMAND_PRIORITY_LOW
     );
   }, [editor]);
 
+  // Block type handler
+  const formatHeading = (tag: HeadingTagType | 'paragraph') => {
+    editor.update(() => {
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        if (tag === 'paragraph') {
+          $setBlocksType(selection, () => $createParagraphNode());
+        } else {
+          $setBlocksType(selection, () => $createHeadingNode(tag));
+        }
+      }
+    });
+  };
+
+  // List toggle handler
   const toggleList = (type: 'bullet' | 'number') => {
     if (listType === type) {
       editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined);
     } else {
-      if (type === 'bullet') {
-        editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
-      } else {
-        editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
-      }
+      editor.dispatchCommand(
+        type === 'bullet' ? INSERT_UNORDERED_LIST_COMMAND : INSERT_ORDERED_LIST_COMMAND,
+        undefined
+      );
     }
   };
 
@@ -201,6 +238,38 @@ export default function ToolbarPlugin() {
 
       <Divider />
 
+      {/* Block Type */}
+      <ToolButton
+        active={blockType === 'paragraph'}
+        onClick={() => formatHeading('paragraph')}
+        title="Normal Text"
+      >
+        <Type size={16} />
+      </ToolButton>
+      <ToolButton
+        active={blockType === 'h1'}
+        onClick={() => formatHeading('h1')}
+        title="Heading 1"
+      >
+        <Heading1 size={16} />
+      </ToolButton>
+      <ToolButton
+        active={blockType === 'h2'}
+        onClick={() => formatHeading('h2')}
+        title="Heading 2"
+      >
+        <Heading2 size={16} />
+      </ToolButton>
+      <ToolButton
+        active={blockType === 'h3'}
+        onClick={() => formatHeading('h3')}
+        title="Heading 3"
+      >
+        <Heading3 size={16} />
+      </ToolButton>
+
+      <Divider />
+
       {/* Lists */}
       <ToolButton
         active={listType === 'bullet'}
@@ -215,6 +284,34 @@ export default function ToolbarPlugin() {
         title="Numbered List"
       >
         <ListOrdered size={16} />
+      </ToolButton>
+
+      <Divider />
+
+      {/* Alignment */}
+      <ToolButton
+        onClick={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left')}
+        title="Align Left"
+      >
+        <AlignLeft size={16} />
+      </ToolButton>
+      <ToolButton
+        onClick={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'center')}
+        title="Align Center"
+      >
+        <AlignCenter size={16} />
+      </ToolButton>
+      <ToolButton
+        onClick={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'right')}
+        title="Align Right"
+      >
+        <AlignRight size={16} />
+      </ToolButton>
+      <ToolButton
+        onClick={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'justify')}
+        title="Justify"
+      >
+        <AlignJustify size={16} />
       </ToolButton>
     </div>
   );
