@@ -69,6 +69,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              router.push(productUrl);
             }}
             aria-label={`Thêm ${product.name} vào giỏ hàng`}
             className="ck-button bg-white dark:bg-gray-800 text-black dark:text-white p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition min-h-[44px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
