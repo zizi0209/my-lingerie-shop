@@ -341,12 +341,12 @@ export default function CartPage() {
                       }}
                       placeholder="Nhập mã giảm giá"
                       disabled={voucherLoading}
-                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-black dark:focus:border-white bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-700"
+                      className="min-w-0 flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-black dark:focus:border-white bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-700 text-sm"
                     />
                     <button
                       onClick={applyPromoCode}
                       disabled={voucherLoading || !promoCode}
-                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded hover:border-black dark:hover:border-white transition disabled:opacity-50 disabled:cursor-not-allowed bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="flex-shrink-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded hover:border-black dark:hover:border-white transition disabled:opacity-50 disabled:cursor-not-allowed bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                     >
                       {voucherLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Áp dụng"}
                     </button>
