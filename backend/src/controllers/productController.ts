@@ -15,6 +15,8 @@ export const getAllProducts = async (req: Request, res: Response) => {
       search,
       colors, // comma-separated color names
       sizes,  // comma-separated sizes
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -24,7 +26,6 @@ export const getAllProducts = async (req: Request, res: Response) => {
       isVisible: boolean;
       categoryId?: number;
       isFeatured?: boolean;
-      price?: { gte?: number; lte?: number };
       OR?: { name?: { contains: string; mode: 'insensitive' }; description?: { contains: string; mode: 'insensitive' } }[];
       variants?: { some: { colorName?: { in: string[] }; size?: { in: string[] } } };
     } = { isVisible: true };
@@ -37,11 +38,9 @@ export const getAllProducts = async (req: Request, res: Response) => {
       where.isFeatured = isFeatured === 'true';
     }
 
-    if (minPrice || maxPrice) {
-      where.price = {};
-      if (minPrice) where.price.gte = Number(minPrice);
-      if (maxPrice) where.price.lte = Number(maxPrice);
-    }
+    // Price filter will be applied after fetching using effective price (salePrice ?? price)
+    const minPriceFilter = minPrice ? Number(minPrice) : null;
+    const maxPriceFilter = maxPrice ? Number(maxPrice) : null;
 
     if (search) {
       where.OR = [
@@ -78,47 +77,86 @@ export const getAllProducts = async (req: Request, res: Response) => {
       }
     }
 
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        orderBy: { createdAt: 'desc' },
-        include: {
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-          images: {
-            take: 1,
-            select: {
-              url: true,
-            },
-          },
-          variants: {
-            select: {
-              id: true,
-              size: true,
-              colorName: true,
-              stock: true,
-            },
+    // Build orderBy based on sortBy and sortOrder
+    type SortField = 'createdAt' | 'price' | 'name';
+    const validSortFields: SortField[] = ['createdAt', 'price', 'name'];
+    const sortField: SortField = validSortFields.includes(sortBy as SortField) 
+      ? (sortBy as SortField) 
+      : 'createdAt';
+    const order: 'asc' | 'desc' = sortOrder === 'asc' ? 'asc' : 'desc';
+
+    // Fetch all products matching base filters (without price filter)
+    const allProducts = await prisma.product.findMany({
+      where,
+      orderBy: sortField === 'price' 
+        ? undefined // Will sort manually by effective price
+        : { [sortField]: order },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
           },
         },
-      }),
-      prisma.product.count({ where }),
-    ]);
+        images: {
+          take: 1,
+          select: {
+            url: true,
+          },
+        },
+        variants: {
+          select: {
+            id: true,
+            size: true,
+            colorName: true,
+            stock: true,
+          },
+        },
+      },
+    });
+
+    // Filter by effective price (salePrice ?? price) and sort if needed
+    let filteredProducts = allProducts.map(p => ({
+      ...p,
+      effectivePrice: p.salePrice ?? p.price,
+    }));
+
+    // Apply price filter based on effective price
+    if (minPriceFilter !== null) {
+      filteredProducts = filteredProducts.filter(p => p.effectivePrice >= minPriceFilter);
+    }
+    if (maxPriceFilter !== null) {
+      filteredProducts = filteredProducts.filter(p => p.effectivePrice <= maxPriceFilter);
+    }
+
+    // Sort by effective price if sortField is price
+    if (sortField === 'price') {
+      filteredProducts.sort((a, b) => 
+        order === 'asc' 
+          ? a.effectivePrice - b.effectivePrice 
+          : b.effectivePrice - a.effectivePrice
+      );
+    }
+
+    // Paginate
+    const total = filteredProducts.length;
+    const paginatedProducts = filteredProducts.slice(skip, skip + Number(limit));
+
+    // Remove effectivePrice from response (optional, keep it for frontend convenience)
+    const responseProducts = paginatedProducts.map(({ effectivePrice, ...rest }) => ({
+      ...rest,
+      effectivePrice, // Include for frontend to use
+    }));
 
     res.json({
       success: true,
-      data: products,
+      data: responseProducts,
       pagination: {
         page: Number(page),
         limit: Number(limit),
         total,
-        pages: Math.ceil(total / Number(limit)),
+        totalPages: Math.ceil(total / Number(limit)),
       },
     });
   } catch (error) {
