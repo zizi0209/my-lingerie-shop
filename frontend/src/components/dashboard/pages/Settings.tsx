@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import { useLanguage } from '../components/LanguageContext';
 import { useStoreConfig } from '../components/StoreConfigContext';
 import { compressImage, ACCEPTED_IMAGE_TYPES, formatFileSize, type CompressedImage } from '@/lib/imageUtils';
+import { LexicalEditor } from '@/components/editor';
 
 interface SystemConfig {
   // Store Info
@@ -582,11 +583,11 @@ const Settings: React.FC = () => {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.storeDesc}</label>
-                  <textarea
-                    value={config.store_description || ''}
-                    onChange={(e) => handleChange('store_description', e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium resize-none"
+                  <LexicalEditor
+                    initialValue={config.store_description || ''}
+                    onChange={(html) => handleChange('store_description', html)}
+                    placeholder={language === 'vi' ? 'Mô tả về cửa hàng...' : 'Store description...'}
+                    minHeight="100px"
                   />
                 </div>
               </div>
@@ -1133,23 +1134,21 @@ const Settings: React.FC = () => {
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.returnPolicy}</label>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{t.returnPolicyHelp}</p>
-                  <textarea
-                    value={config.return_policy || ''}
-                    onChange={(e) => handleChange('return_policy', e.target.value)}
-                    rows={4}
-                    placeholder={language === 'vi' ? 'Nhập nội dung chính sách đổi trả hoặc URL...' : 'Enter return policy content or URL...'}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium resize-none"
+                  <LexicalEditor
+                    initialValue={config.return_policy || ''}
+                    onChange={(html) => handleChange('return_policy', html)}
+                    placeholder={language === 'vi' ? 'Nhập nội dung chính sách đổi trả...' : 'Enter return policy content...'}
+                    minHeight="120px"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.sizeGuide}</label>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{t.sizeGuideHelp}</p>
-                  <textarea
-                    value={config.size_guide || ''}
-                    onChange={(e) => handleChange('size_guide', e.target.value)}
-                    rows={4}
-                    placeholder={language === 'vi' ? 'Nhập hướng dẫn chọn size hoặc URL...' : 'Enter size guide content or URL...'}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:text-slate-200 font-medium resize-none"
+                  <LexicalEditor
+                    initialValue={config.size_guide || ''}
+                    onChange={(html) => handleChange('size_guide', html)}
+                    placeholder={language === 'vi' ? 'Nhập hướng dẫn chọn size...' : 'Enter size guide content...'}
+                    minHeight="120px"
                   />
                 </div>
               </div>

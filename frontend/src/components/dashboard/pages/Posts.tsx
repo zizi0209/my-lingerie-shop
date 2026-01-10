@@ -16,6 +16,7 @@ import {
   revokePreviewUrls,
   ACCEPTED_IMAGE_TYPES 
 } from '@/lib/imageUtils';
+import { LexicalEditor } from '@/components/editor';
 
 interface PostFormData {
   title: string;
@@ -610,13 +611,11 @@ const Posts: React.FC = () => {
                   {/* Content */}
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.content} *</label>
-                    <textarea
-                      value={formData.content}
-                      onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                      required
-                      rows={12}
+                    <LexicalEditor
+                      initialValue={formData.content}
+                      onChange={(html) => setFormData(prev => ({ ...prev, content: html }))}
                       placeholder={language === 'vi' ? 'Nội dung bài viết chi tiết...' : 'Write your post content here...'}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium resize-none"
+                      minHeight="300px"
                     />
                   </div>
 
