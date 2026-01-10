@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Minus, Plus, X, ShoppingBag, Loader2, Trash2, Edit2, Check } from "lucide-react";
 import { useCart, CartItem } from "@/context/CartContext";
+import { userVoucherApi } from "@/lib/couponApi";
 
 interface ProductVariant {
   id: number;
@@ -16,10 +17,18 @@ interface ProductVariant {
   salePrice: number | null;
 }
 
+interface AppliedVoucher {
+  code: string;
+  name: string;
+  discountAmount: number;
+}
+
 export default function CartPage() {
   const { cart, loading, error, itemCount, subtotal, updateQuantity, updateVariant, removeItem, clearCart } = useCart();
   const [promoCode, setPromoCode] = useState("");
-  const [isPromoApplied, setIsPromoApplied] = useState(false);
+  const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(null);
+  const [voucherLoading, setVoucherLoading] = useState(false);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
   const [updatingItems, setUpdatingItems] = useState<Set<number>>(new Set());
   const [editingItem, setEditingItem] = useState<number | null>(null);
   const [productVariants, setProductVariants] = useState<Record<number, ProductVariant[]>>({});
@@ -70,16 +79,37 @@ export default function CartPage() {
     });
   };
 
-  const discount = isPromoApplied ? subtotal * 0.1 : 0;
+  const discount = appliedVoucher?.discountAmount || 0;
   const shipping = subtotal >= 1000000 ? 0 : 30000;
   const total = subtotal - discount + shipping;
 
-  const applyPromoCode = () => {
-    if (promoCode.toLowerCase() === "lingerie10") {
-      setIsPromoApplied(true);
-    } else {
-      alert("Mã giảm giá không hợp lệ");
+  const applyPromoCode = async () => {
+    if (!promoCode.trim()) return;
+    
+    setVoucherLoading(true);
+    setVoucherError(null);
+    
+    try {
+      const response = await userVoucherApi.validateVoucher(promoCode.trim().toUpperCase(), subtotal);
+      if (response.success) {
+        setAppliedVoucher({
+          code: response.data.coupon.code,
+          name: response.data.coupon.name,
+          discountAmount: response.data.discountAmount,
+        });
+        setPromoCode("");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Mã giảm giá không hợp lệ";
+      setVoucherError(message);
+    } finally {
+      setVoucherLoading(false);
     }
+  };
+
+  const removeVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherError(null);
   };
 
   if (loading) {
@@ -288,25 +318,45 @@ export default function CartPage() {
             {/* Promo Code */}
             <div className="mb-6">
               <label className="text-sm text-gray-600 dark:text-gray-400 mb-2 block">Mã giảm giá</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  placeholder="Nhập mã giảm giá"
-                  disabled={isPromoApplied}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-black dark:focus:border-white bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-700"
-                />
-                <button
-                  onClick={applyPromoCode}
-                  disabled={isPromoApplied || !promoCode}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded hover:border-black dark:hover:border-white transition disabled:opacity-50 disabled:cursor-not-allowed bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  Áp dụng
-                </button>
-              </div>
-              {isPromoApplied && (
-                <p className="text-sm text-green-600 dark:text-green-400 mt-2">Mã giảm giá đã được áp dụng!</p>
+              {appliedVoucher ? (
+                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
+                  <div>
+                    <p className="font-medium text-green-700 dark:text-green-400">{appliedVoucher.code}</p>
+                    <p className="text-sm text-green-600 dark:text-green-500">{appliedVoucher.name}</p>
+                  </div>
+                  <button
+                    onClick={removeVoucher}
+                    className="text-red-500 hover:text-red-700 dark:hover:text-red-400"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value);
+                        setVoucherError(null);
+                      }}
+                      placeholder="Nhập mã giảm giá"
+                      disabled={voucherLoading}
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-black dark:focus:border-white bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-700"
+                    />
+                    <button
+                      onClick={applyPromoCode}
+                      disabled={voucherLoading || !promoCode}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded hover:border-black dark:hover:border-white transition disabled:opacity-50 disabled:cursor-not-allowed bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      {voucherLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Áp dụng"}
+                    </button>
+                  </div>
+                  {voucherError && (
+                    <p className="text-sm text-red-500 mt-2">{voucherError}</p>
+                  )}
+                </>
               )}
             </div>
 
