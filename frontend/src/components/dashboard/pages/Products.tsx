@@ -9,6 +9,7 @@ import { productApi, type Product, type ProductImage, type CreateProductData, ty
 import { categoryApi, type Category } from '@/lib/categoryApi';
 import { colorApi, type Color } from '@/lib/colorApi';
 import { api } from '@/lib/api';
+import { type ProductType, type SizeChartData, fetchSizeChartByType } from '@/lib/sizeTemplateApi';
 import { generateProductDescription } from '../services/geminiService';
 import SearchInput from '../components/SearchInput';
 import { useLanguage } from '../components/LanguageContext';
@@ -28,6 +29,7 @@ interface ProductFormData {
   price: string;
   salePrice: string;
   categoryId: string;
+  productType: ProductType;
   isFeatured: boolean;
   isVisible: boolean;
   newImages: string[];
@@ -41,11 +43,22 @@ const initialFormData: ProductFormData = {
   price: '',
   salePrice: '',
   categoryId: '',
+  productType: 'SLEEPWEAR',
   isFeatured: false,
   isVisible: true,
   newImages: [],
   variants: [{ size: '', color: '', stock: '' }],
 };
+
+// ProductType info for UI
+const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string; labelVi: string; icon: string }[] = [
+  { value: 'BRA', label: 'Bra', labelVi: 'Áo lót', icon: '👙' },
+  { value: 'PANTY', label: 'Panty', labelVi: 'Quần lót', icon: '🩲' },
+  { value: 'SET', label: 'Set', labelVi: 'Set đồ lót', icon: '💝' },
+  { value: 'SLEEPWEAR', label: 'Sleepwear', labelVi: 'Đồ ngủ', icon: '👗' },
+  { value: 'SHAPEWEAR', label: 'Shapewear', labelVi: 'Đồ định hình', icon: '🎀' },
+  { value: 'ACCESSORY', label: 'Accessory', labelVi: 'Phụ kiện', icon: '✨' },
+];
 
 const Products: React.FC = () => {
   const { language } = useLanguage();
@@ -89,6 +102,10 @@ const Products: React.FC = () => {
 
   // Modal tab state
   const [activeTab, setActiveTab] = useState<'info' | 'images' | 'variants'>('info');
+
+  // Size chart preview state
+  const [sizeChartPreview, setSizeChartPreview] = useState<SizeChartData | null>(null);
+  const [loadingSizeChart, setLoadingSizeChart] = useState(false);
 
   // Existing variants for edit mode
   const [existingVariants, setExistingVariants] = useState<Array<{
@@ -171,6 +188,12 @@ const Products: React.FC = () => {
     tabInfo: language === 'vi' ? 'Thông tin' : 'Info',
     tabImages: language === 'vi' ? 'Hình ảnh' : 'Images',
     tabVariants: language === 'vi' ? 'Biến thể' : 'Variants',
+    productType: language === 'vi' ? 'Loại sản phẩm' : 'Product Type',
+    selectProductType: language === 'vi' ? 'Chọn loại sản phẩm' : 'Select product type',
+    productTypeNote: language === 'vi' ? 'Loại sản phẩm quyết định bảng size hiển thị. Không thể thay đổi sau khi tạo.' : 'Product type determines size chart. Cannot be changed after creation.',
+    accessoryNote: language === 'vi' ? 'Phụ kiện không có bảng size và biến thể kích thước.' : 'Accessories do not have size charts or size variants.',
+    sizeChartPreview: language === 'vi' ? 'Preview bảng size' : 'Size Chart Preview',
+    availableSizes: language === 'vi' ? 'Kích thước có sẵn' : 'Available Sizes',
     sku: language === 'vi' ? 'Mã SKU' : 'SKU',
     variantPrice: language === 'vi' ? 'Giá riêng' : 'Custom Price',
     deleteVariant: language === 'vi' ? 'Xóa biến thể' : 'Delete Variant',
@@ -182,6 +205,26 @@ const Products: React.FC = () => {
     newVariants: language === 'vi' ? 'Biến thể mới' : 'New Variants',
     noVariants: language === 'vi' ? 'Chưa có biến thể nào' : 'No variants yet',
   };
+
+  // Load size chart when product type changes
+  useEffect(() => {
+    const loadSizeChart = async () => {
+      if (!showModal || formData.productType === 'ACCESSORY') {
+        setSizeChartPreview(null);
+        return;
+      }
+      setLoadingSizeChart(true);
+      try {
+        const data = await fetchSizeChartByType(formData.productType);
+        setSizeChartPreview(data);
+      } catch {
+        setSizeChartPreview(null);
+      } finally {
+        setLoadingSizeChart(false);
+      }
+    };
+    loadSizeChart();
+  }, [showModal, formData.productType]);
 
   // Load categories and colors
   useEffect(() => {
@@ -295,6 +338,7 @@ const Products: React.FC = () => {
       price: product.price.toString(),
       salePrice: product.salePrice?.toString() || '',
       categoryId: product.categoryId.toString(),
+      productType: (product as Product & { productType?: ProductType }).productType || 'SLEEPWEAR',
       isFeatured: product.isFeatured,
       isVisible: product.isVisible,
       newImages: [],
@@ -403,7 +447,12 @@ const Products: React.FC = () => {
           return;
         }
 
-        const validVariants = formData.variants.filter(v => v.size && v.color);
+        // For ACCESSORY, don't include variants with size
+        const isAccessory = formData.productType === 'ACCESSORY';
+        const validVariants = isAccessory 
+          ? [] 
+          : formData.variants.filter(v => v.size && v.color);
+        
         const createData: CreateProductData = {
           name: formData.name.trim(),
           slug: formData.slug.trim(),
@@ -411,6 +460,7 @@ const Products: React.FC = () => {
           price: priceNum,
           salePrice: formData.salePrice ? parseFloat(formData.salePrice) : undefined,
           categoryId: categoryIdNum,
+          productType: formData.productType,
           isFeatured: formData.isFeatured,
           isVisible: formData.isVisible,
           images: allImages.length > 0 ? allImages : undefined,
@@ -928,19 +978,22 @@ const Products: React.FC = () => {
                     </span>
                   )}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('variants')}
-                  className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'variants' ? 'border-rose-500 text-rose-500' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                >
-                  <Filter size={16} className="inline mr-2" />
-                  {t.tabVariants}
-                  {existingVariants.length > 0 && (
-                    <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-full">
-                      {existingVariants.length}
-                    </span>
-                  )}
-                </button>
+                {/* Hide variants tab for ACCESSORY */}
+                {formData.productType !== 'ACCESSORY' && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('variants')}
+                    className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'variants' ? 'border-rose-500 text-rose-500' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                  >
+                    <Filter size={16} className="inline mr-2" />
+                    {t.tabVariants}
+                    {existingVariants.length > 0 && (
+                      <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-full">
+                        {existingVariants.length}
+                      </span>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1041,6 +1094,77 @@ const Products: React.FC = () => {
                         </select>
                       </div>
                     </div>
+
+                    {/* Product Type Selection */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.productType} *</label>
+                        {editingProduct && (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                            {language === 'vi' ? '(Không thể thay đổi)' : '(Cannot change)'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        {PRODUCT_TYPE_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            disabled={!!editingProduct}
+                            onClick={() => setFormData(prev => ({ ...prev, productType: opt.value }))}
+                            className={`p-3 rounded-xl border-2 text-center transition-all ${
+                              formData.productType === opt.value
+                                ? 'border-rose-500 bg-rose-50 dark:bg-rose-500/10'
+                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                            } ${editingProduct ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                          >
+                            <span className="text-xl">{opt.icon}</span>
+                            <p className={`text-[10px] font-bold mt-1 ${
+                              formData.productType === opt.value
+                                ? 'text-rose-600 dark:text-rose-400'
+                                : 'text-slate-600 dark:text-slate-400'
+                            }`}>
+                              {language === 'vi' ? opt.labelVi : opt.label}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                      {!editingProduct && (
+                        <p className="text-[10px] text-slate-400 italic">{t.productTypeNote}</p>
+                      )}
+                      {formData.productType === 'ACCESSORY' && (
+                        <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
+                          <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">{t.accessoryNote}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Size Chart Preview */}
+                    {formData.productType !== 'ACCESSORY' && (
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.sizeChartPreview}</label>
+                        {loadingSizeChart ? (
+                          <div className="flex items-center gap-2 text-slate-400">
+                            <Loader2 size={16} className="animate-spin" />
+                            <span className="text-xs">{t.loadingText}</span>
+                          </div>
+                        ) : sizeChartPreview ? (
+                          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">{sizeChartPreview.name}</p>
+                            <p className="text-[10px] text-slate-500 mb-2">{t.availableSizes}:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {sizeChartPreview.sizes.map((s, i) => (
+                                <span key={i} className="px-2 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                                  {s.size}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 italic">{language === 'vi' ? 'Chưa có bảng size cho loại này' : 'No size chart for this type'}</p>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-6">
                       <label className="flex items-center gap-3 cursor-pointer">
@@ -1208,139 +1332,361 @@ const Products: React.FC = () => {
                   </div>
                 )}
 
-                {/* TAB: Variants */}
-                {activeTab === 'variants' && (
+                {/* TAB: Variants - Hide for ACCESSORY */}
+                {activeTab === 'variants' && formData.productType !== 'ACCESSORY' && (
                   <div className="space-y-6">
+                    {/* Bulk Generate Section */}
+                    <div className="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-500/10 dark:to-indigo-500/10 rounded-2xl border border-purple-200 dark:border-purple-500/20">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="p-2 bg-purple-100 dark:bg-purple-800/50 rounded-lg">
+                          <Wand2 size={16} className="text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                            {language === 'vi' ? 'Tạo biến thể hàng loạt' : 'Bulk Generate Variants'}
+                          </h4>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                            {language === 'vi' ? 'Chọn size và màu, hệ thống tự tạo tất cả biến thể' : 'Select sizes and colors, system auto-generates all variants'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Size Selection from Size Chart */}
+                      <div className="space-y-2 mb-4">
+                        <label className="text-[10px] font-black text-purple-700 dark:text-purple-400 uppercase tracking-widest">
+                          {language === 'vi' ? 'Chọn kích thước' : 'Select Sizes'}
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {sizeChartPreview?.sizes.map((s) => {
+                            const isSelected = formData.variants.some(v => v.size === s.size && !v.color);
+                            return (
+                              <button
+                                key={s.size}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      variants: prev.variants.filter(v => !(v.size === s.size && !v.color))
+                                    }));
+                                  } else {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      variants: [...prev.variants.filter(v => v.size || v.color), { size: s.size, color: '', stock: '' }]
+                                    }));
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  isSelected
+                                    ? 'bg-purple-500 text-white'
+                                    : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-purple-400'
+                                }`}
+                              >
+                                {s.size}
+                              </button>
+                            );
+                          }) || (
+                            <p className="text-xs text-slate-400 italic">
+                              {language === 'vi' ? 'Chưa có bảng size' : 'No size chart available'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Color Selection */}
+                      <div className="space-y-2 mb-4">
+                        <label className="text-[10px] font-black text-purple-700 dark:text-purple-400 uppercase tracking-widest">
+                          {language === 'vi' ? 'Chọn màu sắc' : 'Select Colors'}
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {colors.map((c) => {
+                            const isSelected = formData.variants.some(v => v.color === c.name && !v.size);
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      variants: prev.variants.filter(v => !(v.color === c.name && !v.size))
+                                    }));
+                                  } else {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      variants: [...prev.variants.filter(v => v.size || v.color), { size: '', color: c.name, stock: '' }]
+                                    }));
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                  isSelected
+                                    ? 'bg-purple-500 text-white'
+                                    : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-purple-400'
+                                }`}
+                              >
+                                {c.hexCode && (
+                                  <span 
+                                    className="w-3 h-3 rounded-full border border-slate-300" 
+                                    style={{ backgroundColor: c.hexCode }}
+                                  />
+                                )}
+                                {c.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Generate Button */}
+                      {(() => {
+                        const selectedSizes = formData.variants.filter(v => v.size && !v.color).map(v => v.size);
+                        const selectedColors = formData.variants.filter(v => v.color && !v.size).map(v => v.color);
+                        const canGenerate = selectedSizes.length > 0 && selectedColors.length > 0;
+                        const previewCount = selectedSizes.length * selectedColors.length;
+
+                        return (
+                          <div className="space-y-2">
+                            {canGenerate && (
+                              <p className="text-xs text-purple-600 dark:text-purple-400">
+                                {language === 'vi' 
+                                  ? `Sẽ tạo ${previewCount} biến thể (${selectedSizes.join(', ')} × ${selectedColors.join(', ')})`
+                                  : `Will create ${previewCount} variants (${selectedSizes.join(', ')} × ${selectedColors.join(', ')})`
+                                }
+                              </p>
+                            )}
+                            <button
+                              type="button"
+                              disabled={!canGenerate}
+                              onClick={() => {
+                                const newVariants: Array<{ size: string; color: string; stock: string }> = [];
+                                selectedSizes.forEach(size => {
+                                  selectedColors.forEach(color => {
+                                    // Check if variant already exists
+                                    const exists = formData.variants.some(v => v.size === size && v.color === color);
+                                    if (!exists) {
+                                      newVariants.push({ size, color, stock: '0' });
+                                    }
+                                  });
+                                });
+                                // Clear selection markers and add generated variants
+                                setFormData(prev => ({
+                                  ...prev,
+                                  variants: [
+                                    ...prev.variants.filter(v => v.size && v.color), // Keep existing complete variants
+                                    ...newVariants
+                                  ]
+                                }));
+                                setSuccessMessage(language === 'vi' ? `Đã tạo ${newVariants.length} biến thể` : `Generated ${newVariants.length} variants`);
+                              }}
+                              className="w-full py-2.5 bg-purple-500 hover:bg-purple-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors"
+                            >
+                              <Wand2 size={16} />
+                              {language === 'vi' ? 'Tạo biến thể' : 'Generate Variants'}
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
                     {/* Existing Variants (Edit mode) */}
                     {editingProduct && existingVariants.length > 0 && (
                       <div className="space-y-3">
-                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.existingVariants}</label>
-                        <div className="space-y-2">
-                          {existingVariants.map((variant) => (
-                            <div key={variant.id} className="flex gap-2 items-center p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                              <div className="flex-1 grid grid-cols-4 gap-2 text-sm">
-                                <div>
-                                  <span className="text-[9px] text-slate-400 uppercase">{t.sku}</span>
-                                  <p className="font-medium text-slate-700 dark:text-slate-300">{variant.sku}</p>
-                                </div>
-                                <div>
-                                  <span className="text-[9px] text-slate-400 uppercase">{t.size}</span>
-                                  <p className="font-medium text-slate-700 dark:text-slate-300">{variant.size}</p>
-                                </div>
-                                <div>
-                                  <span className="text-[9px] text-slate-400 uppercase">{t.color}</span>
-                                  <p className="font-medium text-slate-700 dark:text-slate-300">{variant.color}</p>
-                                </div>
-                                <div>
-                                  <span className="text-[9px] text-slate-400 uppercase">{t.stock}</span>
-                                  <p className="font-medium text-slate-700 dark:text-slate-300">{variant.stock}</p>
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  if (!confirm(t.confirmDeleteVariant)) return;
-                                  try {
-                                    await productApi.variants.delete(variant.id);
-                                    setExistingVariants(prev => prev.filter(v => v.id !== variant.id));
-                                    setSuccessMessage(t.variantDeleted);
-                                  } catch {
-                                    setFormError('Không thể xóa biến thể');
-                                  }
-                                }}
-                                className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          ))}
+                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.existingVariants} ({existingVariants.length})</label>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase text-slate-500">
+                                <th className="px-3 py-2 text-left font-bold">{t.sku}</th>
+                                <th className="px-3 py-2 text-left font-bold">{t.size}</th>
+                                <th className="px-3 py-2 text-left font-bold">{t.color}</th>
+                                <th className="px-3 py-2 text-left font-bold">{t.stock}</th>
+                                <th className="px-3 py-2 text-right font-bold">{t.actions}</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                              {existingVariants.map((variant) => (
+                                <tr key={variant.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                  <td className="px-3 py-2 font-mono text-xs text-slate-500">{variant.sku}</td>
+                                  <td className="px-3 py-2 font-medium">{variant.size}</td>
+                                  <td className="px-3 py-2">{variant.color}</td>
+                                  <td className="px-3 py-2">
+                                    <span className={`font-bold ${variant.stock < 5 ? 'text-rose-500' : 'text-slate-700 dark:text-slate-300'}`}>
+                                      {variant.stock}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        if (!confirm(t.confirmDeleteVariant)) return;
+                                        try {
+                                          await productApi.variants.delete(variant.id);
+                                          setExistingVariants(prev => prev.filter(v => v.id !== variant.id));
+                                          setSuccessMessage(t.variantDeleted);
+                                        } catch {
+                                          setFormError('Không thể xóa biến thể');
+                                        }
+                                      }}
+                                      className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     )}
 
-                    {/* New Variants */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                          {editingProduct ? t.newVariants : t.variants}
-                        </label>
-                        <button type="button" onClick={handleAddVariant} className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1">
-                          <Plus size={14} />
-                          {t.addVariant}
-                        </button>
-                      </div>
-                      {formData.variants.length === 0 && !editingProduct && (
-                        <p className="text-sm text-slate-400 italic">{t.noVariants}</p>
-                      )}
-                      {formData.variants.map((variant, index) => (
-                        <div key={index} className="flex gap-2 items-center">
-                          <input
-                            type="text"
-                            value={variant.size}
-                            onChange={(e) => handleVariantChange(index, 'size', e.target.value)}
-                            placeholder={t.size}
-                            className="w-24 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 text-sm"
-                          />
-                          <select
-                            value={variant.color}
-                            onChange={(e) => handleVariantChange(index, 'color', e.target.value)}
-                            className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 text-sm"
+                    {/* Generated/New Variants List */}
+                    {formData.variants.filter(v => v.size && v.color).length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                            {editingProduct ? t.newVariants : t.variants} ({formData.variants.filter(v => v.size && v.color).length})
+                          </label>
+                          <button 
+                            type="button" 
+                            onClick={() => setFormData(prev => ({ ...prev, variants: [{ size: '', color: '', stock: '' }] }))}
+                            className="text-[10px] font-bold text-rose-500 hover:text-rose-600"
                           >
-                            <option value="">{t.color}</option>
-                            {colors.map(c => (
-                              <option key={c.id} value={c.name}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            type="number"
-                            value={variant.stock}
-                            onChange={(e) => handleVariantChange(index, 'stock', e.target.value)}
-                            placeholder={t.stock}
-                            min="0"
-                            className="w-24 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 text-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveVariant(index)}
-                            disabled={formData.variants.length === 1 && !editingProduct}
-                            className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg disabled:opacity-30"
-                          >
-                            <X size={16} />
+                            {language === 'vi' ? 'Xóa tất cả' : 'Clear all'}
                           </button>
                         </div>
-                      ))}
-                      {editingProduct && formData.variants.some(v => v.size && v.color && v.stock) && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const validVariants = formData.variants.filter(v => v.size && v.color && v.stock);
-                            if (validVariants.length === 0) return;
-                            try {
-                              await productApi.variants.add(
-                                editingProduct.id,
-                                validVariants.map(v => ({
-                                  size: v.size,
-                                  color: v.color,
-                                  stock: parseInt(v.stock),
-                                }))
-                              );
-                              const res = await productApi.variants.list(editingProduct.id);
-                              if (res.success) setExistingVariants(res.data);
-                              setFormData(prev => ({ ...prev, variants: [{ size: '', color: '', stock: '' }] }));
-                              setSuccessMessage(t.variantAdded);
-                            } catch (err) {
-                              const msg = err instanceof Error ? err.message : 'Không thể thêm biến thể';
-                              setFormError(msg);
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase text-slate-500">
+                                <th className="px-3 py-2 text-left font-bold">{t.size}</th>
+                                <th className="px-3 py-2 text-left font-bold">{t.color}</th>
+                                <th className="px-3 py-2 text-left font-bold">{t.stock}</th>
+                                <th className="px-3 py-2 text-right font-bold">{t.actions}</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                              {formData.variants.filter(v => v.size && v.color).map((variant, index) => {
+                                const actualIndex = formData.variants.findIndex(v => v.size === variant.size && v.color === variant.color);
+                                return (
+                                  <tr key={`${variant.size}-${variant.color}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                    <td className="px-3 py-2 font-medium">{variant.size}</td>
+                                    <td className="px-3 py-2">{variant.color}</td>
+                                    <td className="px-3 py-2">
+                                      <input
+                                        type="number"
+                                        value={variant.stock}
+                                        onChange={(e) => handleVariantChange(actualIndex, 'stock', e.target.value)}
+                                        min="0"
+                                        className="w-20 px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium"
+                                      />
+                                    </td>
+                                    <td className="px-3 py-2 text-right">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveVariant(actualIndex)}
+                                        className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg"
+                                      >
+                                        <X size={14} />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Add to Product Button (Edit mode) */}
+                        {editingProduct && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const validVariants = formData.variants.filter(v => v.size && v.color);
+                              if (validVariants.length === 0) return;
+                              try {
+                                await productApi.variants.add(
+                                  editingProduct.id,
+                                  validVariants.map(v => ({
+                                    size: v.size,
+                                    color: v.color,
+                                    stock: parseInt(v.stock) || 0,
+                                  }))
+                                );
+                                const res = await productApi.variants.list(editingProduct.id);
+                                if (res.success) setExistingVariants(res.data);
+                                setFormData(prev => ({ ...prev, variants: [{ size: '', color: '', stock: '' }] }));
+                                setSuccessMessage(t.variantAdded);
+                              } catch (err) {
+                                const msg = err instanceof Error ? err.message : 'Không thể thêm biến thể';
+                                setFormError(msg);
+                              }
+                            }}
+                            className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+                          >
+                            <Plus size={16} />
+                            {t.addVariantToProduct}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Manual Add Single Variant */}
+                    <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                          {language === 'vi' ? 'Thêm thủ công' : 'Add Manually'}
+                        </label>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              const newVariant = { size: e.target.value, color: '', stock: '0' };
+                              setFormData(prev => ({
+                                ...prev,
+                                variants: [...prev.variants.filter(v => v.size && v.color), newVariant]
+                              }));
                             }
                           }}
-                          className="w-full py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+                          className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm"
                         >
-                          <Plus size={16} />
-                          {t.addVariantToProduct}
+                          <option value="">{t.size}</option>
+                          {sizeChartPreview?.sizes.map(s => (
+                            <option key={s.size} value={s.size}>{s.size}</option>
+                          ))}
+                        </select>
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              // Find the incomplete variant (has size but no color) and add color
+                              setFormData(prev => {
+                                const variants = [...prev.variants];
+                                const incompleteIdx = variants.findIndex(v => v.size && !v.color);
+                                if (incompleteIdx >= 0) {
+                                  variants[incompleteIdx].color = e.target.value;
+                                }
+                                return { ...prev, variants };
+                              });
+                            }
+                          }}
+                          className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm"
+                        >
+                          <option value="">{t.color}</option>
+                          {colors.map(c => (
+                            <option key={c.id} value={c.name}>{c.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={handleAddVariant}
+                          className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl"
+                        >
+                          <Plus size={16} className="text-slate-600 dark:text-slate-400" />
                         </button>
-                      )}
+                      </div>
                     </div>
                   </div>
                 )}

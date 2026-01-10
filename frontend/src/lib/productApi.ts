@@ -1,4 +1,5 @@
 import { api } from './api';
+import type { ProductType } from './sizeTemplateApi';
 
 // Types
 export interface Product {
@@ -9,6 +10,7 @@ export interface Product {
   price: number;
   salePrice: number | null;
   categoryId: number;
+  productType: ProductType;
   isFeatured: boolean;
   isVisible: boolean;
   createdAt: Date;
@@ -67,6 +69,7 @@ export interface CreateProductData {
   price: number;
   salePrice?: number;
   categoryId: number;
+  productType?: ProductType;
   isFeatured?: boolean;
   isVisible?: boolean;
   images?: string[];
