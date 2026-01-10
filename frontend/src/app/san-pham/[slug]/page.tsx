@@ -420,7 +420,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
               onClick={async () => {
                 if (!isAuthenticated) {
                   toast.error("Vui lòng đăng nhập để thêm vào yêu thích");
-                  router.push("/dang-nhap");
+                  router.push("/login-register");
                   return;
                 }
                 if (!product) return;
