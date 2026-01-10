@@ -3,22 +3,35 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingBag, User, Search, Menu, LogOut, Package, Settings, Heart, X, Star, Ticket } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { ShoppingBag, User, Search, Menu, LogOut, Package, Settings, Heart, X, Star, Ticket, Tag, Sparkles, Flame, TrendingUp } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useStore } from "@/context/StoreContext";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 
+interface PopularKeyword {
+  keyword: string;
+  displayName: string;
+  icon: string | null;
+  type: string;
+}
+
 export default function Header() {
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [popularKeywords, setPopularKeywords] = useState<{ pinned: PopularKeyword[]; trending: PopularKeyword[] }>({ pinned: [], trending: [] });
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { store_name, store_logo, primary_color } = useStore();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { itemCount } = useCart();
+  
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -37,6 +50,43 @@ export default function Header() {
       searchInputRef.current.focus();
     }
   }, [isSearchOpen]);
+
+  // Fetch popular keywords
+  const fetchPopularKeywords = useCallback(async () => {
+    try {
+      const res = await fetch(`${baseUrl}/search/popular`);
+      const data = await res.json();
+      if (data.success) {
+        setPopularKeywords(data.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch popular keywords:", err);
+    }
+  }, [baseUrl]);
+
+  useEffect(() => {
+    fetchPopularKeywords();
+  }, [fetchPopularKeywords]);
+
+  // Handle search submit
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/san-pham?search=${encodeURIComponent(searchQuery.trim())}`);
+      setIsSearchOpen(false);
+      setSearchQuery("");
+    }
+  };
+
+  // Get icon component
+  const getKeywordIcon = (iconName: string | null) => {
+    switch (iconName) {
+      case 'tag': return <Tag className="w-3 h-3" />;
+      case 'sparkles': return <Sparkles className="w-3 h-3" />;
+      case 'flame': return <Flame className="w-3 h-3" />;
+      default: return <TrendingUp className="w-3 h-3" />;
+    }
+  };
 
   const handleLogout = async () => {
     setIsUserMenuOpen(false);
@@ -264,36 +314,96 @@ export default function Header() {
       {isSearchOpen && (
         <div className="fixed inset-0 z-50 bg-white dark:bg-gray-950">
           <div className="container mx-auto px-4">
-            <div className="flex items-center h-16 gap-4">
+            <form onSubmit={handleSearchSubmit} className="flex items-center h-16 gap-4">
               <Search className="w-5 h-5 text-gray-400" />
               <input
                 ref={searchInputRef}
                 type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm kiếm sản phẩm..."
                 className="flex-1 bg-transparent text-lg text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none"
               />
               <button
-                onClick={() => setIsSearchOpen(false)}
+                type="button"
+                onClick={() => {
+                  setIsSearchOpen(false);
+                  setSearchQuery("");
+                }}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition"
                 aria-label="Đóng"
               >
                 <X className="w-5 h-5 text-gray-900 dark:text-white" />
               </button>
-            </div>
+            </form>
             <div className="border-t border-gray-200 dark:border-gray-800 py-8">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Tìm kiếm phổ biến</p>
-              <div className="flex flex-wrap gap-2">
-                {["Áo lót", "Quần lót", "Đồ ngủ", "Set nội y", "Sale"].map((term) => (
-                  <Link
-                    key={term}
-                    href={`/san-pham?search=${term}`}
-                    onClick={() => setIsSearchOpen(false)}
-                    className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-sm text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-                  >
-                    {term}
-                  </Link>
-                ))}
-              </div>
+              {/* Pinned Keywords */}
+              {popularKeywords.pinned.length > 0 && (
+                <div className="mb-6">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Khám phá</p>
+                  <div className="flex flex-wrap gap-2">
+                    {popularKeywords.pinned.map((kw) => (
+                      <Link
+                        key={kw.keyword}
+                        href={`/san-pham?search=${encodeURIComponent(kw.keyword)}`}
+                        onClick={() => {
+                          setIsSearchOpen(false);
+                          setSearchQuery("");
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-sm text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition rounded-full"
+                      >
+                        {getKeywordIcon(kw.icon)}
+                        {kw.displayName}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Trending Keywords */}
+              {popularKeywords.trending.length > 0 && (
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Xu hướng tìm kiếm</p>
+                  <div className="flex flex-wrap gap-2">
+                    {popularKeywords.trending.map((kw) => (
+                      <Link
+                        key={kw.keyword}
+                        href={`/san-pham?search=${encodeURIComponent(kw.keyword)}`}
+                        onClick={() => {
+                          setIsSearchOpen(false);
+                          setSearchQuery("");
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition rounded-full"
+                      >
+                        <TrendingUp className="w-3 h-3" />
+                        {kw.displayName}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Fallback if no keywords loaded */}
+              {popularKeywords.pinned.length === 0 && popularKeywords.trending.length === 0 && (
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Tìm kiếm phổ biến</p>
+                  <div className="flex flex-wrap gap-2">
+                    {["Áo lót", "Quần lót", "Đồ ngủ", "Sale"].map((term) => (
+                      <Link
+                        key={term}
+                        href={`/san-pham?search=${encodeURIComponent(term)}`}
+                        onClick={() => {
+                          setIsSearchOpen(false);
+                          setSearchQuery("");
+                        }}
+                        className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-sm text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition rounded-full"
+                      >
+                        {term}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -822,3 +822,53 @@ model RewardRedemption {
   @@index([userId])
   @@index([rewardId])
 }
+
+// ==========================================
+// SMART SEARCH SYSTEM
+// ==========================================
+
+// Lịch sử tìm kiếm (Analytics)
+model SearchLog {
+  id        Int      @id @default(autoincrement())
+  keyword   String
+  userId    Int?
+  sessionId String?
+  results   Int      @default(0)
+  createdAt DateTime @default(now())
+  
+  @@index([keyword])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+// Từ đồng nghĩa (Admin quản lý)
+model SearchSynonym {
+  id        Int      @id @default(autoincrement())
+  word      String   @unique
+  synonym   String
+  hitCount  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([word])
+  @@index([isActive])
+}
+
+// Từ khóa điều hướng (Navigation Keywords)
+model SearchKeyword {
+  id          Int      @id @default(autoincrement())
+  keyword     String   @unique
+  type        String   // FILTER | SORT | CATEGORY
+  config      Json     // {"where": {...}} hoặc {"orderBy": {...}}
+  displayName String
+  icon        String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  isPinned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([isActive, order])
+  @@index([keyword])
+}

@@ -26,6 +26,7 @@ import reviewRoutes from './routes/reviewRoutes';
 import contactRoutes from './routes/contactRoutes';
 import wishlistRoutes from './routes/wishlistRoutes';
 import couponRoutes from './routes/couponRoutes';
+import searchRoutes from './routes/searchRoutes';
 import adminRoutes from './routes/admin';
 import publicConfigRoutes from './routes/publicConfig';
 import { apiLimiter } from './middleware/rateLimiter';
@@ -89,6 +90,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api', couponRoutes);
+app.use('/api/search', searchRoutes);
 
 // Admin routes (protected)
 app.use('/api/admin', adminRoutes);

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import ProductCard from "@/components/product/ProductCard";
-import { Filter, Loader2 } from "lucide-react";
+import { Filter, Loader2, Search, X } from "lucide-react";
 
 interface Product {
   id: string;
@@ -40,6 +41,9 @@ interface FiltersData {
 const PRODUCTS_PER_PAGE = 24;
 
 export default function ProductsPage() {
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
+  
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [filters, setFilters] = useState<FiltersData>({
@@ -52,6 +56,7 @@ export default function ProductsPage() {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [searchMeta, setSearchMeta] = useState<{ searchType?: string } | null>(null);
 
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
@@ -98,7 +103,7 @@ export default function ProductsPage() {
     fetchFilters();
   }, [baseUrl, selectedCategory]);
 
-  // Fetch products
+  // Fetch products - use smart search API when there's a search query
   const fetchProducts = useCallback(async (pageNum: number, reset: boolean = false) => {
     try {
       if (reset) {
@@ -107,35 +112,79 @@ export default function ProductsPage() {
         setLoadingMore(true);
       }
 
-      const params = new URLSearchParams({
-        page: pageNum.toString(),
-        limit: PRODUCTS_PER_PAGE.toString(),
-        sortBy: sortBy === "price-low" ? "price" : sortBy === "price-high" ? "price" : "createdAt",
-        sortOrder: sortBy === "price-low" ? "asc" : "desc",
-      });
+      let res: Response;
 
-      if (selectedCategory !== "all") {
-        params.append("categoryId", selectedCategory);
+      if (searchQuery) {
+        // Use Smart Search API
+        const params = new URLSearchParams({
+          q: searchQuery,
+          page: pageNum.toString(),
+          limit: PRODUCTS_PER_PAGE.toString(),
+        });
+
+        if (selectedCategory !== "all") {
+          params.append("categoryId", selectedCategory);
+        }
+
+        if (priceRange.min > 0) {
+          params.append("minPrice", priceRange.min.toString());
+        }
+
+        if (priceRange.max < 10000000) {
+          params.append("maxPrice", priceRange.max.toString());
+        }
+
+        if (selectedColors.length > 0) {
+          params.append("colors", selectedColors.join(","));
+        }
+
+        if (selectedSizes.length > 0) {
+          params.append("sizes", selectedSizes.join(","));
+        }
+
+        // Map sortBy to search API format
+        if (sortBy === "price-low") {
+          params.append("sortBy", "price_asc");
+        } else if (sortBy === "price-high") {
+          params.append("sortBy", "price_desc");
+        } else if (sortBy === "popular") {
+          params.append("sortBy", "popular");
+        } else {
+          params.append("sortBy", "newest");
+        }
+
+        res = await fetch(`${baseUrl}/search?${params}`);
+      } else {
+        // Use regular products API
+        const params = new URLSearchParams({
+          page: pageNum.toString(),
+          limit: PRODUCTS_PER_PAGE.toString(),
+          sortBy: sortBy === "price-low" ? "price" : sortBy === "price-high" ? "price" : "createdAt",
+          sortOrder: sortBy === "price-low" ? "asc" : "desc",
+        });
+
+        if (selectedCategory !== "all") {
+          params.append("categoryId", selectedCategory);
+        }
+
+        if (priceRange.min > 0) {
+          params.append("minPrice", priceRange.min.toString());
+        }
+
+        if (priceRange.max < 10000000) {
+          params.append("maxPrice", priceRange.max.toString());
+        }
+
+        if (selectedColors.length > 0) {
+          params.append("colors", selectedColors.join(","));
+        }
+
+        if (selectedSizes.length > 0) {
+          params.append("sizes", selectedSizes.join(","));
+        }
+
+        res = await fetch(`${baseUrl}/products?${params}`);
       }
-
-      if (priceRange.min > 0) {
-        params.append("minPrice", priceRange.min.toString());
-      }
-
-      if (priceRange.max < 10000000) {
-        params.append("maxPrice", priceRange.max.toString());
-      }
-
-      // Add color and size filters
-      if (selectedColors.length > 0) {
-        params.append("colors", selectedColors.join(","));
-      }
-
-      if (selectedSizes.length > 0) {
-        params.append("sizes", selectedSizes.join(","));
-      }
-
-      const res = await fetch(`${baseUrl}/products?${params}`);
       const data = await res.json();
 
       if (data.success) {
@@ -143,6 +192,7 @@ export default function ProductsPage() {
           id: number;
           name: string;
           price: number;
+          salePrice?: number;
           compareAtPrice?: number;
           images?: { url: string }[];
           category?: { name: string };
@@ -151,12 +201,12 @@ export default function ProductsPage() {
         }) => ({
           id: p.id.toString(),
           name: p.name,
-          price: p.price,
-          originalPrice: p.compareAtPrice || undefined,
+          price: p.salePrice || p.price,
+          originalPrice: p.salePrice ? p.price : (p.compareAtPrice || undefined),
           image: p.images?.[0]?.url || "https://via.placeholder.com/400x600",
           category: p.category?.name || "Chưa phân loại",
           isNew: p.createdAt ? isNewProduct(p.createdAt) : false,
-          isSale: p.compareAtPrice ? p.compareAtPrice > p.price : false,
+          isSale: p.salePrice ? p.salePrice < p.price : (p.compareAtPrice ? p.compareAtPrice > p.price : false),
           slug: p.slug,
         }));
 
@@ -166,8 +216,17 @@ export default function ProductsPage() {
           setProducts(prev => [...prev, ...mappedProducts]);
         }
 
-        setTotal(data.pagination?.total || mappedProducts.length);
-        setHasMore(pageNum < (data.pagination?.totalPages || 1));
+        // Handle both search API and products API response format
+        const totalCount = data.meta?.total || data.pagination?.total || mappedProducts.length;
+        const totalPages = data.meta?.totalPages || data.pagination?.totalPages || 1;
+        
+        setTotal(totalCount);
+        setHasMore(pageNum < totalPages);
+        
+        // Store search metadata if available
+        if (data.meta) {
+          setSearchMeta({ searchType: data.meta.searchType });
+        }
       }
     } catch (err) {
       console.error("Error fetching products:", err);
@@ -175,7 +234,7 @@ export default function ProductsPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [baseUrl, selectedCategory, sortBy, priceRange, selectedColors, selectedSizes]);
+  }, [baseUrl, selectedCategory, sortBy, priceRange, selectedColors, selectedSizes, searchQuery]);
 
   // Check if product is new (within 30 days)
   const isNewProduct = (createdAt: string) => {
@@ -222,16 +281,46 @@ export default function ProductsPage() {
     setSortBy("newest");
   };
 
+  // Clear search
+  const clearSearch = () => {
+    window.location.href = "/san-pham";
+  };
+
   return (
     <div className="container mx-auto px-4 py-6 md:py-8">
       {/* Header */}
       <div className="text-center mb-8 md:mb-12">
-        <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-3 md:mb-4 text-gray-900 dark:text-white">
-          Sản phẩm
-        </h1>
-        <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto px-4">
-          Khám phá bộ sưu tập nội y cao cấp với thiết kế tinh tế và chất liệu premium
-        </p>
+        {searchQuery ? (
+          <>
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Search className="w-6 h-6 text-gray-400" />
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-serif font-light text-gray-900 dark:text-white">
+                Kết quả tìm kiếm
+              </h1>
+            </div>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-900 dark:text-white">
+                &ldquo;{searchQuery}&rdquo;
+                <button onClick={clearSearch} className="hover:text-red-500 transition">
+                  <X className="w-4 h-4" />
+                </button>
+              </span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {total} sản phẩm
+                {searchMeta?.searchType === "navigation" && " (Khám phá)"}
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-3 md:mb-4 text-gray-900 dark:text-white">
+              Sản phẩm
+            </h1>
+            <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto px-4">
+              Khám phá bộ sưu tập nội y cao cấp với thiết kế tinh tế và chất liệu premium
+            </p>
+          </>
+        )}
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 md:gap-8">
