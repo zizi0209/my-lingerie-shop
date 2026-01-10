@@ -11,6 +11,7 @@ import SizeGuideModal from "@/components/product/SizeGuideModal";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
+import type { ProductType } from "@/lib/sizeTemplateApi";
 
 interface ProductImage {
   id: number;
@@ -40,6 +41,7 @@ interface Product {
   description: string | null;
   price: number;
   salePrice: number | null;
+  productType: ProductType;
   category: Category;
   images: ProductImage[];
   variants: ProductVariant[];
@@ -334,8 +336,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             </div>
           )}
 
-          {/* Size Selection */}
-          {sizes.length > 0 && (
+          {/* Size Selection - Hide for ACCESSORY */}
+          {sizes.length > 0 && product.productType !== 'ACCESSORY' && (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white">Kích cỡ</h3>
@@ -537,7 +539,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       <SizeGuideModal
         isOpen={sizeGuideOpen}
         onClose={() => setSizeGuideOpen(false)}
-        categorySlug={product?.category?.slug}
+        productType={product?.productType}
+        productId={product?.id}
+        selectedSize={selectedSize}
       />
     </div>
   );
