@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,155 +7,120 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. NGƯỜI DÙNG (Admin & Khách)
 model User {
-  id          Int       @id @default(autoincrement())
-  email       String    @unique
-  password    String
-  name        String?
-  phone       String?
-  avatar      String?
-  
-  // Role based
-  roleId      Int?
-  role        Role?     @relation(fields: [roleId], references: [id])
-  
-  // Security fields
-  failedLoginAttempts   Int       @default(0)
-  lockedUntil           DateTime?
-  lastLoginAt           DateTime?
-  passwordChangedAt     DateTime?
-  tokenVersion          Int       @default(0)
-  
-  // Loyalty System
-  pointBalance    Int       @default(0)
-  totalSpent      Float     @default(0)
-  memberTier      String    @default("BRONZE") // BRONZE | SILVER | GOLD | PLATINUM
-  birthday        DateTime?
-  
-  // Relationships
-  orders        Order[]
-  posts         Post[]
-  cart          Cart?
-  auditLogs     AuditLog[]
-  refreshTokens RefreshToken[]
-  reviews       Review[]
-  wishlistItems WishlistItem[]
-  userCoupons   UserCoupon[]
-  pointHistory  PointHistory[]
-  
-  // Tracking
-  isActive    Boolean   @default(true)
-  lastLogin   DateTime?
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
-  
+  id                  Int            @id @default(autoincrement())
+  email               String         @unique
+  password            String
+  name                String?
+  phone               String?
+  avatar              String?
+  roleId              Int?
+  isActive            Boolean        @default(true)
+  lastLogin           DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  deletedAt           DateTime?
+  failedLoginAttempts Int            @default(0)
+  lastLoginAt         DateTime?
+  lockedUntil         DateTime?
+  passwordChangedAt   DateTime?
+  tokenVersion        Int            @default(0)
+  birthday            DateTime?
+  memberTier          String         @default("BRONZE")
+  pointBalance        Int            @default(0)
+  totalSpent          Float          @default(0)
+  cart                Cart?
+  orders              Order[]
+  pointHistory        PointHistory[]
+  posts               Post[]
+  refreshTokens       RefreshToken[]
+  reviews             Review[]
+  role                Role?          @relation(fields: [roleId], references: [id])
+  userCoupons         UserCoupon[]
+  wishlistItems       WishlistItem[]
+  auditLogs           AuditLog[]
+
   @@index([email])
   @@index([roleId])
   @@index([memberTier])
 }
 
-// 2. ROLES & PERMISSIONS
 model Role {
   id          Int          @id @default(autoincrement())
   name        String       @unique
   description String?
-  permissions Permission[]
-  users       User[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  users       User[]
+  permissions Permission[] @relation("PermissionToRole")
 }
 
 model Permission {
   id          Int      @id @default(autoincrement())
   name        String   @unique
   description String?
-  roles       Role[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  roles       Role[]   @relation("PermissionToRole")
 }
 
-// REFRESH TOKEN - Lưu refresh tokens để quản lý phiên đăng nhập
 model RefreshToken {
-  id          String    @id @default(uuid())
-  token       String    @unique
-  userId      Int
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userAgent   String?
-  ipAddress   String?
-  expiresAt   DateTime
-  createdAt   DateTime  @default(now())
-  revokedAt   DateTime?
-  
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    Int
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([token])
   @@index([userId])
 }
 
-// =============================================
-// PRODUCT TYPE ENUM (Loại sản phẩm - Cứng)
-// =============================================
-enum ProductType {
-  BRA        // Áo lót - Size: Band + Cup (70A, 75B, 80C)
-  PANTY      // Quần lót - Size: Alpha (S, M, L, XL)
-  SET        // Set đồ lót (Bra + Panty) - Size: Alpha với mapping
-  SLEEPWEAR  // Đồ ngủ & mặc nhà - Size: Alpha + Body
-  SHAPEWEAR  // Đồ định hình - Size: Alpha (thông số chặt hơn)
-  ACCESSORY  // Phụ kiện - KHÔNG CÓ SIZE
-}
-
-// 3. DANH MỤC (Ví dụ: Áo lót, Quần lót, Đồ ngủ)
 model Category {
   id         Int                 @id @default(autoincrement())
   name       String
   slug       String              @unique
   image      String?
-  products   Product[]
-  attributes CategoryAttribute[] // Thuộc tính áp dụng cho danh mục này
   createdAt  DateTime            @default(now())
   updatedAt  DateTime            @updatedAt
   deletedAt  DateTime?
-  
+  attributes CategoryAttribute[]
+  products   Product[]
+
   @@index([slug])
 }
 
-// 4. SẢN PHẨM
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model Product {
-  id           Int              @id @default(autoincrement())
-  name         String
-  slug         String           @unique
-  description  String?          @db.Text
-  price        Float
-  salePrice    Float?
-  
-  // Product Type - Quyết định bảng size hiển thị
-  productType     ProductType      @default(SLEEPWEAR)
-  customSizeChart Json?            // Override bảng size riêng (nếu cần)
-  
-  categoryId   Int
-  category     Category         @relation(fields: [categoryId], references: [id])
-  
-  images       ProductImage[]
-  variants     ProductVariant[]
-  attributes   ProductAttributeValue[] // Giá trị thuộc tính của sản phẩm
-  orderItems   OrderItem[]
-  cartItems    CartItem[]
-  productViews ProductView[]
-  reviews      Review[]
-  wishlistItems WishlistItem[]
-  
-  // Denormalized Review Stats (Performance)
-  ratingAverage Float           @default(0)
-  reviewCount   Int             @default(0)
-  
-  isFeatured   Boolean          @default(false)
-  isVisible    Boolean          @default(true)
-  
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  deletedAt    DateTime?
-  
+  id              Int                     @id @default(autoincrement())
+  name            String
+  slug            String                  @unique
+  description     String?
+  price           Float
+  salePrice       Float?
+  categoryId      Int
+  isFeatured      Boolean                 @default(false)
+  isVisible       Boolean                 @default(true)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  deletedAt       DateTime?
+  ratingAverage   Float                   @default(0)
+  reviewCount     Int                     @default(0)
+  customSizeChart Json?
+  productType     ProductType             @default(SLEEPWEAR)
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  category        Category                @relation(fields: [categoryId], references: [id])
+  attributes      ProductAttributeValue[]
+  images          ProductImage[]
+  variants        ProductVariant[]
+  productViews    ProductView[]
+  reviews         Review[]
+  wishlistItems   WishlistItem[]
+
   @@index([categoryId])
   @@index([productType])
   @@index([isFeatured, isVisible])
@@ -169,103 +128,85 @@ model Product {
   @@index([slug])
 }
 
-// 5. ẢNH SẢN PHẨM (1 SP có nhiều ảnh)
 model ProductImage {
   id        Int      @id @default(autoincrement())
   url       String
   productId Int
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
-// 6. BIẾN THỂ (Size/Màu/Kho) - Size lưu ở đây để quản lý tồn kho
 model ProductVariant {
   id        Int        @id @default(autoincrement())
   sku       String     @unique
-  size      String     // Size lưu ở variant để quản lý kho
-  colorName String     // Tên màu (match với AttributeValue.value của Attribute type=COLOR)
+  size      String
+  colorName String
   stock     Int        @default(0)
-  price     Float?     // Giá riêng cho variant (nếu có)
+  price     Float?
   salePrice Float?
-  
   productId Int
-  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  cartItems CartItem[]
-  
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
-  
+  cartItems CartItem[]
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, size, colorName])
+  @@unique([productId, size, colorName], map: "ProductVariant_productId_size_color_key")
   @@index([productId])
   @@index([sku])
   @@index([colorName])
   @@index([size])
-  @@unique([productId, size, colorName])
 }
 
-// =============================================
-// ATTRIBUTE SYSTEM - Dynamic Faceted Filtering
-// =============================================
-
-// Định nghĩa loại thuộc tính (Màu sắc, Chất liệu, Kiểu gọng...)
 model Attribute {
   id           Int                 @id @default(autoincrement())
-  name         String              // "Màu sắc", "Chất liệu", "Kiểu gọng"
-  slug         String              @unique // "mau-sac", "chat-lieu"
-  type         String              @default("SELECT") // SELECT, MULTI, COLOR
-  isFilterable Boolean             @default(true) // Hiển thị trong bộ lọc?
+  name         String
+  slug         String              @unique
+  type         String              @default("SELECT")
+  isFilterable Boolean             @default(true)
   order        Int                 @default(0)
-  
-  values       AttributeValue[]
-  categories   CategoryAttribute[] // Thuộc tính này áp dụng cho danh mục nào
-  
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
-  
+  values       AttributeValue[]
+  categories   CategoryAttribute[]
+
   @@index([isFilterable, order])
 }
 
-// Giá trị của thuộc tính (Đen, Trắng, Ren, Cotton, Push-up...)
 model AttributeValue {
   id          Int                     @id @default(autoincrement())
-  value       String                  // "Đen", "Ren", "Push-up"
-  slug        String                  // "den", "ren", "push-up"
-  meta        Json?                   // { "hexCode": "#000000" } cho màu
+  value       String
+  slug        String
+  meta        Json?
   order       Int                     @default(0)
-  
   attributeId Int
   attribute   Attribute               @relation(fields: [attributeId], references: [id], onDelete: Cascade)
-  
   products    ProductAttributeValue[]
-  
+
   @@unique([attributeId, slug])
   @@index([attributeId])
 }
 
-// Thuộc tính nào áp dụng cho danh mục nào
 model CategoryAttribute {
   categoryId  Int
   attributeId Int
-  order       Int       @default(0) // Thứ tự hiển thị filter trong danh mục
-  
-  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  order       Int       @default(0)
   attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
-  
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
   @@id([categoryId, attributeId])
 }
 
-// Sản phẩm có giá trị thuộc tính nào
 model ProductAttributeValue {
   productId        Int
   attributeValueId Int
-  
-  product          Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
   attributeValue   AttributeValue @relation(fields: [attributeValueId], references: [id], onDelete: Cascade)
-  
+  product          Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+
   @@id([productId, attributeValueId])
   @@index([attributeValueId])
 }
 
-// 7. CẤU HÌNH CMS ĐỘNG (Cho Admin chỉnh giao diện)
 model PageSection {
   id        Int      @id @default(autoincrement())
   code      String   @unique
@@ -277,66 +218,53 @@ model PageSection {
   updatedAt DateTime @updatedAt
 }
 
-// 8. ĐƠN HÀNG
 model Order {
   id              Int         @id @default(autoincrement())
   orderNumber     String      @unique
-  
   userId          Int?
-  user            User?       @relation(fields: [userId], references: [id])
   guestInfo       Json?
-  
   shippingAddress String
   shippingCity    String?
   shippingPhone   String
   shippingMethod  String?
   trackingNumber  String?
-  
   paymentMethod   String      @default("COD")
   paymentStatus   String      @default("PENDING")
   paidAt          DateTime?
-  
   totalAmount     Float
   shippingFee     Float       @default(0)
   discount        Float       @default(0)
-  notes           String?     @db.Text
-  
-  // Voucher/Coupon
-  couponCode      String?
-  couponDiscount  Float       @default(0)
-  
-  // Loyalty Points
-  pointsEarned    Int         @default(0)
-  pointsUsed      Int         @default(0)
-  pointsDiscount  Float       @default(0)
-  
+  notes           String?
   status          String      @default("PENDING")
-  items           OrderItem[]
-  reviews         Review[]
-  
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   cancelledAt     DateTime?
-  
+  couponCode      String?
+  couponDiscount  Float       @default(0)
+  pointsDiscount  Float       @default(0)
+  pointsEarned    Int         @default(0)
+  pointsUsed      Int         @default(0)
+  user            User?       @relation(fields: [userId], references: [id])
+  items           OrderItem[]
+  reviews         Review[]
+
   @@index([userId])
   @@index([orderNumber])
   @@index([status, createdAt])
   @@index([couponCode])
 }
 
-// 9. CHI TIẾT ĐƠN HÀNG
 model OrderItem {
   id        Int     @id @default(autoincrement())
   orderId   Int
-  order     Order   @relation(fields: [orderId], references: [id])
   productId Int
-  product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
   variant   String?
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
 }
 
-// 10. MEDIA (Ảnh upload lên Cloudinary)
 model Media {
   id           Int      @id @default(autoincrement())
   filename     String
@@ -350,123 +278,112 @@ model Media {
   updatedAt    DateTime @updatedAt
 }
 
-// 11. CẤU HÌNH HỆ THỐNG (Logo, Màu sắc, Hotline, SEO...)
 model SystemConfig {
   id          Int      @id @default(autoincrement())
   key         String   @unique
-  value       String   @db.Text
+  value       String
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
-// 12. POST CATEGORIES
 model PostCategory {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   name      String
-  slug      String   @unique
-  posts     Post[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
-  
+  posts     Post[]
+
   @@index([slug])
 }
 
-// 13. POSTS (Blog/Tin tức)
 model Post {
   id          Int          @id @default(autoincrement())
   title       String
   slug        String       @unique
-  content     String       @db.Text
-  excerpt     String?      @db.Text
+  content     String
+  excerpt     String?
   thumbnail   String?
-  
   authorId    Int
-  author      User         @relation(fields: [authorId], references: [id])
   categoryId  Int
-  category    PostCategory @relation(fields: [categoryId], references: [id])
-  
   isPublished Boolean      @default(false)
   publishedAt DateTime?
   views       Int          @default(0)
-  
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   deletedAt   DateTime?
-  
+  author      User         @relation(fields: [authorId], references: [id])
+  category    PostCategory @relation(fields: [categoryId], references: [id])
+
   @@index([categoryId])
   @@index([authorId])
   @@index([slug])
   @@index([isPublished, publishedAt])
 }
 
-// 14. CART
 model Cart {
   id         Int        @id @default(autoincrement())
   userId     Int?       @unique
-  user       User?      @relation(fields: [userId], references: [id])
   sessionId  String?
-  couponCode String?
-  couponId   Int?
-  coupon     Coupon?    @relation(fields: [couponId], references: [id])
-  items      CartItem[]
   expiresAt  DateTime?
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
-  
+  couponCode String?
+  couponId   Int?
+  coupon     Coupon?    @relation(fields: [couponId], references: [id])
+  user       User?      @relation(fields: [userId], references: [id])
+  items      CartItem[]
+
   @@index([sessionId])
   @@index([expiresAt])
   @@index([couponId])
 }
 
-// 15. CART ITEMS
 model CartItem {
   id        Int             @id @default(autoincrement())
   cartId    Int
-  cart      Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
   productId Int
-  product   Product         @relation(fields: [productId], references: [id])
   variantId Int?
-  variant   ProductVariant? @relation(fields: [variantId], references: [id])
   quantity  Int             @default(1)
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
-  
+  cart      Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product         @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
   @@index([cartId])
   @@index([productId])
 }
 
-// 16. PAGE VIEWS (Tracking)
 model PageView {
   id        Int      @id @default(autoincrement())
   path      String
   userId    Int?
   sessionId String
   ipAddress String?
-  userAgent String?  @db.Text
+  userAgent String?
   referer   String?
   createdAt DateTime @default(now())
-  
+
   @@index([path, createdAt])
   @@index([userId])
   @@index([sessionId])
 }
 
-// 17. PRODUCT VIEWS (Tracking)
 model ProductView {
   id        Int      @id @default(autoincrement())
   productId Int
-  product   Product  @relation(fields: [productId], references: [id])
   userId    Int?
   sessionId String
   createdAt DateTime @default(now())
-  
+  product   Product  @relation(fields: [productId], references: [id])
+
   @@index([productId, createdAt])
   @@index([userId])
 }
 
-// 18. CART EVENTS (Tracking)
 model CartEvent {
   id        Int      @id @default(autoincrement())
   event     String
@@ -476,31 +393,26 @@ model CartEvent {
   sessionId String
   data      Json?
   createdAt DateTime @default(now())
-  
+
   @@index([event, createdAt])
   @@index([userId])
   @@index([productId])
 }
 
-// 19. AUDIT LOGGING (Security)
 model AuditLog {
-  id          String   @id @default(cuid())
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  action      String
-  resource    String
-  resourceId  String?
-  
-  oldValue    Json?
-  newValue    Json?
-  
-  ipAddress   String?
-  userAgent   String?
-  severity    String   @default("INFO")
-  
-  createdAt   DateTime @default(now())
-  
+  id         String   @id @default(cuid())
+  userId     Int
+  action     String
+  resource   String
+  resourceId String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+  severity   String   @default("INFO")
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([action])
   @@index([resource])
@@ -508,70 +420,45 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-// 20. ADMIN INVITATIONS (Security)
 model AdminInvitation {
-  id          String    @id @default(cuid())
-  email       String
-  token       String    @unique
-  roleId      Int
-  expiresAt   DateTime
-  usedAt      DateTime?
-  createdBy   Int
-  createdAt   DateTime  @default(now())
-  
+  id        String    @id @default(cuid())
+  email     String
+  token     String    @unique
+  roleId    Int
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdBy Int
+  createdAt DateTime  @default(now())
+
   @@index([token])
   @@index([email])
   @@map("admin_invitations")
 }
 
-// =============================================
-// REVIEW SYSTEM - Đánh giá sản phẩm
-// =============================================
-
-// 21. ĐÁNH GIÁ SẢN PHẨM
 model Review {
-  id          Int      @id @default(autoincrement())
-  
-  // Relationships
-  productId   Int
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orderId     Int?
-  order       Order?   @relation(fields: [orderId], references: [id])
-  
-  // Core Review
-  rating      Int                     // 1-5 sao
-  title       String?                 // Tiêu đề (optional)
-  content     String   @db.Text       // Nội dung đánh giá
-  
-  // Product Context (Snapshot)
-  variantName String?                 // "Màu Đỏ, Size M" - snapshot tại thời điểm mua
-  
-  // Lingerie Specific
-  fitType     String?                 // SMALL | TRUE_TO_SIZE | LARGE
-  
-  // Verification
-  isVerified  Boolean  @default(false) // Đã mua hàng thật
-  
-  // Media
-  images      ReviewImage[]
-  
-  // Moderation
-  status      String   @default("PENDING") // PENDING | APPROVED | REJECTED | HIDDEN
-  
-  // Shop Reply
-  reply       String?  @db.Text
-  repliedAt   DateTime?
-  repliedBy   Int?                    // Admin ID đã trả lời
-  
-  // Interaction
-  helpfulCount Int     @default(0)    // Số lượt "Hữu ích"
+  id           Int             @id @default(autoincrement())
+  productId    Int
+  userId       Int
+  orderId      Int?
+  rating       Int
+  title        String?
+  content      String
+  variantName  String?
+  fitType      String?
+  isVerified   Boolean         @default(false)
+  status       String          @default("PENDING")
+  reply        String?
+  repliedAt    DateTime?
+  repliedBy    Int?
+  helpfulCount Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  order        Order?          @relation(fields: [orderId], references: [id])
+  product      Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   helpfulVotes ReviewHelpful[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  images       ReviewImage[]
+
   @@unique([productId, userId, orderId])
   @@index([productId, status])
   @@index([userId])
@@ -579,31 +466,28 @@ model Review {
   @@index([rating])
 }
 
-// 22. ẢNH ĐÁNH GIÁ
 model ReviewImage {
   id        Int      @id @default(autoincrement())
   url       String
   reviewId  Int
-  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
-  
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
   @@index([reviewId])
 }
 
-// 23. HELPFUL VOTES (Theo dõi ai đã vote)
 model ReviewHelpful {
   id        Int      @id @default(autoincrement())
   reviewId  Int
-  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  visitorId String   // sessionId hoặc visitorId (cho cả guest)
-  userId    Int?     // Nếu đã đăng nhập
+  visitorId String
+  userId    Int?
   createdAt DateTime @default(now())
-  
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
   @@unique([reviewId, visitorId])
   @@index([reviewId])
 }
 
-// 24. CONTACT MESSAGE (Tin nhắn liên hệ)
 model ContactMessage {
   id        Int      @id @default(autoincrement())
   name      String
@@ -611,97 +495,70 @@ model ContactMessage {
   phone     String?
   subject   String
   message   String
-  status    String   @default("NEW") // NEW, READ, REPLIED
+  status    String   @default("NEW")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([status])
   @@index([createdAt])
 }
 
-// WISHLIST - Danh sách sản phẩm yêu thích
 model WishlistItem {
   id        Int      @id @default(autoincrement())
   userId    Int
   productId Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
-  
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, productId])
   @@index([userId])
   @@index([productId])
 }
 
-// =============================================
-// PROMOTION & LOYALTY SYSTEM
-// =============================================
-
-// CHIẾN DỊCH KHUYẾN MÃI
 model Campaign {
-  id          Int       @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   name        String
-  slug        String    @unique
-  description String?   @db.Text
-  
+  slug        String   @unique
+  description String?
   startDate   DateTime
   endDate     DateTime
-  
-  isActive    Boolean   @default(true)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   coupons     Coupon[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
+
   @@index([isActive, startDate, endDate])
   @@index([slug])
 }
 
-// MÃ GIẢM GIÁ (VOUCHER/COUPON)
 model Coupon {
-  id          Int       @id @default(autoincrement())
-  code        String    @unique
-  name        String
-  description String?   @db.Text
-  
-  // Loại giảm giá
-  discountType    String    // PERCENTAGE | FIXED_AMOUNT | FREE_SHIPPING | BUY_X_GET_Y
+  id              Int           @id @default(autoincrement())
+  code            String        @unique
+  name            String
+  description     String?
+  discountType    String
   discountValue   Float
-  
-  // Giới hạn
   maxDiscount     Float?
   minOrderValue   Float?
-  
-  // Số lượng
   quantity        Int?
-  usedCount       Int       @default(0)
-  maxUsagePerUser Int       @default(1)
-  
-  // Phân loại
-  couponType  String    @default("PUBLIC") // NEW_USER | PUBLIC | PRIVATE | PRODUCT | SHIPPING
-  isSystem    Boolean   @default(false)
-  isPublic    Boolean   @default(true)
-  
-  // Điều kiện phức tạp (JSON)
-  conditions  Json?
-  
-  // Thời gian hiệu lực
-  startDate   DateTime  @default(now())
-  endDate     DateTime?
-  
-  // Campaign (optional)
-  campaignId  Int?
-  campaign    Campaign? @relation(fields: [campaignId], references: [id])
-  
-  // Relationships
-  userCoupons  UserCoupon[]
-  usageHistory CouponUsage[]
-  carts        Cart[]
-  
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
+  usedCount       Int           @default(0)
+  maxUsagePerUser Int           @default(1)
+  couponType      String        @default("PUBLIC")
+  isSystem        Boolean       @default(false)
+  isPublic        Boolean       @default(true)
+  conditions      Json?
+  startDate       DateTime      @default(now())
+  endDate         DateTime?
+  campaignId      Int?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  carts           Cart[]
+  campaign        Campaign?     @relation(fields: [campaignId], references: [id])
+  usageHistory    CouponUsage[]
+  userCoupons     UserCoupon[]
+
   @@index([code])
   @@index([couponType, isActive])
   @@index([isPublic, isActive])
@@ -709,142 +566,95 @@ model Coupon {
   @@index([campaignId])
 }
 
-// VÍ VOUCHER CỦA USER
 model UserCoupon {
   id          Int       @id @default(autoincrement())
   userId      Int
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   couponId    Int
-  coupon      Coupon    @relation(fields: [couponId], references: [id], onDelete: Cascade)
-  
-  // Trạng thái
-  status      String    @default("AVAILABLE") // AVAILABLE | USED | EXPIRED
-  
-  // Thời hạn riêng cho user này
+  status      String    @default("AVAILABLE")
   expiresAt   DateTime?
-  
-  // Tracking
   usedAt      DateTime?
   usedOrderId Int?
-  
-  // Source
-  source      String    @default("COLLECTED") // COLLECTED | SYSTEM | REWARD | REFERRAL
-  
+  source      String    @default("COLLECTED")
   createdAt   DateTime  @default(now())
-  
+  coupon      Coupon    @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, couponId])
   @@index([userId, status])
   @@index([couponId])
   @@index([expiresAt])
 }
 
-// LỊCH SỬ SỬ DỤNG VOUCHER
 model CouponUsage {
   id             Int      @id @default(autoincrement())
   couponId       Int
-  coupon         Coupon   @relation(fields: [couponId], references: [id])
   userId         Int?
   orderId        Int
-  
   discountAmount Float
   orderTotal     Float
-  
   createdAt      DateTime @default(now())
-  
+  coupon         Coupon   @relation(fields: [couponId], references: [id])
+
   @@index([couponId])
   @@index([userId])
   @@index([orderId])
 }
 
-// LỊCH SỬ ĐIỂM THƯỞNG
 model PointHistory {
   id          Int       @id @default(autoincrement())
   userId      Int
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Loại giao dịch
-  type        String    // EARN | BURN | EXPIRE | ADJUST
+  type        String
   amount      Int
   balance     Int
-  
-  // Nguồn
-  source      String    // ORDER | REVIEW | BIRTHDAY | REFERRAL | REDEEM | ADMIN_ADJUST
+  source      String
   sourceId    String?
-  
   description String?
-  
-  // Admin adjust
   adjustedBy  Int?
-  
   expiresAt   DateTime?
-  
   createdAt   DateTime  @default(now())
-  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, createdAt])
   @@index([type])
   @@index([source])
 }
 
-// QUÀ ĐỔI ĐIỂM
 model PointReward {
-  id            Int       @id @default(autoincrement())
+  id            Int                @id @default(autoincrement())
   name          String
-  description   String?   @db.Text
-  
+  description   String?
   pointCost     Int
-  
-  // Loại quà
-  rewardType    String    // VOUCHER | GIFT | DISCOUNT
-  
-  // Nếu là VOUCHER
+  rewardType    String
   couponId      Int?
-  
-  // Giá trị nếu là DISCOUNT trực tiếp
   discountValue Float?
-  discountType  String?   // PERCENTAGE | FIXED_AMOUNT
-  
-  // Giới hạn
+  discountType  String?
   quantity      Int?
-  redeemedCount Int       @default(0)
+  redeemedCount Int                @default(0)
   maxPerUser    Int?
-  
-  isActive      Boolean   @default(true)
-  startDate     DateTime  @default(now())
+  isActive      Boolean            @default(true)
+  startDate     DateTime           @default(now())
   endDate       DateTime?
-  
-  // Relationships
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   redemptions   RewardRedemption[]
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
+
   @@index([isActive, pointCost])
 }
 
-// LỊCH SỬ ĐỔI QUÀ
 model RewardRedemption {
-  id          Int         @id @default(autoincrement())
-  userId      Int
-  rewardId    Int
-  reward      PointReward @relation(fields: [rewardId], references: [id])
-  
-  pointSpent  Int
-  
-  // Kết quả
-  resultType  String      // VOUCHER | GIFT | DISCOUNT
-  resultId    String?
-  
-  createdAt   DateTime    @default(now())
-  
+  id         Int         @id @default(autoincrement())
+  userId     Int
+  rewardId   Int
+  pointSpent Int
+  resultType String
+  resultId   String?
+  createdAt  DateTime    @default(now())
+  reward     PointReward @relation(fields: [rewardId], references: [id])
+
   @@index([userId])
   @@index([rewardId])
 }
 
-// ==========================================
-// SMART SEARCH SYSTEM
-// ==========================================
-
-// Lịch sử tìm kiếm (Analytics)
 model SearchLog {
   id        Int      @id @default(autoincrement())
   keyword   String
@@ -852,13 +662,12 @@ model SearchLog {
   sessionId String?
   results   Int      @default(0)
   createdAt DateTime @default(now())
-  
+
   @@index([keyword])
   @@index([createdAt])
   @@index([userId])
 }
 
-// Từ đồng nghĩa (Admin quản lý)
 model SearchSynonym {
   id        Int      @id @default(autoincrement())
   word      String   @unique
@@ -867,17 +676,16 @@ model SearchSynonym {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([word])
   @@index([isActive])
 }
 
-// Từ khóa điều hướng (Navigation Keywords)
 model SearchKeyword {
   id          Int      @id @default(autoincrement())
   keyword     String   @unique
-  type        String   // FILTER | SORT | CATEGORY
-  config      Json     // {"where": {...}} hoặc {"orderBy": {...}}
+  type        String
+  config      Json
   displayName String
   icon        String?
   order       Int      @default(0)
@@ -885,51 +693,36 @@ model SearchKeyword {
   isPinned    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@index([isActive, order])
   @@index([keyword])
 }
 
-// ==========================================
-// SIZE CHART TEMPLATE SYSTEM
-// ==========================================
-
-// Bảng size mẫu theo Product Type
 model SizeChartTemplate {
-  id          Int         @id @default(autoincrement())
-  
-  // Link với Product Type (1-1)
-  productType ProductType @unique
-  
-  // Thông tin hiển thị
-  name        String      // "Áo lót", "Quần lót", "Đồ ngủ"
-  description String?     @db.Text
-  
-  // Dữ liệu bảng size (JSON)
-  headers     Json        // ["Size", "Vòng ngực", "Vòng ngực dưới", "Cup"]
-  sizes       Json        // [{ size: "70A", bust: "78-80", ... }, ...]
-  
-  // Hướng dẫn cách đo (JSON)
-  measurements Json       // [{ name: "Vòng ngực", description: "Đo ngang..." }, ...]
-  
-  // Mẹo chọn size (JSON)
-  tips        Json        // ["Nếu phân vân...", "Đo vào buổi sáng..."]
-  
-  // Quy đổi quốc tế (JSON) - Optional
-  internationalSizes Json? // { "US": {...}, "UK": {...}, "EU": {...} }
-  
-  // Hình ảnh minh họa
-  measurementImage String? // URL ảnh hướng dẫn đo
-  
-  // Note đặc biệt
-  note        String?     @db.Text
-  
-  // Trạng thái
-  isActive    Boolean     @default(true)
-  
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
+  id                 Int         @id @default(autoincrement())
+  productType        ProductType @unique
+  name               String
+  description        String?
+  headers            Json
+  sizes              Json
+  measurements       Json
+  tips               Json
+  internationalSizes Json?
+  measurementImage   String?
+  note               String?
+  isActive           Boolean     @default(true)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
   @@index([productType])
   @@index([isActive])
+}
+
+enum ProductType {
+  BRA
+  PANTY
+  SET
+  SLEEPWEAR
+  SHAPEWEAR
+  ACCESSORY
 }

@@ -542,6 +542,7 @@ export const getProfile = async (req: Request, res: Response) => {
         name: true,
         phone: true,
         avatar: true,
+        // measurements: true, // TODO: Add after migration
         roleId: true,
         role: {
           select: {
@@ -592,7 +593,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Chưa xác thực!' });
     }
 
-    const { name, phone, avatar } = req.body;
+    const { name, phone, avatar } = req.body; // TODO: Add measurements after migration
 
     // Check if user exists
     const existingUser = await prisma.user.findFirst({
@@ -611,6 +612,8 @@ export const updateProfile = async (req: Request, res: Response) => {
     if (name !== undefined) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone;
     if (avatar !== undefined) updateData.avatar = avatar;
+    // TODO: Add measurements after migration
+    // if (measurements !== undefined) updateData.measurements = measurements;
 
     // Update user
     const user = await prisma.user.update({
@@ -622,6 +625,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         name: true,
         phone: true,
         avatar: true,
+        // measurements: true, // TODO: Add after migration
         roleId: true,
         role: {
           select: {

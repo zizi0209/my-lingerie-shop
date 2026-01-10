@@ -11,6 +11,7 @@ import {
   fetchSizeChartByProduct,
   getInternationalSizes,
 } from "@/lib/sizeTemplateApi";
+import SizeRecommender from "./SizeRecommender";
 
 interface SizeGuideModalProps {
   isOpen: boolean;
@@ -304,6 +305,14 @@ export default function SizeGuideModal({
                         chênh lệch 1-2cm tùy từng sản phẩm.
                       </p>
                     </div>
+                  )}
+
+                  {/* Size Recommender */}
+                  {currentProductType && (
+                    <SizeRecommender
+                      productType={currentProductType}
+                      sizes={chartData.sizes}
+                    />
                   )}
                 </div>
               )}
