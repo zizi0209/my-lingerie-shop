@@ -11,7 +11,7 @@ import { userVoucherApi, type UserCoupon } from "@/lib/couponApi";
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, loading: cartLoading, subtotal, clearCart } = useCart();
+  const { cart, loading: cartLoading, subtotal, discount: cartDiscount, clearCart, applyCoupon: applyCartCoupon, removeCoupon } = useCart();
   const { user, isAuthenticated } = useAuth();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,6 +65,17 @@ export default function CheckoutPage() {
       }));
     }
   }, [isAuthenticated, user]);
+
+  // Load coupon from cart (applied on cart page)
+  useEffect(() => {
+    if (cart?.coupon && !appliedVoucher) {
+      setAppliedVoucher({
+        code: cart.coupon.code,
+        name: cart.coupon.name,
+        discountAmount: cartDiscount,
+      });
+    }
+  }, [cart?.coupon, cartDiscount, appliedVoucher]);
 
   const shipping = shippingMethod === "express" ? 50000 : (subtotal >= 1000000 ? 0 : 30000);
   const voucherDiscount = appliedVoucher?.discountAmount || 0;
@@ -126,6 +137,8 @@ export default function CheckoutPage() {
         });
         setVoucherCode("");
         setShowVoucherModal(false);
+        // Also save to cart in DB for persistence
+        await applyCartCoupon(code);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Ma khong hop le";
@@ -136,9 +149,11 @@ export default function CheckoutPage() {
   };
 
   // Remove voucher
-  const handleRemoveVoucher = () => {
+  const handleRemoveVoucher = async () => {
     setAppliedVoucher(null);
     setVoucherError(null);
+    // Also remove from cart in DB
+    await removeCoupon();
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

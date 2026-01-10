@@ -32,11 +32,24 @@ export interface CartItem {
   variant: CartVariant | null;
 }
 
+interface CartCoupon {
+  id: number;
+  code: string;
+  name: string;
+  discountType: string;
+  discountValue: number;
+  maxDiscount: number | null;
+  minOrderValue: number | null;
+}
+
 interface Cart {
   id: number;
   userId: number | null;
   sessionId: string | null;
   items: CartItem[];
+  coupon: CartCoupon | null;
+  couponCode: string | null;
+  discountAmount: number;
 }
 
 interface CartContextType {
@@ -45,12 +58,15 @@ interface CartContextType {
   error: string | null;
   itemCount: number;
   subtotal: number;
+  discount: number;
   addToCart: (productId: number, variantId?: number, quantity?: number) => Promise<boolean>;
   updateQuantity: (itemId: number, quantity: number) => Promise<void>;
   updateVariant: (itemId: number, variantId: number) => Promise<boolean>;
   removeItem: (itemId: number) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
+  applyCoupon: (code: string) => Promise<{ success: boolean; error?: string }>;
+  removeCoupon: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -227,12 +243,59 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const applyCoupon = async (code: string): Promise<{ success: boolean; error?: string }> => {
+    if (!cart) return { success: false, error: "Giỏ hàng chưa sẵn sàng" };
+
+    try {
+      const res = await fetch(`${baseUrl}/carts/${cart.id}/apply-coupon`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim().toUpperCase(), orderTotal: subtotal }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        await fetchCart();
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || "Mã giảm giá không hợp lệ" };
+      }
+    } catch (err) {
+      console.error("Apply coupon error:", err);
+      return { success: false, error: "Lỗi kết nối server" };
+    }
+  };
+
+  const removeCoupon = async () => {
+    if (!cart) return;
+
+    try {
+      const res = await fetch(`${baseUrl}/carts/${cart.id}/remove-coupon`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        await fetchCart();
+      } else {
+        setError(data.error || "Không thể gỡ mã giảm giá");
+      }
+    } catch (err) {
+      console.error("Remove coupon error:", err);
+      setError("Lỗi kết nối server");
+    }
+  };
+
   const itemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   const subtotal = cart?.items.reduce((sum, item) => {
     const price = item.variant?.salePrice || item.variant?.price || item.product.salePrice || item.product.price;
     return sum + price * item.quantity;
   }, 0) || 0;
+
+  const discount = cart?.discountAmount || 0;
 
   return (
     <CartContext.Provider
@@ -242,12 +305,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
         error,
         itemCount,
         subtotal,
+        discount,
         addToCart,
         updateQuantity,
         updateVariant,
         removeItem,
         clearCart,
         refreshCart: fetchCart,
+        applyCoupon,
+        removeCoupon,
       }}
     >
       {children}

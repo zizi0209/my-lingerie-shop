@@ -1,6 +1,30 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 
+// Tính discount amount dựa vào coupon
+const calculateDiscount = (coupon: {
+  discountType: string;
+  discountValue: number;
+  maxDiscount: number | null;
+  minOrderValue: number | null;
+}, orderTotal: number): number => {
+  if (coupon.minOrderValue && orderTotal < coupon.minOrderValue) {
+    return 0;
+  }
+
+  let discount = 0;
+  if (coupon.discountType === 'PERCENTAGE') {
+    discount = (orderTotal * coupon.discountValue) / 100;
+    if (coupon.maxDiscount && discount > coupon.maxDiscount) {
+      discount = coupon.maxDiscount;
+    }
+  } else if (coupon.discountType === 'FIXED_AMOUNT') {
+    discount = coupon.discountValue;
+  }
+
+  return Math.min(discount, orderTotal);
+};
+
 // Get cart by userId or sessionId
 export const getCart = async (req: Request, res: Response) => {
   try {
@@ -45,6 +69,17 @@ export const getCart = async (req: Request, res: Response) => {
             },
           },
         },
+        coupon: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            discountType: true,
+            discountValue: true,
+            maxDiscount: true,
+            minOrderValue: true,
+          },
+        },
       },
     });
 
@@ -83,13 +118,43 @@ export const getCart = async (req: Request, res: Response) => {
               },
             },
           },
+          coupon: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              discountType: true,
+              discountValue: true,
+              maxDiscount: true,
+              minOrderValue: true,
+            },
+          },
         },
       });
     }
 
+    // Calculate discount if coupon applied
+    let discountAmount = 0;
+    if (cart.coupon) {
+      const subtotal = cart.items.reduce((sum, item) => {
+        const price = item.variant?.salePrice || item.variant?.price || item.product.salePrice || item.product.price;
+        return sum + price * item.quantity;
+      }, 0);
+      discountAmount = calculateDiscount(cart.coupon, subtotal);
+    }
+
     res.json({
       success: true,
-      data: cart,
+      data: {
+        id: cart.id,
+        userId: cart.userId,
+        sessionId: cart.sessionId,
+        couponCode: cart.couponCode,
+        couponId: cart.couponId,
+        items: cart.items,
+        coupon: cart.coupon,
+        discountAmount,
+      },
     });
   } catch (error) {
     console.error('Get cart error:', error);
@@ -312,5 +377,135 @@ export const clearCart = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Clear cart error:', error);
     res.status(500).json({ error: 'Lỗi khi xóa giỏ hàng!' });
+  }
+};
+
+// Apply coupon to cart
+export const applyCoupon = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { code, orderTotal } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ error: 'Mã giảm giá là bắt buộc!' });
+    }
+
+    const cart = await prisma.cart.findUnique({
+      where: { id: Number(id) },
+      include: {
+        items: {
+          include: {
+            product: { select: { price: true, salePrice: true } },
+            variant: { select: { price: true, salePrice: true } },
+          },
+        },
+      },
+    });
+
+    if (!cart) {
+      return res.status(404).json({ error: 'Không tìm thấy giỏ hàng!' });
+    }
+
+    // Calculate subtotal from cart items
+    const subtotal = orderTotal || cart.items.reduce((sum, item) => {
+      const price = item.variant?.salePrice || item.variant?.price || item.product.salePrice || item.product.price;
+      return sum + price * item.quantity;
+    }, 0);
+
+    // Find coupon
+    const coupon = await prisma.coupon.findFirst({
+      where: {
+        code: code.toUpperCase(),
+        isActive: true,
+        OR: [
+          { endDate: null },
+          { endDate: { gte: new Date() } },
+        ],
+      },
+    });
+
+    if (!coupon) {
+      return res.status(400).json({ error: 'Mã giảm giá không hợp lệ hoặc đã hết hạn!' });
+    }
+
+    // Check min order value
+    if (coupon.minOrderValue && subtotal < coupon.minOrderValue) {
+      return res.status(400).json({ 
+        error: `Đơn hàng tối thiểu ${coupon.minOrderValue.toLocaleString('vi-VN')}₫ để sử dụng mã này!` 
+      });
+    }
+
+    // Check quantity
+    if (coupon.quantity !== null && coupon.usedCount >= coupon.quantity) {
+      return res.status(400).json({ error: 'Mã giảm giá đã hết lượt sử dụng!' });
+    }
+
+    // Calculate discount
+    const discountAmount = calculateDiscount(coupon, subtotal);
+
+    // Update cart with coupon
+    const updatedCart = await prisma.cart.update({
+      where: { id: Number(id) },
+      data: {
+        couponCode: coupon.code,
+        couponId: coupon.id,
+      },
+      include: {
+        coupon: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            discountType: true,
+            discountValue: true,
+            maxDiscount: true,
+            minOrderValue: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        coupon: updatedCart.coupon,
+        discountAmount,
+      },
+      message: 'Áp dụng mã giảm giá thành công!',
+    });
+  } catch (error) {
+    console.error('Apply coupon error:', error);
+    res.status(500).json({ error: 'Lỗi khi áp dụng mã giảm giá!' });
+  }
+};
+
+// Remove coupon from cart
+export const removeCoupon = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const cart = await prisma.cart.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!cart) {
+      return res.status(404).json({ error: 'Không tìm thấy giỏ hàng!' });
+    }
+
+    await prisma.cart.update({
+      where: { id: Number(id) },
+      data: {
+        couponCode: null,
+        couponId: null,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Đã gỡ mã giảm giá!',
+    });
+  } catch (error) {
+    console.error('Remove coupon error:', error);
+    res.status(500).json({ error: 'Lỗi khi gỡ mã giảm giá!' });
   }
 };

@@ -386,17 +386,21 @@ model Post {
 
 // 14. CART
 model Cart {
-  id        Int        @id @default(autoincrement())
-  userId    Int?       @unique
-  user      User?      @relation(fields: [userId], references: [id])
-  sessionId String?
-  items     CartItem[]
-  expiresAt DateTime?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id         Int        @id @default(autoincrement())
+  userId     Int?       @unique
+  user       User?      @relation(fields: [userId], references: [id])
+  sessionId  String?
+  couponCode String?
+  couponId   Int?
+  coupon     Coupon?    @relation(fields: [couponId], references: [id])
+  items      CartItem[]
+  expiresAt  DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
   
   @@index([sessionId])
   @@index([expiresAt])
+  @@index([couponId])
 }
 
 // 15. CART ITEMS
@@ -675,6 +679,7 @@ model Coupon {
   // Relationships
   userCoupons  UserCoupon[]
   usageHistory CouponUsage[]
+  carts        Cart[]
   
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())

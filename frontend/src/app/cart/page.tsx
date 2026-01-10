@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Minus, Plus, X, ShoppingBag, Loader2, Trash2, Edit2, Check } from "lucide-react";
 import { useCart, CartItem } from "@/context/CartContext";
-import { userVoucherApi } from "@/lib/couponApi";
 
 interface ProductVariant {
   id: number;
@@ -17,16 +16,22 @@ interface ProductVariant {
   salePrice: number | null;
 }
 
-interface AppliedVoucher {
-  code: string;
-  name: string;
-  discountAmount: number;
-}
-
 export default function CartPage() {
-  const { cart, loading, error, itemCount, subtotal, updateQuantity, updateVariant, removeItem, clearCart } = useCart();
+  const { 
+    cart, 
+    loading, 
+    error, 
+    itemCount, 
+    subtotal, 
+    discount,
+    updateQuantity, 
+    updateVariant, 
+    removeItem, 
+    clearCart,
+    applyCoupon,
+    removeCoupon,
+  } = useCart();
   const [promoCode, setPromoCode] = useState("");
-  const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(null);
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [updatingItems, setUpdatingItems] = useState<Set<number>>(new Set());
@@ -79,7 +84,6 @@ export default function CartPage() {
     });
   };
 
-  const discount = appliedVoucher?.discountAmount || 0;
   const shipping = subtotal >= 1000000 ? 0 : 30000;
   const total = subtotal - discount + shipping;
 
@@ -89,27 +93,20 @@ export default function CartPage() {
     setVoucherLoading(true);
     setVoucherError(null);
     
-    try {
-      const response = await userVoucherApi.validateVoucher(promoCode.trim().toUpperCase(), subtotal);
-      if (response.success) {
-        setAppliedVoucher({
-          code: response.data.coupon.code,
-          name: response.data.coupon.name,
-          discountAmount: response.data.discountAmount,
-        });
-        setPromoCode("");
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Mã giảm giá không hợp lệ";
-      setVoucherError(message);
-    } finally {
-      setVoucherLoading(false);
+    const result = await applyCoupon(promoCode);
+    if (result.success) {
+      setPromoCode("");
+    } else {
+      setVoucherError(result.error || "Mã giảm giá không hợp lệ");
     }
+    setVoucherLoading(false);
   };
 
-  const removeVoucher = () => {
-    setAppliedVoucher(null);
+  const handleRemoveVoucher = async () => {
+    setVoucherLoading(true);
+    await removeCoupon();
     setVoucherError(null);
+    setVoucherLoading(false);
   };
 
   if (loading) {
@@ -318,17 +315,18 @@ export default function CartPage() {
             {/* Promo Code */}
             <div className="mb-6">
               <label className="text-sm text-gray-600 dark:text-gray-400 mb-2 block">Mã giảm giá</label>
-              {appliedVoucher ? (
+              {cart?.coupon ? (
                 <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
                   <div>
-                    <p className="font-medium text-green-700 dark:text-green-400">{appliedVoucher.code}</p>
-                    <p className="text-sm text-green-600 dark:text-green-500">{appliedVoucher.name}</p>
+                    <p className="font-medium text-green-700 dark:text-green-400">{cart.coupon.code}</p>
+                    <p className="text-sm text-green-600 dark:text-green-500">{cart.coupon.name}</p>
                   </div>
                   <button
-                    onClick={removeVoucher}
-                    className="text-red-500 hover:text-red-700 dark:hover:text-red-400"
+                    onClick={handleRemoveVoucher}
+                    disabled={voucherLoading}
+                    className="text-red-500 hover:text-red-700 dark:hover:text-red-400 disabled:opacity-50"
                   >
-                    <X className="w-5 h-5" />
+                    {voucherLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <X className="w-5 h-5" />}
                   </button>
                 </div>
               ) : (
