@@ -8,7 +8,7 @@ import {
   Users, UserCheck, ShoppingCart, Settings, 
   ShieldCheck, MousePointer2, Home, 
   Tag, Menu, Activity, Store, Palette, Star,
-  Ticket, Megaphone, Gift, Search
+  Ticket, Megaphone, Gift, Search, Ruler
 } from 'lucide-react';
 import { useLanguage } from './LanguageContext';
 import { useStoreConfig } from './StoreConfigContext';
@@ -65,6 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
         { name: t('nav.staffUsers'), path: '/dashboard/users', icon: Users },
         { name: t('nav.customers'), path: '/dashboard/customers', icon: UserCheck },
         { name: t('nav.roles'), path: '/dashboard/roles', icon: ShieldCheck },
+        { name: t('nav.sizeCharts') || 'Bảng size', path: '/dashboard/settings/size-charts', icon: Ruler },
         { name: t('nav.settings'), path: '/dashboard/settings', icon: Settings },
       ]
     }
