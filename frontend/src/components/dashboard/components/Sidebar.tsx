@@ -8,7 +8,7 @@ import {
   Users, UserCheck, ShoppingCart, Settings, 
   ShieldCheck, MousePointer2, Home, 
   Tag, Menu, Activity, Store, Palette, Star,
-  Ticket, Megaphone, Gift
+  Ticket, Megaphone, Gift, Search
 } from 'lucide-react';
 import { useLanguage } from './LanguageContext';
 import { useStoreConfig } from './StoreConfigContext';
@@ -56,6 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
         { name: t('nav.coupons'), path: '/dashboard/coupons', icon: Ticket },
         { name: t('nav.campaigns'), path: '/dashboard/campaigns', icon: Megaphone },
         { name: t('nav.rewards'), path: '/dashboard/rewards', icon: Gift },
+        { name: t('nav.search') || 'Tìm kiếm', path: '/dashboard/search', icon: Search },
       ]
     },
     {
