@@ -103,7 +103,22 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         if (data.data.variants?.length > 0) {
           const colors = [...new Set(data.data.variants.map((v: ProductVariant) => v.colorName))];
           if (colors.length > 0) {
-            setSelectedColor(colors[0] as string);
+            const firstColor = colors[0] as string;
+            setSelectedColor(firstColor);
+            
+            // Auto-select size nếu chỉ có 1 size hoặc là "Free Size"
+            const sizesForColor = [...new Set(
+              data.data.variants
+                .filter((v: ProductVariant) => v.colorName === firstColor)
+                .map((v: ProductVariant) => v.size)
+            )];
+            
+            if (sizesForColor.length === 1) {
+              setSelectedSize(sizesForColor[0] as string);
+            } else if (sizesForColor.some((s) => String(s).toLowerCase().includes('free'))) {
+              const freeSize = sizesForColor.find((s) => String(s).toLowerCase().includes('free'));
+              if (freeSize) setSelectedSize(freeSize as string);
+            }
           }
         }
 
@@ -321,7 +336,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                     key={color}
                     onClick={() => {
                       setSelectedColor(color);
-                      setSelectedSize("");
+                      // Auto-select size nếu chỉ có 1 size cho màu này
+                      const sizesForColor = [...new Set(
+                        product?.variants
+                          .filter(v => v.colorName === color)
+                          .map(v => v.size)
+                      )];
+                      if (sizesForColor.length === 1) {
+                        setSelectedSize(sizesForColor[0]);
+                      } else {
+                        setSelectedSize("");
+                      }
                     }}
                     className={`px-4 py-2 border rounded transition-all ${
                       selectedColor === color
@@ -336,8 +361,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             </div>
           )}
 
-          {/* Size Selection - Hide for ACCESSORY */}
-          {sizes.length > 0 && product.productType !== 'ACCESSORY' && (
+          {/* Size Selection - Hide if only 1 size (auto-selected) */}
+          {sizes.length > 1 && (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white">Kích cỡ</h3>
