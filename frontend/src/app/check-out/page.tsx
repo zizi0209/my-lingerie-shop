@@ -4,14 +4,15 @@ import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Truck, Shield, CreditCard, ShoppingBag, Loader2, CheckCircle, AlertCircle, Ticket, X, Tag } from "lucide-react";
+import { Truck, Shield, CreditCard, ShoppingBag, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import { userVoucherApi, type UserCoupon } from "@/lib/couponApi";
+import { userVoucherApi } from "@/lib/couponApi";
+import VoucherSelector from "@/components/checkout/VoucherSelector";
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, loading: cartLoading, subtotal, discount: cartDiscount, clearCart, applyCoupon: applyCartCoupon, removeCoupon } = useCart();
+  const { cart, loading: cartLoading, subtotal, clearCart } = useCart();
   const { user, isAuthenticated } = useAuth();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,17 +23,9 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [shippingMethod, setShippingMethod] = useState("standard");
   
-  // Voucher states
-  const [myVouchers, setMyVouchers] = useState<UserCoupon[]>([]);
-  const [voucherCode, setVoucherCode] = useState("");
-  const [appliedVoucher, setAppliedVoucher] = useState<{
-    code: string;
-    name: string;
-    discountAmount: number;
-  } | null>(null);
-  const [voucherError, setVoucherError] = useState<string | null>(null);
-  const [voucherLoading, setVoucherLoading] = useState(false);
-  const [showVoucherModal, setShowVoucherModal] = useState(false);
+  // Voucher stacking states
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [shippingDiscountAmount, setShippingDiscountAmount] = useState(0);
   
   // Points preview
   const [pointsPreview, setPointsPreview] = useState<{
@@ -66,42 +59,9 @@ export default function CheckoutPage() {
     }
   }, [isAuthenticated, user]);
 
-  // Load coupon from cart (applied on cart page)
-  useEffect(() => {
-    if (cart?.coupon && !appliedVoucher) {
-      setAppliedVoucher({
-        code: cart.coupon.code,
-        name: cart.coupon.name,
-        discountAmount: cartDiscount,
-      });
-    }
-  }, [cart?.coupon, cartDiscount, appliedVoucher]);
-
-  const shipping = shippingMethod === "express" ? 50000 : (subtotal >= 1000000 ? 0 : 30000);
-  const voucherDiscount = appliedVoucher?.discountAmount || 0;
-  const total = subtotal + shipping - voucherDiscount;
-
-  // Fetch user's vouchers
-  const fetchMyVouchers = useCallback(async () => {
-    if (!isAuthenticated) return;
-    try {
-      const response = await userVoucherApi.getMyVouchers();
-      if (response.success) {
-        // Filter vouchers that meet min order value
-        const validVouchers = response.data.filter(uc => {
-          if (!uc.coupon.minOrderValue) return true;
-          return subtotal >= uc.coupon.minOrderValue;
-        });
-        setMyVouchers(validVouchers);
-      }
-    } catch (err) {
-      console.error("Failed to fetch vouchers:", err);
-    }
-  }, [isAuthenticated, subtotal]);
-
-  useEffect(() => {
-    fetchMyVouchers();
-  }, [fetchMyVouchers]);
+  const shippingFee = shippingMethod === "express" ? 50000 : (subtotal >= 1000000 ? 0 : 30000);
+  const finalShipping = Math.max(0, shippingFee - shippingDiscountAmount);
+  const total = subtotal - discountAmount + finalShipping;
 
   // Fetch points preview
   const fetchPointsPreview = useCallback(async () => {
@@ -119,42 +79,6 @@ export default function CheckoutPage() {
   useEffect(() => {
     fetchPointsPreview();
   }, [fetchPointsPreview]);
-
-  // Apply voucher
-  const handleApplyVoucher = async (code: string) => {
-    if (!code.trim()) return;
-    
-    setVoucherLoading(true);
-    setVoucherError(null);
-    
-    try {
-      const response = await userVoucherApi.validateVoucher(code.trim().toUpperCase(), subtotal);
-      if (response.success) {
-        setAppliedVoucher({
-          code: response.data.coupon.code,
-          name: response.data.coupon.name,
-          discountAmount: response.data.discountAmount,
-        });
-        setVoucherCode("");
-        setShowVoucherModal(false);
-        // Also save to cart in DB for persistence
-        await applyCartCoupon(code);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Ma khong hop le";
-      setVoucherError(message);
-    } finally {
-      setVoucherLoading(false);
-    }
-  };
-
-  // Remove voucher
-  const handleRemoveVoucher = async () => {
-    setAppliedVoucher(null);
-    setVoucherError(null);
-    // Also remove from cart in DB
-    await removeCoupon();
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -234,13 +158,15 @@ export default function CheckoutPage() {
         shippingMethod: shippingMethod === "express" ? "EXPRESS" : "STANDARD",
         paymentMethod: paymentMethod.toUpperCase(),
         totalAmount: total,
-        shippingFee: shipping,
-        discount: 0,
+        shippingFee: finalShipping,
+        discount: discountAmount,
         notes: formData.notes || null,
         items,
-        // Coupon info
-        couponCode: appliedVoucher?.code || null,
-        couponDiscount: appliedVoucher?.discountAmount || 0,
+        // Voucher stacking info
+        discountCouponCode: cart.discountCoupon?.code || null,
+        discountCouponAmount: discountAmount,
+        shippingCouponCode: cart.shippingCoupon?.code || null,
+        shippingCouponAmount: shippingDiscountAmount,
       };
 
       const res = await fetch(`${baseUrl}/orders`, {
@@ -668,58 +594,42 @@ export default function CheckoutPage() {
               })}
             </div>
 
-            {/* Voucher Section */}
+            {/* Voucher Section - Voucher Stacking */}
             <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-              {appliedVoucher ? (
-                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Tag className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <div>
-                      <p className="text-sm font-medium text-green-700 dark:text-green-300">{appliedVoucher.code}</p>
-                      <p className="text-xs text-green-600 dark:text-green-400">-{appliedVoucher.discountAmount.toLocaleString("vi-VN")}₫</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleRemoveVoucher}
-                    className="text-gray-400 hover:text-red-500"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowVoucherModal(true)}
-                  className="w-full flex items-center justify-between p-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary text-gray-600 dark:text-gray-400 hover:text-primary transition"
-                >
-                  <span className="flex items-center gap-2">
-                    <Ticket className="w-4 h-4" />
-                    Chon ma giam gia
-                  </span>
-                  <span className="text-sm">{myVouchers.length > 0 ? `${myVouchers.length} ma kha dung` : ""}</span>
-                </button>
-              )}
+              <VoucherSelector
+                shippingFee={shippingFee}
+                onDiscountChange={setDiscountAmount}
+                onShippingDiscountChange={setShippingDiscountAmount}
+              />
             </div>
 
             {/* Price Summary */}
             <div className="space-y-3 mb-6">
               <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                <span>Tam tinh</span>
+                <span>Tạm tính</span>
                 <span>{subtotal.toLocaleString("vi-VN")}₫</span>
               </div>
-              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                <span>Phi van chuyen</span>
-                <span>{shipping === 0 ? "Mien phi" : `${shipping.toLocaleString("vi-VN")}₫`}</span>
-              </div>
-              {appliedVoucher && (
+              {discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
-                  <span>Giam gia ({appliedVoucher.code})</span>
-                  <span>-{appliedVoucher.discountAmount.toLocaleString("vi-VN")}₫</span>
+                  <span>Giảm giá</span>
+                  <span>-{discountAmount.toLocaleString("vi-VN")}₫</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                <span>Phí vận chuyển</span>
+                <span>
+                  {shippingFee === 0 ? "Miễn phí" : `${shippingFee.toLocaleString("vi-VN")}₫`}
+                </span>
+              </div>
+              {shippingDiscountAmount > 0 && (
+                <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                  <span>Giảm phí ship</span>
+                  <span>-{shippingDiscountAmount.toLocaleString("vi-VN")}₫</span>
                 </div>
               )}
               <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex justify-between text-lg font-medium text-black dark:text-white">
-                  <span>Tong cong</span>
+                  <span>Tổng cộng</span>
                   <span>{total.toLocaleString("vi-VN")}₫</span>
                 </div>
               </div>
@@ -773,110 +683,14 @@ export default function CheckoutPage() {
             </button>
 
             <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4">
-              Bang cach dat hang, ban dong y voi{" "}
+              Bằng cách đặt hàng, bạn đồng ý với{" "}
               <Link href="/dieu-khoan" className="underline hover:text-black dark:hover:text-white transition">
-                dieu khoan dich vu
+                điều khoản dịch vụ
               </Link>
             </p>
           </div>
         </div>
       </div>
-
-      {/* Voucher Modal */}
-      {showVoucherModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md max-h-[80vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                <Ticket className="w-5 h-5 text-primary" />
-                Chon ma giam gia
-              </h3>
-              <button
-                onClick={() => setShowVoucherModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4">
-              {/* Manual input */}
-              <div className="flex gap-2 mb-4">
-                <input
-                  type="text"
-                  value={voucherCode}
-                  onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                  placeholder="Nhap ma giam gia..."
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
-                />
-                <button
-                  onClick={() => handleApplyVoucher(voucherCode)}
-                  disabled={!voucherCode.trim() || voucherLoading}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm"
-                >
-                  {voucherLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Ap dung"}
-                </button>
-              </div>
-
-              {voucherError && (
-                <p className="text-sm text-red-500 mb-4">{voucherError}</p>
-              )}
-
-              {/* Available vouchers */}
-              {isAuthenticated && myVouchers.length > 0 && (
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                    Ma kha dung ({myVouchers.length})
-                  </p>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {myVouchers.map((uc) => (
-                      <button
-                        key={uc.id}
-                        onClick={() => handleApplyVoucher(uc.coupon.code)}
-                        disabled={voucherLoading}
-                        className="w-full flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-primary text-left transition"
-                      >
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white text-sm">
-                            {uc.coupon.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {uc.coupon.discountType === "PERCENTAGE"
-                              ? `Giam ${uc.coupon.discountValue}%`
-                              : `Giam ${uc.coupon.discountValue.toLocaleString("vi-VN")}₫`}
-                            {uc.coupon.minOrderValue && ` - Don toi thieu ${uc.coupon.minOrderValue.toLocaleString("vi-VN")}₫`}
-                          </p>
-                        </div>
-                        <code className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono">
-                          {uc.coupon.code}
-                        </code>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {isAuthenticated && myVouchers.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  Ban chua co ma giam gia kha dung.{" "}
-                  <Link href="/profile/vouchers" className="text-primary hover:underline">
-                    Nhan voucher
-                  </Link>
-                </p>
-              )}
-
-              {!isAuthenticated && (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  <Link href="/login-register" className="text-primary hover:underline">
-                    Dang nhap
-                  </Link>{" "}
-                  de xem ma giam gia cua ban
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -47,8 +47,15 @@ interface Cart {
   userId: number | null;
   sessionId: string | null;
   items: CartItem[];
-  coupon: CartCoupon | null;
-  couponCode: string | null;
+  // Legacy support
+  coupon?: CartCoupon | null;
+  couponCode?: string | null;
+  // New voucher stacking
+  discountCoupon: CartCoupon | null;
+  discountCouponCode: string | null;
+  shippingCoupon: CartCoupon | null;
+  shippingCouponCode: string | null;
+  usePoints: number;
   discountAmount: number;
 }
 
@@ -65,8 +72,14 @@ interface CartContextType {
   removeItem: (itemId: number) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
+  // Legacy
   applyCoupon: (code: string) => Promise<{ success: boolean; error?: string }>;
   removeCoupon: () => Promise<void>;
+  // Voucher Stacking
+  applyDiscountCoupon: (code: string) => Promise<{ success: boolean; error?: string }>;
+  applyShippingCoupon: (code: string) => Promise<{ success: boolean; error?: string }>;
+  removeDiscountCoupon: () => Promise<void>;
+  removeShippingCoupon: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -288,6 +301,98 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ========== VOUCHER STACKING ==========
+  
+  const applyDiscountCoupon = async (code: string): Promise<{ success: boolean; error?: string }> => {
+    if (!cart) return { success: false, error: "Giỏ hàng chưa sẵn sàng" };
+
+    try {
+      const res = await fetch(`${baseUrl}/carts/${cart.id}/apply-discount`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim().toUpperCase() }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        await fetchCart();
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || "Mã giảm giá không hợp lệ" };
+      }
+    } catch (err) {
+      console.error("Apply discount coupon error:", err);
+      return { success: false, error: "Lỗi kết nối server" };
+    }
+  };
+
+  const applyShippingCoupon = async (code: string): Promise<{ success: boolean; error?: string }> => {
+    if (!cart) return { success: false, error: "Giỏ hàng chưa sẵn sàng" };
+
+    try {
+      const res = await fetch(`${baseUrl}/carts/${cart.id}/apply-shipping`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim().toUpperCase() }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        await fetchCart();
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || "Mã vận chuyển không hợp lệ" };
+      }
+    } catch (err) {
+      console.error("Apply shipping coupon error:", err);
+      return { success: false, error: "Lỗi kết nối server" };
+    }
+  };
+
+  const removeDiscountCoupon = async () => {
+    if (!cart) return;
+
+    try {
+      const res = await fetch(`${baseUrl}/carts/${cart.id}/remove-discount`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        await fetchCart();
+      } else {
+        setError(data.error || "Không thể gỡ mã giảm giá");
+      }
+    } catch (err) {
+      console.error("Remove discount coupon error:", err);
+      setError("Lỗi kết nối server");
+    }
+  };
+
+  const removeShippingCoupon = async () => {
+    if (!cart) return;
+
+    try {
+      const res = await fetch(`${baseUrl}/carts/${cart.id}/remove-shipping`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        await fetchCart();
+      } else {
+        setError(data.error || "Không thể gỡ mã vận chuyển");
+      }
+    } catch (err) {
+      console.error("Remove shipping coupon error:", err);
+      setError("Lỗi kết nối server");
+    }
+  };
+
   const itemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   const subtotal = cart?.items.reduce((sum, item) => {
@@ -314,6 +419,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         refreshCart: fetchCart,
         applyCoupon,
         removeCoupon,
+        applyDiscountCoupon,
+        applyShippingCoupon,
+        removeDiscountCoupon,
+        removeShippingCoupon,
       }}
     >
       {children}

@@ -327,23 +327,29 @@ model Post {
 }
 
 model Cart {
-  id              Int        @id @default(autoincrement())
-  userId          Int?       @unique
-  sessionId       String?
-  expiresAt       DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  couponCode      String?
-  couponId        Int?
-  lastAbandonedAt DateTime?  // Lần cuối bị đánh dấu abandoned
-  recoveredCount  Int        @default(0) // Số lần phục hồi từ abandoned
-  coupon          Coupon?    @relation(fields: [couponId], references: [id])
-  user            User?      @relation(fields: [userId], references: [id])
-  items           CartItem[]
+  id                 Int        @id @default(autoincrement())
+  userId             Int?       @unique
+  sessionId          String?
+  expiresAt          DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  // Voucher stacking: tách riêng mã giảm giá và mã ship
+  discountCouponId   Int?       // Mã giảm giá (DISCOUNT category)
+  discountCouponCode String?
+  shippingCouponId   Int?       // Mã freeship/giảm ship (SHIPPING category)
+  shippingCouponCode String?
+  usePoints          Int        @default(0) // Số điểm muốn sử dụng
+  lastAbandonedAt    DateTime?  // Lần cuối bị đánh dấu abandoned
+  recoveredCount     Int        @default(0) // Số lần phục hồi từ abandoned
+  discountCoupon     Coupon?    @relation("DiscountCoupon", fields: [discountCouponId], references: [id])
+  shippingCoupon     Coupon?    @relation("ShippingCoupon", fields: [shippingCouponId], references: [id])
+  user               User?      @relation(fields: [userId], references: [id])
+  items              CartItem[]
 
   @@index([sessionId])
   @@index([expiresAt])
-  @@index([couponId])
+  @@index([discountCouponId])
+  @@index([shippingCouponId])
   @@index([lastAbandonedAt])
 }
 
@@ -543,14 +549,15 @@ model Coupon {
   code            String        @unique
   name            String
   description     String?
-  discountType    String
+  category        String        @default("DISCOUNT") // DISCOUNT | SHIPPING
+  discountType    String        // PERCENTAGE | FIXED_AMOUNT | FREE_SHIPPING
   discountValue   Float
   maxDiscount     Float?
   minOrderValue   Float?
   quantity        Int?
   usedCount       Int           @default(0)
   maxUsagePerUser Int           @default(1)
-  couponType      String        @default("PUBLIC")
+  couponType      String        @default("PUBLIC") // PUBLIC | PRIVATE | NEW_USER | BIRTHDAY
   isSystem        Boolean       @default(false)
   isPublic        Boolean       @default(true)
   conditions      Json?
@@ -560,12 +567,14 @@ model Coupon {
   isActive        Boolean       @default(true)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  carts           Cart[]
+  discountCarts   Cart[]        @relation("DiscountCoupon")
+  shippingCarts   Cart[]        @relation("ShippingCoupon")
   campaign        Campaign?     @relation(fields: [campaignId], references: [id])
   usageHistory    CouponUsage[]
   userCoupons     UserCoupon[]
 
   @@index([code])
+  @@index([category, isActive])
   @@index([couponType, isActive])
   @@index([isPublic, isActive])
   @@index([startDate, endDate])

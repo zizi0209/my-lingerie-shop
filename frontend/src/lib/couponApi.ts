@@ -345,4 +345,35 @@ export const userVoucherApi = {
   }> => {
     return api.post('/points/calculate', { orderTotal }, false);
   },
+
+  // Get available vouchers for cart (voucher stacking)
+  getAvailableVouchers: async (cartId: number): Promise<{
+    success: boolean;
+    data: {
+      subtotal: number;
+      discountVouchers: Array<{
+        id: number;
+        code: string;
+        name: string;
+        discountType: string;
+        discountValue: number;
+        maxDiscount: number | null;
+        minOrderValue: number | null;
+        eligible: boolean;
+        amountNeeded: number;
+      }>;
+      shippingVouchers: Array<{
+        id: number;
+        code: string;
+        name: string;
+        discountType: string;
+        discountValue: number;
+        minOrderValue: number | null;
+        eligible: boolean;
+        amountNeeded: number;
+      }>;
+    };
+  }> => {
+    return api.get(`/carts/${cartId}/available-vouchers`, false);
+  },
 };
