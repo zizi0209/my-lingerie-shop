@@ -3,7 +3,11 @@ Trả lời bằng Tiếng Việt
 Chọn Best approve
 Chọn Best practices
 
-Áp dụng Convenient over Configuration
+- Áp dụng Convenient over Configuration
+- Áp dụng Explicit over Implicit
+- Áp dụng DRY over WET
+
+- Áp sticket QA & phân tích các vấn đề theo các mức (Critical, High, Medium, Low)
 
 Tuân thủ nguyên tắc :
 
