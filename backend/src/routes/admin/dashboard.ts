@@ -276,6 +276,8 @@ router.get('/carts', async (req, res) => {
       select: {
         id: true,
         updatedAt: true,
+        lastAbandonedAt: true,
+        recoveredCount: true,
         items: {
           select: {
             quantity: true,
@@ -287,10 +289,11 @@ router.get('/carts', async (req, res) => {
     });
 
     // Calculate global stats
-    let globalActiveCarts = 0;
-    let globalAbandonedCarts = 0;
+    let globalActiveCarts = 0;        // Giỏ hàng hoạt động (chưa từng bị bỏ rơi)
+    let globalAbandonedCarts = 0;     // Giỏ hàng bỏ rơi (hiện tại)
     let globalAbandonedValue = 0;
     let globalEmptyCarts = 0;
+    let globalRecoveredCarts = 0;     // Giỏ hàng đã phục hồi (từng bỏ rơi, nay hoạt động lại)
 
     allCartsForStats.forEach((cart) => {
       if (cart.items.length === 0) {
@@ -301,10 +304,18 @@ router.get('/carts', async (req, res) => {
           return sum + price * item.quantity;
         }, 0);
 
-        if (cart.updatedAt < abandonedThreshold) {
+        const isCurrentlyAbandoned = cart.updatedAt < abandonedThreshold;
+        const wasEverAbandoned = cart.lastAbandonedAt !== null || cart.recoveredCount > 0;
+
+        if (isCurrentlyAbandoned) {
+          // Hiện tại đang bị bỏ rơi
           globalAbandonedCarts++;
           globalAbandonedValue += cartValue;
+        } else if (wasEverAbandoned) {
+          // Từng bị bỏ rơi nhưng đã quay lại → Recovered
+          globalRecoveredCarts++;
         } else {
+          // Chưa từng bị bỏ rơi → Active mới
           globalActiveCarts++;
         }
       }
@@ -314,14 +325,28 @@ router.get('/carts', async (req, res) => {
     let statusWhere: Prisma.CartWhereInput = {};
     
     if (status === 'abandoned') {
+      // Hiện tại đang bị bỏ rơi (>1h không hoạt động)
       statusWhere = {
         updatedAt: { lt: abandonedThreshold },
         items: { some: {} },
       };
     } else if (status === 'active') {
+      // Hoạt động gần đây VÀ chưa từng bị bỏ rơi
       statusWhere = {
         updatedAt: { gte: abandonedThreshold },
         items: { some: {} },
+        lastAbandonedAt: null,
+        recoveredCount: 0,
+      };
+    } else if (status === 'recovered') {
+      // Từng bị bỏ rơi nhưng đã quay lại hoạt động
+      statusWhere = {
+        updatedAt: { gte: abandonedThreshold },
+        items: { some: {} },
+        OR: [
+          { lastAbandonedAt: { not: null } },
+          { recoveredCount: { gt: 0 } },
+        ],
       };
     } else if (status === 'empty') {
       statusWhere = {
@@ -384,11 +409,14 @@ router.get('/carts', async (req, res) => {
         return sum + price * item.quantity;
       }, 0);
 
-      let cartStatus: 'active' | 'abandoned' | 'empty' = 'active';
+      // Determine status based on new logic
+      let cartStatus: 'active' | 'abandoned' | 'empty' | 'recovered' = 'active';
       if (cart.items.length === 0) {
         cartStatus = 'empty';
       } else if (cart.updatedAt < abandonedThreshold) {
         cartStatus = 'abandoned';
+      } else if (cart.lastAbandonedAt !== null || cart.recoveredCount > 0) {
+        cartStatus = 'recovered';
       }
 
       return {
@@ -401,6 +429,8 @@ router.get('/carts', async (req, res) => {
         items: cart.items,
         createdAt: cart.createdAt,
         updatedAt: cart.updatedAt,
+        lastAbandonedAt: cart.lastAbandonedAt,
+        recoveredCount: cart.recoveredCount,
       };
     });
 
@@ -413,6 +443,7 @@ router.get('/carts', async (req, res) => {
         abandonedCarts: globalAbandonedCarts,
         abandonedValue: globalAbandonedValue,
         emptyCarts: globalEmptyCarts,
+        recoveredCarts: globalRecoveredCarts,
       },
       pagination: {
         page: Number(page),

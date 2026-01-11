@@ -327,21 +327,24 @@ model Post {
 }
 
 model Cart {
-  id         Int        @id @default(autoincrement())
-  userId     Int?       @unique
-  sessionId  String?
-  expiresAt  DateTime?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  couponCode String?
-  couponId   Int?
-  coupon     Coupon?    @relation(fields: [couponId], references: [id])
-  user       User?      @relation(fields: [userId], references: [id])
-  items      CartItem[]
+  id              Int        @id @default(autoincrement())
+  userId          Int?       @unique
+  sessionId       String?
+  expiresAt       DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  couponCode      String?
+  couponId        Int?
+  lastAbandonedAt DateTime?  // Lần cuối bị đánh dấu abandoned
+  recoveredCount  Int        @default(0) // Số lần phục hồi từ abandoned
+  coupon          Coupon?    @relation(fields: [couponId], references: [id])
+  user            User?      @relation(fields: [userId], references: [id])
+  items           CartItem[]
 
   @@index([sessionId])
   @@index([expiresAt])
   @@index([couponId])
+  @@index([lastAbandonedAt])
 }
 
 model CartItem {

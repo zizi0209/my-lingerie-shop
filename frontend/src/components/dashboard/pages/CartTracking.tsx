@@ -30,8 +30,9 @@ const CartTracking: React.FC = () => {
     subtitle: language === 'vi' ? 'Giám sát và phục hồi doanh thu tiềm năng' : 'Monitor and recover potential revenue',
     refresh: language === 'vi' ? 'Làm mới' : 'Refresh',
     abandonedTotal: language === 'vi' ? 'Tổng giỏ hàng bỏ rơi' : 'Abandoned Value',
-    recoveryRate: language === 'vi' ? 'Giỏ hàng bỏ rơi' : 'Abandoned Carts',
-    activeCarts: language === 'vi' ? 'Giỏ hàng hoạt động' : 'Active Carts',
+    abandonedCarts: language === 'vi' ? 'Giỏ hàng bỏ rơi' : 'Abandoned Carts',
+    activeCarts: language === 'vi' ? 'Giỏ hàng mới' : 'New Carts',
+    recoveredCarts: language === 'vi' ? 'Giỏ hàng phục hồi' : 'Recovered Carts',
     cartId: language === 'vi' ? 'ID' : 'Cart ID',
     customer: language === 'vi' ? 'Khách hàng' : 'Customer',
     items: language === 'vi' ? 'Sản phẩm' : 'Items',
@@ -42,8 +43,9 @@ const CartTracking: React.FC = () => {
     loadingText: language === 'vi' ? 'Đang tải...' : 'Loading...',
     noCarts: language === 'vi' ? 'Chưa có giỏ hàng nào' : 'No carts found',
     allStatus: language === 'vi' ? 'Tất cả' : 'All',
-    active: language === 'vi' ? 'Hoạt động' : 'Active',
+    active: language === 'vi' ? 'Mới' : 'New',
     abandoned: language === 'vi' ? 'Bỏ rơi' : 'Abandoned',
+    recovered: language === 'vi' ? 'Phục hồi' : 'Recovered',
     empty: language === 'vi' ? 'Trống' : 'Empty',
     guest: language === 'vi' ? 'Khách vãng lai' : 'Guest',
     cartDetail: language === 'vi' ? 'Chi tiết giỏ hàng' : 'Cart Detail',
@@ -87,6 +89,10 @@ const CartTracking: React.FC = () => {
     abandoned: { 
       color: 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400', 
       label: t.abandoned 
+    },
+    recovered: { 
+      color: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400', 
+      label: t.recovered 
     },
     empty: { 
       color: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400', 
@@ -148,36 +154,47 @@ const CartTracking: React.FC = () => {
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-rose-50 dark:bg-rose-500/10 p-6 rounded-2xl border border-rose-100 dark:border-rose-500/20 flex items-center gap-5">
-            <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl text-rose-500 shadow-sm">
-              <AlertCircle size={28} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-rose-50 dark:bg-rose-500/10 p-5 rounded-2xl border border-rose-100 dark:border-rose-500/20 flex items-center gap-4">
+            <div className="p-3 bg-white dark:bg-slate-800 rounded-xl text-rose-500 shadow-sm">
+              <AlertCircle size={24} />
             </div>
             <div>
               <p className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-widest">{t.abandonedTotal}</p>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter mt-1">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter mt-1">
                 {formatCurrency(stats.abandonedValue)}
               </h3>
             </div>
           </div>
-          <div className="bg-amber-50 dark:bg-amber-500/10 p-6 rounded-2xl border border-amber-100 dark:border-amber-500/20 flex items-center gap-5">
-            <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl text-amber-500 shadow-sm">
-              <ShoppingCart size={28} />
+          <div className="bg-amber-50 dark:bg-amber-500/10 p-5 rounded-2xl border border-amber-100 dark:border-amber-500/20 flex items-center gap-4">
+            <div className="p-3 bg-white dark:bg-slate-800 rounded-xl text-amber-500 shadow-sm">
+              <ShoppingCart size={24} />
             </div>
             <div>
-              <p className="text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest">{t.recoveryRate}</p>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter mt-1">
+              <p className="text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest">{t.abandonedCarts}</p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter mt-1">
                 {stats.abandonedCarts}
               </h3>
             </div>
           </div>
-          <div className="bg-blue-50 dark:bg-blue-500/10 p-6 rounded-2xl border border-blue-100 dark:border-blue-500/20 flex items-center gap-5">
-            <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl text-blue-500 shadow-sm">
-              <ShoppingCart size={28} />
+          <div className="bg-emerald-50 dark:bg-emerald-500/10 p-5 rounded-2xl border border-emerald-100 dark:border-emerald-500/20 flex items-center gap-4">
+            <div className="p-3 bg-white dark:bg-slate-800 rounded-xl text-emerald-500 shadow-sm">
+              <RefreshCw size={24} />
+            </div>
+            <div>
+              <p className="text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest">{t.recoveredCarts}</p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter mt-1">
+                {stats.recoveredCarts}
+              </h3>
+            </div>
+          </div>
+          <div className="bg-blue-50 dark:bg-blue-500/10 p-5 rounded-2xl border border-blue-100 dark:border-blue-500/20 flex items-center gap-4">
+            <div className="p-3 bg-white dark:bg-slate-800 rounded-xl text-blue-500 shadow-sm">
+              <ShoppingCart size={24} />
             </div>
             <div>
               <p className="text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest">{t.activeCarts}</p>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter mt-1">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter mt-1">
                 {stats.activeCarts}
               </h3>
             </div>
@@ -198,6 +215,7 @@ const CartTracking: React.FC = () => {
           <option value="">{t.allStatus}</option>
           <option value="active">{t.active}</option>
           <option value="abandoned">{t.abandoned}</option>
+          <option value="recovered">{t.recovered}</option>
           <option value="empty">{t.empty}</option>
         </select>
       </div>

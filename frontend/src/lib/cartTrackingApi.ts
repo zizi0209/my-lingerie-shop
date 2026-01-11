@@ -1,6 +1,6 @@
 import { api } from './api';
 
-export type CartStatus = 'active' | 'abandoned' | 'empty';
+export type CartStatus = 'active' | 'abandoned' | 'empty' | 'recovered';
 
 export interface CartItem {
   id: number;
@@ -46,6 +46,7 @@ export interface CartStats {
   abandonedCarts: number;
   abandonedValue: number;
   emptyCarts: number;
+  recoveredCarts: number;
 }
 
 export interface CartListResponse {

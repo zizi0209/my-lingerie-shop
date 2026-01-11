@@ -1,6 +1,38 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 
+// Ngưỡng abandoned: 1 giờ không hoạt động
+const ABANDONED_THRESHOLD_MS = 60 * 60 * 1000;
+
+// Helper: Check và update trạng thái recovered nếu cart từng bị abandoned
+const checkAndUpdateRecoveredStatus = async (cartId: number) => {
+  const cart = await prisma.cart.findUnique({
+    where: { id: cartId },
+    select: {
+      updatedAt: true,
+      lastAbandonedAt: true,
+      recoveredCount: true,
+      items: { select: { id: true } },
+    },
+  });
+
+  if (!cart || cart.items.length === 0) return;
+
+  const abandonedThreshold = new Date(Date.now() - ABANDONED_THRESHOLD_MS);
+  const wasAbandoned = cart.updatedAt < abandonedThreshold;
+
+  if (wasAbandoned) {
+    // Cart đang ở trạng thái abandoned, user quay lại → mark as recovered
+    await prisma.cart.update({
+      where: { id: cartId },
+      data: {
+        lastAbandonedAt: cart.updatedAt, // Lưu lại thời điểm abandoned
+        recoveredCount: { increment: 1 },
+      },
+    });
+  }
+};
+
 // Tính discount amount dựa vào coupon
 const calculateDiscount = (coupon: {
   discountType: string;
@@ -179,6 +211,9 @@ export const addToCart = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Không tìm thấy giỏ hàng!' });
     }
 
+    // Check nếu cart từng bị abandoned và user quay lại
+    await checkAndUpdateRecoveredStatus(Number(cartId));
+
     const existingItem = await prisma.cartItem.findFirst({
       where: {
         cartId: Number(cartId),
@@ -240,6 +275,9 @@ export const updateCartItem = async (req: Request, res: Response) => {
     if (!cartItem) {
       return res.status(404).json({ error: 'Không tìm thấy sản phẩm trong giỏ hàng!' });
     }
+
+    // Check nếu cart từng bị abandoned và user quay lại
+    await checkAndUpdateRecoveredStatus(cartItem.cartId);
 
     // If changing variant, check if new variant exists and has stock
     if (variantId !== undefined) {
