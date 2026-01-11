@@ -82,8 +82,8 @@ const Orders: React.FC = () => {
     paymentRefunded: language === 'vi' ? 'Đã hoàn tiền' : 'Refunded',
   };
 
-  // Status config
-  const statusConfig: Record<OrderStatus, { color: string; icon: React.ReactNode; label: string }> = {
+  // Status config with fallback
+  const statusConfig: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
     PENDING: { 
       color: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400', 
       icon: <Clock size={14} />,
@@ -94,10 +94,25 @@ const Orders: React.FC = () => {
       icon: <CheckCircle size={14} />,
       label: t.CONFIRMED 
     },
+    PROCESSING: { 
+      color: 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400', 
+      icon: <Package size={14} />,
+      label: language === 'vi' ? 'Đang xử lý' : 'Processing'
+    },
+    SHIPPED: { 
+      color: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400', 
+      icon: <Truck size={14} />,
+      label: language === 'vi' ? 'Đã giao cho vận chuyển' : 'Shipped'
+    },
     SHIPPING: { 
       color: 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400', 
       icon: <Truck size={14} />,
       label: t.SHIPPING 
+    },
+    DELIVERED: { 
+      color: 'bg-teal-100 dark:bg-teal-500/20 text-teal-700 dark:text-teal-400', 
+      icon: <CheckCircle size={14} />,
+      label: language === 'vi' ? 'Đã giao hàng' : 'Delivered'
     },
     COMPLETED: { 
       color: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400', 
@@ -109,6 +124,15 @@ const Orders: React.FC = () => {
       icon: <XCircle size={14} />,
       label: t.CANCELLED 
     },
+  };
+
+  // Helper function to get status config with fallback
+  const getStatusConfig = (status: string) => {
+    return statusConfig[status] || {
+      color: 'bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-400',
+      icon: <AlertCircle size={14} />,
+      label: status
+    };
   };
 
   const paymentStatusConfig: Record<PaymentStatus, { color: string; label: string }> = {
@@ -352,9 +376,9 @@ const Orders: React.FC = () => {
                         {formatCurrency(order.totalAmount)}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-tight ${statusConfig[order.status].color}`}>
-                          {statusConfig[order.status].icon}
-                          {statusConfig[order.status].label}
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-tight ${getStatusConfig(order.status).color}`}>
+                          {getStatusConfig(order.status).icon}
+                          {getStatusConfig(order.status).label}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -441,9 +465,9 @@ const Orders: React.FC = () => {
 
                   {/* Status & Actions */}
                   <div className="flex flex-wrap items-center gap-4">
-                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${statusConfig[selectedOrder.status].color}`}>
-                      {statusConfig[selectedOrder.status].icon}
-                      {statusConfig[selectedOrder.status].label}
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${getStatusConfig(selectedOrder.status).color}`}>
+                      {getStatusConfig(selectedOrder.status).icon}
+                      {getStatusConfig(selectedOrder.status).label}
                     </div>
 
                     {selectedOrder.status !== 'COMPLETED' && selectedOrder.status !== 'CANCELLED' && (
