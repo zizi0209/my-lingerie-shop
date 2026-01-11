@@ -216,7 +216,6 @@ const CartTracking: React.FC = () => {
           <option value="active">{t.active}</option>
           <option value="abandoned">{t.abandoned}</option>
           <option value="recovered">{t.recovered}</option>
-          <option value="empty">{t.empty}</option>
         </select>
       </div>
 

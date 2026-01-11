@@ -45,7 +45,6 @@ export interface CartStats {
   activeCarts: number;
   abandonedCarts: number;
   abandonedValue: number;
-  emptyCarts: number;
   recoveredCarts: number;
 }
 
@@ -62,14 +61,17 @@ export interface CartListResponse {
 }
 
 export const cartTrackingApi = {
-  async list(params: { page?: number; limit?: number; status?: CartStatus; includeEmpty?: boolean } = {}): Promise<CartListResponse> {
+  async list(params: { page?: number; limit?: number; status?: CartStatus } = {}): Promise<CartListResponse> {
     const queryParams = new URLSearchParams();
     
     if (params.page) queryParams.set('page', params.page.toString());
     if (params.limit) queryParams.set('limit', params.limit.toString());
     if (params.status) queryParams.set('status', params.status);
-    if (params.includeEmpty) queryParams.set('includeEmpty', 'true');
 
     return api.get<CartListResponse>(`/admin/dashboard/carts?${queryParams.toString()}`);
+  },
+
+  async cleanup(): Promise<{ success: boolean; message: string; deletedCount: number }> {
+    return api.delete('/admin/dashboard/carts/cleanup');
   },
 };

@@ -264,9 +264,8 @@ router.get('/recent-activities', async (req, res) => {
  */
 router.get('/carts', async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, includeEmpty = 'false' } = req.query;
+    const { page = 1, limit = 20, status } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
-    const showEmpty = includeEmpty === 'true';
 
     // Define abandoned threshold (1 hour without updates)
     const abandonedThreshold = new Date(Date.now() - 60 * 60 * 1000);
@@ -288,36 +287,36 @@ router.get('/carts', async (req, res) => {
       },
     });
 
-    // Calculate global stats
+    // Calculate global stats (only carts with items)
     let globalActiveCarts = 0;        // Giỏ hàng hoạt động (chưa từng bị bỏ rơi)
     let globalAbandonedCarts = 0;     // Giỏ hàng bỏ rơi (hiện tại)
     let globalAbandonedValue = 0;
-    let globalEmptyCarts = 0;
     let globalRecoveredCarts = 0;     // Giỏ hàng đã phục hồi (từng bỏ rơi, nay hoạt động lại)
+    let cartsWithItems = 0;
 
     allCartsForStats.forEach((cart) => {
-      if (cart.items.length === 0) {
-        globalEmptyCarts++;
+      // Bỏ qua cart trống - không tính vào stats
+      if (cart.items.length === 0) return;
+
+      cartsWithItems++;
+      const cartValue = cart.items.reduce((sum, item) => {
+        const price = item.variant?.price || item.product.salePrice || item.product.price;
+        return sum + price * item.quantity;
+      }, 0);
+
+      const isCurrentlyAbandoned = cart.updatedAt < abandonedThreshold;
+      const wasEverAbandoned = cart.lastAbandonedAt !== null || cart.recoveredCount > 0;
+
+      if (isCurrentlyAbandoned) {
+        // Hiện tại đang bị bỏ rơi
+        globalAbandonedCarts++;
+        globalAbandonedValue += cartValue;
+      } else if (wasEverAbandoned) {
+        // Từng bị bỏ rơi nhưng đã quay lại → Recovered
+        globalRecoveredCarts++;
       } else {
-        const cartValue = cart.items.reduce((sum, item) => {
-          const price = item.variant?.price || item.product.salePrice || item.product.price;
-          return sum + price * item.quantity;
-        }, 0);
-
-        const isCurrentlyAbandoned = cart.updatedAt < abandonedThreshold;
-        const wasEverAbandoned = cart.lastAbandonedAt !== null || cart.recoveredCount > 0;
-
-        if (isCurrentlyAbandoned) {
-          // Hiện tại đang bị bỏ rơi
-          globalAbandonedCarts++;
-          globalAbandonedValue += cartValue;
-        } else if (wasEverAbandoned) {
-          // Từng bị bỏ rơi nhưng đã quay lại → Recovered
-          globalRecoveredCarts++;
-        } else {
-          // Chưa từng bị bỏ rơi → Active mới
-          globalActiveCarts++;
-        }
+        // Chưa từng bị bỏ rơi → Active mới
+        globalActiveCarts++;
       }
     });
 
@@ -348,12 +347,8 @@ router.get('/carts', async (req, res) => {
           { recoveredCount: { gt: 0 } },
         ],
       };
-    } else if (status === 'empty') {
-      statusWhere = {
-        items: { none: {} },
-      };
-    } else if (!showEmpty) {
-      // Default: only show carts with items (hide empty carts)
+    } else {
+      // Default: only show carts with items
       statusWhere = {
         items: { some: {} },
       };
@@ -438,11 +433,10 @@ router.get('/carts', async (req, res) => {
       success: true,
       data: cartsWithStats,
       stats: {
-        totalCarts: allCartsForStats.length,
+        totalCarts: cartsWithItems,
         activeCarts: globalActiveCarts,
         abandonedCarts: globalAbandonedCarts,
         abandonedValue: globalAbandonedValue,
-        emptyCarts: globalEmptyCarts,
         recoveredCarts: globalRecoveredCarts,
       },
       pagination: {
@@ -456,6 +450,48 @@ router.get('/carts', async (req, res) => {
     console.error('Get carts error:', error);
     res.status(500).json({
       error: 'Lỗi khi lấy danh sách giỏ hàng',
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/dashboard/carts/cleanup
+ * Xóa tất cả cart trống (không có items) để tối ưu database
+ */
+router.delete('/carts/cleanup', async (req, res) => {
+  try {
+    // Tìm tất cả cart không có items
+    const emptyCartIds = await prisma.cart.findMany({
+      where: {
+        items: { none: {} },
+      },
+      select: { id: true },
+    });
+
+    if (emptyCartIds.length === 0) {
+      return res.json({
+        success: true,
+        message: 'Không có giỏ hàng trống cần xóa',
+        deletedCount: 0,
+      });
+    }
+
+    // Xóa các cart trống
+    const result = await prisma.cart.deleteMany({
+      where: {
+        id: { in: emptyCartIds.map(c => c.id) },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: `Đã xóa ${result.count} giỏ hàng trống`,
+      deletedCount: result.count,
+    });
+  } catch (error) {
+    console.error('Cleanup carts error:', error);
+    res.status(500).json({
+      error: 'Lỗi khi dọn dẹp giỏ hàng trống',
     });
   }
 });
