@@ -1,4 +1,5 @@
 import express from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 
 const router = express.Router();
@@ -258,20 +259,85 @@ router.get('/recent-activities', async (req, res) => {
 /**
  * GET /api/admin/dashboard/carts
  * Get all carts for admin tracking
+ * - Default: only show carts with items (hide empty carts)
+ * - Stats are calculated globally across ALL carts
  */
 router.get('/carts', async (req, res) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
+    const { page = 1, limit = 20, status, includeEmpty = 'false' } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
+    const showEmpty = includeEmpty === 'true';
 
-    // Define abandoned threshold (e.g., 1 hour without updates)
+    // Define abandoned threshold (1 hour without updates)
     const abandonedThreshold = new Date(Date.now() - 60 * 60 * 1000);
 
-    const where: Record<string, unknown> = {};
+    // First, get GLOBAL stats from ALL carts (not just current page)
+    const allCartsForStats = await prisma.cart.findMany({
+      select: {
+        id: true,
+        updatedAt: true,
+        items: {
+          select: {
+            quantity: true,
+            product: { select: { price: true, salePrice: true } },
+            variant: { select: { price: true } },
+          },
+        },
+      },
+    });
+
+    // Calculate global stats
+    let globalActiveCarts = 0;
+    let globalAbandonedCarts = 0;
+    let globalAbandonedValue = 0;
+    let globalEmptyCarts = 0;
+
+    allCartsForStats.forEach((cart) => {
+      if (cart.items.length === 0) {
+        globalEmptyCarts++;
+      } else {
+        const cartValue = cart.items.reduce((sum, item) => {
+          const price = item.variant?.price || item.product.salePrice || item.product.price;
+          return sum + price * item.quantity;
+        }, 0);
+
+        if (cart.updatedAt < abandonedThreshold) {
+          globalAbandonedCarts++;
+          globalAbandonedValue += cartValue;
+        } else {
+          globalActiveCarts++;
+        }
+      }
+    });
+
+    // Build where clause for filtering by status
+    let statusWhere: Prisma.CartWhereInput = {};
     
-    // Get all carts with items
+    if (status === 'abandoned') {
+      statusWhere = {
+        updatedAt: { lt: abandonedThreshold },
+        items: { some: {} },
+      };
+    } else if (status === 'active') {
+      statusWhere = {
+        updatedAt: { gte: abandonedThreshold },
+        items: { some: {} },
+      };
+    } else if (status === 'empty') {
+      statusWhere = {
+        items: { none: {} },
+      };
+    } else if (!showEmpty) {
+      // Default: only show carts with items (hide empty carts)
+      statusWhere = {
+        items: { some: {} },
+      };
+    }
+
+    // Get paginated carts with full data
     const [carts, total] = await Promise.all([
       prisma.cart.findMany({
+        where: statusWhere,
         skip,
         take: Number(limit),
         orderBy: { updatedAt: 'desc' },
@@ -307,10 +373,10 @@ router.get('/carts', async (req, res) => {
           },
         },
       }),
-      prisma.cart.count({ where }),
+      prisma.cart.count({ where: statusWhere }),
     ]);
 
-    // Calculate cart values and determine status
+    // Calculate cart values and determine status for display
     const cartsWithStats = carts.map((cart) => {
       const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
       const totalValue = cart.items.reduce((sum, item) => {
@@ -318,7 +384,6 @@ router.get('/carts', async (req, res) => {
         return sum + price * item.quantity;
       }, 0);
 
-      // Determine status
       let cartStatus: 'active' | 'abandoned' | 'empty' = 'active';
       if (cart.items.length === 0) {
         cartStatus = 'empty';
@@ -339,27 +404,15 @@ router.get('/carts', async (req, res) => {
       };
     });
 
-    // Filter by status if provided
-    let filteredCarts = cartsWithStats;
-    if (status === 'abandoned') {
-      filteredCarts = cartsWithStats.filter((c) => c.status === 'abandoned');
-    } else if (status === 'active') {
-      filteredCarts = cartsWithStats.filter((c) => c.status === 'active');
-    }
-
-    // Calculate summary stats
-    const abandonedCarts = cartsWithStats.filter((c) => c.status === 'abandoned');
-    const activeCarts = cartsWithStats.filter((c) => c.status === 'active');
-    const abandonedValue = abandonedCarts.reduce((sum, c) => sum + c.totalValue, 0);
-
     res.json({
       success: true,
-      data: filteredCarts,
+      data: cartsWithStats,
       stats: {
-        totalCarts: total,
-        activeCarts: activeCarts.length,
-        abandonedCarts: abandonedCarts.length,
-        abandonedValue,
+        totalCarts: allCartsForStats.length,
+        activeCarts: globalActiveCarts,
+        abandonedCarts: globalAbandonedCarts,
+        abandonedValue: globalAbandonedValue,
+        emptyCarts: globalEmptyCarts,
       },
       pagination: {
         page: Number(page),

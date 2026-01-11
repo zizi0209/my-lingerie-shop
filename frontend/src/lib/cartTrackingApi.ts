@@ -45,6 +45,7 @@ export interface CartStats {
   activeCarts: number;
   abandonedCarts: number;
   abandonedValue: number;
+  emptyCarts: number;
 }
 
 export interface CartListResponse {
@@ -60,12 +61,13 @@ export interface CartListResponse {
 }
 
 export const cartTrackingApi = {
-  async list(params: { page?: number; limit?: number; status?: CartStatus } = {}): Promise<CartListResponse> {
+  async list(params: { page?: number; limit?: number; status?: CartStatus; includeEmpty?: boolean } = {}): Promise<CartListResponse> {
     const queryParams = new URLSearchParams();
     
     if (params.page) queryParams.set('page', params.page.toString());
     if (params.limit) queryParams.set('limit', params.limit.toString());
     if (params.status) queryParams.set('status', params.status);
+    if (params.includeEmpty) queryParams.set('includeEmpty', 'true');
 
     return api.get<CartListResponse>(`/admin/dashboard/carts?${queryParams.toString()}`);
   },
