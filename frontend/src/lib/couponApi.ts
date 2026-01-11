@@ -105,6 +105,7 @@ export const couponApi = {
     limit?: number;
     search?: string;
     couponType?: string;
+    category?: string; // DISCOUNT | SHIPPING
     isActive?: boolean;
     campaignId?: number;
   }): Promise<PaginatedResponse<Coupon>> => {
@@ -113,6 +114,7 @@ export const couponApi = {
     if (params?.limit) searchParams.set('limit', String(params.limit));
     if (params?.search) searchParams.set('search', params.search);
     if (params?.couponType) searchParams.set('couponType', params.couponType);
+    if (params?.category) searchParams.set('category', params.category);
     if (params?.isActive !== undefined) searchParams.set('isActive', String(params.isActive));
     if (params?.campaignId) searchParams.set('campaignId', String(params.campaignId));
 

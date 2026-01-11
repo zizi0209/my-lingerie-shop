@@ -8,7 +8,7 @@ import { prisma } from '../lib/prisma';
 // Get all coupons (Admin)
 export const getAllCoupons = async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 20, search, couponType, isActive, campaignId } = req.query;
+    const { page = 1, limit = 20, search, couponType, isActive, campaignId, category } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
     const where: Record<string, unknown> = {};
@@ -20,6 +20,7 @@ export const getAllCoupons = async (req: Request, res: Response) => {
       ];
     }
     if (couponType) where.couponType = String(couponType);
+    if (category) where.category = String(category);
     if (isActive !== undefined) where.isActive = isActive === 'true';
     if (campaignId) where.campaignId = Number(campaignId);
 
@@ -90,6 +91,7 @@ export const createCoupon = async (req: Request, res: Response) => {
       code,
       name,
       description,
+      category, // DISCOUNT | SHIPPING
       discountType,
       discountValue,
       maxDiscount,
@@ -111,6 +113,12 @@ export const createCoupon = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Thiếu thông tin bắt buộc!' });
     }
 
+    // Validate category + discountType combo
+    const voucherCategory = category || 'DISCOUNT';
+    if (voucherCategory === 'SHIPPING' && !['FREE_SHIPPING', 'FIXED_AMOUNT'].includes(discountType)) {
+      return res.status(400).json({ error: 'Shipping voucher chỉ hỗ trợ FREE_SHIPPING hoặc FIXED_AMOUNT!' });
+    }
+
     // Check code exists
     const existingCoupon = await prisma.coupon.findUnique({
       where: { code: code.toUpperCase() },
@@ -125,6 +133,7 @@ export const createCoupon = async (req: Request, res: Response) => {
         code: code.toUpperCase(),
         name,
         description,
+        category: voucherCategory,
         discountType,
         discountValue: Number(discountValue),
         maxDiscount: maxDiscount ? Number(maxDiscount) : null,
@@ -157,6 +166,7 @@ export const updateCoupon = async (req: Request, res: Response) => {
       code,
       name,
       description,
+      category,
       discountType,
       discountValue,
       maxDiscount,
@@ -191,12 +201,20 @@ export const updateCoupon = async (req: Request, res: Response) => {
       }
     }
 
+    // Validate category + discountType combo
+    const finalCategory = category || existingCoupon.category;
+    const finalDiscountType = discountType || existingCoupon.discountType;
+    if (finalCategory === 'SHIPPING' && !['FREE_SHIPPING', 'FIXED_AMOUNT'].includes(finalDiscountType)) {
+      return res.status(400).json({ error: 'Shipping voucher chỉ hỗ trợ FREE_SHIPPING hoặc FIXED_AMOUNT!' });
+    }
+
     const coupon = await prisma.coupon.update({
       where: { id: Number(id) },
       data: {
         ...(code && { code: code.toUpperCase() }),
         ...(name && { name }),
         ...(description !== undefined && { description }),
+        ...(category && { category }),
         ...(discountType && { discountType }),
         ...(discountValue !== undefined && { discountValue: Number(discountValue) }),
         ...(maxDiscount !== undefined && { maxDiscount: maxDiscount ? Number(maxDiscount) : null }),

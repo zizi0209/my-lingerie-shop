@@ -13,6 +13,7 @@ interface CouponFormData {
   code: string;
   name: string;
   description: string;
+  category: string; // DISCOUNT | SHIPPING
   discountType: string;
   discountValue: string;
   maxDiscount: string;
@@ -31,6 +32,7 @@ const initialFormData: CouponFormData = {
   code: '',
   name: '',
   description: '',
+  category: 'DISCOUNT',
   discountType: 'PERCENTAGE',
   discountValue: '',
   maxDiscount: '',
@@ -55,6 +57,7 @@ const Coupons: React.FC = () => {
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<string>(''); // '' | DISCOUNT | SHIPPING
   const [error, setError] = useState<string | null>(null);
 
   // Modal states
@@ -111,6 +114,10 @@ const Coupons: React.FC = () => {
     shipping: language === 'vi' ? 'Vận chuyển' : 'Shipping',
     noCampaign: language === 'vi' ? 'Không có chiến dịch' : 'No Campaign',
     copied: language === 'vi' ? 'Đã copy!' : 'Copied!',
+    allVouchers: language === 'vi' ? 'Tất cả' : 'All',
+    shopVoucher: language === 'vi' ? 'Shop Voucher' : 'Shop Voucher',
+    shippingVoucher: language === 'vi' ? 'Shipping Voucher' : 'Shipping Voucher',
+    voucherCategory: language === 'vi' ? 'Loại voucher' : 'Voucher Category',
   };
 
   // Discount type labels
@@ -142,6 +149,7 @@ const Coupons: React.FC = () => {
           limit: pagination.limit,
           search: searchQuery || undefined,
           couponType: typeFilter || undefined,
+          category: categoryFilter || undefined,
         }),
         campaignApi.list({ limit: 100 }),
       ]);
@@ -159,7 +167,7 @@ const Coupons: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, searchQuery, typeFilter, t.loadError]);
+  }, [pagination.page, pagination.limit, searchQuery, typeFilter, categoryFilter, t.loadError]);
 
   useEffect(() => {
     fetchData();
@@ -187,10 +195,14 @@ const Coupons: React.FC = () => {
   // Open edit modal
   const handleOpenEdit = (coupon: Coupon) => {
     setEditingCoupon(coupon);
+    // Detect category from existing coupon
+    const couponCategory = (coupon as Coupon & { category?: string }).category || 
+      (coupon.discountType === 'FREE_SHIPPING' ? 'SHIPPING' : 'DISCOUNT');
     setFormData({
       code: coupon.code,
       name: coupon.name,
       description: coupon.description || '',
+      category: couponCategory,
       discountType: coupon.discountType,
       discountValue: String(coupon.discountValue),
       maxDiscount: coupon.maxDiscount ? String(coupon.maxDiscount) : '',
@@ -216,13 +228,25 @@ const Coupons: React.FC = () => {
       if (field === 'name' && !editingCoupon && typeof value === 'string') {
         updated.code = generateCode(value);
       }
+      // Auto adjust discountType when category changes
+      if (field === 'category') {
+        if (value === 'SHIPPING') {
+          updated.discountType = 'FREE_SHIPPING';
+          updated.discountValue = '100'; // 100% free shipping
+        } else {
+          updated.discountType = 'PERCENTAGE';
+          updated.discountValue = '';
+        }
+      }
       return updated;
     });
   };
 
   // Save coupon
   const handleSave = async () => {
-    if (!formData.code || !formData.name || !formData.discountValue) {
+    // FREE_SHIPPING doesn't need discountValue
+    const needsValue = formData.discountType !== 'FREE_SHIPPING';
+    if (!formData.code || !formData.name || (needsValue && !formData.discountValue)) {
       setFormError(language === 'vi' ? 'Vui lòng điền đầy đủ thông tin bắt buộc' : 'Please fill required fields');
       return;
     }
@@ -231,12 +255,18 @@ const Coupons: React.FC = () => {
       setSaving(true);
       setFormError(null);
 
-      const payload: Partial<Coupon> = {
+      // FREE_SHIPPING = 100% discount on shipping
+      const discountValue = formData.discountType === 'FREE_SHIPPING' 
+        ? 100 
+        : Number(formData.discountValue);
+
+      const payload: Partial<Coupon> & { category?: string } = {
         code: formData.code,
         name: formData.name,
         description: formData.description || null,
+        category: formData.category,
         discountType: formData.discountType as Coupon['discountType'],
-        discountValue: Number(formData.discountValue),
+        discountValue,
         maxDiscount: formData.maxDiscount ? Number(formData.maxDiscount) : null,
         minOrderValue: formData.minOrderValue ? Number(formData.minOrderValue) : null,
         quantity: formData.quantity ? Number(formData.quantity) : null,
@@ -339,6 +369,42 @@ const Coupons: React.FC = () => {
         </div>
       )}
 
+      {/* Category Tabs */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setCategoryFilter('')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            categoryFilter === ''
+              ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+          }`}
+        >
+          {t.allVouchers}
+        </button>
+        <button
+          onClick={() => setCategoryFilter('DISCOUNT')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+            categoryFilter === 'DISCOUNT'
+              ? 'bg-rose-600 text-white'
+              : 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/30'
+          }`}
+        >
+          <Tag className="w-4 h-4" />
+          {t.shopVoucher}
+        </button>
+        <button
+          onClick={() => setCategoryFilter('SHIPPING')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+            categoryFilter === 'SHIPPING'
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          {t.shippingVoucher}
+        </button>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="flex-1">
@@ -414,7 +480,19 @@ const Coupons: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{coupon.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">{coupon.name}</div>
+                          {/* Category Badge */}
+                          {(coupon as Coupon & { category?: string }).category === 'SHIPPING' ? (
+                            <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs">
+                              🚚 Ship
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 rounded text-xs">
+                              🏷️ Shop
+                            </span>
+                          )}
+                        </div>
                         {coupon.campaign && (
                           <div className="text-xs text-gray-500">{coupon.campaign.name}</div>
                         )}
@@ -554,6 +632,57 @@ const Coupons: React.FC = () => {
                 </div>
               </div>
 
+              {/* Voucher Category */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t.voucherCategory} *
+                </label>
+                <div className="flex gap-4">
+                  <label className={`flex-1 flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition ${
+                    formData.category === 'DISCOUNT' 
+                      ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20' 
+                      : 'border-gray-300 dark:border-gray-600 hover:border-rose-300'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="category"
+                      value="DISCOUNT"
+                      checked={formData.category === 'DISCOUNT'}
+                      onChange={(e) => handleFormChange('category', e.target.value)}
+                      className="accent-rose-500"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white flex items-center gap-1">
+                        <Tag className="w-4 h-4 text-rose-500" />
+                        {t.shopVoucher}
+                      </div>
+                      <div className="text-xs text-gray-500">Giảm giá sản phẩm</div>
+                    </div>
+                  </label>
+                  <label className={`flex-1 flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition ${
+                    formData.category === 'SHIPPING' 
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                      : 'border-gray-300 dark:border-gray-600 hover:border-blue-300'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="category"
+                      value="SHIPPING"
+                      checked={formData.category === 'SHIPPING'}
+                      onChange={(e) => handleFormChange('category', e.target.value)}
+                      className="accent-blue-500"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white flex items-center gap-1">
+                        <TrendingUp className="w-4 h-4 text-blue-500" />
+                        {t.shippingVoucher}
+                      </div>
+                      <div className="text-xs text-gray-500">Giảm phí vận chuyển</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -578,24 +707,38 @@ const Coupons: React.FC = () => {
                     onChange={(e) => handleFormChange('discountType', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
-                    <option value="PERCENTAGE">{t.percentage}</option>
-                    <option value="FIXED_AMOUNT">{t.fixedAmount}</option>
-                    <option value="FREE_SHIPPING">{t.freeShipping}</option>
+                    {formData.category === 'DISCOUNT' ? (
+                      <>
+                        <option value="PERCENTAGE">{t.percentage}</option>
+                        <option value="FIXED_AMOUNT">{t.fixedAmount}</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="FREE_SHIPPING">{t.freeShipping}</option>
+                        <option value="FIXED_AMOUNT">{t.fixedAmount}</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
                 {/* Discount Value */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {t.discountValue} * {formData.discountType === 'PERCENTAGE' ? '(%)' : '(VND)'}
+                    {t.discountValue} {formData.discountType !== 'FREE_SHIPPING' && '*'} {formData.discountType === 'PERCENTAGE' ? '(%)' : formData.discountType === 'FREE_SHIPPING' ? '' : '(VND)'}
                   </label>
-                  <input
-                    type="number"
-                    value={formData.discountValue}
-                    onChange={(e) => handleFormChange('discountValue', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder={formData.discountType === 'PERCENTAGE' ? '10' : '50000'}
-                  />
+                  {formData.discountType === 'FREE_SHIPPING' ? (
+                    <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-400">
+                      Miễn phí 100%
+                    </div>
+                  ) : (
+                    <input
+                      type="number"
+                      value={formData.discountValue}
+                      onChange={(e) => handleFormChange('discountValue', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      placeholder={formData.discountType === 'PERCENTAGE' ? '10' : '50000'}
+                    />
+                  )}
                 </div>
               </div>
 
