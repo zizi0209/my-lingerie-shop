@@ -59,15 +59,8 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
-    // Audit log
-    await auditLog({
-      userId: user.id,
-      action: AuditActions.CREATE_USER,
-      resource: 'USER',
-      resourceId: String(user.id),
-      newValue: sanitizeUser(user),
-      severity: 'INFO'
-    }, req);
+    // NOTE: Không ghi audit log cho user tự đăng ký - đây là user action thông thường
+    // Audit log chỉ dành cho Admin actions
 
     // Generate JWT token
     const token = jwt.sign(
@@ -132,29 +125,14 @@ export const login = async (req: Request, res: Response) => {
 
     // Check if account is active
     if (!user.isActive) {
-      await auditLog({
-        userId: user.id,
-        action: AuditActions.LOGIN_FAILED,
-        resource: 'USER',
-        resourceId: String(user.id),
-        severity: 'WARNING'
-      }, req);
-      
+      // Không ghi log cho user thường bị vô hiệu hóa - tránh noise
       return res.status(403).json({ error: 'Tài khoản đã bị vô hiệu hóa!' });
     }
 
     // Check account lockout
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
-      
-      await auditLog({
-        userId: user.id,
-        action: AuditActions.LOGIN_FAILED,
-        resource: 'USER',
-        resourceId: String(user.id),
-        severity: 'WARNING'
-      }, req);
-      
+      // Không ghi log thêm - đã ghi khi lock account rồi
       return res.status(403).json({
         error: `Tài khoản bị khóa do đăng nhập sai quá nhiều. Vui lòng thử lại sau ${minutesLeft} phút.`,
         lockedUntil: user.lockedUntil.toISOString()
@@ -177,13 +155,16 @@ export const login = async (req: Request, res: Response) => {
         }
       });
 
-      await auditLog({
-        userId: user.id,
-        action: AuditActions.LOGIN_FAILED,
-        resource: 'USER',
-        resourceId: String(user.id),
-        severity: shouldLock ? 'CRITICAL' : 'WARNING'
-      }, req);
+      // Chỉ ghi log khi sắp bị lock (>=3 lần) để tránh noise
+      if (failedAttempts >= 3) {
+        await auditLog({
+          userId: user.id,
+          action: AuditActions.LOGIN_FAILED,
+          resource: 'USER',
+          resourceId: String(user.id),
+          severity: shouldLock ? 'CRITICAL' : 'WARNING'
+        }, req);
+      }
 
       if (shouldLock) {
         return res.status(403).json({
@@ -207,14 +188,8 @@ export const login = async (req: Request, res: Response) => {
       },
     });
 
-    // Audit log successful login
-    await auditLog({
-      userId: user.id,
-      action: AuditActions.LOGIN_SUCCESS,
-      resource: 'USER',
-      resourceId: String(user.id),
-      severity: 'INFO'
-    }, req);
+    // Không ghi audit log cho user login thành công - tránh noise
+    // Chỉ ghi log cho Admin/Mod login (ở authController)
 
     // Generate JWT token
     const token = jwt.sign(
@@ -638,13 +613,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       },
     });
 
-    await auditLog({
-      userId,
-      action: 'UPDATE_PROFILE',
-      resource: 'USER',
-      resourceId: String(userId),
-      severity: 'INFO'
-    }, req);
+    // Không ghi audit log cho user tự cập nhật profile - đây là user action thông thường
 
     res.json({
       success: true,
@@ -713,13 +682,8 @@ export const changePassword = async (req: Request, res: Response) => {
       data: { revokedAt: new Date() },
     });
 
-    await auditLog({
-      userId,
-      action: AuditActions.PASSWORD_CHANGE,
-      resource: 'USER',
-      resourceId: String(userId),
-      severity: 'WARNING'
-    }, req);
+    // Không ghi audit log cho user tự đổi mật khẩu - đây là user action thông thường
+    // Admin đổi mật khẩu sẽ được log ở admin routes
 
     res.json({
       success: true,

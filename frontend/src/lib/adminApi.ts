@@ -223,6 +223,14 @@ export const adminAuditLogApi = {
   async getResources(): Promise<{ success: boolean; data: string[] }> {
     return api.get('/admin/audit-logs/resources/list');
   },
+
+  // Get admin users who have audit logs
+  async getAdmins(): Promise<{ 
+    success: boolean; 
+    data: Array<{ id: number; name: string | null; email: string; role: { name: string } | null }> 
+  }> {
+    return api.get('/admin/audit-logs/admins/list');
+  },
 };
 
 // Admin Dashboard API

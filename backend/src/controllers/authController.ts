@@ -69,14 +69,8 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
-    await auditLog({
-      userId: user.id,
-      action: AuditActions.CREATE_USER,
-      resource: 'USER',
-      resourceId: String(user.id),
-      newValue: sanitizeUser(user),
-      severity: 'INFO',
-    }, req);
+    // NOTE: Không ghi audit log cho user tự đăng ký - đây là user action thông thường
+    // Audit log chỉ dành cho Admin actions để tránh noise trong hệ thống
 
     // Auto-assign welcome voucher for new user
     try {
@@ -155,13 +149,16 @@ export const login = async (req: Request, res: Response) => {
     }
 
     if (!user.isActive) {
-      await auditLog({
-        userId: user.id,
-        action: AuditActions.LOGIN_FAILED,
-        resource: 'USER',
-        resourceId: String(user.id),
-        severity: 'WARNING',
-      }, req);
+      // Chỉ ghi log nếu là Admin/Mod bị vô hiệu hóa (security concern)
+      if (isAdminRole(user.role?.name)) {
+        await auditLog({
+          userId: user.id,
+          action: AuditActions.LOGIN_FAILED,
+          resource: 'USER',
+          resourceId: String(user.id),
+          severity: 'WARNING',
+        }, req);
+      }
       return res.status(403).json({ error: 'Tài khoản đã bị vô hiệu hóa!' });
     }
 
@@ -189,13 +186,18 @@ export const login = async (req: Request, res: Response) => {
         },
       });
 
-      await auditLog({
-        userId: user.id,
-        action: AuditActions.LOGIN_FAILED,
-        resource: 'USER',
-        resourceId: String(user.id),
-        severity: shouldLock ? 'CRITICAL' : 'WARNING',
-      }, req);
+      // Chỉ ghi log khi: 1) Sắp bị lock (>=3 lần) hoặc 2) Là Admin/Mod
+      // Để tránh noise từ user thường nhập sai 1-2 lần
+      const shouldLogFailure = failedAttempts >= 3 || isAdminRole(user.role?.name);
+      if (shouldLogFailure) {
+        await auditLog({
+          userId: user.id,
+          action: AuditActions.LOGIN_FAILED,
+          resource: 'USER',
+          resourceId: String(user.id),
+          severity: shouldLock ? 'CRITICAL' : 'WARNING',
+        }, req);
+      }
 
       if (shouldLock) {
         return res.status(403).json({
@@ -219,13 +221,17 @@ export const login = async (req: Request, res: Response) => {
       },
     });
 
-    await auditLog({
-      userId: user.id,
-      action: AuditActions.LOGIN_SUCCESS,
-      resource: 'USER',
-      resourceId: String(user.id),
-      severity: 'INFO',
-    }, req);
+    // Chỉ ghi audit log cho Admin/Mod login thành công (security tracking)
+    // User thường login không cần ghi để tránh noise
+    if (isAdminRole(user.role?.name)) {
+      await auditLog({
+        userId: user.id,
+        action: AuditActions.LOGIN_SUCCESS,
+        resource: 'USER',
+        resourceId: String(user.id),
+        severity: 'INFO',
+      }, req);
+    }
 
     // Generate tokens
     const accessToken = generateAccessToken(user);
@@ -346,13 +352,17 @@ export const logoutAll = async (req: Request, res: Response) => {
     clearRefreshTokenCookie(res);
     clearDashboardAuthCookie(res);
 
-    await auditLog({
-      userId,
-      action: 'LOGOUT_ALL',
-      resource: 'USER',
-      resourceId: String(userId),
-      severity: 'WARNING',
-    }, req);
+    // Chỉ ghi log cho Admin/Mod logout all (security concern)
+    // User thường logout không cần ghi
+    if (isAdminRole(req.user?.roleName)) {
+      await auditLog({
+        userId,
+        action: 'LOGOUT_ALL',
+        resource: 'USER',
+        resourceId: String(userId),
+        severity: 'WARNING',
+      }, req);
+    }
 
     res.json({
       success: true,

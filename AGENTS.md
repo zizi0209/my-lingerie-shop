@@ -9,11 +9,25 @@ Chọn Best practices
 
 - Áp sticket QA & phân tích các vấn đề theo các mức (Critical, High, Medium, Low)
 
+Intentional I/O:
+
+- Do not call APIs, read/write databases, or store data unless it serves a clear, current purpose.
+- Avoid collecting logs, audit records, or events that are not actively used.
+- Treat bandwidth, storage, and I/O as real costs, not free resources.
+- Data without a consumer is waste.
+
 Tuân thủ nguyên tắc :
 
 - Kiss
 - YAGNI
 - DRY
+- Readability > Cleverness
+- Correctness First
+- Single Responsibility
+- Minimize Blast Radius
+- Explicit > Implicit
+- Ask Before Assuming
+- No Hidden Changes
 
 ## TypeScript/ESLint Rules
 

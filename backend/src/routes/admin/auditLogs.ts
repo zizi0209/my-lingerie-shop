@@ -97,10 +97,33 @@ router.get('/stats/summary', async (req, res) => {
 /**
  * GET /api/admin/audit-logs/actions/list
  * Get list of all available actions (for filtering)
+ * Chỉ lấy các action quan trọng từ Admin
  */
 router.get('/actions/list', async (req, res) => {
   try {
+    // Danh sách các action quan trọng cần hiển thị
+    const importantActions = [
+      // User Management
+      'UPDATE_USER_ROLE', 'ACTIVATE_USER', 'DEACTIVATE_USER', 
+      'UNLOCK_USER_ACCOUNT', 'DELETE_USER', 'LOCK_USER', 'CHANGE_ROLE',
+      // Product Management  
+      'CREATE_PRODUCT', 'UPDATE_PRODUCT', 'DELETE_PRODUCT',
+      'UPDATE_PRODUCT_PRICE', 'UPDATE_PRODUCT_STOCK',
+      // Order Management
+      'UPDATE_ORDER_STATUS', 'CANCEL_ORDER', 'REFUND_ORDER',
+      // Category Management
+      'CREATE_CATEGORY', 'UPDATE_CATEGORY', 'DELETE_CATEGORY',
+      // System Config
+      'UPDATE_SYSTEM_CONFIG', 'DELETE_SYSTEM_CONFIG', 'UPDATE_SETTINGS',
+      // Security
+      'LOGIN_FAILED', 'LOGIN_SUCCESS', 'DASHBOARD_AUTH_FAILED', 'DASHBOARD_AUTH_SUCCESS',
+      'PASSWORD_CHANGE', 'UPDATE_PERMISSIONS', 'LOGOUT_ALL'
+    ];
+
     const actions = await prisma.auditLog.findMany({
+      where: {
+        action: { in: importantActions }
+      },
       select: { action: true },
       distinct: ['action'],
       orderBy: { action: 'asc' }
@@ -143,9 +166,48 @@ router.get('/resources/list', async (req, res) => {
 });
 
 /**
+ * GET /api/admin/audit-logs/admins/list
+ * Get list of admin users who have audit logs (for filtering)
+ */
+router.get('/admins/list', async (req, res) => {
+  try {
+    const admins = await prisma.auditLog.findMany({
+      where: {
+        user: {
+          role: { NOT: { name: 'USER' } }
+        }
+      },
+      select: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: { select: { name: true } }
+          }
+        }
+      },
+      distinct: ['userId']
+    });
+
+    const uniqueAdmins = admins.map(a => a.user).filter(Boolean);
+
+    res.json({
+      success: true,
+      data: uniqueAdmins
+    });
+  } catch (error) {
+    console.error('Get admin users error:', error);
+    res.status(500).json({ 
+      error: 'Lỗi khi lấy danh sách admin' 
+    });
+  }
+});
+
+/**
  * GET /api/admin/audit-logs
  * Get all audit logs with filtering and pagination
- * NOTE: Must be after specific routes
+ * Chỉ lấy logs từ Admin/Mod actions
  */
 router.get('/', async (req, res) => {
   try {
@@ -161,29 +223,43 @@ router.get('/', async (req, res) => {
     } = req.query;
 
     const pageNum = parseInt(page as string);
-    const limitNum = Math.min(parseInt(limit as string), 100); // Max 100 per page
+    const limitNum = Math.min(parseInt(limit as string), 100);
 
-    const options: any = {
-      page: pageNum,
-      limit: limitNum
+    // Danh sách các action quan trọng
+    const importantActions = [
+      'UPDATE_USER_ROLE', 'ACTIVATE_USER', 'DEACTIVATE_USER', 
+      'UNLOCK_USER_ACCOUNT', 'DELETE_USER', 'LOCK_USER', 'CHANGE_ROLE',
+      'CREATE_PRODUCT', 'UPDATE_PRODUCT', 'DELETE_PRODUCT',
+      'UPDATE_PRODUCT_PRICE', 'UPDATE_PRODUCT_STOCK',
+      'UPDATE_ORDER_STATUS', 'CANCEL_ORDER', 'REFUND_ORDER',
+      'CREATE_CATEGORY', 'UPDATE_CATEGORY', 'DELETE_CATEGORY',
+      'UPDATE_SYSTEM_CONFIG', 'DELETE_SYSTEM_CONFIG', 'UPDATE_SETTINGS',
+      'LOGIN_FAILED', 'LOGIN_SUCCESS', 'DASHBOARD_AUTH_FAILED', 'DASHBOARD_AUTH_SUCCESS',
+      'PASSWORD_CHANGE', 'UPDATE_PERMISSIONS', 'LOGOUT_ALL', 'UPDATE', 'CREATE', 'DELETE'
+    ];
+
+    // Build where clause
+    const where: Record<string, unknown> = {
+      // Chỉ lấy Admin actions hoặc CRITICAL/WARNING
+      OR: [
+        { action: { in: importantActions } },
+        { severity: { in: ['WARNING', 'CRITICAL'] } }
+      ],
+      // Chỉ lấy từ Admin/Mod
+      user: {
+        role: { NOT: { name: 'USER' } }
+      }
     };
 
-    if (action) options.action = action as string;
-    if (userId) options.userId = parseInt(userId as string);
-    if (severity) options.severity = severity as string;
-    if (startDate) options.startDate = new Date(startDate as string);
-    if (endDate) options.endDate = new Date(endDate as string);
-
-    // Add resource filter if provided
-    const where: any = {};
-    if (options.action) where.action = options.action;
-    if (options.userId) where.userId = options.userId;
-    if (options.severity) where.severity = options.severity;
+    // Apply filters
+    if (action) where.action = action as string;
+    if (userId) where.userId = parseInt(userId as string);
+    if (severity) where.severity = severity as string;
     if (resource) where.resource = resource as string;
-    if (options.startDate || options.endDate) {
+    if (startDate || endDate) {
       where.createdAt = {};
-      if (options.startDate) where.createdAt.gte = options.startDate;
-      if (options.endDate) where.createdAt.lte = options.endDate;
+      if (startDate) (where.createdAt as Record<string, Date>).gte = new Date(startDate as string);
+      if (endDate) (where.createdAt as Record<string, Date>).lte = new Date(endDate as string);
     }
 
     const skip = (pageNum - 1) * limitNum;
@@ -196,7 +272,10 @@ router.get('/', async (req, res) => {
             select: {
               id: true,
               email: true,
-              name: true
+              name: true,
+              role: {
+                select: { name: true }
+              }
             }
           }
         },
