@@ -90,8 +90,8 @@ interface SearchKeyword {
 }
 
 interface AbandonedCartData {
-  totalCarts: number;
-  potentialRevenue: number;
+  totalAbandoned: number;
+  totalAbandonedValue: number;
   carts: Array<{
     id: number;
     itemCount: number;
@@ -156,10 +156,9 @@ interface BoughtTogetherPair {
   bundleSuggestion: { originalPrice: number; suggestedPrice: number; discount: number };
 }
 
-interface RevenueByHour {
+interface TrafficByHour {
   hour: string;
-  revenue: number;
-  orders: number;
+  views: number;
 }
 
 // ============== CONSTANTS ==============
@@ -194,7 +193,7 @@ const Tracking: React.FC = () => {
   const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
   const [recData, setRecData] = useState<RecommendationData | null>(null);
   const [boughtTogether, setBoughtTogether] = useState<BoughtTogetherPair[]>([]);
-  const [revenueByHour, setRevenueByHour] = useState<RevenueByHour[]>([]);
+  const [trafficByHour, setTrafficByHour] = useState<TrafficByHour[]>([]);
 
   // ============== FETCH DATA ==============
   const fetchData = async () => {
@@ -217,7 +216,7 @@ const Tracking: React.FC = () => {
         api.get('/admin/analytics/low-stock?limit=10') as Promise<ApiResponse<{ items: LowStockItem[] }>>,
         api.get(`/admin/analytics/recommendation-effectiveness?period=${period}`) as Promise<ApiResponse<RecommendationData>>,
         api.get('/admin/analytics/bought-together?period=90days') as Promise<ApiResponse<{ pairs: BoughtTogetherPair[] }>>,
-        api.get(`/admin/analytics/traffic-by-hour?period=${period}`) as Promise<ApiResponse<{ trafficByHour: RevenueByHour[] }>>,
+        api.get(`/admin/analytics/traffic-by-hour?period=${period}`) as Promise<ApiResponse<{ trafficByHour: TrafficByHour[] }>>,
       ]);
 
       // Process results safely
@@ -252,7 +251,7 @@ const Tracking: React.FC = () => {
         setBoughtTogether(results[9].value.data.pairs || []);
       }
       if (results[10].status === 'fulfilled' && results[10].value.success) {
-        setRevenueByHour(results[10].value.data.trafficByHour || []);
+        setTrafficByHour(results[10].value.data.trafficByHour || []);
       }
     } catch (error) {
       console.error('Error fetching analytics:', error);
@@ -417,9 +416,9 @@ const Tracking: React.FC = () => {
               <Eye className="text-slate-400" size={20} />
             </div>
             
-            {revenueByHour.length > 0 ? (
+            {trafficByHour.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={revenueByHour}>
+                <AreaChart data={trafficByHour}>
                   <defs>
                     <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3}/>
@@ -625,11 +624,11 @@ const Tracking: React.FC = () => {
               {/* Abandoned Stats */}
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="p-4 bg-amber-50 dark:bg-amber-500/10 rounded-xl">
-                  <p className="text-2xl font-bold text-amber-600">{abandonedCarts?.totalCarts || 0}</p>
+                  <p className="text-2xl font-bold text-amber-600">{abandonedCarts?.totalAbandoned || 0}</p>
                   <p className="text-xs text-slate-500">Giỏ bị bỏ (24h)</p>
                 </div>
                 <div className="p-4 bg-red-50 dark:bg-red-500/10 rounded-xl">
-                  <p className="text-2xl font-bold text-red-600">{formatCurrency(abandonedCarts?.potentialRevenue || 0)}đ</p>
+                  <p className="text-2xl font-bold text-red-600">{formatCurrency(abandonedCarts?.totalAbandonedValue || 0)}đ</p>
                   <p className="text-xs text-slate-500">Doanh thu tiềm năng</p>
                 </div>
               </div>
