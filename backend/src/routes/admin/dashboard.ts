@@ -170,11 +170,14 @@ router.get('/analytics', async (req, res) => {
         orderBy: { createdAt: 'asc' }
       }),
       
-      // Top selling products
+      // Top selling products with actual revenue
       prisma.orderItem.groupBy({
         by: ['productId'],
         _count: { productId: true },
-        _sum: { quantity: true },
+        _sum: { 
+          quantity: true,
+          price: true  // Sum of actual price paid per item
+        },
         orderBy: {
           _sum: { quantity: 'desc' }
         },
@@ -186,17 +189,22 @@ router.get('/analytics', async (req, res) => {
     const productIds = topProducts.map(item => item.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, name: true, price: true }
+      select: { id: true, name: true, price: true, salePrice: true }
     });
 
     const topProductsWithDetails = topProducts.map(item => {
       const product = products.find(p => p.id === item.productId);
+      const totalQuantity = item._sum.quantity || 0;
+      // Use actual revenue from OrderItem.price sum, or calculate from product price
+      const totalRevenue = item._sum.price || (product?.salePrice || product?.price || 0) * totalQuantity;
+      
       return {
         productId: item.productId,
         productName: product?.name || 'Unknown',
-        price: product?.price || 0,
-        totalSold: item._sum.quantity || 0,
-        orderCount: item._count.productId
+        price: product?.salePrice || product?.price || 0,
+        totalSold: totalQuantity,
+        orderCount: item._count.productId,
+        totalRevenue: totalRevenue
       };
     });
 

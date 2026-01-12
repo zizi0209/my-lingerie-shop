@@ -26,6 +26,7 @@ interface TopProduct {
   price: number;
   totalSold: number;
   orderCount: number;
+  totalRevenue?: number;
 }
 
 interface OrderStatus {
