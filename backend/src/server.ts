@@ -28,6 +28,7 @@ import wishlistRoutes from './routes/wishlistRoutes';
 import couponRoutes from './routes/couponRoutes';
 import searchRoutes from './routes/searchRoutes';
 import sizeTemplateRoutes from './routes/sizeTemplateRoutes';
+import recommendationRoutes from './routes/recommendationRoutes';
 import adminRoutes from './routes/admin';
 import publicConfigRoutes from './routes/publicConfig';
 import { apiLimiter } from './middleware/rateLimiter';
@@ -93,6 +94,7 @@ app.use('/api/wishlist', wishlistRoutes);
 app.use('/api', couponRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/size-templates', sizeTemplateRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 // Admin routes (protected)
 app.use('/api/admin', adminRoutes);

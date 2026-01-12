@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import ReviewList from "@/components/product/ReviewList";
 import SizeGuideModal from "@/components/product/SizeGuideModal";
+import RecommendationSection from "@/components/product/RecommendationSection";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
@@ -62,7 +63,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const router = useRouter();
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
@@ -77,8 +78,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [sessionId, setSessionId] = useState<string>('');
   
   const isLiked = product ? isInWishlist(product.id) : false;
+  
+  // Get or create session ID
+  useEffect(() => {
+    let sid = localStorage.getItem('sessionId');
+    if (!sid) {
+      sid = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('sessionId', sid);
+    }
+    setSessionId(sid);
+  }, []);
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
@@ -531,33 +543,39 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         </div>
       </div>
 
-      {/* Related Products */}
-      {relatedProducts.length > 0 && (
-        <div>
-          <h2 className="text-2xl font-serif font-light mb-8 text-center text-gray-900 dark:text-white">Sản phẩm liên quan</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {relatedProducts.map((relatedProduct) => (
-              <Link
-                key={relatedProduct.id}
-                href={`/san-pham/${relatedProduct.slug}`}
-                className="group cursor-pointer"
-              >
-                <div className="relative aspect-3/4 bg-gray-50 dark:bg-gray-800 overflow-hidden rounded-lg mb-4">
-                  <Image
-                    src={relatedProduct.images[0]?.url || "https://via.placeholder.com/400x600"}
-                    alt={relatedProduct.name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                </div>
-                <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-300 transition-colors mb-2">
-                  {relatedProduct.name}
-                </h3>
-                <p className="text-lg font-light text-gray-900 dark:text-white">{relatedProduct.price.toLocaleString("vi-VN")}₫</p>
-              </Link>
-            ))}
-          </div>
-        </div>
+      {/* Similar Products - AI Recommendation */}
+      {product && (
+        <RecommendationSection
+          type="similar"
+          productId={product.id}
+          userId={user?.id}
+          sessionId={sessionId}
+          title="Có thể bạn cũng thích"
+          limit={8}
+        />
+      )}
+      
+      {/* Bought Together */}
+      {product && (
+        <RecommendationSection
+          type="bought-together"
+          productId={product.id}
+          sessionId={sessionId}
+          title="Thường mua cùng"
+          limit={4}
+        />
+      )}
+      
+      {/* Recently Viewed */}
+      {sessionId && product && (
+        <RecommendationSection
+          type="recently-viewed"
+          productId={product.id}
+          userId={user?.id}
+          sessionId={sessionId}
+          title="Đã xem gần đây"
+          limit={6}
+        />
       )}
 
       {/* Size Guide Modal */}

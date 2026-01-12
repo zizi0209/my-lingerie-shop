@@ -39,6 +39,7 @@ model User {
   userCoupons         UserCoupon[]
   wishlistItems       WishlistItem[]
   auditLogs           AuditLog[]
+  preference          UserPreference?
 
   @@index([email])
   @@index([roleId])
@@ -764,4 +765,22 @@ enum ProductType {
   SLEEPWEAR
   SHAPEWEAR
   ACCESSORY
+}
+
+// User Preference cho Recommendation System
+model UserPreference {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique
+  preferredSizes  Json?    // { "BRA": ["34B", "36B"], "PANTY": ["S", "M"] }
+  colorAffinities Json?    // { "Đen": 0.8, "Đỏ": 0.6 }
+  styleAffinities Json?    // { "sexy": 0.7, "casual": 0.5 }
+  avgOrderValue   Float    @default(0)
+  priceRange      Json?    // { "min": 150000, "max": 500000 }
+  categoryWeights Json?    // { "1": 0.8, "2": 0.3 }
+  lastUpdated     DateTime @default(now())
+  createdAt       DateTime @default(now())
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
 }
