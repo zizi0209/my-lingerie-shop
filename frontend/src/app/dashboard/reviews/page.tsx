@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import DashboardLayoutWrapper from '@/components/dashboard/DashboardLayoutWrapper';
+import Pagination from '@/components/dashboard/components/Pagination';
 import { api } from '@/lib/api';
 
 interface ReviewImage {
@@ -560,29 +561,14 @@ export default function AdminReviewsPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between p-4 border-t border-slate-200 dark:border-slate-700">
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Hiển thị {(page - 1) * 20 + 1} - {Math.min(page * 20, total)} / {total} đánh giá
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-sm text-slate-600 dark:text-slate-400">
-                    Trang {page} / {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
+              <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  totalItems={total}
+                  itemsPerPage={20}
+                  onPageChange={setPage}
+                />
               </div>
             )}
           </div>

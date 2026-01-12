@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { orderApi, type Order, type OrderStatus, type PaymentStatus, type UpdateOrderData } from '@/lib/orderApi';
 import SearchInput from '../components/SearchInput';
+import Pagination from '../components/Pagination';
 import { useLanguage } from '../components/LanguageContext';
 
 const Orders: React.FC = () => {
@@ -397,26 +398,14 @@ const Orders: React.FC = () => {
 
             {/* Pagination */}
             {pagination.pages > 1 && (
-              <div className="flex items-center justify-between p-4 border-t border-slate-100 dark:border-slate-800">
-                <p className="text-sm text-slate-500">
-                  {t.page} {pagination.page} / {pagination.pages} ({pagination.total} {t.orders})
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                    disabled={pagination.page === 1}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    {t.prev}
-                  </button>
-                  <button
-                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                    disabled={pagination.page === pagination.pages}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    {t.next}
-                  </button>
-                </div>
+              <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+                <Pagination
+                  currentPage={pagination.page}
+                  totalPages={pagination.pages}
+                  totalItems={pagination.total}
+                  itemsPerPage={pagination.limit}
+                  onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+                />
               </div>
             )}
           </>

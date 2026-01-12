@@ -9,6 +9,7 @@ import { categoryApi, type Category, type CreateCategoryData, type UpdateCategor
 import { type ProductType } from '@/lib/sizeTemplateApi';
 import { api } from '@/lib/api';
 import SearchInput from '../components/SearchInput';
+import Pagination from '../components/Pagination';
 import { useLanguage } from '../components/LanguageContext';
 import { 
   compressImage, 
@@ -487,26 +488,14 @@ const Categories: React.FC = () => {
 
           {/* Pagination */}
           {pagination.pages > 1 && (
-            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
-              <p className="text-sm text-slate-500">
-                {t.page} {pagination.page} / {pagination.pages} ({pagination.total} {t.categories})
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                  disabled={pagination.page === 1}
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  {t.prev}
-                </button>
-                <button
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                  disabled={pagination.page === pagination.pages}
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  {t.next}
-                </button>
-              </div>
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+              <Pagination
+                currentPage={pagination.page}
+                totalPages={pagination.pages}
+                totalItems={pagination.total}
+                itemsPerPage={pagination.limit}
+                onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+              />
             </div>
           )}
         </>

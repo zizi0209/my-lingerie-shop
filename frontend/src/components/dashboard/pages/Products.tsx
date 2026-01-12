@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import { type ProductType, type SizeChartData, fetchSizeChartByType } from '@/lib/sizeTemplateApi';
 import { generateProductDescription } from '../services/geminiService';
 import SearchInput from '../components/SearchInput';
+import Pagination from '../components/Pagination';
 import { useLanguage } from '../components/LanguageContext';
 import { LexicalEditor } from '@/components/editor';
 import { 
@@ -917,26 +918,14 @@ const Products: React.FC = () => {
 
         {/* Pagination */}
         {!loading && products.length > 0 && pagination.pages > 1 && (
-          <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              {t.page} {pagination.page} / {pagination.pages}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
-                className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800"
-              >
-                {t.prev}
-              </button>
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page === pagination.pages}
-                className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800"
-              >
-                {t.next}
-              </button>
-            </div>
+          <div className="p-4 border-t border-slate-100 dark:border-slate-700">
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.pages}
+              totalItems={pagination.total}
+              itemsPerPage={pagination.limit}
+              onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+            />
           </div>
         )}
       </div>

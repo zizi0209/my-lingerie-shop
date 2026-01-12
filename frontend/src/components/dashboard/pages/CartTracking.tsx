@@ -6,6 +6,7 @@ import {
   Package, User, Clock, Eye, X
 } from 'lucide-react';
 import { cartTrackingApi, type Cart, type CartStatus, type CartStats } from '@/lib/cartTrackingApi';
+import Pagination from '../components/Pagination';
 import { useLanguage } from '../components/LanguageContext';
 
 const CartTracking: React.FC = () => {
@@ -309,47 +310,14 @@ const CartTracking: React.FC = () => {
 
             {/* Pagination */}
             {pagination.pages > 1 && (
-              <div className="flex items-center justify-between p-4 border-t border-slate-100 dark:border-slate-800">
-                <p className="text-sm text-slate-500">
-                  {t.page} {pagination.page} / {pagination.pages} ({pagination.total} {t.carts})
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                    disabled={pagination.page === 1}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    {t.prev}
-                  </button>
-                  <button
-                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                    disabled={pagination.page === pagination.pages}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    {t.next}
-                  </button>
-
-                  {/* Jump to page */}
-                  <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-200 dark:border-slate-700">
-                    <span className="text-xs text-slate-500">{language === 'vi' ? 'Đi tới' : 'Go to'}:</span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={pagination.pages}
-                      placeholder="#"
-                      className="w-14 px-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-center outline-none focus:ring-2 focus:ring-rose-500/20"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          const value = parseInt((e.target as HTMLInputElement).value);
-                          if (value >= 1 && value <= pagination.pages) {
-                            setPagination(prev => ({ ...prev, page: value }));
-                            (e.target as HTMLInputElement).value = '';
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
+              <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+                <Pagination
+                  currentPage={pagination.page}
+                  totalPages={pagination.pages}
+                  totalItems={pagination.total}
+                  itemsPerPage={pagination.limit}
+                  onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+                />
               </div>
             )}
           </>

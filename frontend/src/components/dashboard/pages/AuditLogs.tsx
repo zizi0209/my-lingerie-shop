@@ -7,6 +7,7 @@ import {
   Edit3, CheckCircle, XCircle, AlertCircle, Clock, Wallet,
   ChevronDown, ChevronUp, Filter, RefreshCw, Search
 } from 'lucide-react';
+import Pagination from '../components/Pagination';
 
 // Action config với label và icon
 const ACTION_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
@@ -516,27 +517,15 @@ export default function AuditLogs() {
       )}
 
       {/* Pagination */}
-      {logs.length > 0 && (
-        <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Trang {pagination.page} / {pagination.pages}
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPagination({ ...pagination, page: pagination.page - 1 })}
-              disabled={pagination.page === 1 || loading}
-              className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Trước
-            </button>
-            <button
-              onClick={() => setPagination({ ...pagination, page: pagination.page + 1 })}
-              disabled={pagination.page >= pagination.pages || loading}
-              className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Sau
-            </button>
-          </div>
+      {logs.length > 0 && pagination.pages > 1 && (
+        <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.pages}
+            totalItems={pagination.total}
+            itemsPerPage={pagination.limit}
+            onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+          />
         </div>
       )}
     </div>

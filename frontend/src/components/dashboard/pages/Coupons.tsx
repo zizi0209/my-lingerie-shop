@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { couponApi, campaignApi, type Coupon, type Campaign } from '@/lib/couponApi';
 import SearchInput from '../components/SearchInput';
+import Pagination from '../components/Pagination';
 import { useLanguage } from '../components/LanguageContext';
 
 interface CouponFormData {
@@ -558,24 +559,14 @@ const Coupons: React.FC = () => {
 
           {/* Pagination */}
           {pagination.pages > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-6">
-              <button
-                onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
-                disabled={pagination.page === 1}
-                className="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-50"
-              >
-                ←
-              </button>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {pagination.page} / {pagination.pages}
-              </span>
-              <button
-                onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
-                disabled={pagination.page === pagination.pages}
-                className="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-50"
-              >
-                →
-              </button>
+            <div className="mt-6">
+              <Pagination
+                currentPage={pagination.page}
+                totalPages={pagination.pages}
+                totalItems={pagination.total}
+                itemsPerPage={pagination.limit}
+                onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+              />
             </div>
           )}
         </>
