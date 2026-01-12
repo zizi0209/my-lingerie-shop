@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import ProductCard from "@/components/product/ProductCard";
 import { Filter, Loader2, Search, X } from "lucide-react";
+import { trackPageView, trackSearch } from "@/lib/tracking";
 
 interface Product {
   id: string;
@@ -66,6 +67,26 @@ export default function ProductsPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const hasTrackedPageView = useRef(false);
+
+  // Track page view on mount
+  useEffect(() => {
+    if (!hasTrackedPageView.current) {
+      hasTrackedPageView.current = true;
+      const path = searchQuery ? `/san-pham?search=${encodeURIComponent(searchQuery)}` : '/san-pham';
+      trackPageView({ path });
+    }
+  }, [searchQuery]);
+
+  // Track search when results are loaded
+  useEffect(() => {
+    if (searchQuery && total > 0 && !loading) {
+      trackSearch({
+        keyword: searchQuery,
+        resultsCount: total,
+      });
+    }
+  }, [searchQuery, total, loading]);
 
   // Fetch categories
   useEffect(() => {

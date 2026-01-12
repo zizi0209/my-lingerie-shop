@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
+import { trackCartEvent } from "@/lib/tracking";
 
 interface CartProduct {
   id: number;
@@ -156,6 +157,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (data.success) {
+        // Track add to cart event
+        trackCartEvent({
+          event: 'add_to_cart',
+          productId,
+          variantId: variantId || undefined,
+          quantity,
+          cartId: cart.id,
+          userId: user?.id || null,
+        });
         await fetchCart();
         return true;
       } else {
@@ -217,6 +227,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const removeItem = async (itemId: number) => {
+    // Find item before removing for tracking
+    const itemToRemove = cart?.items.find(item => item.id === itemId);
+    
     try {
       const res = await fetch(`${baseUrl}/carts/items/${itemId}`, {
         method: "DELETE",
@@ -225,6 +238,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (data.success) {
+        // Track remove from cart
+        if (itemToRemove) {
+          trackCartEvent({
+            event: 'remove_from_cart',
+            productId: itemToRemove.productId,
+            variantId: itemToRemove.variantId || undefined,
+            quantity: itemToRemove.quantity,
+            cartId: cart?.id,
+            userId: user?.id || null,
+          });
+        }
         await fetchCart();
       } else {
         setError(data.error || "Không thể xóa sản phẩm");

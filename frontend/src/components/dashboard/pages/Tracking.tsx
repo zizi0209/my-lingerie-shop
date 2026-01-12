@@ -8,7 +8,7 @@ import {
 import {
   Eye, ShoppingCart, CreditCard, CheckCircle, TrendingUp, TrendingDown,
   Users, Package, Search, AlertTriangle, RefreshCw, Filter,
-  ArrowDown, Loader2, Tag, Sparkles, Target, Link2
+  ArrowDown, Loader2, Tag, Sparkles, Target, Link2, Heart
 } from 'lucide-react';
 import { useTheme } from '../components/ThemeContext';
 import { api } from '@/lib/api';
@@ -129,6 +129,29 @@ interface BoughtTogetherPair {
   bundleSuggestion: { originalPrice: number; suggestedPrice: number; discount: number };
 }
 
+interface WishlistData {
+  overview: {
+    totalAdds: number;
+    totalRemoves: number;
+    netChange: number;
+    currentTotalItems: number;
+    conversionRate: number;
+  };
+  topProducts: Array<{
+    productId: number;
+    name: string;
+    slug?: string;
+    price: number;
+    image?: string;
+    category?: string;
+    adds: number;
+    removes: number;
+    netScore: number;
+    retentionRate: number;
+  }>;
+  insights: string[];
+}
+
 const COLORS = ['#f43f5e', '#fb7185', '#fda4af', '#fecdd3', '#be123c'];
 const SIZE_COLORS = ['#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#7c3aed'];
 const COLOR_CHART_COLORS = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
@@ -152,12 +175,15 @@ const Tracking: React.FC = () => {
   const [sizeHeatmap, setSizeHeatmap] = useState<SizeHeatmapData | null>(null);
   const [colorTrends, setColorTrends] = useState<ColorTrendData | null>(null);
   const [returnBySize, setReturnBySize] = useState<ReturnBySizeData | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'size-intel' | 'behavior' | 'ai-rec'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'size-intel' | 'behavior' | 'ai-rec' | 'wishlist'>('overview');
   
   // Phase 4 states - AI Recommendation
   const [recData, setRecData] = useState<RecommendationData | null>(null);
   const [coViewedPairs, setCoViewedPairs] = useState<CoViewedPair[]>([]);
   const [boughtTogether, setBoughtTogether] = useState<BoughtTogetherPair[]>([]);
+  
+  // Wishlist analytics
+  const [wishlistData, setWishlistData] = useState<WishlistData | null>(null);
 
   const fetchData = async () => {
     try {
@@ -168,7 +194,7 @@ const Tracking: React.FC = () => {
         data: T;
       }
 
-      const [overviewRes, funnelRes, sizeRes, searchRes, abandonedRes, heatmapRes, colorRes, returnRes, recRes, coViewRes, boughtRes] = await Promise.all([
+      const [overviewRes, funnelRes, sizeRes, searchRes, abandonedRes, heatmapRes, colorRes, returnRes, recRes, coViewRes, boughtRes, wishlistRes] = await Promise.all([
         api.get('/admin/analytics/overview') as Promise<ApiResponse<OverviewData>>,
         api.get(`/admin/analytics/funnel?period=${period}`) as Promise<ApiResponse<FunnelData>>,
         api.get(`/admin/analytics/size-distribution?period=${period}`) as Promise<ApiResponse<SizeData>>,
@@ -179,7 +205,8 @@ const Tracking: React.FC = () => {
         api.get(`/admin/analytics/return-by-size?period=90days`) as Promise<ApiResponse<ReturnBySizeData>>,
         api.get(`/admin/analytics/recommendation-effectiveness?period=${period}`) as Promise<ApiResponse<RecommendationData>>,
         api.get(`/admin/analytics/co-viewed-products?period=${period}`) as Promise<ApiResponse<{ pairs: CoViewedPair[] }>>,
-        api.get(`/admin/analytics/bought-together?period=90days`) as Promise<ApiResponse<{ pairs: BoughtTogetherPair[] }>>
+        api.get(`/admin/analytics/bought-together?period=90days`) as Promise<ApiResponse<{ pairs: BoughtTogetherPair[] }>>,
+        api.get(`/admin/analytics/wishlist?period=${period}`) as Promise<ApiResponse<WishlistData>>
       ]);
 
       if (overviewRes.success) setOverview(overviewRes.data);
@@ -196,6 +223,7 @@ const Tracking: React.FC = () => {
       if (recRes.success) setRecData(recRes.data);
       if (coViewRes.success) setCoViewedPairs(coViewRes.data.pairs || []);
       if (boughtRes.success) setBoughtTogether(boughtRes.data.pairs || []);
+      if (wishlistRes.success) setWishlistData(wishlistRes.data);
     } catch (error) {
       console.error('Error fetching analytics:', error);
     } finally {
@@ -280,6 +308,7 @@ const Tracking: React.FC = () => {
           { id: 'size-intel', label: 'Phân tích Size', icon: Package },
           { id: 'behavior', label: 'Hành vi', icon: Search },
           { id: 'ai-rec', label: 'AI & Gợi ý', icon: Sparkles },
+          { id: 'wishlist', label: 'Wishlist', icon: Heart },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1113,6 +1142,123 @@ const Tracking: React.FC = () => {
               <div className="text-center py-12 text-slate-400">
                 <ShoppingCart size={40} className="mx-auto mb-2 opacity-30" />
                 <p>Chưa đủ dữ liệu phân tích bought-together</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: Wishlist Analytics */}
+      {activeTab === 'wishlist' && (
+        <div className="space-y-6">
+          {/* Wishlist Overview Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Heart className="text-rose-500" size={18} />
+                <span className="text-xs font-medium text-slate-500 uppercase">Thêm yêu thích</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{wishlistData?.overview.totalAdds || 0}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingDown className="text-amber-500" size={18} />
+                <span className="text-xs font-medium text-slate-500 uppercase">Bỏ yêu thích</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{wishlistData?.overview.totalRemoves || 0}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="text-emerald-500" size={18} />
+                <span className="text-xs font-medium text-slate-500 uppercase">Tổng hiện tại</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{wishlistData?.overview.currentTotalItems || 0}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <ShoppingCart className="text-blue-500" size={18} />
+                <span className="text-xs font-medium text-slate-500 uppercase">Chuyển đổi</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{wishlistData?.overview.conversionRate || 0}%</p>
+            </div>
+          </div>
+
+          {/* Wishlist Insights */}
+          {wishlistData?.insights && wishlistData.insights.length > 0 && (
+            <div className="bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-500/10 dark:to-pink-500/10 p-4 rounded-2xl border border-rose-200 dark:border-rose-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Heart className="text-rose-500" size={18} />
+                <span className="font-medium text-rose-700 dark:text-rose-300">Wishlist Insights</span>
+              </div>
+              <ul className="space-y-1">
+                {wishlistData.insights.map((insight, idx) => (
+                  <li key={idx} className="text-sm text-slate-700 dark:text-slate-300">{insight}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Top Wishlisted Products */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Sản phẩm được yêu thích nhất</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Top sản phẩm trong wishlist của khách hàng</p>
+              </div>
+              <Heart className="text-rose-500" size={24} />
+            </div>
+
+            {wishlistData?.topProducts && wishlistData.topProducts.length > 0 ? (
+              <div className="space-y-3">
+                {wishlistData.topProducts.slice(0, 10).map((product, idx) => (
+                  <div 
+                    key={product.productId}
+                    className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center text-rose-600 font-bold text-sm">
+                      {idx + 1}
+                    </div>
+                    {product.image ? (
+                      <img src={product.image} alt={product.name} className="w-14 h-14 rounded-lg object-cover" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                        <Package size={20} className="text-slate-400" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-900 dark:text-white truncate">{product.name}</p>
+                      <p className="text-sm text-slate-500">{product.category} • {formatCurrency(product.price)}đ</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-rose-600 dark:text-rose-400">
+                          ❤️ {product.netScore}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                        <span className="text-emerald-500">+{product.adds}</span>
+                        <span className="text-amber-500">-{product.removes}</span>
+                      </div>
+                      <div className="mt-1">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          product.retentionRate > 70 
+                            ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' 
+                            : product.retentionRate > 50 
+                            ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                            : 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300'
+                        }`}>
+                          Giữ {product.retentionRate}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-slate-400">
+                <Heart size={40} className="mx-auto mb-2 opacity-30" />
+                <p>Chưa có dữ liệu wishlist</p>
+                <p className="text-xs mt-1">Dữ liệu sẽ xuất hiện khi khách hàng thêm sản phẩm vào yêu thích</p>
               </div>
             )}
           </div>

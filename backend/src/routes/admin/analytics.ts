@@ -1671,4 +1671,174 @@ function getSourceLabel(source: string): string {
   return labels[source] || source;
 }
 
+/**
+ * GET /api/admin/analytics/wishlist
+ * Wishlist analytics - most wishlisted products
+ */
+router.get('/wishlist', async (req, res) => {
+  try {
+    const { period = '30days', limit = 20 } = req.query;
+
+    const now = new Date();
+    let startDate: Date;
+    switch (period) {
+      case '7days':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30days':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case '90days':
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    // Get wishlist events from cart_events (add_to_wishlist, remove_from_wishlist)
+    const [addEvents, removeEvents, totalWishlistAdds, totalWishlistRemoves] = await Promise.all([
+      // Add to wishlist events grouped by product
+      prisma.cartEvent.groupBy({
+        by: ['productId'],
+        where: {
+          createdAt: { gte: startDate },
+          event: 'add_to_wishlist',
+          productId: { not: null }
+        },
+        _count: { productId: true },
+        orderBy: { _count: { productId: 'desc' } },
+        take: Number(limit) * 2
+      }),
+      // Remove from wishlist events grouped by product
+      prisma.cartEvent.groupBy({
+        by: ['productId'],
+        where: {
+          createdAt: { gte: startDate },
+          event: 'remove_from_wishlist',
+          productId: { not: null }
+        },
+        _count: { productId: true }
+      }),
+      // Total add events
+      prisma.cartEvent.count({
+        where: {
+          createdAt: { gte: startDate },
+          event: 'add_to_wishlist'
+        }
+      }),
+      // Total remove events
+      prisma.cartEvent.count({
+        where: {
+          createdAt: { gte: startDate },
+          event: 'remove_from_wishlist'
+        }
+      })
+    ]);
+
+    // Create maps
+    const addMap = new Map(addEvents.map(e => [e.productId, e._count.productId]));
+    const removeMap = new Map(removeEvents.map(e => [e.productId, e._count.productId]));
+
+    // Get product IDs with most adds
+    const productIds = addEvents
+      .filter(e => e.productId !== null)
+      .slice(0, Number(limit))
+      .map(e => e.productId as number);
+
+    // Get product details
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        price: true,
+        salePrice: true,
+        images: { take: 1, select: { url: true } },
+        category: { select: { name: true } }
+      }
+    });
+
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    // Calculate net wishlist score
+    const wishlistedProducts = productIds.map(id => {
+      const product = productMap.get(id);
+      const adds = addMap.get(id) || 0;
+      const removes = removeMap.get(id) || 0;
+      const netScore = adds - removes;
+
+      return {
+        productId: id,
+        name: product?.name || 'Unknown',
+        slug: product?.slug,
+        price: product?.salePrice || product?.price || 0,
+        image: product?.images[0]?.url,
+        category: product?.category?.name,
+        adds,
+        removes,
+        netScore,
+        retentionRate: adds > 0 ? Math.round(((adds - removes) / adds) * 100) : 0
+      };
+    })
+    .filter(p => p.adds > 0)
+    .sort((a, b) => b.netScore - a.netScore)
+    .slice(0, Number(limit));
+
+    // Get current total wishlist items across all users
+    const currentTotalItems = await prisma.wishlistItem.count();
+
+    // Generate insights
+    const insights: string[] = [];
+    if (wishlistedProducts.length > 0) {
+      const topProduct = wishlistedProducts[0];
+      insights.push(`❤️ Sản phẩm được yêu thích nhất: "${topProduct.name}" (${topProduct.netScore} lượt)`);
+    }
+
+    const avgRetention = wishlistedProducts.length > 0 
+      ? Math.round(wishlistedProducts.reduce((sum, p) => sum + p.retentionRate, 0) / wishlistedProducts.length)
+      : 0;
+    
+    if (avgRetention < 50) {
+      insights.push('⚠️ Tỉ lệ giữ trong wishlist thấp. Khách có thể chờ giảm giá hoặc chưa quyết định.');
+    } else if (avgRetention > 70) {
+      insights.push('✅ Tỉ lệ giữ trong wishlist cao. Sản phẩm được quan tâm thực sự.');
+    }
+
+    // Check conversion - products in wishlist that were purchased
+    const convertedFromWishlist = await prisma.orderItem.count({
+      where: {
+        productId: { in: productIds },
+        order: {
+          createdAt: { gte: startDate },
+          status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+        }
+      }
+    });
+
+    const conversionRate = totalWishlistAdds > 0 
+      ? Math.round((convertedFromWishlist / totalWishlistAdds) * 10000) / 100
+      : 0;
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        overview: {
+          totalAdds: totalWishlistAdds,
+          totalRemoves: totalWishlistRemoves,
+          netChange: totalWishlistAdds - totalWishlistRemoves,
+          currentTotalItems,
+          conversionRate
+        },
+        topProducts: wishlistedProducts,
+        insights
+      }
+    });
+  } catch (error) {
+    console.error('Wishlist analytics error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thống kê wishlist' });
+  }
+});
+
 export default router;

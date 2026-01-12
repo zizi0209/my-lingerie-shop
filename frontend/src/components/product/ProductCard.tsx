@@ -88,6 +88,8 @@ export default function ProductCard({ product }: ProductCardProps) {
               setTogglingWishlist(true);
               const result = await toggleWishlist(productId);
               setTogglingWishlist(false);
+              
+              // Tracking is handled by WishlistContext
               if (result) {
                 toast.success("Đã thêm vào danh sách yêu thích");
               } else {

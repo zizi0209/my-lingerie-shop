@@ -77,7 +77,7 @@ export const getPageViewAnalytics = async (req: Request, res: Response) => {
 // Track product view
 export const trackProductView = async (req: Request, res: Response) => {
   try {
-    const { productId, userId, sessionId } = req.body;
+    const { productId, userId, sessionId, source, sourceId } = req.body;
 
     if (!productId || !sessionId) {
       return res.status(400).json({ error: 'productId và sessionId là bắt buộc!' });
@@ -88,6 +88,8 @@ export const trackProductView = async (req: Request, res: Response) => {
         productId: Number(productId),
         userId: userId ? Number(userId) : null,
         sessionId,
+        source: source || 'direct',
+        sourceId: sourceId || null,
       },
     });
 

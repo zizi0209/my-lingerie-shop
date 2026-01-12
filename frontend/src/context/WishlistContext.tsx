@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
+import { trackWishlistEvent } from "@/lib/tracking";
 
 interface WishlistProduct {
   id: number;
@@ -81,6 +82,9 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
+    // Check current state before API call
+    const wasInWishlist = isInWishlist(productId);
+
     try {
       const res = await fetch(`${baseUrl}/wishlist/toggle`, {
         method: "POST",
@@ -94,13 +98,21 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (data.success) {
+        const isNowInWishlist = data.data.isInWishlist;
+        
+        // Track wishlist event
+        trackWishlistEvent({
+          event: isNowInWishlist ? 'add_to_wishlist' : 'remove_from_wishlist',
+          productId,
+        });
+        
         await fetchWishlist();
-        return data.data.isInWishlist;
+        return isNowInWishlist;
       }
-      return false;
+      return wasInWishlist;
     } catch (err) {
       console.error("Toggle wishlist error:", err);
-      return false;
+      return wasInWishlist;
     }
   };
 
@@ -118,6 +130,12 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (data.success) {
+        // Track remove from wishlist
+        trackWishlistEvent({
+          event: 'remove_from_wishlist',
+          productId,
+        });
+        
         setItems(prev => prev.filter(item => item.productId !== productId));
       }
     } catch (err) {

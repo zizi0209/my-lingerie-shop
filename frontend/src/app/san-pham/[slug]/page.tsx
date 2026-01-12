@@ -13,6 +13,7 @@ import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
 import type { ProductType } from "@/lib/sizeTemplateApi";
+import { trackProductView, trackCartEvent } from "@/lib/tracking";
 
 interface ProductImage {
   id: number;
@@ -157,6 +158,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     fetchProduct();
   }, [baseUrl, resolvedParams.slug]);
 
+  // Track product view when product is loaded
+  useEffect(() => {
+    if (product && sessionId) {
+      trackProductView({
+        productId: product.id,
+        userId: user?.id || null,
+        source: 'direct',
+      });
+    }
+  }, [product?.id, sessionId, user?.id]);
+
   // Tính các màu và size từ variants
   const colors = product?.variants
     ? [...new Set(product.variants.map(v => v.colorName))].filter(Boolean)
@@ -193,6 +205,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       const success = await addToCart(product.id, selectedVariant?.id, quantity);
       
       if (success) {
+        // Track add to cart event
+        trackCartEvent({
+          event: 'add_to_cart',
+          productId: product.id,
+          variantId: selectedVariant?.id,
+          quantity,
+          userId: user?.id || null,
+        });
+        
         toast.success(
           <div className="flex items-center gap-3">
             <Check className="w-5 h-5 text-green-500" />
@@ -471,6 +492,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 setTogglingWishlist(true);
                 const result = await toggleWishlist(product.id);
                 setTogglingWishlist(false);
+                
+                // Tracking is handled by WishlistContext
                 if (result) {
                   toast.success("Đã thêm vào danh sách yêu thích");
                 } else {
