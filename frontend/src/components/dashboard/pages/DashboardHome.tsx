@@ -487,7 +487,7 @@ const DashboardHome: React.FC = () => {
                     <p className="text-xs text-slate-500">{product.totalSold} đã bán</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{formatShortCurrency(product.price * product.totalSold)}</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{formatShortCurrency(product.totalRevenue || product.price * product.totalSold)}</p>
                   </div>
                 </div>
               ))}

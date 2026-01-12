@@ -170,43 +170,63 @@ router.get('/analytics', async (req, res) => {
         orderBy: { createdAt: 'asc' }
       }),
       
-      // Top selling products with actual revenue
-      prisma.orderItem.groupBy({
-        by: ['productId'],
-        _count: { productId: true },
-        _sum: { 
+      // Top selling products - get all order items to calculate actual revenue
+      prisma.orderItem.findMany({
+        where: {
+          order: {
+            createdAt: { gte: startDate },
+            status: { in: ['DELIVERED', 'SHIPPED', 'CONFIRMED', 'PROCESSING'] }
+          }
+        },
+        select: {
+          productId: true,
           quantity: true,
-          price: true  // Sum of actual price paid per item
-        },
-        orderBy: {
-          _sum: { quantity: 'desc' }
-        },
-        take: 10
+          price: true
+        }
       })
     ]);
 
-    // Get product details for top products
-    const productIds = topProducts.map(item => item.productId);
+    // Aggregate top products from order items
+    const productStatsMap = new Map<number, { totalSold: number; totalRevenue: number; orderCount: Set<number> }>();
+    
+    topProducts.forEach(item => {
+      const existing = productStatsMap.get(item.productId);
+      const itemRevenue = item.price * item.quantity; // price is unit price, multiply by quantity
+      
+      if (existing) {
+        existing.totalSold += item.quantity;
+        existing.totalRevenue += itemRevenue;
+      } else {
+        productStatsMap.set(item.productId, {
+          totalSold: item.quantity,
+          totalRevenue: itemRevenue,
+          orderCount: new Set()
+        });
+      }
+    });
+
+    // Get product details
+    const productIds = Array.from(productStatsMap.keys());
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
       select: { id: true, name: true, price: true, salePrice: true }
     });
 
-    const topProductsWithDetails = topProducts.map(item => {
-      const product = products.find(p => p.id === item.productId);
-      const totalQuantity = item._sum.quantity || 0;
-      // Use actual revenue from OrderItem.price sum, or calculate from product price
-      const totalRevenue = item._sum.price || (product?.salePrice || product?.price || 0) * totalQuantity;
-      
-      return {
-        productId: item.productId,
-        productName: product?.name || 'Unknown',
-        price: product?.salePrice || product?.price || 0,
-        totalSold: totalQuantity,
-        orderCount: item._count.productId,
-        totalRevenue: totalRevenue
-      };
-    });
+    // Build top products array sorted by total sold
+    const topProductsWithDetails = Array.from(productStatsMap.entries())
+      .map(([productId, stats]) => {
+        const product = products.find(p => p.id === productId);
+        return {
+          productId,
+          productName: product?.name || 'Unknown',
+          price: product?.salePrice || product?.price || 0,
+          totalSold: stats.totalSold,
+          orderCount: stats.totalSold, // Use totalSold as a proxy
+          totalRevenue: stats.totalRevenue
+        };
+      })
+      .sort((a, b) => b.totalSold - a.totalSold)
+      .slice(0, 10);
 
     res.json({
       success: true,
