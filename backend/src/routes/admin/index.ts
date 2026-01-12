@@ -10,6 +10,7 @@ import systemConfigRoutes from './systemConfig';
 import reviewsRoutes from './reviews';
 import searchRoutes from './search';
 import sizeTemplatesRoutes from './sizeTemplates';
+import analyticsRoutes from './analytics';
 
 const router = express.Router();
 
@@ -25,5 +26,6 @@ router.use('/system-config', systemConfigRoutes);
 router.use('/reviews', reviewsRoutes);
 router.use('/search', searchRoutes);
 router.use('/size-templates', sizeTemplatesRoutes);
+router.use('/analytics', analyticsRoutes);
 
 export default router;
