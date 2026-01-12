@@ -4,15 +4,16 @@ import {
   ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
 import { 
-  ShoppingCart, ChevronUp, MoreHorizontal, Wallet, 
+  ShoppingCart, ChevronUp, Wallet, 
   Package, TrendingUp, Loader2, Users, Clock,
   CheckCircle, XCircle, Truck, AlertCircle, Eye, ArrowRight,
-  BarChart3, LineChartIcon, AreaChartIcon
+  BarChart3, LineChartIcon, AreaChartIcon, 
+  Settings, UserCog, Edit3, Trash2, Star, Bell
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from '../components/ThemeContext';
 import { useLanguage } from '../components/LanguageContext';
-import { adminDashboardApi, type DashboardStats, type AuditLog } from '@/lib/adminApi';
+import { adminDashboardApi, type DashboardStats, type AuditLog, type LiveFeedItem } from '@/lib/adminApi';
 
 interface ChartDataPoint {
   name: string;
@@ -43,6 +44,56 @@ const ORDER_STATUS_CONFIG: Record<string, { label: string; color: string; icon: 
   CANCELLED: { label: 'Đã hủy', color: '#ef4444', icon: XCircle },
 };
 
+// Config cho các action types
+const getActionConfig = (action: string): { 
+  label: string; 
+  icon: React.ElementType; 
+  bgColor: string; 
+  textColor: string;
+} => {
+  const configs: Record<string, { label: string; icon: React.ElementType; bgColor: string; textColor: string }> = {
+    // User Management
+    UPDATE_USER_ROLE: { label: 'đã thay đổi quyền', icon: UserCog, bgColor: 'bg-purple-100 dark:bg-purple-500/20', textColor: 'text-purple-600 dark:text-purple-400' },
+    ACTIVATE_USER: { label: 'đã kích hoạt tài khoản', icon: CheckCircle, bgColor: 'bg-emerald-100 dark:bg-emerald-500/20', textColor: 'text-emerald-600 dark:text-emerald-400' },
+    DEACTIVATE_USER: { label: 'đã vô hiệu hóa tài khoản', icon: XCircle, bgColor: 'bg-red-100 dark:bg-red-500/20', textColor: 'text-red-600 dark:text-red-400' },
+    DELETE_USER: { label: 'đã xóa người dùng', icon: Trash2, bgColor: 'bg-red-100 dark:bg-red-500/20', textColor: 'text-red-600 dark:text-red-400' },
+    UNLOCK_USER_ACCOUNT: { label: 'đã mở khóa tài khoản', icon: CheckCircle, bgColor: 'bg-emerald-100 dark:bg-emerald-500/20', textColor: 'text-emerald-600 dark:text-emerald-400' },
+    
+    // Product Management
+    CREATE_PRODUCT: { label: 'đã tạo sản phẩm', icon: Package, bgColor: 'bg-emerald-100 dark:bg-emerald-500/20', textColor: 'text-emerald-600 dark:text-emerald-400' },
+    UPDATE_PRODUCT: { label: 'đã cập nhật sản phẩm', icon: Edit3, bgColor: 'bg-blue-100 dark:bg-blue-500/20', textColor: 'text-blue-600 dark:text-blue-400' },
+    DELETE_PRODUCT: { label: 'đã xóa sản phẩm', icon: Trash2, bgColor: 'bg-red-100 dark:bg-red-500/20', textColor: 'text-red-600 dark:text-red-400' },
+    UPDATE_PRODUCT_PRICE: { label: 'đã thay đổi giá', icon: Wallet, bgColor: 'bg-amber-100 dark:bg-amber-500/20', textColor: 'text-amber-600 dark:text-amber-400' },
+    UPDATE_PRODUCT_STOCK: { label: 'đã cập nhật tồn kho', icon: Package, bgColor: 'bg-blue-100 dark:bg-blue-500/20', textColor: 'text-blue-600 dark:text-blue-400' },
+    
+    // Order Management
+    UPDATE_ORDER_STATUS: { label: 'đã cập nhật trạng thái đơn hàng', icon: ShoppingCart, bgColor: 'bg-blue-100 dark:bg-blue-500/20', textColor: 'text-blue-600 dark:text-blue-400' },
+    CANCEL_ORDER: { label: 'đã hủy đơn hàng', icon: XCircle, bgColor: 'bg-red-100 dark:bg-red-500/20', textColor: 'text-red-600 dark:text-red-400' },
+    REFUND_ORDER: { label: 'đã hoàn tiền đơn hàng', icon: Wallet, bgColor: 'bg-amber-100 dark:bg-amber-500/20', textColor: 'text-amber-600 dark:text-amber-400' },
+    
+    // Category
+    CREATE_CATEGORY: { label: 'đã tạo danh mục', icon: Package, bgColor: 'bg-emerald-100 dark:bg-emerald-500/20', textColor: 'text-emerald-600 dark:text-emerald-400' },
+    UPDATE_CATEGORY: { label: 'đã cập nhật danh mục', icon: Edit3, bgColor: 'bg-blue-100 dark:bg-blue-500/20', textColor: 'text-blue-600 dark:text-blue-400' },
+    DELETE_CATEGORY: { label: 'đã xóa danh mục', icon: Trash2, bgColor: 'bg-red-100 dark:bg-red-500/20', textColor: 'text-red-600 dark:text-red-400' },
+    
+    // System Config
+    UPDATE_SYSTEM_CONFIG: { label: 'đã thay đổi cấu hình hệ thống', icon: Settings, bgColor: 'bg-slate-100 dark:bg-slate-700', textColor: 'text-slate-600 dark:text-slate-400' },
+    DELETE_SYSTEM_CONFIG: { label: 'đã xóa cấu hình', icon: Trash2, bgColor: 'bg-red-100 dark:bg-red-500/20', textColor: 'text-red-600 dark:text-red-400' },
+    
+    // Security
+    LOGIN_FAILED: { label: 'đăng nhập thất bại nhiều lần', icon: AlertCircle, bgColor: 'bg-red-100 dark:bg-red-500/20', textColor: 'text-red-600 dark:text-red-400' },
+    PASSWORD_CHANGE: { label: 'đã thay đổi mật khẩu', icon: Settings, bgColor: 'bg-amber-100 dark:bg-amber-500/20', textColor: 'text-amber-600 dark:text-amber-400' },
+    UPDATE_PERMISSIONS: { label: 'đã cập nhật quyền hạn', icon: UserCog, bgColor: 'bg-purple-100 dark:bg-purple-500/20', textColor: 'text-purple-600 dark:text-purple-400' },
+  };
+  
+  return configs[action] || { 
+    label: action.toLowerCase().replace(/_/g, ' '), 
+    icon: AlertCircle, 
+    bgColor: 'bg-slate-100 dark:bg-slate-700', 
+    textColor: 'text-slate-600 dark:text-slate-400' 
+  };
+};
+
 const DashboardHome: React.FC = () => {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -54,6 +105,7 @@ const DashboardHome: React.FC = () => {
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [ordersByStatus, setOrdersByStatus] = useState<OrderStatus[]>([]);
   const [recentActivities, setRecentActivities] = useState<AuditLog[]>([]);
+  const [liveFeed, setLiveFeed] = useState<LiveFeedItem[]>([]);
   const [period, setPeriod] = useState<'24hours' | '7days' | '30days' | '90days'>('7days');
   const [chartType, setChartType] = useState<'area' | 'bar' | 'line'>('area');
 
@@ -61,10 +113,11 @@ const DashboardHome: React.FC = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const [statsRes, analyticsRes, activitiesRes] = await Promise.all([
+        const [statsRes, analyticsRes, activitiesRes, liveFeedRes] = await Promise.all([
           adminDashboardApi.getStats(),
           adminDashboardApi.getAnalytics(period),
-          adminDashboardApi.getRecentActivities(10)
+          adminDashboardApi.getRecentActivities(10),
+          adminDashboardApi.getLiveFeed(10)
         ]);
 
         if (statsRes.success) {
@@ -95,6 +148,10 @@ const DashboardHome: React.FC = () => {
 
         if (activitiesRes.success) {
           setRecentActivities(activitiesRes.data);
+        }
+
+        if (liveFeedRes.success) {
+          setLiveFeed(liveFeedRes.data);
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
@@ -501,41 +558,122 @@ const DashboardHome: React.FC = () => {
         </div>
       </div>
 
-      {/* Recent Activities */}
-      {recentActivities.length > 0 && (
+      {/* Activity & Live Feed Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Admin Activities - System Logs */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Hoạt động gần đây</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Các thay đổi trong hệ thống</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Hoạt động hệ thống</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Thay đổi từ Admin/Mod</p>
             </div>
             <Link href="/dashboard/audit-logs" className="flex items-center gap-1 text-sm text-primary-500 hover:text-primary-600 font-medium">
               Xem tất cả <ArrowRight size={16} />
             </Link>
           </div>
-          <div className="space-y-3">
-            {recentActivities.slice(0, 5).map((activity) => (
-              <div key={activity.id} className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                <div className={`p-2 rounded-lg ${
-                  activity.severity === 'CRITICAL' ? 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400' :
-                  activity.severity === 'WARNING' ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' :
-                  'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400'
-                }`}>
-                  <AlertCircle size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-900 dark:text-white">
-                    <span className="font-medium">{activity.user?.name || activity.user?.email}</span>
-                    {' '}{activity.action.toLowerCase()}{' '}
-                    <span className="text-slate-500">{activity.resource}</span>
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">{formatTime(activity.createdAt)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          {recentActivities.length > 0 ? (
+            <div className="space-y-3">
+              {recentActivities.slice(0, 5).map((activity) => {
+                const actionConfig = getActionConfig(activity.action);
+                const ActionIcon = actionConfig.icon;
+                return (
+                  <div key={activity.id} className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                    <div className={`p-2 rounded-lg ${
+                      activity.severity === 'CRITICAL' ? 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400' :
+                      activity.severity === 'WARNING' ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' :
+                      `${actionConfig.bgColor} ${actionConfig.textColor}`
+                    }`}>
+                      <ActionIcon size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-900 dark:text-white">
+                        <span className="font-semibold text-primary-600 dark:text-primary-400">
+                          {activity.user?.role === 'SUPER_ADMIN' ? 'Super Admin' : activity.user?.role === 'ADMIN' ? 'Admin' : 'Mod'} {activity.user?.name || activity.user?.email?.split('@')[0]}
+                        </span>
+                        {' '}{actionConfig.label}
+                        {activity.resource && (
+                          <span className="font-medium text-slate-700 dark:text-slate-300"> {activity.resource}</span>
+                        )}
+                        {activity.resourceId && (
+                          <span className="text-slate-500"> #{activity.resourceId}</span>
+                        )}
+                      </p>
+                      {/* Show old/new value for price changes */}
+                      {activity.action.includes('PRICE') && activity.oldValue != null && activity.newValue != null && (
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Thay đổi: <span className="line-through text-red-500">{formatCurrency(Number(activity.oldValue as number))}</span>
+                          {' → '}<span className="text-emerald-600">{formatCurrency(Number(activity.newValue as number))}</span>
+                        </p>
+                      )}
+                      <p className="text-xs text-slate-400 mt-0.5">{formatTime(activity.createdAt)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-400">
+              <Settings size={48} className="mx-auto mb-2 opacity-30" />
+              <p>Chưa có hoạt động nào</p>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Live Feed - Business Events */}
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Live Feed</h3>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Tin tức kinh doanh</p>
+          </div>
+          {liveFeed.length > 0 ? (
+            <div className="space-y-3">
+              {liveFeed.slice(0, 5).map((item) => (
+                <div key={item.id} className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                  <div className={`p-2 rounded-lg ${
+                    item.type === 'NEW_ORDER' 
+                      ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400'
+                      : item.severity === 'CRITICAL'
+                        ? 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'
+                        : 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400'
+                  }`}>
+                    {item.type === 'NEW_ORDER' ? <ShoppingCart size={16} /> : <Star size={16} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">{item.title}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{item.description}</p>
+                    <p className="text-xs text-slate-400 mt-1">{formatTime(item.createdAt)}</p>
+                  </div>
+                  {item.type === 'NEW_ORDER' && item.metadata.amount && (
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                        {formatShortCurrency(item.metadata.amount)}
+                      </p>
+                    </div>
+                  )}
+                  {item.type === 'LOW_RATING_REVIEW' && item.metadata.rating && (
+                    <div className="flex items-center gap-0.5">
+                      {[...Array(item.metadata.rating)].map((_, i) => (
+                        <Star key={i} size={12} className="fill-amber-400 text-amber-400" />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-400">
+              <Bell size={48} className="mx-auto mb-2 opacity-30" />
+              <p>Chưa có sự kiện nào</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

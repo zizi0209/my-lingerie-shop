@@ -34,6 +34,24 @@ export interface AuditLog {
     id: number;
     email: string;
     name: string | null;
+    role?: string;
+  };
+}
+
+export interface LiveFeedItem {
+  type: 'NEW_ORDER' | 'LOW_RATING_REVIEW';
+  id: string;
+  title: string;
+  description: string;
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  createdAt: Date;
+  metadata: {
+    orderId?: number;
+    orderNumber?: string;
+    amount?: number;
+    reviewId?: number;
+    productId?: number;
+    rating?: number;
   };
 }
 
@@ -235,12 +253,20 @@ export const adminDashboardApi = {
     return api.get(`/admin/dashboard/analytics?period=${period}`);
   },
 
-  // Get recent activities
+  // Get recent activities (Admin actions only)
   async getRecentActivities(limit: number = 20): Promise<{
     success: boolean;
     data: AuditLog[];
   }> {
     return api.get(`/admin/dashboard/recent-activities?limit=${limit}`);
+  },
+  
+  // Get live feed (Business events: orders, reviews)
+  async getLiveFeed(limit: number = 10): Promise<{
+    success: boolean;
+    data: LiveFeedItem[];
+  }> {
+    return api.get(`/admin/dashboard/live-feed?limit=${limit}`);
   },
 };
 

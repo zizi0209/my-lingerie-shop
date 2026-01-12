@@ -252,13 +252,46 @@ router.get('/analytics', async (req, res) => {
 
 /**
  * GET /api/admin/dashboard/recent-activities
- * Get recent system activities
+ * Get recent ADMIN system activities (không bao gồm user thông thường)
+ * Chỉ lấy các hành động quan trọng: thay đổi config, quản lý user, sản phẩm, đơn hàng
  */
 router.get('/recent-activities', async (req, res) => {
   try {
     const { limit = 20 } = req.query;
 
+    // Các action quan trọng cần theo dõi từ Admin/Mod
+    const importantActions = [
+      // User Management
+      'UPDATE_USER_ROLE', 'ACTIVATE_USER', 'DEACTIVATE_USER', 
+      'UNLOCK_USER_ACCOUNT', 'DELETE_USER', 'LOCK_USER', 'CHANGE_ROLE',
+      // Product Management  
+      'CREATE_PRODUCT', 'UPDATE_PRODUCT', 'DELETE_PRODUCT',
+      'UPDATE_PRODUCT_PRICE', 'UPDATE_PRODUCT_STOCK',
+      // Order Management
+      'UPDATE_ORDER_STATUS', 'CANCEL_ORDER', 'REFUND_ORDER',
+      // Category Management
+      'CREATE_CATEGORY', 'UPDATE_CATEGORY', 'DELETE_CATEGORY',
+      // System Config
+      'UPDATE_SYSTEM_CONFIG', 'DELETE_SYSTEM_CONFIG', 'UPDATE_SETTINGS',
+      // Media
+      'DELETE_MEDIA',
+      // Security (Critical)
+      'LOGIN_FAILED', 'PASSWORD_CHANGE', 'UPDATE_PERMISSIONS'
+    ];
+
     const activities = await prisma.auditLog.findMany({
+      where: {
+        OR: [
+          // Lấy các action quan trọng
+          { action: { in: importantActions } },
+          // Hoặc bất kỳ action nào có severity WARNING/CRITICAL
+          { severity: { in: ['WARNING', 'CRITICAL'] } }
+        ],
+        // Chỉ lấy từ Admin/Mod (có role không phải USER)
+        user: {
+          role: { NOT: { name: 'USER' } }
+        }
+      },
       take: Number(limit),
       orderBy: { createdAt: 'desc' },
       include: {
@@ -266,7 +299,8 @@ router.get('/recent-activities', async (req, res) => {
           select: {
             id: true,
             email: true,
-            name: true
+            name: true,
+            role: true
           }
         }
       }
@@ -280,6 +314,95 @@ router.get('/recent-activities', async (req, res) => {
     console.error('Recent activities error:', error);
     res.status(500).json({ 
       error: 'Lỗi khi lấy hoạt động gần đây' 
+    });
+  }
+});
+
+/**
+ * GET /api/admin/dashboard/live-feed
+ * Get business events: đơn hàng mới, review xấu, yêu cầu quan trọng từ khách hàng
+ */
+router.get('/live-feed', async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    // Lấy đơn hàng mới trong 24h
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const [recentOrders, lowRatingReviews] = await Promise.all([
+      // Đơn hàng mới
+      prisma.order.findMany({
+        where: {
+          createdAt: { gte: oneDayAgo }
+        },
+        select: {
+          id: true,
+          orderNumber: true,
+          totalAmount: true,
+          status: true,
+          createdAt: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: Number(limit)
+      }),
+      
+      // Review xấu (1-2 sao) trong 7 ngày
+      prisma.review.findMany({
+        where: {
+          rating: { lte: 2 },
+          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+        },
+        include: {
+          user: {
+            select: { name: true, email: true }
+          },
+          product: {
+            select: { id: true, name: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      })
+    ]);
+
+    // Combine và sort theo thời gian
+    const feed = [
+      ...recentOrders.map(order => ({
+        type: 'NEW_ORDER' as const,
+        id: `order-${order.id}`,
+        title: `Đơn hàng mới #${order.orderNumber}`,
+        description: `${order.user?.name || 'Khách'} đặt đơn ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount)}`,
+        severity: 'INFO' as const,
+        createdAt: order.createdAt,
+        metadata: { orderId: order.id, orderNumber: order.orderNumber, amount: order.totalAmount }
+      })),
+      ...lowRatingReviews.map(review => ({
+        type: 'LOW_RATING_REVIEW' as const,
+        id: `review-${review.id}`,
+        title: `Review ${review.rating} sao`,
+        description: `${review.user?.name || 'Khách'} đánh giá "${review.product?.name}" - "${review.content?.slice(0, 50) || 'Không có nội dung'}..."`,
+        severity: review.rating === 1 ? 'CRITICAL' as const : 'WARNING' as const,
+        createdAt: review.createdAt,
+        metadata: { reviewId: review.id, productId: review.product?.id, rating: review.rating }
+      }))
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+     .slice(0, Number(limit));
+
+    res.json({
+      success: true,
+      data: feed
+    });
+  } catch (error) {
+    console.error('Live feed error:', error);
+    res.status(500).json({ 
+      error: 'Lỗi khi lấy live feed' 
     });
   }
 });
