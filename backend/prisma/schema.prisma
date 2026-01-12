@@ -389,11 +389,35 @@ model ProductView {
   productId Int
   userId    Int?
   sessionId String
+  source    String?  // 'direct', 'search', 'recommendation', 'category', 'homepage'
+  sourceId  String?  // ID của recommendation/search nếu có
   createdAt DateTime @default(now())
   product   Product  @relation(fields: [productId], references: [id])
 
   @@index([productId, createdAt])
   @@index([userId])
+  @@index([source])
+}
+
+// Tracking clicks trên recommendation section
+model RecommendationClick {
+  id              Int      @id @default(autoincrement())
+  userId          Int?
+  sessionId       String
+  productId       Int      // Sản phẩm được gợi ý (clicked)
+  sourceProductId Int?     // Sản phẩm đang xem khi thấy gợi ý
+  algorithm       String   // 'similar', 'trending', 'recently_viewed', 'bought_together'
+  position        Int      // Vị trí trong danh sách gợi ý (0-indexed)
+  sectionType     String   // 'product_detail', 'cart', 'homepage', 'category'
+  purchased       Boolean  @default(false)
+  purchasedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([productId, createdAt])
+  @@index([sourceProductId])
+  @@index([algorithm, createdAt])
+  @@index([sessionId])
+  @@index([purchased])
 }
 
 model CartEvent {

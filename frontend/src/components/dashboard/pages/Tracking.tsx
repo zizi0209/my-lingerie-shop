@@ -8,7 +8,7 @@ import {
 import {
   Eye, ShoppingCart, CreditCard, CheckCircle, TrendingUp, TrendingDown,
   Users, Package, Search, AlertTriangle, RefreshCw, Filter,
-  ArrowDown, Loader2, Tag
+  ArrowDown, Loader2, Tag, Sparkles, Target, Link2
 } from 'lucide-react';
 import { useTheme } from '../components/ThemeContext';
 import { api } from '@/lib/api';
@@ -99,6 +99,36 @@ interface ReturnBySizeData {
   insights: string[];
 }
 
+interface RecommendationData {
+  overview: {
+    totalClicks: number;
+    purchasedFromRec: number;
+    ctr: number;
+    conversionRate: number;
+    revenueFromRec: number;
+    revenueContribution: number;
+    recViews: number;
+  };
+  algorithmStats: Array<{ algorithm: string; clicks: number; label: string }>;
+  sourceStats: Array<{ source: string; views: number; label: string }>;
+  insights: string[];
+}
+
+interface CoViewedPair {
+  coViewCount: number;
+  product1: { id: number; name: string; price: number; image?: string; category?: string } | null;
+  product2: { id: number; name: string; price: number; image?: string; category?: string } | null;
+  comboSuggestion: string | null;
+  comboPotentialPrice: number;
+}
+
+interface BoughtTogetherPair {
+  coBuyCount: number;
+  product1: { id: number; name: string; price: number; image?: string; category?: string } | null;
+  product2: { id: number; name: string; price: number; image?: string; category?: string } | null;
+  bundleSuggestion: { originalPrice: number; suggestedPrice: number; discount: number };
+}
+
 const COLORS = ['#f43f5e', '#fb7185', '#fda4af', '#fecdd3', '#be123c'];
 const SIZE_COLORS = ['#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#7c3aed'];
 const COLOR_CHART_COLORS = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
@@ -122,7 +152,12 @@ const Tracking: React.FC = () => {
   const [sizeHeatmap, setSizeHeatmap] = useState<SizeHeatmapData | null>(null);
   const [colorTrends, setColorTrends] = useState<ColorTrendData | null>(null);
   const [returnBySize, setReturnBySize] = useState<ReturnBySizeData | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'size-intel' | 'behavior'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'size-intel' | 'behavior' | 'ai-rec'>('overview');
+  
+  // Phase 4 states - AI Recommendation
+  const [recData, setRecData] = useState<RecommendationData | null>(null);
+  const [coViewedPairs, setCoViewedPairs] = useState<CoViewedPair[]>([]);
+  const [boughtTogether, setBoughtTogether] = useState<BoughtTogetherPair[]>([]);
 
   const fetchData = async () => {
     try {
@@ -133,7 +168,7 @@ const Tracking: React.FC = () => {
         data: T;
       }
 
-      const [overviewRes, funnelRes, sizeRes, searchRes, abandonedRes, heatmapRes, colorRes, returnRes] = await Promise.all([
+      const [overviewRes, funnelRes, sizeRes, searchRes, abandonedRes, heatmapRes, colorRes, returnRes, recRes, coViewRes, boughtRes] = await Promise.all([
         api.get('/admin/analytics/overview') as Promise<ApiResponse<OverviewData>>,
         api.get(`/admin/analytics/funnel?period=${period}`) as Promise<ApiResponse<FunnelData>>,
         api.get(`/admin/analytics/size-distribution?period=${period}`) as Promise<ApiResponse<SizeData>>,
@@ -141,7 +176,10 @@ const Tracking: React.FC = () => {
         api.get(`/admin/analytics/high-view-no-buy?period=${period}`) as Promise<ApiResponse<{ products: AbandonedProduct[] }>>,
         api.get(`/admin/analytics/size-heatmap?period=${period}`) as Promise<ApiResponse<SizeHeatmapData>>,
         api.get(`/admin/analytics/color-trends?period=${period}`) as Promise<ApiResponse<ColorTrendData>>,
-        api.get(`/admin/analytics/return-by-size?period=90days`) as Promise<ApiResponse<ReturnBySizeData>>
+        api.get(`/admin/analytics/return-by-size?period=90days`) as Promise<ApiResponse<ReturnBySizeData>>,
+        api.get(`/admin/analytics/recommendation-effectiveness?period=${period}`) as Promise<ApiResponse<RecommendationData>>,
+        api.get(`/admin/analytics/co-viewed-products?period=${period}`) as Promise<ApiResponse<{ pairs: CoViewedPair[] }>>,
+        api.get(`/admin/analytics/bought-together?period=90days`) as Promise<ApiResponse<{ pairs: BoughtTogetherPair[] }>>
       ]);
 
       if (overviewRes.success) setOverview(overviewRes.data);
@@ -155,6 +193,9 @@ const Tracking: React.FC = () => {
       if (heatmapRes.success) setSizeHeatmap(heatmapRes.data);
       if (colorRes.success) setColorTrends(colorRes.data);
       if (returnRes.success) setReturnBySize(returnRes.data);
+      if (recRes.success) setRecData(recRes.data);
+      if (coViewRes.success) setCoViewedPairs(coViewRes.data.pairs || []);
+      if (boughtRes.success) setBoughtTogether(boughtRes.data.pairs || []);
     } catch (error) {
       console.error('Error fetching analytics:', error);
     } finally {
@@ -233,11 +274,12 @@ const Tracking: React.FC = () => {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
         {[
           { id: 'overview', label: 'Tổng quan', icon: Eye },
           { id: 'size-intel', label: 'Phân tích Size', icon: Package },
           { id: 'behavior', label: 'Hành vi', icon: Search },
+          { id: 'ai-rec', label: 'AI & Gợi ý', icon: Sparkles },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -850,6 +892,227 @@ const Tracking: React.FC = () => {
               <div className="text-center py-12 text-slate-400">
                 <CheckCircle size={40} className="mx-auto mb-2 opacity-30" />
                 <p>Không có sản phẩm bị bỏ quên</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: AI & Recommendation */}
+      {activeTab === 'ai-rec' && (
+        <div className="space-y-6">
+          {/* Recommendation Overview Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="text-purple-500" size={18} />
+                <span className="text-xs font-medium text-slate-500 uppercase">CTR Gợi ý</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{recData?.overview.ctr || 0}%</p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <ShoppingCart className="text-emerald-500" size={18} />
+                <span className="text-xs font-medium text-slate-500 uppercase">Mua từ gợi ý</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{recData?.overview.purchasedFromRec || 0}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="text-blue-500" size={18} />
+                <span className="text-xs font-medium text-slate-500 uppercase">Tỉ lệ chuyển đổi</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{recData?.overview.conversionRate || 0}%</p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <CreditCard className="text-amber-500" size={18} />
+                <span className="text-xs font-medium text-slate-500 uppercase">% Doanh thu</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{recData?.overview.revenueContribution || 0}%</p>
+            </div>
+          </div>
+
+          {/* Insights */}
+          {recData?.insights && recData.insights.length > 0 && (
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 p-4 rounded-2xl border border-purple-200 dark:border-purple-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="text-purple-500" size={18} />
+                <span className="font-medium text-purple-700 dark:text-purple-300">AI Insights</span>
+              </div>
+              <ul className="space-y-1">
+                {recData.insights.map((insight, idx) => (
+                  <li key={idx} className="text-sm text-slate-700 dark:text-slate-300">{insight}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Algorithm Performance */}
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Hiệu suất thuật toán</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Clicks theo loại gợi ý</p>
+                </div>
+                <Sparkles className="text-purple-500" size={20} />
+              </div>
+
+              {recData?.algorithmStats && recData.algorithmStats.length > 0 ? (
+                <div className="space-y-3">
+                  {recData.algorithmStats.map((algo, idx) => (
+                    <div key={algo.algorithm} className="flex items-center gap-3">
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: COLOR_CHART_COLORS[idx % COLOR_CHART_COLORS.length] }}
+                      />
+                      <span className="flex-1 text-sm text-slate-700 dark:text-slate-300">{algo.label}</span>
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">{algo.clicks} clicks</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400">
+                  <Sparkles size={40} className="mx-auto mb-2 opacity-30" />
+                  <p>Chưa có dữ liệu recommendation</p>
+                  <p className="text-xs mt-1">Cần tích hợp tracking vào các section gợi ý</p>
+                </div>
+              )}
+            </div>
+
+            {/* Traffic Sources */}
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Nguồn traffic sản phẩm</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Khách tìm đến sản phẩm qua đâu?</p>
+                </div>
+                <Eye className="text-blue-500" size={20} />
+              </div>
+
+              {recData?.sourceStats && recData.sourceStats.length > 0 ? (
+                <div className="space-y-3">
+                  {recData.sourceStats.map((source, idx) => (
+                    <div key={source.source} className="flex items-center gap-3">
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: COLOR_CHART_COLORS[idx % COLOR_CHART_COLORS.length] }}
+                      />
+                      <span className="flex-1 text-sm text-slate-700 dark:text-slate-300">{source.label}</span>
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">{formatNumber(source.views)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400">
+                  <Eye size={40} className="mx-auto mb-2 opacity-30" />
+                  <p>Chưa có dữ liệu nguồn traffic</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Co-viewed Products */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Sản phẩm được xem cùng nhau</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Gợi ý tạo combo/bundle từ hành vi xem</p>
+              </div>
+              <Link2 className="text-cyan-500" size={24} />
+            </div>
+
+            {coViewedPairs.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {coViewedPairs.slice(0, 6).map((pair, idx) => (
+                  <div key={idx} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="flex -space-x-2">
+                        {pair.product1?.image ? (
+                          <img src={pair.product1.image} alt="" className="w-10 h-10 rounded-lg object-cover border-2 border-white dark:border-slate-800" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800" />
+                        )}
+                        {pair.product2?.image ? (
+                          <img src={pair.product2.image} alt="" className="w-10 h-10 rounded-lg object-cover border-2 border-white dark:border-slate-800" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{pair.product1?.name}</p>
+                        <p className="text-sm text-slate-500 truncate">+ {pair.product2?.name}</p>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500">{pair.coViewCount} sessions xem cùng</span>
+                      <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400">
+                        Combo {formatCurrency(pair.comboPotentialPrice)}đ
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-slate-400">
+                <Link2 size={40} className="mx-auto mb-2 opacity-30" />
+                <p>Chưa đủ dữ liệu phân tích co-view</p>
+              </div>
+            )}
+          </div>
+
+          {/* Bought Together */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Thường mua cùng nhau</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Cặp sản phẩm hay được mua trong cùng đơn</p>
+              </div>
+              <ShoppingCart className="text-emerald-500" size={24} />
+            </div>
+
+            {boughtTogether.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {boughtTogether.slice(0, 6).map((pair, idx) => (
+                  <div key={idx} className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="flex -space-x-2">
+                        {pair.product1?.image ? (
+                          <img src={pair.product1.image} alt="" className="w-12 h-12 rounded-lg object-cover border-2 border-white dark:border-slate-800" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800" />
+                        )}
+                        {pair.product2?.image ? (
+                          <img src={pair.product2.image} alt="" className="w-12 h-12 rounded-lg object-cover border-2 border-white dark:border-slate-800" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{pair.product1?.name}</p>
+                        <p className="text-sm text-slate-500 truncate">+ {pair.product2?.name}</p>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs text-slate-500">{pair.coBuyCount} đơn mua cùng</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-800 flex justify-between items-center">
+                      <div>
+                        <p className="text-xs text-slate-500 line-through">{formatCurrency(pair.bundleSuggestion.originalPrice)}đ</p>
+                        <p className="text-sm font-bold text-emerald-600">{formatCurrency(pair.bundleSuggestion.suggestedPrice)}đ</p>
+                      </div>
+                      <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full">
+                        -{pair.bundleSuggestion.discount}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-slate-400">
+                <ShoppingCart size={40} className="mx-auto mb-2 opacity-30" />
+                <p>Chưa đủ dữ liệu phân tích bought-together</p>
               </div>
             )}
           </div>

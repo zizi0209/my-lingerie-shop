@@ -1153,4 +1153,522 @@ router.get('/product-performance', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/analytics/recommendation-effectiveness
+ * Measure effectiveness of recommendation system
+ */
+router.get('/recommendation-effectiveness', async (req, res) => {
+  try {
+    const { period = '30days' } = req.query;
+
+    const now = new Date();
+    let startDate: Date;
+    switch (period) {
+      case '7days':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30days':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case '90days':
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    // Get recommendation clicks
+    const [
+      totalClicks,
+      clicksByAlgorithm,
+      purchasedFromRec,
+      viewsBySource
+    ] = await Promise.all([
+      // Total clicks on recommendations
+      prisma.recommendationClick.count({
+        where: { createdAt: { gte: startDate } }
+      }),
+      // Clicks grouped by algorithm
+      prisma.recommendationClick.groupBy({
+        by: ['algorithm'],
+        where: { createdAt: { gte: startDate } },
+        _count: { id: true }
+      }),
+      // Purchases from recommendations
+      prisma.recommendationClick.count({
+        where: {
+          createdAt: { gte: startDate },
+          purchased: true
+        }
+      }),
+      // Product views by source
+      prisma.productView.groupBy({
+        by: ['source'],
+        where: { createdAt: { gte: startDate } },
+        _count: { id: true }
+      })
+    ]);
+
+    // Calculate revenue from recommendations
+    const purchasedRecs = await prisma.recommendationClick.findMany({
+      where: {
+        createdAt: { gte: startDate },
+        purchased: true
+      },
+      select: { productId: true }
+    });
+
+    const purchasedProductIds = purchasedRecs.map(r => r.productId);
+    
+    let revenueFromRec = 0;
+    if (purchasedProductIds.length > 0) {
+      const orderItems = await prisma.orderItem.findMany({
+        where: {
+          productId: { in: purchasedProductIds },
+          order: {
+            createdAt: { gte: startDate },
+            status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+          }
+        },
+        select: { price: true, quantity: true }
+      });
+      revenueFromRec = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    }
+
+    // Total revenue for comparison
+    const totalRevenue = await prisma.order.aggregate({
+      _sum: { totalAmount: true },
+      where: {
+        createdAt: { gte: startDate },
+        status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+      }
+    });
+
+    // Format algorithm stats
+    const algorithmStats = clicksByAlgorithm.map(a => ({
+      algorithm: a.algorithm,
+      clicks: a._count.id,
+      label: getAlgorithmLabel(a.algorithm)
+    })).sort((a, b) => b.clicks - a.clicks);
+
+    // Format source stats
+    const sourceStats = viewsBySource
+      .filter(s => s.source)
+      .map(s => ({
+        source: s.source || 'unknown',
+        views: s._count.id,
+        label: getSourceLabel(s.source || '')
+      }))
+      .sort((a, b) => b.views - a.views);
+
+    // Calculate CTR and conversion rates
+    const totalViews = sourceStats.reduce((sum, s) => sum + s.views, 0);
+    const recViews = sourceStats.find(s => s.source === 'recommendation')?.views || 0;
+    const ctr = totalViews > 0 ? Math.round((totalClicks / totalViews) * 10000) / 100 : 0;
+    const conversionRate = totalClicks > 0 ? Math.round((purchasedFromRec / totalClicks) * 10000) / 100 : 0;
+    const revenueContribution = (totalRevenue._sum.totalAmount || 0) > 0
+      ? Math.round((revenueFromRec / (totalRevenue._sum.totalAmount || 1)) * 10000) / 100
+      : 0;
+
+    // Generate insights
+    const insights: string[] = [];
+    if (ctr > 5) {
+      insights.push('✅ CTR của recommendation tốt (>5%). Khách hàng quan tâm đến gợi ý.');
+    } else if (ctr < 2) {
+      insights.push('⚠️ CTR thấp (<2%). Cân nhắc cải thiện vị trí hiển thị hoặc thuật toán gợi ý.');
+    }
+    if (conversionRate > 10) {
+      insights.push('✅ Tỉ lệ mua từ recommendation cao (>10%).');
+    }
+    if (revenueContribution > 15) {
+      insights.push(`🎯 ${revenueContribution}% doanh thu đến từ recommendation - Rất hiệu quả!`);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        overview: {
+          totalClicks,
+          purchasedFromRec,
+          ctr,
+          conversionRate,
+          revenueFromRec,
+          revenueContribution,
+          recViews
+        },
+        algorithmStats,
+        sourceStats,
+        insights
+      }
+    });
+  } catch (error) {
+    console.error('Recommendation effectiveness error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy hiệu quả recommendation' });
+  }
+});
+
+/**
+ * GET /api/admin/analytics/co-viewed-products
+ * Products frequently viewed together (for combo suggestions)
+ */
+router.get('/co-viewed-products', async (req, res) => {
+  try {
+    const { period = '30days', minCoViews = 5 } = req.query;
+
+    const now = new Date();
+    let startDate: Date;
+    switch (period) {
+      case '7days':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30days':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    // Get all product views grouped by session
+    const productViews = await prisma.productView.findMany({
+      where: { createdAt: { gte: startDate } },
+      select: {
+        sessionId: true,
+        productId: true
+      },
+      orderBy: { sessionId: 'asc' }
+    });
+
+    // Group by session
+    const sessionProducts = new Map<string, Set<number>>();
+    productViews.forEach(pv => {
+      if (!sessionProducts.has(pv.sessionId)) {
+        sessionProducts.set(pv.sessionId, new Set());
+      }
+      sessionProducts.get(pv.sessionId)!.add(pv.productId);
+    });
+
+    // Count co-views (products viewed in the same session)
+    const coViewCounts = new Map<string, number>();
+    
+    sessionProducts.forEach(productSet => {
+      const products = Array.from(productSet);
+      if (products.length < 2) return;
+      
+      // Create pairs
+      for (let i = 0; i < products.length; i++) {
+        for (let j = i + 1; j < products.length; j++) {
+          const key = [products[i], products[j]].sort((a, b) => a - b).join('-');
+          coViewCounts.set(key, (coViewCounts.get(key) || 0) + 1);
+        }
+      }
+    });
+
+    // Filter by minimum co-views and get top pairs
+    const topPairs = Array.from(coViewCounts.entries())
+      .filter(([, count]) => count >= Number(minCoViews))
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 20);
+
+    // Get product details
+    const allProductIds = new Set<number>();
+    topPairs.forEach(([key]) => {
+      const [id1, id2] = key.split('-').map(Number);
+      allProductIds.add(id1);
+      allProductIds.add(id2);
+    });
+
+    const products = await prisma.product.findMany({
+      where: { id: { in: Array.from(allProductIds) } },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        salePrice: true,
+        images: { take: 1, select: { url: true } },
+        category: { select: { name: true } }
+      }
+    });
+
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    // Format pairs with product info
+    const coViewedPairs = topPairs.map(([key, count]) => {
+      const [id1, id2] = key.split('-').map(Number);
+      const p1 = productMap.get(id1);
+      const p2 = productMap.get(id2);
+
+      return {
+        coViewCount: count,
+        product1: p1 ? {
+          id: p1.id,
+          name: p1.name,
+          price: p1.salePrice || p1.price,
+          image: p1.images[0]?.url,
+          category: p1.category?.name
+        } : null,
+        product2: p2 ? {
+          id: p2.id,
+          name: p2.name,
+          price: p2.salePrice || p2.price,
+          image: p2.images[0]?.url,
+          category: p2.category?.name
+        } : null,
+        comboSuggestion: p1 && p2 ? `${p1.name} + ${p2.name}` : null,
+        comboPotentialPrice: p1 && p2 ? (p1.salePrice || p1.price) + (p2.salePrice || p2.price) : 0
+      };
+    }).filter(pair => pair.product1 && pair.product2);
+
+    // Insights for combo creation
+    const insights: string[] = [];
+    if (coViewedPairs.length > 0) {
+      const topPair = coViewedPairs[0];
+      insights.push(`💡 Cặp sản phẩm hay được xem cùng nhất: "${topPair.product1?.name}" & "${topPair.product2?.name}" (${topPair.coViewCount} sessions)`);
+      
+      // Check if same category pairs exist
+      const sameCatPairs = coViewedPairs.filter(p => 
+        p.product1?.category === p.product2?.category
+      );
+      if (sameCatPairs.length > 3) {
+        insights.push(`📦 Có ${sameCatPairs.length} cặp cùng danh mục - Cơ hội tạo bundle deal.`);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        totalPairs: coViewedPairs.length,
+        pairs: coViewedPairs,
+        insights
+      }
+    });
+  } catch (error) {
+    console.error('Co-viewed products error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy sản phẩm xem cùng' });
+  }
+});
+
+/**
+ * GET /api/admin/analytics/bought-together
+ * Products frequently bought together
+ */
+router.get('/bought-together', async (req, res) => {
+  try {
+    const { period = '90days', minCoBuys = 2 } = req.query;
+
+    const now = new Date();
+    let startDate: Date;
+    switch (period) {
+      case '30days':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case '90days':
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    }
+
+    // Get orders with multiple items
+    const orders = await prisma.order.findMany({
+      where: {
+        createdAt: { gte: startDate },
+        status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+      },
+      select: {
+        id: true,
+        items: {
+          select: { productId: true }
+        }
+      }
+    });
+
+    // Count co-purchases
+    const coBuysCounts = new Map<string, number>();
+
+    orders.forEach(order => {
+      const productIds = [...new Set(order.items.map(i => i.productId))];
+      if (productIds.length < 2) return;
+
+      for (let i = 0; i < productIds.length; i++) {
+        for (let j = i + 1; j < productIds.length; j++) {
+          const key = [productIds[i], productIds[j]].sort((a, b) => a - b).join('-');
+          coBuysCounts.set(key, (coBuysCounts.get(key) || 0) + 1);
+        }
+      }
+    });
+
+    // Get top pairs
+    const topPairs = Array.from(coBuysCounts.entries())
+      .filter(([, count]) => count >= Number(minCoBuys))
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 15);
+
+    // Get product details
+    const allProductIds = new Set<number>();
+    topPairs.forEach(([key]) => {
+      const [id1, id2] = key.split('-').map(Number);
+      allProductIds.add(id1);
+      allProductIds.add(id2);
+    });
+
+    const products = await prisma.product.findMany({
+      where: { id: { in: Array.from(allProductIds) } },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        salePrice: true,
+        images: { take: 1, select: { url: true } },
+        category: { select: { name: true } }
+      }
+    });
+
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    const boughtTogetherPairs = topPairs.map(([key, count]) => {
+      const [id1, id2] = key.split('-').map(Number);
+      const p1 = productMap.get(id1);
+      const p2 = productMap.get(id2);
+
+      const totalPrice = (p1?.salePrice || p1?.price || 0) + (p2?.salePrice || p2?.price || 0);
+      const suggestedBundlePrice = Math.round(totalPrice * 0.9); // 10% discount suggestion
+
+      return {
+        coBuyCount: count,
+        product1: p1 ? {
+          id: p1.id,
+          name: p1.name,
+          price: p1.salePrice || p1.price,
+          image: p1.images[0]?.url,
+          category: p1.category?.name
+        } : null,
+        product2: p2 ? {
+          id: p2.id,
+          name: p2.name,
+          price: p2.salePrice || p2.price,
+          image: p2.images[0]?.url,
+          category: p2.category?.name
+        } : null,
+        bundleSuggestion: {
+          originalPrice: totalPrice,
+          suggestedPrice: suggestedBundlePrice,
+          discount: 10
+        }
+      };
+    }).filter(pair => pair.product1 && pair.product2);
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        totalPairs: boughtTogetherPairs.length,
+        pairs: boughtTogetherPairs,
+        insights: boughtTogetherPairs.length > 0 
+          ? [`🛒 Top combo được mua cùng: "${boughtTogetherPairs[0].product1?.name}" & "${boughtTogetherPairs[0].product2?.name}" (${boughtTogetherPairs[0].coBuyCount} đơn)`]
+          : ['Chưa đủ dữ liệu để phân tích combo']
+      }
+    });
+  } catch (error) {
+    console.error('Bought together error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy sản phẩm mua cùng' });
+  }
+});
+
+/**
+ * GET /api/admin/analytics/traffic-sources
+ * Analyze traffic by source (how users find products)
+ */
+router.get('/traffic-sources', async (req, res) => {
+  try {
+    const { period = '7days' } = req.query;
+
+    const now = new Date();
+    let startDate: Date;
+    switch (period) {
+      case '24hours':
+        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case '7days':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30days':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    // Get views by source
+    const viewsBySource = await prisma.productView.groupBy({
+      by: ['source'],
+      where: { createdAt: { gte: startDate } },
+      _count: { id: true }
+    });
+
+    // Get purchases by source (through tracking)
+    const ordersFromRec = await prisma.recommendationClick.count({
+      where: {
+        createdAt: { gte: startDate },
+        purchased: true
+      }
+    });
+
+    const totalViews = viewsBySource.reduce((sum, v) => sum + v._count.id, 0);
+    
+    const sources = viewsBySource.map(v => ({
+      source: v.source || 'direct',
+      label: getSourceLabel(v.source || 'direct'),
+      views: v._count.id,
+      percentage: totalViews > 0 ? Math.round((v._count.id / totalViews) * 100) : 0
+    })).sort((a, b) => b.views - a.views);
+
+    // Add "unknown" for null sources
+    const unknownViews = sources.find(s => s.source === 'direct')?.views || 0;
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        totalViews,
+        sources,
+        ordersFromRec,
+        insights: [
+          sources[0] ? `📊 Nguồn traffic chính: ${sources[0].label} (${sources[0].percentage}%)` : 'Chưa có dữ liệu traffic'
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('Traffic sources error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy nguồn traffic' });
+  }
+});
+
+// Helper functions
+function getAlgorithmLabel(algorithm: string): string {
+  const labels: Record<string, string> = {
+    'similar': 'Sản phẩm tương tự',
+    'trending': 'Đang thịnh hành',
+    'recently_viewed': 'Đã xem gần đây',
+    'bought_together': 'Mua cùng nhau',
+    'personalized': 'Gợi ý cá nhân',
+    'category': 'Cùng danh mục'
+  };
+  return labels[algorithm] || algorithm;
+}
+
+function getSourceLabel(source: string): string {
+  const labels: Record<string, string> = {
+    'direct': 'Truy cập trực tiếp',
+    'search': 'Từ tìm kiếm',
+    'recommendation': 'Từ gợi ý',
+    'category': 'Từ danh mục',
+    'homepage': 'Từ trang chủ',
+    'cart': 'Từ giỏ hàng',
+    'unknown': 'Không xác định'
+  };
+  return labels[source] || source;
+}
+
 export default router;
