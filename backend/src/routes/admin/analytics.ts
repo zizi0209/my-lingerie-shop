@@ -1841,4 +1841,63 @@ router.get('/wishlist', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/analytics/low-stock
+ * Get products/variants with low stock
+ */
+router.get('/low-stock', async (req, res) => {
+  try {
+    const { limit = 10, threshold = 5 } = req.query;
+
+    // Get low stock variants
+    const lowStockVariants = await prisma.productVariant.findMany({
+      where: {
+        stock: { lte: Number(threshold), gt: 0 },
+        product: { isVisible: true }
+      },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            images: { take: 1, select: { url: true } }
+          }
+        }
+      },
+      orderBy: { stock: 'asc' },
+      take: Number(limit)
+    });
+
+    const items = lowStockVariants.map(v => ({
+      id: v.id,
+      productId: v.product.id,
+      name: v.product.name,
+      size: v.size,
+      color: v.colorName,
+      stock: v.stock,
+      image: v.product.images[0]?.url
+    }));
+
+    // Get out of stock count
+    const outOfStockCount = await prisma.productVariant.count({
+      where: {
+        stock: 0,
+        product: { isVisible: true }
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        items,
+        outOfStockCount,
+        lowStockCount: items.length
+      }
+    });
+  } catch (error) {
+    console.error('Low stock error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách tồn kho thấp' });
+  }
+});
+
 export default router;
