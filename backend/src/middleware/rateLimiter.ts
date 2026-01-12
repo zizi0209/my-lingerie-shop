@@ -7,7 +7,7 @@ import rateLimit from 'express-rate-limit';
  */
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 requests per window
+  max: process.env.NODE_ENV === 'development' ? 100 : 5, // 5 requests per window (100 in dev)
   skipSuccessfulRequests: true, // Don't count successful logins
   message: {
     error: 'Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.'
