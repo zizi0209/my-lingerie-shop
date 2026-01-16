@@ -27,53 +27,53 @@ export default function Footer() {
               {store_name}
             </h3>
           )}
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed italic font-light max-w-[220px]">
+          <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed italic font-light max-w-[240px]">
             {store_description || "Nghệ thuật quyến rũ từ sự thấu hiểu cơ thể."}
           </p>
           
           {/* Social Links */}
           <div className="flex gap-3 pt-2">
             {social_instagram && (
-              <a href={social_instagram} target="_blank" rel="noopener noreferrer" className="p-2 border border-brand-border/30 hover:text-brand-accent hover:border-brand-accent transition-all duration-300 rounded-sm text-gray-500 dark:text-gray-400">
-                <Instagram size={14} strokeWidth={1.5} />
+              <a href={social_instagram} target="_blank" rel="noopener noreferrer" className="p-2.5 border border-brand-border/30 hover:text-brand-accent hover:border-brand-accent transition-all duration-300 rounded-sm text-gray-500 dark:text-gray-400">
+                <Instagram size={16} strokeWidth={1.5} />
               </a>
             )}
             {social_facebook && (
-              <a href={social_facebook} target="_blank" rel="noopener noreferrer" className="p-2 border border-brand-border/30 hover:text-brand-accent hover:border-brand-accent transition-all duration-300 rounded-sm text-gray-500 dark:text-gray-400">
-                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M18.77,7.46H14.5v-1.9c0-.9.6-1.1,1-1.1h3V.5h-4.33C10.24.5,9.5,3.44,9.5,5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4Z"/></svg>
+              <a href={social_facebook} target="_blank" rel="noopener noreferrer" className="p-2.5 border border-brand-border/30 hover:text-brand-accent hover:border-brand-accent transition-all duration-300 rounded-sm text-gray-500 dark:text-gray-400">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M18.77,7.46H14.5v-1.9c0-.9.6-1.1,1-1.1h3V.5h-4.33C10.24.5,9.5,3.44,9.5,5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4Z"/></svg>
               </a>
             )}
             {social_tiktok && (
-              <a href={social_tiktok} target="_blank" rel="noopener noreferrer" className="p-2 border border-brand-border/30 hover:text-brand-accent hover:border-brand-accent transition-all duration-300 rounded-sm text-gray-500 dark:text-gray-400">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1.04-.1z"/></svg>
+              <a href={social_tiktok} target="_blank" rel="noopener noreferrer" className="p-2.5 border border-brand-border/30 hover:text-brand-accent hover:border-brand-accent transition-all duration-300 rounded-sm text-gray-500 dark:text-gray-400">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1.04-.1z"/></svg>
               </a>
             )}
           </div>
 
-          <div className="space-y-2 text-[10px] tracking-widest font-semibold text-gray-400 dark:text-gray-500">
+          <div className="space-y-2 text-xs tracking-wider font-medium text-gray-400 dark:text-gray-500">
             <div className="flex items-center gap-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer">
-              <Phone size={12} strokeWidth={1.5} /> 1900 xxxx
+              <Phone size={14} strokeWidth={1.5} /> 1900 xxxx
             </div>
             <div className="flex items-center gap-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer">
-              <Mail size={12} strokeWidth={1.5} /> support@lingerie.vn
+              <Mail size={14} strokeWidth={1.5} /> support@lingerie.vn
             </div>
           </div>
         </div>
 
         {/* Cột 2: Hỗ trợ khách hàng */}
         <div className="space-y-6">
-          <h4 className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400 dark:text-gray-500">Hỗ trợ khách hàng</h4>
-          <ul className="text-[11px] space-y-3 text-gray-600 dark:text-gray-400 font-light">
+          <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Hỗ trợ khách hàng</h4>
+          <ul className="text-sm space-y-3 text-gray-600 dark:text-gray-400">
             <li className="hover:text-brand-accent cursor-pointer transition-all flex items-center gap-2">
-              <ShieldCheck size={10} className="opacity-40" />
+              <ShieldCheck size={14} className="opacity-50" />
               <Link href="/policy">Chính sách đổi trả (7 ngày)</Link>
             </li>
             <li className="hover:text-brand-accent cursor-pointer transition-all flex items-center gap-2">
-              <Truck size={10} className="opacity-40" />
+              <Truck size={14} className="opacity-50" />
               <Link href="/shipping">Chính sách vận chuyển</Link>
             </li>
             <li className="hover:text-brand-accent cursor-pointer transition-all flex items-center gap-2">
-              <RefreshCw size={10} className="opacity-40" />
+              <RefreshCw size={14} className="opacity-50" />
               <Link href="/security">Bảo mật thông tin</Link>
             </li>
           </ul>
@@ -81,8 +81,8 @@ export default function Footer() {
 
         {/* Cột 3: Khám phá */}
         <div className="space-y-6">
-          <h4 className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400 dark:text-gray-500">Khám phá</h4>
-          <ul className="text-[11px] space-y-3 text-gray-600 dark:text-gray-400 font-light">
+          <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Khám phá</h4>
+          <ul className="text-sm space-y-3 text-gray-600 dark:text-gray-400">
             <li><Link href="/about" className="hover:text-brand-accent transition-all">Về chúng tôi</Link></li>
             <li><Link href="/san-pham" className="hover:text-brand-accent transition-all">Bộ sưu tập mới</Link></li>
             <li><Link href="/san-pham?category=ao-lot" className="hover:text-brand-accent transition-all">Áo lót (Bras)</Link></li>
@@ -95,29 +95,29 @@ export default function Footer() {
         {/* Cột 4: Bản tin & Ưu đãi */}
         <div className="space-y-6">
           <div className="space-y-4">
-            <h4 className="text-[10px] font-bold uppercase tracking-[0.4em] text-gray-400 dark:text-gray-500">Bản tin</h4>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 font-light leading-relaxed">
+            <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Bản tin</h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
               Đăng ký nhận tin để hưởng ưu đãi 10% cho đơn đầu tiên.
             </p>
-            <div className="relative group w-full max-w-[240px] pt-2">
+            <div className="relative group w-full max-w-[260px] pt-2">
               <input 
                 type="email" 
                 placeholder="Địa chỉ email" 
-                className="w-full bg-transparent border-b border-brand-border/40 py-2 pr-8 text-[11px] focus:outline-none focus:border-brand-accent transition-all placeholder:opacity-40 placeholder:font-light font-light text-gray-900 dark:text-white" 
+                className="w-full bg-transparent border-b border-brand-border/40 py-2 pr-8 text-sm focus:outline-none focus:border-brand-accent transition-all placeholder:opacity-50 text-gray-900 dark:text-white" 
               />
               <button className="absolute right-0 bottom-1/2 translate-y-1/2 p-1 text-gray-400 group-focus-within:text-brand-accent transition-colors">
-                <ChevronRight size={14} />
+                <ChevronRight size={16} />
               </button>
             </div>
           </div>
 
           <div className="space-y-3 pt-4">
-            <h4 className="text-[9px] font-bold uppercase tracking-[0.3em] text-gray-300 dark:text-gray-600">Phương thức thanh toán</h4>
-            <div className="flex flex-wrap gap-3 opacity-40 hover:opacity-80 transition-all duration-700">
-              <span className="text-[8px] font-bold border border-gray-300 dark:border-gray-600 px-2 py-0.5 flex items-center">COD</span>
-              <span className="text-[8px] font-semibold text-gray-500">VISA</span>
-              <span className="text-[8px] font-semibold text-gray-500">Mastercard</span>
-              <span className="text-[8px] font-semibold text-gray-500">MoMo</span>
+            <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">Phương thức thanh toán</h4>
+            <div className="flex flex-wrap gap-3 opacity-50 hover:opacity-80 transition-all duration-700">
+              <span className="text-xs font-bold border border-gray-400 dark:border-gray-600 px-2 py-0.5 flex items-center">COD</span>
+              <span className="text-xs font-semibold text-gray-500">VISA</span>
+              <span className="text-xs font-semibold text-gray-500">Mastercard</span>
+              <span className="text-xs font-semibold text-gray-500">MoMo</span>
             </div>
           </div>
         </div>
@@ -125,10 +125,10 @@ export default function Footer() {
 
       {/* Bottom Bar */}
       <div className="max-w-[1400px] mx-auto px-6 md:px-12 pt-8 border-t border-brand-border/10 flex flex-col md:flex-row justify-between items-center gap-4">
-        <p className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] font-medium">
+        <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider font-medium">
           © 2024 {store_name}. All rights reserved.
         </p>
-        <div className="flex gap-6 text-[9px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-semibold">
+        <div className="flex gap-6 text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium">
           <Link href="/policy" className="hover:text-brand-accent transition-colors">Điều khoản</Link>
           <Link href="/security" className="hover:text-brand-accent transition-colors">Bảo mật</Link>
         </div>
