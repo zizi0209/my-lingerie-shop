@@ -5,9 +5,11 @@ import {
   Move, Settings, Eye, EyeOff, Plus, Trash2, Save, 
   Loader2, AlertCircle, CheckCircle, GripVertical,
   Image as ImageIcon, Type, ShoppingBag, Sparkles, Star, Mail,
-  Layout, Layers, ChevronDown, ChevronUp, X
+  Layout, Layers, ChevronDown, ChevronUp, X, Upload
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { compressImage, formatFileSize, validateImageFile } from '@/lib/imageUtils';
+import Image from 'next/image';
 import { useLanguage } from '../components/LanguageContext';
 import { LexicalEditor } from '@/components/editor';
 
@@ -39,10 +41,10 @@ const sectionTemplates: SectionTemplate[] = [
     defaultContent: {
       title: 'Bộ sưu tập mới',
       subtitle: 'Khám phá vẻ đẹp quyến rũ',
-      buttonText: 'Khám phá bộ sưu tập',
-      buttonLink: '/san-pham',
-      leftImage: 'https://images.unsplash.com/photo-1616002411355-49593fd89721?q=80&w=800&auto=format&fit=crop',
       backgroundImage: 'https://images.unsplash.com/photo-1519644473771-e45d361c9bb8?q=80&w=1170&auto=format&fit=crop',
+      buttonLink: '/san-pham',
+      buttonText: 'Khám phá bộ sưu tập',
+      leftImage: 'https://images.unsplash.com/photo-1616002411355-49593fd89721?q=80&w=800&auto=format&fit=crop',
       rightImage: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=800&auto=format&fit=crop',
     }
   },
@@ -497,6 +499,116 @@ const HomeComponent: React.FC = () => {
   );
 };
 
+// Image Field Component with Upload
+interface ImageFieldProps {
+  value: string;
+  onChange: (url: string) => void;
+  label: string;
+}
+
+const ImageField: React.FC<ImageFieldProps> = ({ value, onChange, label }) => {
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setUploadProgress('Đang nén ảnh...');
+
+      // Compress to WebP
+      const compressed = await compressImage(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        fileType: 'image/webp',
+        quality: 0.85,
+      });
+
+      setUploadProgress(`Đã nén: ${formatFileSize(compressed.originalSize)} → ${formatFileSize(compressed.compressedSize)} (-${compressed.reduction.toFixed(0)}%)`);
+
+      // Upload to server
+      const formData = new FormData();
+      formData.append('file', compressed.file);
+
+      const response = await api.uploadFile<{ success: boolean; data: { url: string } }>('/media/upload', formData);
+      
+      if (response.success && response.data?.url) {
+        onChange(response.data.url);
+        setUploadProgress('Upload thành công!');
+        setTimeout(() => setUploadProgress(null), 2000);
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      setUploadProgress('Lỗi upload');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        {label}
+      </label>
+      
+      {/* Preview */}
+      {value && (
+        <div className="relative w-full h-32 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
+          <Image
+            src={value}
+            alt="Preview"
+            fill
+            className="object-cover"
+            unoptimized
+          />
+        </div>
+      )}
+
+      {/* URL Input */}
+      <input
+        type="text"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Nhập URL hoặc upload ảnh..."
+        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 text-sm"
+      />
+
+      {/* Upload Button */}
+      <div className="flex items-center gap-3">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+        >
+          {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+          {uploading ? 'Đang upload...' : 'Upload ảnh'}
+        </button>
+        {uploadProgress && (
+          <span className="text-xs text-slate-500 dark:text-slate-400">{uploadProgress}</span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Section Editor Component
 interface SectionEditorProps {
   section: PageSection;
@@ -521,9 +633,14 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, onSave, onClose,
     setContent(prev => ({ ...prev, [key]: value }));
   };
 
+  // Check if field is an image field
+  const isImageField = (key: string) => {
+    return key.toLowerCase().includes('image') || key.toLowerCase().includes('img');
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden">
         <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t.sectionSettings}</h2>
@@ -537,59 +654,71 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, onSave, onClose,
           </button>
         </div>
         
-        <div className="p-6 overflow-y-auto max-h-[50vh] space-y-4">
+        <div className="p-6 overflow-y-auto max-h-[60vh] space-y-6">
           {Object.entries(content).map(([key, value]) => {
             // Check if this is a rich text field (content field in text sections)
             const isRichTextField = key === 'content' && section.code.startsWith('text');
             
-            return (
-            <div key={key} className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                {key.replace(/_/g, ' ')}
-              </label>
-              {isRichTextField ? (
-                <LexicalEditor
-                  initialValue={(value as string) || ''}
-                  onChange={(html) => updateField(key, html)}
-                  placeholder="Nhập nội dung văn bản..."
-                  minHeight="200px"
-                />
-              ) : typeof value === 'string' && value.length > 100 ? (
-                <textarea
-                  value={value as string}
-                  onChange={(e) => updateField(key, e.target.value)}
-                  rows={4}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200"
-                />
-              ) : typeof value === 'number' ? (
-                <input
-                  type="number"
-                  value={value as number}
-                  onChange={(e) => updateField(key, parseInt(e.target.value) || 0)}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200"
-                />
-              ) : typeof value === 'boolean' ? (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={value as boolean}
-                    onChange={(e) => updateField(key, e.target.checked)}
-                    className="w-5 h-5 rounded border-slate-300 text-primary-500 focus:ring-primary-500"
-                  />
-                  <span className="text-sm text-slate-700 dark:text-slate-300">
-                    {value ? 'Bật' : 'Tắt'}
-                  </span>
-                </label>
-              ) : (
-                <input
-                  type="text"
+            // Check if this is an image field
+            if (isImageField(key)) {
+              return (
+                <ImageField
+                  key={key}
+                  label={key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
                   value={(value as string) || ''}
-                  onChange={(e) => updateField(key, e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200"
+                  onChange={(url) => updateField(key, url)}
                 />
-              )}
-            </div>
-          );
+              );
+            }
+            
+            return (
+              <div key={key} className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+                </label>
+                {isRichTextField ? (
+                  <LexicalEditor
+                    initialValue={(value as string) || ''}
+                    onChange={(html) => updateField(key, html)}
+                    placeholder="Nhập nội dung văn bản..."
+                    minHeight="200px"
+                  />
+                ) : typeof value === 'string' && value.length > 100 ? (
+                  <textarea
+                    value={value as string}
+                    onChange={(e) => updateField(key, e.target.value)}
+                    rows={4}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200"
+                  />
+                ) : typeof value === 'number' ? (
+                  <input
+                    type="number"
+                    value={value as number}
+                    onChange={(e) => updateField(key, parseInt(e.target.value) || 0)}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200"
+                  />
+                ) : typeof value === 'boolean' ? (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={value as boolean}
+                      onChange={(e) => updateField(key, e.target.checked)}
+                      className="w-5 h-5 rounded border-slate-300 text-primary-500 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-slate-700 dark:text-slate-300">
+                      {value ? 'Bật' : 'Tắt'}
+                    </span>
+                  </label>
+                ) : (
+                  <input
+                    type="text"
+                    value={(value as string) || ''}
+                    onChange={(e) => updateField(key, e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200"
+                  />
+                )}
+              </div>
+            );
           })}
         </div>
 

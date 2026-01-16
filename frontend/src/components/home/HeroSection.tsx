@@ -23,10 +23,10 @@ export default function HeroSection({ content }: HeroSectionProps) {
   const {
     title = 'Bộ sưu tập mới',
     subtitle = 'Khám phá vẻ đẹp quyến rũ',
-    buttonText = 'Khám phá bộ sưu tập',
-    buttonLink = '/san-pham',
-    leftImage = 'https://images.unsplash.com/photo-1616002411355-49593fd89721?q=80&w=800&auto=format&fit=crop',
     backgroundImage = 'https://images.unsplash.com/photo-1519644473771-e45d361c9bb8?q=80&w=1170&auto=format&fit=crop',
+    buttonLink = '/san-pham',
+    buttonText = 'Khám phá bộ sưu tập',
+    leftImage = 'https://images.unsplash.com/photo-1616002411355-49593fd89721?q=80&w=800&auto=format&fit=crop',
     rightImage = 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=800&auto=format&fit=crop',
   } = content;
 
