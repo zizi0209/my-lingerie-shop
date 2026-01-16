@@ -186,6 +186,57 @@ router.get('/verify/:token', async (req: Request, res: Response) => {
 
     // Already verified
     if (subscriber.isVerified && subscriber.welcomeCouponCode) {
+      // Check if coupon exists in Coupon table, create if missing (migration case)
+      const existingCoupon = await prisma.coupon.findUnique({
+        where: { code: subscriber.welcomeCouponCode },
+      });
+
+      if (!existingCoupon) {
+        // Legacy case: coupon not in Coupon table, create it now
+        const user = await prisma.user.findUnique({
+          where: { email: subscriber.email },
+          select: { id: true },
+        });
+
+        const couponExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+        await prisma.$transaction(async (tx) => {
+          const coupon = await tx.coupon.create({
+            data: {
+              code: subscriber.welcomeCouponCode!,
+              name: 'Ưu đãi chào mừng thành viên mới',
+              description: 'Giảm 50.000đ cho đơn hàng đầu tiên từ 399.000đ',
+              category: 'DISCOUNT',
+              discountType: 'FIXED_AMOUNT',
+              discountValue: 50000,
+              minOrderValue: 399000,
+              quantity: 1,
+              maxUsagePerUser: 1,
+              couponType: 'NEW_USER',
+              isSystem: true,
+              isPublic: false,
+              isActive: true,
+              startDate: new Date(),
+              endDate: couponExpiresAt,
+            },
+          });
+
+          if (user) {
+            await tx.userCoupon.create({
+              data: {
+                userId: user.id,
+                couponId: coupon.id,
+                status: 'AVAILABLE',
+                source: 'NEWSLETTER',
+                expiresAt: couponExpiresAt,
+              },
+            });
+          }
+        });
+
+        console.log('[Newsletter Verify] Migrated legacy coupon:', subscriber.welcomeCouponCode);
+      }
+
       res.json({
         success: true,
         message: 'Email đã được xác nhận trước đó!',
@@ -198,29 +249,87 @@ router.get('/verify/:token', async (req: Request, res: Response) => {
     // Generate unique coupon code
     let couponCode = generateWelcomeCouponCode();
     
-    // Ensure uniqueness
+    // Ensure uniqueness in both NewsletterSubscriber and Coupon tables
     let attempts = 0;
     while (attempts < 10) {
-      const existing = await prisma.newsletterSubscriber.findUnique({
-        where: { welcomeCouponCode: couponCode },
-      });
-      if (!existing) break;
+      const [existingSubscriber, existingCoupon] = await Promise.all([
+        prisma.newsletterSubscriber.findUnique({
+          where: { welcomeCouponCode: couponCode },
+        }),
+        prisma.coupon.findUnique({
+          where: { code: couponCode },
+        }),
+      ]);
+      if (!existingSubscriber && !existingCoupon) break;
       couponCode = generateWelcomeCouponCode();
       attempts++;
     }
 
-    // Update subscriber (keep token so user can revisit the link)
-    await prisma.newsletterSubscriber.update({
-      where: { id: subscriber.id },
-      data: {
-        isVerified: true,
-        verifiedAt: new Date(),
-        // Keep verificationToken so user can revisit and see coupon again
-        verificationExpiresAt: null,
-        welcomeCouponCode: couponCode,
-        isActive: true,
-      },
+    // Find user by email to link coupon to their wallet
+    const user = await prisma.user.findUnique({
+      where: { email: subscriber.email },
+      select: { id: true },
     });
+
+    // Coupon expires in 30 days
+    const couponExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    // Use transaction to ensure consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // Update subscriber (keep token so user can revisit the link)
+      await tx.newsletterSubscriber.update({
+        where: { id: subscriber.id },
+        data: {
+          isVerified: true,
+          verifiedAt: new Date(),
+          verificationExpiresAt: null,
+          welcomeCouponCode: couponCode,
+          isActive: true,
+        },
+      });
+
+      // Create Coupon record so checkout can validate it
+      const coupon = await tx.coupon.create({
+        data: {
+          code: couponCode,
+          name: 'Ưu đãi chào mừng thành viên mới',
+          description: 'Giảm 50.000đ cho đơn hàng đầu tiên từ 399.000đ',
+          category: 'DISCOUNT',
+          discountType: 'FIXED_AMOUNT',
+          discountValue: 50000,
+          minOrderValue: 399000,
+          quantity: 1,
+          maxUsagePerUser: 1,
+          couponType: 'NEW_USER',
+          isSystem: true,
+          isPublic: false,
+          isActive: true,
+          startDate: new Date(),
+          endDate: couponExpiresAt,
+        },
+      });
+
+      // If user exists, add to their wallet
+      let userCoupon = null;
+      if (user) {
+        userCoupon = await tx.userCoupon.create({
+          data: {
+            userId: user.id,
+            couponId: coupon.id,
+            status: 'AVAILABLE',
+            source: 'NEWSLETTER',
+            expiresAt: couponExpiresAt,
+          },
+        });
+      }
+
+      return { coupon, userCoupon };
+    });
+
+    console.log('[Newsletter Verify] Created coupon:', result.coupon.code);
+    if (result.userCoupon) {
+      console.log('[Newsletter Verify] Added to user wallet:', user?.id);
+    }
 
     // Send welcome email with coupon code
     sendWelcomeCouponEmail(subscriber.email, couponCode).catch((err) => {
