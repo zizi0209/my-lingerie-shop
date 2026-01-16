@@ -580,7 +580,7 @@ const ImageField: React.FC<ImageFieldProps> = ({ value, onChange, label }) => {
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Nhập URL hoặc upload ảnh..."
-        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 text-sm"
+        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100 text-sm placeholder:text-slate-400"
       />
 
       {/* Upload Button */}
@@ -688,14 +688,14 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, onSave, onClose,
                     value={value as string}
                     onChange={(e) => updateField(key, e.target.value)}
                     rows={4}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
                   />
                 ) : typeof value === 'number' ? (
                   <input
                     type="number"
                     value={value as number}
                     onChange={(e) => updateField(key, parseInt(e.target.value) || 0)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
                   />
                 ) : typeof value === 'boolean' ? (
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -714,7 +714,7 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, onSave, onClose,
                     type="text"
                     value={(value as string) || ''}
                     onChange={(e) => updateField(key, e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
                   />
                 )}
               </div>
