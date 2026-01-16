@@ -2,9 +2,9 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* CK-inspired color palette */
+  /* IntiMate-inspired Luxury color palette */
   --background: #ffffff;
-  --foreground: #000000;
+  --foreground: #1a1a1c;
   --gray-50: #fafafa;
   --gray-100: #f5f5f5;
   --gray-200: #e5e5e5;
@@ -35,9 +35,24 @@
   --primary-light: var(--primary-100);
   --primary-dark: var(--primary-900);
   --primary-foreground: #ffffff;
-  --secondary: #737373;
-  --secondary-foreground: #ffffff;
-  --accent-foreground: #881337;
+  
+  /* Brand accent color - Muted Luxury Lavender */
+  --accent: #9d8ba7;
+  --accent-foreground: #ffffff;
+  
+  /* Secondary colors */
+  --secondary: #f8f8f9;
+  --secondary-foreground: #1a1a1c;
+  
+  /* Muted colors */
+  --muted: #f5f5f5;
+  --muted-foreground: #6b7280;
+  
+  /* Border */
+  --border: #e5e7eb;
+  
+  /* Card shadow */
+  --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
   
   /* Semantic colors */
   --success: #22c55e;
@@ -48,17 +63,19 @@
   --error-foreground: #ffffff;
   --info: #3b82f6;
   --info-foreground: #ffffff;
-  
-  /* Muted colors */
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
 }
 
 .dark {
-  --background: #030712;
-  --foreground: #f5f5f5;
-  --muted: #262626;
-  --muted-foreground: #a3a3a3;
+  --background: #0c0c0e;
+  --foreground: #e4e4e7;
+  --secondary: #141416;
+  --secondary-foreground: #e4e4e7;
+  --accent: #b4a5bc;
+  --accent-foreground: #0c0c0e;
+  --muted: #27272a;
+  --muted-foreground: #94a3b8;
+  --border: #1f1f23;
+  --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6);
 }
 
 @theme inline {
@@ -73,6 +90,7 @@
   --color-info: var(--info);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
   --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
   --font-serif: var(--font-playfair), Georgia, serif;
 }
@@ -101,6 +119,13 @@ body {
   font-feature-settings: 'rlig' 1, 'calt' 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Selection style - elegant with accent color */
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: inherit;
 }
 
 /* Custom scrollbar - default */
@@ -143,19 +168,6 @@ body {
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
-}
-
-/* Selection style - elegant, uses dynamic primary color */
-::selection {
-  background: color-mix(in srgb, var(--primary-500) 25%, transparent);
-  color: inherit;
-  text-shadow: none;
-}
-
-.dark ::selection {
-  background: color-mix(in srgb, var(--primary-400) 35%, transparent);
-  color: inherit;
-  text-shadow: none;
 }
 
 /* Disable text selection on UI elements */
@@ -271,4 +283,70 @@ h1, h2, h3, h4, h5, h6 {
 
 .animate-slide-in-right {
   animation: slide-in-right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Marquee animation */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  animation: marquee 50s linear infinite;
+}
+
+/* Hover lift effect */
+.hover-lift {
+  transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Section spacing utility */
+.section-spacing {
+  padding-top: 6rem;
+  padding-bottom: 6rem;
+}
+
+@media (min-width: 768px) {
+  .section-spacing {
+    padding-top: 8rem;
+    padding-bottom: 8rem;
+  }
+}
+
+/* Logo font style */
+.logo-font {
+  font-family: var(--font-serif);
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+
+/* Scrollbar thin - elegant style */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

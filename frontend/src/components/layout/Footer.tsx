@@ -3,103 +3,135 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { Phone, Mail, Instagram, Truck, RefreshCw, ShieldCheck, ChevronRight } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 
 export default function Footer() {
   const { store_name, store_logo, store_description, social_facebook, social_instagram, social_tiktok } = useStore();
 
   return (
-    <footer className="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white pt-16 pb-8 transition-colors">
-      <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
-        {/* Cột 1: Giới thiệu */}
-        <div>
+    <footer className="bg-brand-secondary dark:bg-gray-900 text-gray-900 dark:text-white pt-20 md:pt-24 pb-8 border-t border-brand-border/20 transition-colors">
+      <div className="max-w-[1400px] mx-auto px-6 md:px-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-16 mb-16">
+        {/* Cột 1: Thương hiệu & Kết nối */}
+        <div className="space-y-6">
           {store_logo ? (
             <Image 
               src={store_logo} 
               alt={store_name} 
               width={150} 
               height={50} 
-              className="h-10 w-auto object-contain mb-4"
+              className="h-10 w-auto object-contain"
             />
           ) : (
-            <h3 className="text-2xl font-serif font-bold text-primary-500 dark:text-primary-400 mb-4">
+            <h3 className="logo-font text-2xl tracking-tighter text-gray-900 dark:text-white opacity-90">
               {store_name}
             </h3>
           )}
-          <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-            {store_description || "Tôn vinh vẻ đẹp quyến rũ của phụ nữ Việt với những thiết kế nội y cao cấp, tinh tế và thoải mái nhất."}
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed italic font-light max-w-[220px]">
+            {store_description || "Nghệ thuật quyến rũ từ sự thấu hiểu cơ thể."}
           </p>
+          
           {/* Social Links */}
-          {(social_facebook || social_instagram || social_tiktok) && (
-            <div className="flex gap-3 mt-4">
-              {social_facebook && (
-                <a href={social_facebook} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary-500 transition">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.77,7.46H14.5v-1.9c0-.9.6-1.1,1-1.1h3V.5h-4.33C10.24.5,9.5,3.44,9.5,5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4Z"/></svg>
-                </a>
-              )}
-              {social_instagram && (
-                <a href={social_instagram} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary-500 transition">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12,2.16c3.2,0,3.58,0,4.85.07,3.25.15,4.77,1.69,4.92,4.92.06,1.27.07,1.65.07,4.85s0,3.58-.07,4.85c-.15,3.23-1.66,4.77-4.92,4.92-1.27.06-1.65.07-4.85.07s-3.58,0-4.85-.07c-3.26-.15-4.77-1.7-4.92-4.92-.06-1.27-.07-1.65-.07-4.85s0-3.58.07-4.85C2.38,3.92,3.9,2.38,7.15,2.23,8.42,2.18,8.8,2.16,12,2.16ZM12,0C8.74,0,8.33,0,7.05.07c-4.27.2-6.78,2.71-7,7C0,8.33,0,8.74,0,12s0,3.67.07,4.95c.2,4.27,2.71,6.78,7,7C8.33,24,8.74,24,12,24s3.67,0,4.95-.07c4.27-.2,6.78-2.71,7-7C24,15.67,24,15.26,24,12s0-3.67-.07-4.95c-.2-4.27-2.71-6.78-7-7C15.67,0,15.26,0,12,0Zm0,5.84A6.16,6.16,0,1,0,18.16,12,6.16,6.16,0,0,0,12,5.84ZM12,16a4,4,0,1,1,4-4A4,4,0,0,1,12,16ZM18.41,4.15a1.44,1.44,0,1,0,1.44,1.44A1.44,1.44,0,0,0,18.41,4.15Z"/></svg>
-                </a>
-              )}
-              {social_tiktok && (
-                <a href={social_tiktok} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary-500 transition">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59,6.69a4.83,4.83,0,0,1-3.77-4.25V2h-3.45V15.94a2.91,2.91,0,0,1-5.14,1.9,2.88,2.88,0,0,1-.83-2.06,2.91,2.91,0,0,1,5.69-.94V11.3a6.34,6.34,0,0,0-1-.08,6.36,6.36,0,0,0,0,12.72,6.36,6.36,0,0,0,6.36-6.36V9.42a8.16,8.16,0,0,0,4.77,1.52V7.49A4.84,4.84,0,0,1,19.59,6.69Z"/></svg>
-                </a>
-              )}
+          <div className="flex gap-3 pt-2">
+            {social_instagram && (
+              <a href={social_instagram} target="_blank" rel="noopener noreferrer" className="p-2 border border-brand-border/30 hover:text-brand-accent hover:border-brand-accent transition-all duration-300 rounded-sm text-gray-500 dark:text-gray-400">
+                <Instagram size={14} strokeWidth={1.5} />
+              </a>
+            )}
+            {social_facebook && (
+              <a href={social_facebook} target="_blank" rel="noopener noreferrer" className="p-2 border border-brand-border/30 hover:text-brand-accent hover:border-brand-accent transition-all duration-300 rounded-sm text-gray-500 dark:text-gray-400">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M18.77,7.46H14.5v-1.9c0-.9.6-1.1,1-1.1h3V.5h-4.33C10.24.5,9.5,3.44,9.5,5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4Z"/></svg>
+              </a>
+            )}
+            {social_tiktok && (
+              <a href={social_tiktok} target="_blank" rel="noopener noreferrer" className="p-2 border border-brand-border/30 hover:text-brand-accent hover:border-brand-accent transition-all duration-300 rounded-sm text-gray-500 dark:text-gray-400">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1.04-.1z"/></svg>
+              </a>
+            )}
+          </div>
+
+          <div className="space-y-2 text-[10px] tracking-widest font-semibold text-gray-400 dark:text-gray-500">
+            <div className="flex items-center gap-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer">
+              <Phone size={12} strokeWidth={1.5} /> 1900 xxxx
             </div>
-          )}
+            <div className="flex items-center gap-2 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer">
+              <Mail size={12} strokeWidth={1.5} /> support@lingerie.vn
+            </div>
+          </div>
         </div>
 
-        {/* Cột 2: Liên kết */}
-        <div>
-          <h4 className="font-bold mb-4">Về chúng tôi</h4>
-          <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-            <li>
-              <Link href="/about" className="transition hover:text-primary-500 dark:hover:text-primary-400">Câu chuyện thương hiệu</Link>
+        {/* Cột 2: Hỗ trợ khách hàng */}
+        <div className="space-y-6">
+          <h4 className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400 dark:text-gray-500">Hỗ trợ khách hàng</h4>
+          <ul className="text-[11px] space-y-3 text-gray-600 dark:text-gray-400 font-light">
+            <li className="hover:text-brand-accent cursor-pointer transition-all flex items-center gap-2">
+              <ShieldCheck size={10} className="opacity-40" />
+              <Link href="/policy">Chính sách đổi trả (7 ngày)</Link>
             </li>
-            <li>
-              <Link href="/contact" className="transition hover:text-primary-500 dark:hover:text-primary-400">Liên hệ</Link>
+            <li className="hover:text-brand-accent cursor-pointer transition-all flex items-center gap-2">
+              <Truck size={10} className="opacity-40" />
+              <Link href="/shipping">Chính sách vận chuyển</Link>
             </li>
-            <li>
-              <Link href="/careers" className="transition hover:text-primary-500 dark:hover:text-primary-400">Tuyển dụng</Link>
+            <li className="hover:text-brand-accent cursor-pointer transition-all flex items-center gap-2">
+              <RefreshCw size={10} className="opacity-40" />
+              <Link href="/security">Bảo mật thông tin</Link>
             </li>
           </ul>
         </div>
 
-        {/* Cột 3: Chính sách */}
-        <div>
-          <h4 className="font-bold mb-4">Chính sách</h4>
-          <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-            <li>
-              <Link href="/policy" className="transition hover:text-primary-500 dark:hover:text-primary-400">Chính sách đổi trả</Link>
-            </li>
-            <li>
-              <Link href="/shipping" className="transition hover:text-primary-500 dark:hover:text-primary-400">Chính sách vận chuyển</Link>
-            </li>
-            <li>
-              <Link href="/security" className="transition hover:text-primary-500 dark:hover:text-primary-400">Bảo mật thông tin</Link>
-            </li>
+        {/* Cột 3: Khám phá */}
+        <div className="space-y-6">
+          <h4 className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400 dark:text-gray-500">Khám phá</h4>
+          <ul className="text-[11px] space-y-3 text-gray-600 dark:text-gray-400 font-light">
+            <li><Link href="/about" className="hover:text-brand-accent transition-all">Về chúng tôi</Link></li>
+            <li><Link href="/san-pham" className="hover:text-brand-accent transition-all">Bộ sưu tập mới</Link></li>
+            <li><Link href="/san-pham?category=ao-lot" className="hover:text-brand-accent transition-all">Áo lót (Bras)</Link></li>
+            <li><Link href="/san-pham?category=quan-lot" className="hover:text-brand-accent transition-all">Quần lót (Panties)</Link></li>
+            <li><Link href="/san-pham?category=do-ngu" className="hover:text-brand-accent transition-all">Đồ ngủ (Sleepwear)</Link></li>
+            <li><Link href="/careers" className="hover:text-brand-accent transition-all">Tuyển dụng</Link></li>
           </ul>
         </div>
 
-        {/* Cột 4: Đăng ký */}
-        <div>
-          <h4 className="font-bold mb-4">Đăng ký nhận tin</h4>
-          <div className="flex gap-2">
-            <input
-              type="email"
-              placeholder="Email của bạn..."
-              className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-sm px-4 py-2 w-full rounded focus:ring-1 focus:ring-primary-500 transition"
-            />
-            <button className="bg-primary-500 dark:bg-primary-600 text-white px-4 py-2 rounded text-sm hover:bg-primary-600 dark:hover:bg-primary-700 transition">
-              Gửi
-            </button>
+        {/* Cột 4: Bản tin & Ưu đãi */}
+        <div className="space-y-6">
+          <div className="space-y-4">
+            <h4 className="text-[10px] font-bold uppercase tracking-[0.4em] text-gray-400 dark:text-gray-500">Bản tin</h4>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 font-light leading-relaxed">
+              Đăng ký nhận tin để hưởng ưu đãi 10% cho đơn đầu tiên.
+            </p>
+            <div className="relative group w-full max-w-[240px] pt-2">
+              <input 
+                type="email" 
+                placeholder="Địa chỉ email" 
+                className="w-full bg-transparent border-b border-brand-border/40 py-2 pr-8 text-[11px] focus:outline-none focus:border-brand-accent transition-all placeholder:opacity-40 placeholder:font-light font-light text-gray-900 dark:text-white" 
+              />
+              <button className="absolute right-0 bottom-1/2 translate-y-1/2 p-1 text-gray-400 group-focus-within:text-brand-accent transition-colors">
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-4">
+            <h4 className="text-[9px] font-bold uppercase tracking-[0.3em] text-gray-300 dark:text-gray-600">Phương thức thanh toán</h4>
+            <div className="flex flex-wrap gap-3 opacity-40 hover:opacity-80 transition-all duration-700">
+              <span className="text-[8px] font-bold border border-gray-300 dark:border-gray-600 px-2 py-0.5 flex items-center">COD</span>
+              <span className="text-[8px] font-semibold text-gray-500">VISA</span>
+              <span className="text-[8px] font-semibold text-gray-500">Mastercard</span>
+              <span className="text-[8px] font-semibold text-gray-500">MoMo</span>
+            </div>
           </div>
         </div>
       </div>
-      <div className="text-center text-gray-500 dark:text-gray-600 text-xs mt-12 pt-8 border-t border-gray-300 dark:border-gray-800 transition-colors">
-        © 2024 My Lingerie Shop. All rights reserved.
+
+      {/* Bottom Bar */}
+      <div className="max-w-[1400px] mx-auto px-6 md:px-12 pt-8 border-t border-brand-border/10 flex flex-col md:flex-row justify-between items-center gap-4">
+        <p className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] font-medium">
+          © 2024 {store_name}. All rights reserved.
+        </p>
+        <div className="flex gap-6 text-[9px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-semibold">
+          <Link href="/policy" className="hover:text-brand-accent transition-colors">Điều khoản</Link>
+          <Link href="/security" className="hover:text-brand-accent transition-colors">Bảo mật</Link>
+        </div>
       </div>
     </footer>
   );

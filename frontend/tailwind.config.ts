@@ -10,13 +10,25 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        // Cấu hình font chữ ở đây để dùng class font-sans và font-serif
         sans: ["var(--font-inter)"],
         serif: ["var(--font-playfair)"],
       },
       colors: {
+        // Brand color system - inspired by IntiMate luxury style
+        brand: {
+          bg: "var(--background)",
+          text: "var(--foreground)",
+          primary: "var(--primary)",
+          "primary-foreground": "var(--primary-foreground)",
+          secondary: "var(--secondary)",
+          "secondary-foreground": "var(--secondary-foreground)",
+          accent: "var(--accent)",
+          "accent-foreground": "var(--accent-foreground)",
+          muted: "var(--muted)",
+          "muted-text": "var(--muted-foreground)",
+          border: "var(--border)",
+        },
         // Dynamic primary color - uses CSS variables from SSR
-        // This allows the brand color to be changed without rebuilding
         primary: {
           50: "var(--primary-50)",
           100: "var(--primary-100)",
@@ -32,7 +44,6 @@ const config: Config = {
           DEFAULT: "var(--primary-500)",
         },
         // Rose palette - mapped to primary CSS variables for dynamic theming
-        // This ensures existing rose-* classes use the dynamic brand color
         rose: {
           50: "var(--primary-50)",
           100: "var(--primary-100)",
@@ -46,6 +57,10 @@ const config: Config = {
           900: "var(--primary-900)",
           950: "var(--primary-950)",
         },
+      },
+      spacing: {
+        "128": "32rem",
+        "160": "40rem",
       },
     },
   },

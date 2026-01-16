@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Mail, Loader2, CheckCircle } from 'lucide-react';
+import Image from 'next/image';
+import { Loader2, CheckCircle, ChevronRight } from 'lucide-react';
 
 interface NewsletterContent {
   title?: string;
@@ -13,7 +14,10 @@ interface NewsletterProps {
 }
 
 export default function Newsletter({ content }: NewsletterProps) {
-  const { title = 'Đăng ký nhận tin', subtitle = 'Nhận ưu đãi độc quyền' } = content;
+  const { 
+    title = 'Thẻ quà tặng', 
+    subtitle = 'Tặng người phụ nữ bạn yêu thương món quà của sự tự tin. Thẻ quà tặng cho phép cô ấy tự do khám phá phong cách riêng.' 
+  } = content;
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -23,7 +27,6 @@ export default function Newsletter({ content }: NewsletterProps) {
     if (!email) return;
     
     setLoading(true);
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
     setLoading(false);
     setSuccess(true);
@@ -31,40 +34,57 @@ export default function Newsletter({ content }: NewsletterProps) {
   };
 
   return (
-    <section className="bg-gray-50 dark:bg-gray-900 py-12 md:py-20 transition-colors">
-      <div className="container mx-auto px-4 max-w-2xl text-center">
-        <Mail className="w-12 h-12 mx-auto mb-4 text-primary-500 dark:text-primary-400" />
-        <h2 className="text-3xl md:text-4xl font-serif font-light mb-4 text-gray-900 dark:text-white">
-          {title}
-        </h2>
-        <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-8">
-          {subtitle}
-        </p>
-
-        {success ? (
-          <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
-            <CheckCircle className="w-5 h-5" />
-            <span>Đăng ký thành công!</span>
+    <section className="section-spacing">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-8">
+        <div className="flex flex-col md:flex-row items-center gap-12 md:gap-24 bg-brand-accent/5 p-8 md:p-16 border border-brand-border">
+          <div className="md:w-1/2 space-y-8">
+            <h3 className="text-3xl md:text-5xl font-serif italic text-gray-900 dark:text-white">{title}</h3>
+            <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 leading-relaxed max-w-md">
+              {subtitle}
+            </p>
+            
+            {success ? (
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <CheckCircle className="w-5 h-5" />
+                <span className="text-sm">Đăng ký thành công!</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="relative group w-full max-w-sm">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Nhập email nhận ưu đãi"
+                  className="w-full bg-transparent border-b border-brand-border/40 py-3 pr-10 text-sm focus:outline-none focus:border-brand-accent transition-all placeholder:opacity-40 placeholder:font-light font-light text-gray-900 dark:text-white"
+                  required
+                />
+                <button 
+                  type="submit"
+                  disabled={loading}
+                  className="absolute right-0 bottom-1/2 translate-y-1/2 p-2 text-gray-400 group-focus-within:text-brand-accent hover:text-brand-accent transition-colors disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight size={16} />}
+                </button>
+              </form>
+            )}
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex gap-3 max-w-md mx-auto">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email của bạn"
-              className="flex-1 px-4 py-3 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-              required
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-full font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Đăng ký'}
-            </button>
-          </form>
-        )}
+          
+          <div className="md:w-1/2 w-full flex justify-center items-center">
+            <div className="w-full max-w-md aspect-[1.618/1] bg-white dark:bg-gray-900 shadow-2xl p-6 md:p-10 flex flex-col justify-between border border-brand-border transform -rotate-2 hover:rotate-0 transition-transform duration-500">
+              <div className="flex justify-between items-start">
+                <span className="logo-font text-lg opacity-60 text-gray-900 dark:text-white">Lingerie</span>
+                <span className="text-[9px] tracking-[0.3em] opacity-30 text-gray-900 dark:text-white">EST. 2024</span>
+              </div>
+              <div className="text-center">
+                <h4 className="text-3xl md:text-4xl font-serif italic text-brand-accent tracking-wide">1.000.000₫</h4>
+              </div>
+              <div className="flex justify-between items-end border-t border-brand-border pt-4 opacity-50">
+                <span className="text-[9px] uppercase tracking-[0.15em] text-gray-900 dark:text-white">Hạn dùng 12 tháng</span>
+                <span className="text-[11px] font-bold text-gray-900 dark:text-white">#GIFT-CARD</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );

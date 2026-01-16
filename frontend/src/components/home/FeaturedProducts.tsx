@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 interface Product {
   id: number;
@@ -25,7 +25,7 @@ interface FeaturedProductsProps {
 }
 
 export default function FeaturedProducts({ content }: FeaturedProductsProps) {
-  const { title = 'Sản phẩm nổi bật', limit = 8 } = content;
+  const { title = 'Được yêu thích nhất', limit = 8 } = content;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,16 +49,18 @@ export default function FeaturedProducts({ content }: FeaturedProductsProps) {
 
   if (loading) {
     return (
-      <section className="py-12 md:py-20">
-        <div className="container mx-auto px-4">
+      <section className="bg-brand-secondary/30 section-spacing">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8">
           <div className="animate-pulse">
-            <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded w-64 mx-auto mb-8"></div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-32 mx-auto mb-3"></div>
+            <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded w-64 mx-auto mb-12"></div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="space-y-3">
-                  <div className="aspect-[3/4] bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
+                <div key={i} className="space-y-4">
+                  <div className="aspect-[3/4] bg-gray-200 dark:bg-gray-800"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-1/2 mx-auto"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mx-auto"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/3 mx-auto"></div>
                 </div>
               ))}
             </div>
@@ -71,63 +73,64 @@ export default function FeaturedProducts({ content }: FeaturedProductsProps) {
   if (products.length === 0) return null;
 
   return (
-    <section className="bg-white dark:bg-gray-950 py-12 md:py-20 transition-colors">
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-serif font-light mb-4 text-gray-900 dark:text-white">
-            {title}
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+    <section className="bg-brand-secondary/30 section-spacing">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-8">
+        <header className="mb-12 md:mb-16 text-center">
+          <h2 className="text-[11px] uppercase tracking-[0.4em] font-bold mb-3 text-gray-500 dark:text-gray-400">Best Sellers</h2>
+          <h3 className="text-3xl md:text-5xl font-serif italic text-gray-900 dark:text-white">{title}</h3>
+        </header>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
           {products.map((product) => (
             <Link
               key={product.id}
               href={`/san-pham/${product.slug}`}
-              className="group block"
+              className="group flex flex-col gap-4"
             >
-              <div className="relative aspect-[3/4] bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden mb-3">
+              <div className="relative aspect-[3/4] bg-brand-secondary overflow-hidden shadow-sm transition-shadow hover:shadow-2xl">
                 {product.images?.[0] && (
                   <Image
                     src={product.images[0].url}
                     alt={product.name}
                     fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="object-cover group-hover:scale-105 transition-transform duration-1000"
                   />
                 )}
                 {product.salePrice && (
-                  <span className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
+                  <span className="absolute top-4 left-4 bg-red-600 text-white text-[9px] px-3 py-1.5 uppercase tracking-[0.15em] font-bold shadow-xl">
                     -{Math.round((1 - product.salePrice / product.price) * 100)}%
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                {product.category?.name}
-              </p>
-              <h3 className="text-sm md:text-base font-medium text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-300 transition-colors line-clamp-2 mb-1">
-                {product.name}
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-base md:text-lg font-light text-gray-900 dark:text-white">
-                  {(product.salePrice || product.price).toLocaleString('vi-VN')}₫
-                </span>
-                {product.salePrice && (
-                  <span className="text-sm text-gray-400 line-through">
-                    {product.price.toLocaleString('vi-VN')}₫
+              <div className="space-y-2 text-center">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-brand-accent font-bold opacity-80">
+                  {product.category?.name}
+                </p>
+                <h4 className="text-[12px] font-bold tracking-[0.05em] uppercase group-hover:text-brand-accent transition-colors text-gray-900 dark:text-white leading-relaxed line-clamp-2">
+                  {product.name}
+                </h4>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-[14px] font-medium text-gray-900 dark:text-white opacity-70 italic">
+                    {(product.salePrice || product.price).toLocaleString('vi-VN')}₫
                   </span>
-                )}
+                  {product.salePrice && (
+                    <span className="text-[12px] text-gray-400 line-through">
+                      {product.price.toLocaleString('vi-VN')}₫
+                    </span>
+                  )}
+                </div>
               </div>
             </Link>
           ))}
         </div>
 
-        <div className="text-center mt-8 md:mt-12">
+        <div className="text-center mt-12 md:mt-16">
           <Link
             href="/san-pham?featured=true"
-            className="inline-flex items-center gap-2 text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-300 transition font-medium"
+            className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] font-bold text-gray-500 dark:text-gray-400 hover:text-brand-accent transition-all"
           >
             Xem tất cả
-            <ArrowRight className="w-4 h-4" />
+            <ChevronRight size={14} />
           </Link>
         </div>
       </div>

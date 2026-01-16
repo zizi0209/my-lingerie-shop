@@ -25,6 +25,7 @@ export default function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [popularKeywords, setPopularKeywords] = useState<{ pinned: PopularKeyword[]; trending: PopularKeyword[] }>({ pinned: [], trending: [] });
+  const [isScrolled, setIsScrolled] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { store_name, store_logo, primary_color } = useStore();
@@ -32,6 +33,13 @@ export default function Header() {
   const { itemCount } = useCart();
   
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
+  // Handle scroll for header style
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -94,10 +102,15 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white dark:bg-gray-950 transition-colors">
+    <header className="sticky top-0 z-50 w-full transition-colors">
+      {/* Top Banner - Elegant promotion bar */}
+      <div className="bg-brand-primary text-white py-2 text-center text-[10px] tracking-[0.3em] font-medium uppercase">
+        Miễn phí vận chuyển cho đơn hàng từ 500.000₫
+      </div>
+
       {/* Main Header */}
-      <div className="border-b border-gray-200 dark:border-gray-800">
-        <div className="container mx-auto px-4 h-14 sm:h-16 flex items-center">
+      <div className={`bg-white dark:bg-gray-950 border-b border-gray-200/50 dark:border-gray-800/50 ${isScrolled ? 'py-3 shadow-sm backdrop-blur-md bg-white/95 dark:bg-gray-950/95' : 'py-5 md:py-6'} transition-all duration-300`}>
+        <div className="container mx-auto px-4 md:px-8 flex items-center">
           {/* Left: Menu Button (Mobile) */}
           <div className="flex items-center lg:hidden">
             <button
@@ -111,7 +124,7 @@ export default function Header() {
 
           {/* Center: Logo */}
           <div className="flex-1 flex justify-center lg:justify-start lg:flex-none">
-            <Link href="/" className="flex items-center">
+            <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
               {store_logo ? (
                 <Image 
                   src={store_logo} 
@@ -121,18 +134,15 @@ export default function Header() {
                   className="h-7 sm:h-8 w-auto object-contain"
                 />
               ) : (
-                <span 
-                className="text-xl sm:text-2xl font-bold tracking-tight"
-                style={{ color: primary_color }}
-              >
-                {store_name}
-              </span>
+                <span className="logo-font text-2xl md:text-3xl tracking-tighter text-gray-900 dark:text-white">
+                  {store_name}
+                </span>
               )}
             </Link>
           </div>
 
           {/* Center: Navigation (Desktop) */}
-          <nav className="hidden lg:flex items-center justify-center flex-1 gap-8 text-sm font-medium">
+          <nav className="hidden lg:flex items-center justify-center flex-1 gap-12">
             {[
               { href: "/", label: "TRANG CHỦ" },
               { href: "/san-pham", label: "SẢN PHẨM" },
@@ -143,10 +153,10 @@ export default function Header() {
               <Link 
                 key={item.href}
                 href={item.href} 
-                className="text-gray-900 dark:text-white transition-colors nav-link"
-                style={{ '--hover-color': primary_color } as React.CSSProperties}
+                className="text-[11px] tracking-[0.2em] font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors relative group py-1"
               >
                 {item.label}
+                <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-current group-hover:w-full transition-all duration-300" />
               </Link>
             ))}
           </nav>
