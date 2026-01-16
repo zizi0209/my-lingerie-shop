@@ -9,7 +9,9 @@ interface HeroContent {
   subtitle?: string;
   buttonText?: string;
   buttonLink?: string;
+  leftImage?: string;
   backgroundImage?: string;
+  rightImage?: string;
 }
 
 interface HeroSectionProps {
@@ -23,7 +25,9 @@ export default function HeroSection({ content }: HeroSectionProps) {
     subtitle = 'Khám phá vẻ đẹp quyến rũ',
     buttonText = 'Khám phá bộ sưu tập',
     buttonLink = '/san-pham',
+    leftImage = 'https://images.unsplash.com/photo-1616002411355-49593fd89721?q=80&w=800&auto=format&fit=crop',
     backgroundImage = 'https://images.unsplash.com/photo-1519644473771-e45d361c9bb8?q=80&w=1170&auto=format&fit=crop',
+    rightImage = 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=800&auto=format&fit=crop',
   } = content;
 
   return (
@@ -44,11 +48,12 @@ export default function HeroSection({ content }: HeroSectionProps) {
         <div className="col-span-6 md:col-span-3 z-10 md:translate-y-16">
           <div className="aspect-[3/5] overflow-hidden shadow-2xl">
             <Image 
-              src="https://images.unsplash.com/photo-1616002411355-49593fd89721?q=80&w=800&auto=format&fit=crop"
+              src={leftImage}
               alt="Editorial Lingerie 1" 
               width={400}
               height={600}
               className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000"
+              unoptimized
             />
           </div>
         </div>
@@ -97,11 +102,12 @@ export default function HeroSection({ content }: HeroSectionProps) {
         <div className="col-span-6 md:col-span-3 z-10 md:translate-y-20 flex justify-end">
           <div className="aspect-[3/4] w-full md:w-[110%] overflow-hidden shadow-2xl">
             <Image 
-              src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=800&auto=format&fit=crop"
+              src={rightImage}
               alt="Model Editorial 2" 
               width={440}
               height={550}
               className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000"
+              unoptimized
             />
           </div>
         </div>
