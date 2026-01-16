@@ -209,13 +209,13 @@ router.get('/verify/:token', async (req: Request, res: Response) => {
       attempts++;
     }
 
-    // Update subscriber
+    // Update subscriber (keep token so user can revisit the link)
     await prisma.newsletterSubscriber.update({
       where: { id: subscriber.id },
       data: {
         isVerified: true,
         verifiedAt: new Date(),
-        verificationToken: null, // Clear token after use
+        // Keep verificationToken so user can revisit and see coupon again
         verificationExpiresAt: null,
         welcomeCouponCode: couponCode,
         isActive: true,
