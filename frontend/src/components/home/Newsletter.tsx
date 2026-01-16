@@ -6,6 +6,9 @@ import { Loader2, CheckCircle, ChevronRight, AlertCircle, Mail } from 'lucide-re
 interface NewsletterContent {
   title?: string;
   subtitle?: string;
+  discountValue?: number;
+  minOrderValue?: number;
+  expiryDays?: number;
 }
 
 interface NewsletterProps {
@@ -15,8 +18,13 @@ interface NewsletterProps {
 export default function Newsletter({ content }: NewsletterProps) {
   const { 
     title = 'Đăng ký nhận tin', 
-    subtitle = 'Nhận ưu đãi độc quyền và thông tin bộ sưu tập mới nhất. Giảm 50.000đ cho đơn hàng đầu tiên!' 
+    subtitle = 'Nhận ưu đãi độc quyền',
+    discountValue = 50000,
+    minOrderValue = 399000,
+    expiryDays = 30,
   } = content;
+  
+  const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'already' | 'verify'>('idle');
@@ -130,11 +138,11 @@ export default function Newsletter({ content }: NewsletterProps) {
                 <span className="text-[9px] tracking-[0.3em] opacity-30 text-gray-900 dark:text-white">EST. 2024</span>
               </div>
               <div className="text-center">
-                <h4 className="text-3xl md:text-4xl font-serif italic text-brand-accent tracking-wide">1.000.000₫</h4>
+                <h4 className="text-3xl md:text-4xl font-serif italic text-brand-accent tracking-wide">{formatCurrency(discountValue)}₫</h4>
               </div>
               <div className="flex justify-between items-end border-t border-brand-border pt-4 opacity-50">
-                <span className="text-[9px] uppercase tracking-[0.15em] text-gray-900 dark:text-white">Hạn dùng 12 tháng</span>
-                <span className="text-[11px] font-bold text-gray-900 dark:text-white">#GIFT-CARD</span>
+                <span className="text-[9px] uppercase tracking-[0.15em] text-gray-900 dark:text-white">Đơn từ {formatCurrency(minOrderValue)}đ • {expiryDays} ngày</span>
+                <span className="text-[11px] font-bold text-gray-900 dark:text-white">#VOUCHER</span>
               </div>
             </div>
           </div>
