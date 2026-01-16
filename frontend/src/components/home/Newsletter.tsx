@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
-import { Loader2, CheckCircle, ChevronRight } from 'lucide-react';
+import { Loader2, CheckCircle, ChevronRight, AlertCircle, Mail } from 'lucide-react';
 
 interface NewsletterContent {
   title?: string;
@@ -15,22 +14,53 @@ interface NewsletterProps {
 
 export default function Newsletter({ content }: NewsletterProps) {
   const { 
-    title = 'Thẻ quà tặng', 
-    subtitle = 'Tặng người phụ nữ bạn yêu thương món quà của sự tự tin. Thẻ quà tặng cho phép cô ấy tự do khám phá phong cách riêng.' 
+    title = 'Đăng ký nhận tin', 
+    subtitle = 'Nhận ưu đãi độc quyền và thông tin bộ sưu tập mới nhất. Giảm 50.000đ cho đơn hàng đầu tiên!' 
   } = content;
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'already' | 'verify'>('idle');
+  const [message, setMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setLoading(false);
-    setSuccess(true);
-    setEmail('');
+    setStatus('idle');
+    
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/newsletter/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'website' }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        if (data.alreadySubscribed) {
+          setStatus('already');
+          setMessage(data.message || 'Email này đã đăng ký trước đó!');
+        } else if (data.needsVerification) {
+          setStatus('verify');
+          setMessage(data.message || 'Vui lòng kiểm tra email để xác nhận!');
+          setEmail('');
+        } else {
+          setStatus('success');
+          setMessage(data.message || 'Đăng ký thành công!');
+          setEmail('');
+        }
+      } else {
+        setStatus('error');
+        setMessage(data.message || 'Có lỗi xảy ra');
+      }
+    } catch {
+      setStatus('error');
+      setMessage('Không thể kết nối server');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -43,29 +73,53 @@ export default function Newsletter({ content }: NewsletterProps) {
               {subtitle}
             </p>
             
-            {success ? (
+            {status === 'verify' ? (
+              <div className="space-y-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                  <Mail className="w-5 h-5" />
+                  <span className="font-medium">Kiểm tra email của bạn!</span>
+                </div>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  {message}
+                </p>
+              </div>
+            ) : status === 'success' ? (
               <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
                 <CheckCircle className="w-5 h-5" />
-                <span className="text-sm">Đăng ký thành công!</span>
+                <span className="text-sm">{message}</span>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="relative group w-full max-w-sm">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Nhập email nhận ưu đãi"
-                  className="w-full bg-transparent border-b border-brand-border/40 py-3 pr-10 text-sm focus:outline-none focus:border-brand-accent transition-all placeholder:opacity-40 placeholder:font-light font-light text-gray-900 dark:text-white"
-                  required
-                />
-                <button 
-                  type="submit"
-                  disabled={loading}
-                  className="absolute right-0 bottom-1/2 translate-y-1/2 p-2 text-gray-400 group-focus-within:text-brand-accent hover:text-brand-accent transition-colors disabled:opacity-50"
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight size={16} />}
-                </button>
-              </form>
+              <div className="space-y-3">
+                <form onSubmit={handleSubmit} className="relative group w-full max-w-sm">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Nhập email nhận ưu đãi"
+                    className="w-full bg-transparent border-b border-brand-border/40 py-3 pr-10 text-sm focus:outline-none focus:border-brand-accent transition-all placeholder:opacity-40 placeholder:font-light font-light text-gray-900 dark:text-white"
+                    required
+                  />
+                  <button 
+                    type="submit"
+                    disabled={loading}
+                    className="absolute right-0 bottom-1/2 translate-y-1/2 p-2 text-gray-400 group-focus-within:text-brand-accent hover:text-brand-accent transition-colors disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight size={16} />}
+                  </button>
+                </form>
+                {status === 'error' && (
+                  <div className="flex items-center gap-2 text-red-500 text-sm">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{message}</span>
+                  </div>
+                )}
+                {status === 'already' && (
+                  <div className="flex items-center gap-2 text-amber-500 text-sm">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{message}</span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
           

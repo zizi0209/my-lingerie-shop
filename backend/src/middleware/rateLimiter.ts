@@ -25,11 +25,11 @@ export const loginLimiter = rateLimit({
 /**
  * Rate limiter for registration endpoint
  * Prevents mass account creation
- * Max 3 registrations per hour per IP
+ * Max 3 registrations per hour per IP (100 in dev)
  */
 export const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3,
+  max: process.env.NODE_ENV === 'development' ? 100 : 3,
   message: {
     error: 'Quá nhiều tài khoản được tạo. Vui lòng thử lại sau 1 giờ.'
   },

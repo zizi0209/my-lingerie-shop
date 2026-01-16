@@ -784,3 +784,41 @@ model UserPreference {
   
   @@index([userId])
 }
+
+model NewsletterSubscriber {
+  id                    Int       @id @default(autoincrement())
+  email                 String    @unique
+  isActive              Boolean   @default(true)
+  subscribedAt          DateTime  @default(now())
+  unsubscribedAt        DateTime?
+  source                String    @default("website")
+  
+  // Double opt-in verification
+  isVerified            Boolean   @default(false)
+  verificationToken     String?   @unique
+  verificationExpiresAt DateTime?
+  verifiedAt            DateTime?
+  
+  // Welcome coupon (unique per subscriber)
+  welcomeCouponCode     String?   @unique
+  welcomeCouponUsedAt   DateTime?
+  welcomeCouponOrderId  Int?
+  
+  @@index([email])
+  @@index([isActive])
+  @@index([verificationToken])
+  @@index([welcomeCouponCode])
+}
+
+// Track phone numbers that used welcome coupon (prevent multi-account abuse)
+model WelcomeCouponUsage {
+  id        Int      @id @default(autoincrement())
+  phone     String   @unique
+  email     String
+  couponCode String
+  orderId   Int
+  usedAt    DateTime @default(now())
+  
+  @@index([phone])
+  @@index([email])
+}

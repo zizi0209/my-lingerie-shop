@@ -8,6 +8,7 @@ import CategoriesSection from './CategoriesSection';
 import PromotionBanner from './PromotionBanner';
 import TextBlock from './TextBlock';
 import Newsletter from './Newsletter';
+import RecommendationsHome from './RecommendationsHome';
 
 interface PageSection {
   id: number;
@@ -68,6 +69,8 @@ export default function DynamicSections() {
         return <TextBlock key={section.id} content={content} />;
       case 'newsletter':
         return <Newsletter key={section.id} content={content} />;
+      case 'recommendations':
+        return <RecommendationsHome key={section.id} content={content} />;
       default:
         return null;
     }
@@ -116,6 +119,7 @@ function DefaultHomePage() {
       }} />
       <FeaturedProducts content={{ title: 'Sản phẩm nổi bật', limit: 8 }} />
       <CategoriesSection content={{ title: 'Danh mục sản phẩm' }} />
+      <RecommendationsHome content={{ showTrending: true, showNewArrivals: false, showBestSellers: true, showPersonalized: true }} />
       <NewArrivals content={{ title: 'Hàng mới về', limit: 8 }} />
       <Newsletter content={{ title: 'Đăng ký nhận tin', subtitle: 'Nhận ưu đãi độc quyền' }} />
     </div>

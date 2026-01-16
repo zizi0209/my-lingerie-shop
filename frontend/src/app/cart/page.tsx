@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Minus, Plus, X, ShoppingBag, Loader2, Trash2, Edit2, Check } from "lucide-react";
 import { useCart, CartItem } from "@/context/CartContext";
+import CartRecommendations from "@/components/cart/CartRecommendations";
 
 interface ProductVariant {
   id: number;
@@ -455,6 +456,9 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      {/* Cart Recommendations */}
+      <CartRecommendations productIds={cart.items.map(item => item.productId)} />
     </div>
   );
 }
