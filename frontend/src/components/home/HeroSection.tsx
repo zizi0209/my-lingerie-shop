@@ -41,7 +41,7 @@ export default function HeroSection({ content }: HeroSectionProps) {
       <div className="relative max-w-[1200px] w-full px-4 md:px-8 grid grid-cols-12 items-center gap-4 md:gap-0">
         
         {/* Left Floating Image */}
-        <div className="col-span-6 md:col-span-3 z-20 md:translate-y-4">
+        <div className="col-span-6 md:col-span-3 z-10 md:translate-y-16">
           <div className="aspect-[3/5] overflow-hidden shadow-2xl">
             <Image 
               src="https://images.unsplash.com/photo-1616002411355-49593fd89721?q=80&w=800&auto=format&fit=crop"
@@ -54,19 +54,20 @@ export default function HeroSection({ content }: HeroSectionProps) {
         </div>
 
         {/* Center Main Content */}
-        <div className="col-span-12 md:col-span-6 flex flex-col items-center relative z-10 md:-mx-8 order-first md:order-none mb-8 md:mb-0">
-          {/* Typography */}
-          <div className="text-center mb-4 relative z-30">
-            <h1 className="text-[clamp(2.5rem,8vw,6rem)] font-serif leading-[0.85] tracking-tight italic text-gray-900 dark:text-white">
+        <div className="col-span-12 md:col-span-6 flex flex-col items-center relative z-20 md:-mx-4 order-first md:order-none mb-8 md:mb-0">
+          {/* Typography - with background for better readability */}
+          <div className="text-center mb-6 relative px-6 py-4">
+            <div className="absolute inset-0 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm -z-10"></div>
+            <h1 className="text-[clamp(2.5rem,8vw,5rem)] font-serif leading-[0.9] tracking-tight italic text-gray-900 dark:text-white drop-shadow-sm">
               {title || store_name}
             </h1>
-            <h2 className="text-[clamp(1rem,3vw,2rem)] font-serif uppercase tracking-[0.3em] font-light mt-3 text-gray-900 dark:text-white opacity-80">
+            <h2 className="text-[clamp(0.875rem,2.5vw,1.5rem)] font-serif uppercase tracking-[0.4em] font-light mt-2 text-gray-700 dark:text-gray-300">
               LINGERIE
             </h2>
           </div>
 
           {/* Center Image Box */}
-          <div className="w-[90%] md:w-[85%] aspect-video overflow-hidden shadow-xl mt-[-1vw] relative z-20">
+          <div className="w-[95%] md:w-[90%] aspect-video overflow-hidden shadow-xl relative">
             <Image 
               src={backgroundImage}
               alt="Hero Banner" 
@@ -93,7 +94,7 @@ export default function HeroSection({ content }: HeroSectionProps) {
         </div>
 
         {/* Right Floating Image */}
-        <div className="col-span-6 md:col-span-3 z-20 md:translate-y-8 flex justify-end">
+        <div className="col-span-6 md:col-span-3 z-10 md:translate-y-20 flex justify-end">
           <div className="aspect-[3/4] w-full md:w-[110%] overflow-hidden shadow-2xl">
             <Image 
               src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=800&auto=format&fit=crop"
