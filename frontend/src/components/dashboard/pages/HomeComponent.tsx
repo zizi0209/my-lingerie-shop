@@ -108,6 +108,9 @@ const sectionTemplates: SectionTemplate[] = [
     defaultContent: {
       title: 'Đăng ký nhận tin',
       subtitle: 'Nhận ưu đãi độc quyền',
+      discountValue: 50000,
+      minOrderValue: 399000,
+      expiryDays: 30,
     }
   },
 ];
@@ -609,6 +612,133 @@ const ImageField: React.FC<ImageFieldProps> = ({ value, onChange, label }) => {
   );
 };
 
+// Newsletter Section Editor Component
+interface NewsletterEditorProps {
+  content: Record<string, unknown>;
+  updateField: (key: string, value: unknown) => void;
+}
+
+const NewsletterEditor: React.FC<NewsletterEditorProps> = ({ content, updateField }) => {
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('vi-VN').format(value);
+  };
+
+  const parseCurrency = (value: string) => {
+    return parseInt(value.replace(/\D/g, '')) || 0;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Tiêu đề và phụ đề */}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            Tiêu đề
+          </label>
+          <input
+            type="text"
+            value={(content.title as string) || ''}
+            onChange={(e) => updateField('title', e.target.value)}
+            placeholder="Đăng ký nhận tin"
+            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            Phụ đề
+          </label>
+          <input
+            type="text"
+            value={(content.subtitle as string) || ''}
+            onChange={(e) => updateField('subtitle', e.target.value)}
+            placeholder="Nhận ưu đãi độc quyền"
+            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
+          />
+        </div>
+      </div>
+
+      {/* Cài đặt giá ưu đãi */}
+      <div className="p-4 bg-primary-50 dark:bg-primary-900/20 rounded-xl border border-primary-200 dark:border-primary-800">
+        <h3 className="font-bold text-primary-700 dark:text-primary-300 mb-4 flex items-center gap-2">
+          <Sparkles size={18} />
+          Cài đặt giá ưu đãi chào mừng
+        </h3>
+        
+        <div className="space-y-4">
+          {/* Giá trị giảm */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+              Giá trị giảm (VNĐ)
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={formatCurrency((content.discountValue as number) || 0)}
+                onChange={(e) => updateField('discountValue', parseCurrency(e.target.value))}
+                className="w-full px-4 py-3 pr-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100 text-right font-semibold"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-medium">
+                đ
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Số tiền giảm trực tiếp vào đơn hàng
+            </p>
+          </div>
+
+          {/* Giá trị đơn hàng tối thiểu */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+              Giá trị đơn hàng tối thiểu (VNĐ)
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={formatCurrency((content.minOrderValue as number) || 0)}
+                onChange={(e) => updateField('minOrderValue', parseCurrency(e.target.value))}
+                className="w-full px-4 py-3 pr-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100 text-right font-semibold"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-medium">
+                đ
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Đơn hàng phải đạt giá trị này mới được áp dụng ưu đãi
+            </p>
+          </div>
+
+          {/* Số ngày hết hạn */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+              Thời hạn ưu đãi (ngày)
+            </label>
+            <input
+              type="number"
+              value={(content.expiryDays as number) || 30}
+              onChange={(e) => updateField('expiryDays', parseInt(e.target.value) || 30)}
+              min={1}
+              max={365}
+              className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Mã ưu đãi sẽ hết hạn sau số ngày này kể từ khi xác nhận email
+            </p>
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div className="mt-4 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Xem trước mô tả:</p>
+          <p className="text-sm text-slate-700 dark:text-slate-300">
+            Giảm <strong className="text-primary-600 dark:text-primary-400">{formatCurrency((content.discountValue as number) || 0)}đ</strong> cho đơn hàng đầu tiên từ <strong>{formatCurrency((content.minOrderValue as number) || 0)}đ</strong>. 
+            Hiệu lực <strong>{(content.expiryDays as number) || 30} ngày</strong>.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Section Editor Component
 interface SectionEditorProps {
   section: PageSection;
@@ -638,6 +768,9 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, onSave, onClose,
     return key.toLowerCase().includes('image') || key.toLowerCase().includes('img');
   };
 
+  // Check if this is newsletter section
+  const isNewsletterSection = section.code.startsWith('newsletter');
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden">
@@ -655,71 +788,75 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, onSave, onClose,
         </div>
         
         <div className="p-6 overflow-y-auto max-h-[60vh] space-y-6">
-          {Object.entries(content).map(([key, value]) => {
-            // Check if this is a rich text field (content field in text sections)
-            const isRichTextField = key === 'content' && section.code.startsWith('text');
-            
-            // Check if this is an image field
-            if (isImageField(key)) {
-              return (
-                <ImageField
-                  key={key}
-                  label={key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
-                  value={(value as string) || ''}
-                  onChange={(url) => updateField(key, url)}
-                />
-              );
-            }
-            
-            return (
-              <div key={key} className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
-                </label>
-                {isRichTextField ? (
-                  <LexicalEditor
-                    initialValue={(value as string) || ''}
-                    onChange={(html) => updateField(key, html)}
-                    placeholder="Nhập nội dung văn bản..."
-                    minHeight="200px"
-                  />
-                ) : typeof value === 'string' && value.length > 100 ? (
-                  <textarea
-                    value={value as string}
-                    onChange={(e) => updateField(key, e.target.value)}
-                    rows={4}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
-                  />
-                ) : typeof value === 'number' ? (
-                  <input
-                    type="number"
-                    value={value as number}
-                    onChange={(e) => updateField(key, parseInt(e.target.value) || 0)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
-                  />
-                ) : typeof value === 'boolean' ? (
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={value as boolean}
-                      onChange={(e) => updateField(key, e.target.checked)}
-                      className="w-5 h-5 rounded border-slate-300 text-primary-500 focus:ring-primary-500"
-                    />
-                    <span className="text-sm text-slate-700 dark:text-slate-300">
-                      {value ? 'Bật' : 'Tắt'}
-                    </span>
-                  </label>
-                ) : (
-                  <input
-                    type="text"
+          {isNewsletterSection ? (
+            <NewsletterEditor content={content} updateField={updateField} />
+          ) : (
+            Object.entries(content).map(([key, value]) => {
+              // Check if this is a rich text field (content field in text sections)
+              const isRichTextField = key === 'content' && section.code.startsWith('text');
+              
+              // Check if this is an image field
+              if (isImageField(key)) {
+                return (
+                  <ImageField
+                    key={key}
+                    label={key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
                     value={(value as string) || ''}
-                    onChange={(e) => updateField(key, e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
+                    onChange={(url) => updateField(key, url)}
                   />
-                )}
-              </div>
-            );
-          })}
+                );
+              }
+              
+              return (
+                <div key={key} className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+                  </label>
+                  {isRichTextField ? (
+                    <LexicalEditor
+                      initialValue={(value as string) || ''}
+                      onChange={(html) => updateField(key, html)}
+                      placeholder="Nhập nội dung văn bản..."
+                      minHeight="200px"
+                    />
+                  ) : typeof value === 'string' && value.length > 100 ? (
+                    <textarea
+                      value={value as string}
+                      onChange={(e) => updateField(key, e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
+                    />
+                  ) : typeof value === 'number' ? (
+                    <input
+                      type="number"
+                      value={value as number}
+                      onChange={(e) => updateField(key, parseInt(e.target.value) || 0)}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
+                    />
+                  ) : typeof value === 'boolean' ? (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={value as boolean}
+                        onChange={(e) => updateField(key, e.target.checked)}
+                        className="w-5 h-5 rounded border-slate-300 text-primary-500 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-slate-700 dark:text-slate-300">
+                        {value ? 'Bật' : 'Tắt'}
+                      </span>
+                    </label>
+                  ) : (
+                    <input
+                      type="text"
+                      value={(value as string) || ''}
+                      onChange={(e) => updateField(key, e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100"
+                    />
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
 
         <div className="p-6 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">

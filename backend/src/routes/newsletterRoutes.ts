@@ -28,6 +28,38 @@ function generateWelcomeCouponCode(): string {
   return code;
 }
 
+// Default coupon config
+const DEFAULT_COUPON_CONFIG = {
+  discountValue: 50000,
+  minOrderValue: 399000,
+  expiryDays: 30,
+};
+
+// Get newsletter coupon config from PageSection
+async function getNewsletterCouponConfig(): Promise<typeof DEFAULT_COUPON_CONFIG> {
+  try {
+    const newsletterSection = await prisma.pageSection.findFirst({
+      where: {
+        code: { startsWith: 'newsletter' },
+        isVisible: true,
+      },
+      select: { content: true },
+    });
+
+    if (newsletterSection?.content && typeof newsletterSection.content === 'object') {
+      const content = newsletterSection.content as Record<string, unknown>;
+      return {
+        discountValue: typeof content.discountValue === 'number' ? content.discountValue : DEFAULT_COUPON_CONFIG.discountValue,
+        minOrderValue: typeof content.minOrderValue === 'number' ? content.minOrderValue : DEFAULT_COUPON_CONFIG.minOrderValue,
+        expiryDays: typeof content.expiryDays === 'number' ? content.expiryDays : DEFAULT_COUPON_CONFIG.expiryDays,
+      };
+    }
+  } catch (err) {
+    console.error('Error fetching newsletter config:', err);
+  }
+  return DEFAULT_COUPON_CONFIG;
+}
+
 /**
  * POST /api/newsletter/subscribe
  * Bước 1: Đăng ký và gửi email xác nhận (Double Opt-in)
@@ -198,18 +230,19 @@ router.get('/verify/:token', async (req: Request, res: Response) => {
           select: { id: true },
         });
 
-        const couponExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const couponConfig = await getNewsletterCouponConfig();
+        const couponExpiresAt = new Date(Date.now() + couponConfig.expiryDays * 24 * 60 * 60 * 1000);
 
         await prisma.$transaction(async (tx) => {
           const coupon = await tx.coupon.create({
             data: {
               code: subscriber.welcomeCouponCode!,
               name: 'Ưu đãi chào mừng thành viên mới',
-              description: 'Giảm 50.000đ cho đơn hàng đầu tiên từ 399.000đ',
+              description: `Giảm ${couponConfig.discountValue.toLocaleString('vi-VN')}đ cho đơn hàng đầu tiên từ ${couponConfig.minOrderValue.toLocaleString('vi-VN')}đ`,
               category: 'DISCOUNT',
               discountType: 'FIXED_AMOUNT',
-              discountValue: 50000,
-              minOrderValue: 399000,
+              discountValue: couponConfig.discountValue,
+              minOrderValue: couponConfig.minOrderValue,
               quantity: 1,
               maxUsagePerUser: 1,
               couponType: 'NEW_USER',
@@ -271,8 +304,9 @@ router.get('/verify/:token', async (req: Request, res: Response) => {
       select: { id: true },
     });
 
-    // Coupon expires in 30 days
-    const couponExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    // Get coupon config from admin settings
+    const couponConfig = await getNewsletterCouponConfig();
+    const couponExpiresAt = new Date(Date.now() + couponConfig.expiryDays * 24 * 60 * 60 * 1000);
 
     // Use transaction to ensure consistency
     const result = await prisma.$transaction(async (tx) => {
@@ -293,11 +327,11 @@ router.get('/verify/:token', async (req: Request, res: Response) => {
         data: {
           code: couponCode,
           name: 'Ưu đãi chào mừng thành viên mới',
-          description: 'Giảm 50.000đ cho đơn hàng đầu tiên từ 399.000đ',
+          description: `Giảm ${couponConfig.discountValue.toLocaleString('vi-VN')}đ cho đơn hàng đầu tiên từ ${couponConfig.minOrderValue.toLocaleString('vi-VN')}đ`,
           category: 'DISCOUNT',
           discountType: 'FIXED_AMOUNT',
-          discountValue: 50000,
-          minOrderValue: 399000,
+          discountValue: couponConfig.discountValue,
+          minOrderValue: couponConfig.minOrderValue,
           quantity: 1,
           maxUsagePerUser: 1,
           couponType: 'NEW_USER',
@@ -452,16 +486,17 @@ router.post('/validate-coupon', async (req: Request, res: Response) => {
       return;
     }
 
-    // Valid! Return coupon info
+    // Valid! Return coupon info with dynamic config
+    const couponConfig = await getNewsletterCouponConfig();
     res.json({
       success: true,
       message: 'Mã giảm giá hợp lệ',
       coupon: {
         code: couponCode,
         discountType: 'FIXED',
-        discountValue: 50000, // 50k VND
-        minOrderValue: 399000, // Min 399k
-        description: 'Giảm 50.000đ cho đơn hàng đầu tiên từ 399.000đ',
+        discountValue: couponConfig.discountValue,
+        minOrderValue: couponConfig.minOrderValue,
+        description: `Giảm ${couponConfig.discountValue.toLocaleString('vi-VN')}đ cho đơn hàng đầu tiên từ ${couponConfig.minOrderValue.toLocaleString('vi-VN')}đ`,
       },
     });
   } catch (error) {
