@@ -104,7 +104,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full transition-colors">
       {/* Top Banner - Elegant promotion bar */}
-      <div className="bg-brand-primary text-white py-2 text-center text-[10px] tracking-[0.3em] font-medium uppercase">
+      <div className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 py-2 text-center text-[10px] tracking-[0.3em] font-medium uppercase">
         Miễn phí vận chuyển cho đơn hàng từ 500.000₫
       </div>
 
