@@ -95,14 +95,28 @@ export const sendContactEmail = async (data: ContactEmailData) => {
   return { adminEmail, customerEmail };
 };
 
+interface NewsletterCouponConfig {
+  discountValue: number;
+  minOrderValue: number;
+  expiryDays: number;
+}
+
+const formatVND = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
+
 /**
  * Gửi email xác nhận đăng ký newsletter (Double Opt-in)
  */
-export const sendNewsletterVerificationEmail = async (email: string, token: string) => {
+export const sendNewsletterVerificationEmail = async (
+  email: string, 
+  token: string,
+  couponConfig?: NewsletterCouponConfig
+) => {
   const fromEmail = process.env.CONTACT_EMAIL_FROM || 'onboarding@resend.dev';
   const storeName = process.env.STORE_NAME || 'Lingerie Shop';
   const storeUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const verifyUrl = `${storeUrl}/newsletter/verify?token=${token}`;
+  
+  const discountValue = couponConfig?.discountValue ?? 50000;
 
   const result = await resend.emails.send({
     from: fromEmail,
@@ -120,7 +134,7 @@ export const sendNewsletterVerificationEmail = async (email: string, token: stri
           
           <p style="color: #555; line-height: 1.8;">
             Cảm ơn bạn đã đăng ký nhận tin từ ${storeName}. 
-            Vui lòng xác nhận email để nhận ngay <strong>mã giảm 50.000đ</strong> cho đơn hàng đầu tiên!
+            Vui lòng xác nhận email để nhận ngay <strong>mã giảm ${formatVND(discountValue)}đ</strong> cho đơn hàng đầu tiên!
           </p>
           
           <div style="text-align: center; margin: 40px 0;">
@@ -158,15 +172,23 @@ export const sendNewsletterVerificationEmail = async (email: string, token: stri
 /**
  * Gửi email chứa mã coupon unique sau khi xác nhận
  */
-export const sendWelcomeCouponEmail = async (email: string, couponCode: string) => {
+export const sendWelcomeCouponEmail = async (
+  email: string, 
+  couponCode: string,
+  couponConfig?: NewsletterCouponConfig
+) => {
   const fromEmail = process.env.CONTACT_EMAIL_FROM || 'onboarding@resend.dev';
   const storeName = process.env.STORE_NAME || 'Lingerie Shop';
   const storeUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  
+  const discountValue = couponConfig?.discountValue ?? 50000;
+  const minOrderValue = couponConfig?.minOrderValue ?? 399000;
+  const expiryDays = couponConfig?.expiryDays ?? 30;
 
   const result = await resend.emails.send({
     from: fromEmail,
     to: email,
-    subject: `Mã ưu đãi độc quyền của bạn - Giảm 50.000đ! 🎁`,
+    subject: `Mã ưu đãi độc quyền của bạn - Giảm ${formatVND(discountValue)}đ! 🎁`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #fff;">
         <div style="background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%); padding: 40px 20px; text-align: center;">
@@ -184,14 +206,14 @@ export const sendWelcomeCouponEmail = async (email: string, couponCode: string) 
           <div style="background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 100%); padding: 30px; border-radius: 12px; margin: 30px 0; text-align: center; border: 2px dashed #e91e63;">
             <p style="margin: 0 0 10px 0; color: #c2185b; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">Mã giảm giá của bạn</p>
             <p style="margin: 0; color: #e91e63; font-size: 36px; font-weight: bold; letter-spacing: 4px;">${couponCode}</p>
-            <p style="margin: 15px 0 0 0; color: #333; font-size: 18px; font-weight: bold;">Giảm 50.000đ</p>
-            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Cho đơn hàng từ 399.000đ</p>
+            <p style="margin: 15px 0 0 0; color: #333; font-size: 18px; font-weight: bold;">Giảm ${formatVND(discountValue)}đ</p>
+            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Cho đơn hàng từ ${formatVND(minOrderValue)}đ • Hiệu lực ${expiryDays} ngày</p>
           </div>
           
           <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <p style="margin: 0 0 10px 0; color: #2e7d32; font-weight: bold;">✓ Điều kiện sử dụng:</p>
             <ul style="margin: 0; padding-left: 20px; color: #555; line-height: 1.8;">
-              <li>Áp dụng cho đơn hàng từ <strong>399.000đ</strong></li>
+              <li>Áp dụng cho đơn hàng từ <strong>${formatVND(minOrderValue)}đ</strong></li>
               <li>Chỉ sử dụng được với email <strong>${email}</strong></li>
               <li>Mỗi mã chỉ dùng <strong>1 lần duy nhất</strong></li>
               <li>Không kết hợp với ưu đãi khác</li>

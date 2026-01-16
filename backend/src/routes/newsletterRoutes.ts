@@ -115,8 +115,9 @@ router.post('/subscribe', async (req: Request, res: Response) => {
           },
         });
 
-        // Send verification email
-        sendNewsletterVerificationEmail(normalizedEmail, verificationToken).catch((err) => {
+        // Get coupon config and send verification email
+        const couponConfig = await getNewsletterCouponConfig();
+        sendNewsletterVerificationEmail(normalizedEmail, verificationToken, couponConfig).catch((err) => {
           console.error('Failed to send verification email:', err);
         });
 
@@ -143,8 +144,9 @@ router.post('/subscribe', async (req: Request, res: Response) => {
       },
     });
 
-    // Send verification email (non-blocking)
-    sendNewsletterVerificationEmail(normalizedEmail, verificationToken).catch((err) => {
+    // Get coupon config and send verification email (non-blocking)
+    const couponConfig = await getNewsletterCouponConfig();
+    sendNewsletterVerificationEmail(normalizedEmail, verificationToken, couponConfig).catch((err) => {
       console.error('Failed to send verification email:', err);
     });
 
@@ -365,8 +367,8 @@ router.get('/verify/:token', async (req: Request, res: Response) => {
       console.log('[Newsletter Verify] Added to user wallet:', user?.id);
     }
 
-    // Send welcome email with coupon code
-    sendWelcomeCouponEmail(subscriber.email, couponCode).catch((err) => {
+    // Send welcome email with coupon code and config
+    sendWelcomeCouponEmail(subscriber.email, couponCode, couponConfig).catch((err) => {
       console.error('Failed to send welcome coupon email:', err);
     });
 
