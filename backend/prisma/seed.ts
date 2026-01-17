@@ -203,8 +203,189 @@ async function main() {
 
   console.log(`✅ Point Reward created: ${pointReward.name} (${pointReward.pointCost} điểm)`);
 
+  // 9. Create Test User for testing
+  const testUserPassword = await bcrypt.hash('Test@12345', 12);
+  const testUser = await prisma.user.upsert({
+    where: { email: 'test@example.com' },
+    update: {
+      password: testUserPassword,
+      roleId: userRole.id,
+      isActive: true
+    },
+    create: {
+      email: 'test@example.com',
+      password: testUserPassword,
+      name: 'Test User',
+      phone: '0901234567',
+      roleId: userRole.id,
+      isActive: true,
+      pointBalance: 1000,
+      memberTier: 'SILVER'
+    }
+  });
+
+  console.log('✅ Test User created:');
+  console.log(`   📧 Email: test@example.com`);
+  console.log(`   🔑 Password: Test@12345`);
+
+  // 10. Create Post Categories
+  const postCategories = [
+    { name: 'Mẹo & Hướng dẫn', slug: 'meo-huong-dan' },
+    { name: 'Xu hướng thời trang', slug: 'xu-huong-thoi-trang' },
+    { name: 'Chăm sóc cơ thể', slug: 'cham-soc-co-the' },
+    { name: 'Tin tức', slug: 'tin-tuc' }
+  ];
+
+  for (const cat of postCategories) {
+    await prisma.postCategory.upsert({
+      where: { slug: cat.slug },
+      update: { name: cat.name },
+      create: cat
+    });
+  }
+
+  console.log(`✅ Created ${postCategories.length} post categories`);
+
+  // 11. Create Sample Posts
+  const category1 = await prisma.postCategory.findUnique({ where: { slug: 'meo-huong-dan' } });
+  const category2 = await prisma.postCategory.findUnique({ where: { slug: 'xu-huong-thoi-trang' } });
+
+  if (category1 && category2) {
+    const samplePosts = [
+      {
+        title: 'Cách chọn áo ngực phù hợp với vóc dáng',
+        slug: 'cach-chon-ao-nguc-phu-hop-voi-voc-dang',
+        excerpt: 'Hướng dẫn chi tiết cách đo size và chọn kiểu áo ngực phù hợp nhất với từng vóc dáng.',
+        content: `<h2>Tại sao việc chọn đúng size quan trọng?</h2>
+<p>Việc mặc áo ngực đúng size không chỉ giúp bạn thoải mái suốt cả ngày mà còn tốt cho sức khỏe. Một chiếc áo ngực quá chật có thể gây đau vai, còn áo quá rộng sẽ không hỗ trợ tốt.</p>
+
+<h2>Cách đo size chính xác</h2>
+<p>Để đo size chính xác, bạn cần:</p>
+<ul>
+<li>Đo vòng ngực dưới ngực</li>
+<li>Đo vòng ngực qua điểm cao nhất</li>
+<li>Trừ hai số để ra cup size</li>
+</ul>
+
+<h2>Chọn kiểu áo theo vóc dáng</h2>
+<p>Mỗi kiểu áo ngực phù hợp với những vóc dáng khác nhau. Push-up bra phù hợp với ngực nhỏ, còn minimizer bra tốt cho ngực lớn.</p>`,
+        thumbnail: 'https://images.unsplash.com/photo-1617331140180-e8262094733a?w=800',
+        categoryId: category1.id,
+        authorId: admin.id,
+        isPublished: true,
+        publishedAt: new Date(),
+        views: 1250,
+        likeCount: 45
+      },
+      {
+        title: 'Xu hướng nội y xuân hè 2025',
+        slug: 'xu-huong-noi-y-xuan-he-2025',
+        excerpt: 'Khám phá những xu hướng nội y hot nhất mùa xuân hè năm nay.',
+        content: `<h2>Màu sắc trendy</h2>
+<p>Năm nay, các tông màu pastel như hồng nude, xanh mint và lavender đang lên ngôi. Bên cạnh đó, màu đỏ cherry và cam đào cũng rất được ưa chuộng.</p>
+
+<h2>Chất liệu được yêu thích</h2>
+<p>Ren Pháp cao cấp và lụa satin tiếp tục thống trị. Ngoài ra, các chất liệu bền vững, thân thiện môi trường cũng ngày càng phổ biến.</p>
+
+<h2>Kiểu dáng nổi bật</h2>
+<p>Bralette không gọng, bodysuit và matching sets là những item must-have trong tủ đồ nội y của bạn.</p>`,
+        thumbnail: 'https://images.unsplash.com/photo-1594938328870-9623159c8c99?w=800',
+        categoryId: category2.id,
+        authorId: admin.id,
+        isPublished: true,
+        publishedAt: new Date(Date.now() - 86400000),
+        views: 890,
+        likeCount: 32
+      },
+      {
+        title: '5 lỗi thường gặp khi chọn nội y',
+        slug: '5-loi-thuong-gap-khi-chon-noi-y',
+        excerpt: 'Tránh những sai lầm phổ biến này để luôn tự tin với trang phục của mình.',
+        content: `<h2>1. Chọn sai size</h2>
+<p>Đây là lỗi phổ biến nhất. Nhiều người mặc size sai trong nhiều năm mà không biết. Hãy đo lại size thường xuyên vì cơ thể thay đổi theo thời gian.</p>
+
+<h2>2. Không thử trước khi mua</h2>
+<p>Size có thể khác nhau giữa các thương hiệu. Luôn thử áo trước khi quyết định mua.</p>
+
+<h2>3. Chỉ quan tâm đến màu sắc</h2>
+<p>Chất lượng vải và đường may quan trọng hơn vẻ bề ngoài. Nội y tốt sẽ bền và thoải mái hơn.</p>
+
+<h2>4. Mặc một kiểu cho mọi outfit</h2>
+<p>Mỗi trang phục cần loại nội y khác nhau. T-shirt bra, strapless, racerback... đều có công dụng riêng.</p>
+
+<h2>5. Không chăm sóc đúng cách</h2>
+<p>Giặt tay và phơi khô tự nhiên sẽ giúp nội y bền đẹp lâu hơn.</p>`,
+        thumbnail: 'https://images.unsplash.com/photo-1558171813-4c088753af8f?w=800',
+        categoryId: category1.id,
+        authorId: admin.id,
+        isPublished: true,
+        publishedAt: new Date(Date.now() - 172800000),
+        views: 2100,
+        likeCount: 78
+      }
+    ];
+
+    for (const post of samplePosts) {
+      await prisma.post.upsert({
+        where: { slug: post.slug },
+        update: {
+          title: post.title,
+          content: post.content,
+          excerpt: post.excerpt,
+          thumbnail: post.thumbnail,
+          views: post.views,
+          likeCount: post.likeCount
+        },
+        create: post
+      });
+    }
+
+    console.log(`✅ Created ${samplePosts.length} sample posts`);
+
+    // 12. Create sample likes and bookmarks for test user
+    const posts = await prisma.post.findMany({ take: 2 });
+    for (const post of posts) {
+      await prisma.postLike.upsert({
+        where: { postId_userId: { postId: post.id, userId: testUser.id } },
+        update: {},
+        create: { postId: post.id, userId: testUser.id }
+      });
+      await prisma.postBookmark.upsert({
+        where: { postId_userId: { postId: post.id, userId: testUser.id } },
+        update: {},
+        create: { postId: post.id, userId: testUser.id }
+      });
+    }
+
+    console.log('✅ Created sample likes and bookmarks for test user');
+  }
+
+  // 13. Create default SystemConfig for theme
+  const systemConfigs = [
+    { key: 'store_name', value: 'My Lingerie Shop' },
+    { key: 'primary_color', value: '#f43f5e' },
+    { key: 'store_description', value: 'Cửa hàng nội y cao cấp' },
+    { key: 'store_email', value: 'contact@mylingerie.com' },
+    { key: 'store_phone', value: '0901234567' },
+    { key: 'store_address', value: 'TP. Hồ Chí Minh, Việt Nam' }
+  ];
+
+  for (const config of systemConfigs) {
+    await prisma.systemConfig.upsert({
+      where: { key: config.key },
+      update: { value: config.value },
+      create: config
+    });
+  }
+
+  console.log(`✅ Created ${systemConfigs.length} system configs`);
+
   console.log('');
   console.log('🎉 Database seed completed successfully!');
+  console.log('');
+  console.log('📝 Test accounts:');
+  console.log('   Admin: admin@mylingerie.com (check .env for password)');
+  console.log('   User:  test@example.com / Test@12345');
 }
 
 main()
