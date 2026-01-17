@@ -92,6 +92,10 @@ import ImageUpload from '@/components/ImageUpload';
 
 - Free tier của Cloudinary: 25 credits/tháng
 - Mỗi ảnh upload ~1-3 credits tùy kích thước
-- Ảnh được tự động tối ưu: max 1200x1200px, chất lượng auto
+- **Ảnh được tự động tối ưu:**
+  - Tự động convert sang WebP (nhẹ hơn 25-35%)
+  - Max 1200x1200px
+  - Chất lượng auto
 - Folder trên Cloudinary: `lingerie-shop`
 - Cleanup: Xóa ảnh sẽ xóa cả trên Cloudinary
+- **Supported formats:** JPG, PNG, GIF, BMP, TIFF → tất cả convert sang WebP

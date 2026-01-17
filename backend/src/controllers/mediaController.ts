@@ -22,6 +22,7 @@ export const uploadImage = async (req: Request, res: Response) => {
       {
         resource_type: 'image',
         folder: folder,
+        format: 'webp', // Tự động convert sang WebP
         transformation: [
           { width: 1200, height: 1200, crop: 'limit' }, // Giới hạn kích thước
           { quality: 'auto' }, // Tối ưu chất lượng
@@ -43,7 +44,7 @@ export const uploadImage = async (req: Request, res: Response) => {
             data: {
               filename: result.public_id,
               originalName: req.file!.originalname,
-              mimeType: req.file!.mimetype,
+              mimeType: 'image/webp', // Luôn là WebP sau khi convert
               size: req.file!.size,
               url: result.secure_url,
               publicId: result.public_id,
@@ -95,6 +96,7 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
           {
             resource_type: 'image',
             folder: folder,
+            format: 'webp', // Tự động convert sang WebP
             transformation: [
               { width: 1200, height: 1200, crop: 'limit' },
               { quality: 'auto' },
@@ -111,7 +113,7 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
                   data: {
                     filename: result.public_id,
                     originalName: file.originalname,
-                    mimeType: file.mimetype,
+                    mimeType: 'image/webp', // Luôn là WebP sau khi convert
                     size: file.size,
                     url: result.secure_url,
                     publicId: result.public_id,

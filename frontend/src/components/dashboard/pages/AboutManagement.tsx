@@ -3,11 +3,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Save, Loader2, AlertCircle, CheckCircle, Eye, EyeOff,
-  FileText, Image as ImageIcon, Type, AlignLeft, Hash, RefreshCw
+  FileText, Image as ImageIcon, Type, AlignLeft, Hash, RefreshCw,
+  Upload, Link as LinkIcon, X
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useLanguage } from '../components/LanguageContext';
 import dynamic from 'next/dynamic';
+import { 
+  compressImage, 
+  validateImageFile, 
+  formatFileSize,
+  type CompressedImage 
+} from '@/lib/imageUtils';
+import Image from 'next/image';
 
 const LexicalEditor = dynamic(() => import('@/components/editor/LexicalEditor'), {
   ssr: false,
@@ -49,6 +57,9 @@ const AboutManagement: React.FC = () => {
   const [editingSection, setEditingSection] = useState<AboutSection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState<CompressedImage | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [imageInputMode, setImageInputMode] = useState<'url' | 'upload'>('url');
 
   const t = {
     title: language === 'vi' ? 'Quản lý trang Giới thiệu' : 'About Page Management',
@@ -68,6 +79,12 @@ const AboutManagement: React.FC = () => {
     loadError: language === 'vi' ? 'Lỗi khi tải dữ liệu!' : 'Error loading data!',
     refresh: language === 'vi' ? 'Làm mới' : 'Refresh',
     noSections: language === 'vi' ? 'Chưa có section nào. Hãy chạy seed để tạo dữ liệu mẫu.' : 'No sections yet. Run seed to create sample data.',
+    uploadImage: language === 'vi' ? 'Tải ảnh lên' : 'Upload Image',
+    pasteUrl: language === 'vi' ? 'Dán URL' : 'Paste URL',
+    uploading: language === 'vi' ? 'Đang tải lên...' : 'Uploading...',
+    selectImage: language === 'vi' ? 'Chọn ảnh' : 'Select Image',
+    changeImage: language === 'vi' ? 'Đổi ảnh' : 'Change Image',
+    compressionInfo: language === 'vi' ? 'Giảm' : 'Reduced',
   };
 
   const fetchSections = useCallback(async () => {
@@ -142,6 +159,62 @@ const AboutManagement: React.FC = () => {
       ALLOWED_TAGS: ['b', 'i', 'u', 'strong', 'em', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'a', 'blockquote'],
       ALLOWED_ATTR: ['href', 'target', 'rel']
     });
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid image file');
+      return;
+    }
+
+    try {
+      const compressed = await compressImage(file);
+      setUploadingImage(compressed);
+      setError(null);
+    } catch (err) {
+      console.error('Image compression error:', err);
+      setError(language === 'vi' ? 'Lỗi khi nén ảnh' : 'Image compression error');
+    }
+  };
+
+  const handleUploadImage = async () => {
+    if (!uploadingImage || !editingSection) return;
+
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', uploadingImage.file);
+
+      const response = await api.uploadFile<{ success: boolean; data: { url: string } }>(
+        '/media/upload',
+        formData
+      );
+
+      if (response.success && response.data?.url) {
+        setEditingSection({ ...editingSection, imageUrl: response.data.url });
+        setUploadingImage(null);
+        setSuccess(language === 'vi' ? 'Ảnh đã được tải lên!' : 'Image uploaded!');
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError(language === 'vi' ? 'Lỗi khi tải ảnh lên' : 'Image upload error');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleClearUploadingImage = () => {
+    if (uploadingImage?.preview) {
+      URL.revokeObjectURL(uploadingImage.preview);
+    }
+    setUploadingImage(null);
   };
 
   if (loading) {

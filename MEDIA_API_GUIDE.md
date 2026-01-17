@@ -227,14 +227,23 @@ Authorization: Bearer {token}
 
 API tự động áp dụng các transformations:
 
-### 3.1. Resize
+### 3.1. Auto WebP Conversion
+```
+{ format: 'webp' }
+```
+- **Tự động chuyển đổi mọi ảnh upload sang định dạng WebP**
+- Chấp nhận upload: JPG, PNG, GIF, BMP, TIFF
+- Output luôn là WebP (nhẹ hơn 25-35% so với JPG/PNG)
+- Tương thích với tất cả trình duyệt hiện đại
+
+### 3.2. Resize
 ```
 { width: 1200, height: 1200, crop: 'limit' }
 ```
 - Giữ nguyên tỷ lệ
 - Không vượt quá 1200x1200px
 
-### 3.2. Quality Optimization
+### 3.3. Quality Optimization
 ```
 { quality: 'auto' }
 ```
@@ -308,7 +317,8 @@ bun dev
 ### ❌ Lỗi 400: "Chỉ chấp nhận file ảnh!"
 **Nguyên nhân:** Upload file không phải ảnh (PDF, DOCX, etc.)
 
-**Giải pháp:** Chỉ upload file: JPG, PNG, GIF, WebP, SVG
+**Giải pháp:** Chỉ upload file ảnh: JPG, PNG, GIF, BMP, TIFF, WebP, SVG
+- Tất cả sẽ được tự động convert sang WebP (trừ SVG)
 
 ### ❌ Lỗi 500: "Lỗi khi upload lên Cloudinary!"
 **Nguyên nhân:** 
