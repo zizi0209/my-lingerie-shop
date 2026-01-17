@@ -227,14 +227,13 @@ Authorization: Bearer {token}
 
 API tự động áp dụng các transformations:
 
-### 3.1. Auto WebP Conversion
-```
-{ format: 'webp' }
-```
-- **Tự động chuyển đổi mọi ảnh upload sang định dạng WebP**
+### 3.1. Auto WebP URL Generation
+- **API tự động tạo WebP URL** cho mọi ảnh upload
+- Response chứa cả `url` (original) và `webpUrl` (optimized)
+- WebP URL có format: `/upload/f_webp,q_auto/...`
+- Cloudinary tự động convert on-the-fly khi browser request
 - Chấp nhận upload: JPG, PNG, GIF, BMP, TIFF
-- Output luôn là WebP (nhẹ hơn 25-35% so với JPG/PNG)
-- Tương thích với tất cả trình duyệt hiện đại
+- WebP nhẹ hơn 25-35% so với JPG/PNG
 
 ### 3.2. Resize
 ```

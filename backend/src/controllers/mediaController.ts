@@ -2,6 +2,12 @@ import { Request, Response } from 'express';
 import { cloudinary } from '../config/cloudinary';
 import { prisma } from "../lib/prisma";
 
+// Helper: Generate WebP URL from Cloudinary URL
+const getWebPUrl = (url: string): string => {
+  // Chèn f_webp vào URL để auto-deliver WebP
+  return url.replace('/upload/', '/upload/f_webp,q_auto/');
+};
+
 // Upload single image
 export const uploadImage = async (req: Request, res: Response) => {
   try {
@@ -22,7 +28,6 @@ export const uploadImage = async (req: Request, res: Response) => {
       {
         resource_type: 'image',
         folder: folder,
-        format: 'webp', // Tự động convert sang WebP
         transformation: [
           { width: 1200, height: 1200, crop: 'limit' }, // Giới hạn kích thước
           { quality: 'auto' }, // Tối ưu chất lượng
@@ -44,7 +49,7 @@ export const uploadImage = async (req: Request, res: Response) => {
             data: {
               filename: result.public_id,
               originalName: req.file!.originalname,
-              mimeType: 'image/webp', // Luôn là WebP sau khi convert
+              mimeType: req.file!.mimetype,
               size: req.file!.size,
               url: result.secure_url,
               publicId: result.public_id,
@@ -52,9 +57,15 @@ export const uploadImage = async (req: Request, res: Response) => {
             },
           });
 
+          // Tạo WebP URL cho response
+          const webpUrl = getWebPUrl(result.secure_url);
+
           res.json({
             success: true,
-            data: media,
+            data: {
+              ...media,
+              webpUrl, // URL tự động deliver WebP
+            },
           });
         } catch (dbError) {
           console.error('Database save error:', dbError);
@@ -96,7 +107,6 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
           {
             resource_type: 'image',
             folder: folder,
-            format: 'webp', // Tự động convert sang WebP
             transformation: [
               { width: 1200, height: 1200, crop: 'limit' },
               { quality: 'auto' },
@@ -113,7 +123,7 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
                   data: {
                     filename: result.public_id,
                     originalName: file.originalname,
-                    mimeType: 'image/webp', // Luôn là WebP sau khi convert
+                    mimeType: file.mimetype,
                     size: file.size,
                     url: result.secure_url,
                     publicId: result.public_id,

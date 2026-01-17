@@ -161,8 +161,7 @@ const AboutManagement: React.FC = () => {
     });
   };
 
-  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleImageSelect = async (file: File) => {
     if (!file) return;
 
     const validation = validateImageFile(file);
@@ -181,7 +180,7 @@ const AboutManagement: React.FC = () => {
     }
   };
 
-  const handleUploadImage = async () => {
+  const handleImageUpload = async () => {
     if (!uploadingImage || !editingSection) return;
 
     setIsUploading(true);
@@ -189,15 +188,17 @@ const AboutManagement: React.FC = () => {
 
     try {
       const formData = new FormData();
-      formData.append('image', uploadingImage.file);
+      formData.append('file', uploadingImage.file);
 
-      const response = await api.uploadFile<{ success: boolean; data: { url: string } }>(
+      const response = await api.uploadFile<{ success: boolean; data: { url: string; webpUrl?: string } }>(
         '/media/upload',
         formData
       );
 
-      if (response.success && response.data?.url) {
-        setEditingSection({ ...editingSection, imageUrl: response.data.url });
+      if (response.success && response.data) {
+        // Ưu tiên dùng webpUrl nếu có, fallback về url
+        const imageUrl = response.data.webpUrl || response.data.url;
+        setEditingSection({ ...editingSection, imageUrl });
         setUploadingImage(null);
         setSuccess(language === 'vi' ? 'Ảnh đã được tải lên!' : 'Image uploaded!');
         setTimeout(() => setSuccess(null), 3000);
@@ -360,16 +361,207 @@ const AboutManagement: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           {t.sectionImage}
                         </label>
-                        <input
-                          type="text"
-                          value={editingSection.imageUrl || ''}
-                          onChange={(e) => setEditingSection({ ...editingSection, imageUrl: e.target.value })}
-                          placeholder="https://..."
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
-                        />
+                        
+                        {/* Mode Toggle */}
+                        <div className="flex gap-2 mb-3">
+                          <button
+                            type="button"
+                            onClick={() => setImageInputMode('upload')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
+                              imageInputMode === 'upload'
+                                ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            <Upload className="w-4 h-4" />
+                            {t.uploadImage}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setImageInputMode('url')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
+                              imageInputMode === 'url'
+                                ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            <LinkIcon className="w-4 h-4" />
+                            {t.pasteUrl}
+                          </button>
+                        </div>
+
+                        {/* Upload Mode */}
+                        {imageInputMode === 'upload' ? (
+                          <div className="space-y-3">
+                            {/* Drag & Drop Zone */}
+                            <div
+                              className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center bg-gray-50 dark:bg-gray-900/50 hover:border-primary-400 dark:hover:border-primary-600 transition"
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                const file = e.dataTransfer.files?.[0];
+                                if (file) handleImageSelect(file);
+                              }}
+                            >
+                              <Upload className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                                {language === 'vi' ? 'Tải ảnh lên' : 'Upload Image'}
+                              </h3>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                {language === 'vi' 
+                                  ? 'Tự động chuyển đổi sang WebP để tối ưu dung lượng'
+                                  : 'Auto-convert to WebP for optimization'}
+                              </p>
+                              <div className="relative inline-block">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleImageSelect(file);
+                                  }}
+                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                                <button
+                                  type="button"
+                                  className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition"
+                                >
+                                  {language === 'vi' ? 'Chọn file hoặc kéo thả vào đây' : 'Choose file or drag here'}
+                                </button>
+                              </div>
+                              <p className="text-xs text-gray-400 mt-3">
+                                JPG, PNG, GIF, WebP (max 10MB)
+                              </p>
+                            </div>
+
+                            {/* Uploading Preview */}
+                            {uploadingImage && (
+                              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
+                                <div className="flex items-start gap-4">
+                                  <div className="relative w-24 h-24 flex-shrink-0">
+                                    <Image
+                                      src={uploadingImage.preview}
+                                      alt="Preview"
+                                      fill
+                                      className="object-cover rounded-lg"
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-start justify-between">
+                                      <div>
+                                        <p className="font-medium text-gray-900 dark:text-white">
+                                          {uploadingImage.file.name}
+                                        </p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                          {formatFileSize(uploadingImage.file.size)}
+                                          {uploadingImage.reduction && (
+                                            <span className="ml-2 text-green-600 dark:text-green-400">
+                                              ({t.compressionInfo} {uploadingImage.reduction.toFixed(1)}%)
+                                            </span>
+                                          )}
+                                        </p>
+                                      </div>
+                                      {!isUploading && (
+                                        <button
+                                          type="button"
+                                          onClick={handleClearUploadingImage}
+                                          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                                        >
+                                          <X className="w-5 h-5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={handleImageUpload}
+                                      disabled={isUploading}
+                                      className="mt-3 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                      {isUploading ? (
+                                        <>
+                                          <Loader2 className="w-4 h-4 animate-spin" />
+                                          {t.uploading}
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Upload className="w-4 h-4" />
+                                          {language === 'vi' ? 'Tải lên' : 'Upload'}
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Current Image Preview */}
+                            {editingSection.imageUrl && !uploadingImage && (
+                              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
+                                <div className="flex items-center gap-4">
+                                  <div className="relative w-20 h-20 flex-shrink-0">
+                                    <Image
+                                      src={editingSection.imageUrl}
+                                      alt="Current"
+                                      fill
+                                      className="object-cover rounded-lg"
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                      {language === 'vi' ? 'Ảnh hiện tại' : 'Current Image'}
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">
+                                      {editingSection.imageUrl}
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingSection({ ...editingSection, imageUrl: '' })}
+                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                  >
+                                    <X className="w-5 h-5" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          /* URL Mode */
+                          <div>
+                            <input
+                              type="text"
+                              value={editingSection.imageUrl || ''}
+                              onChange={(e) => setEditingSection({ ...editingSection, imageUrl: e.target.value })}
+                              placeholder="https://..."
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                            />
+                            {editingSection.imageUrl && (
+                              <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900/50">
+                                <div className="flex items-center gap-4">
+                                  <div className="relative w-20 h-20 flex-shrink-0">
+                                    <Image
+                                      src={editingSection.imageUrl}
+                                      alt="Preview"
+                                      fill
+                                      className="object-cover rounded-lg"
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                      {language === 'vi' ? 'Xem trước' : 'Preview'}
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">
+                                      {editingSection.imageUrl}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex justify-end gap-3 pt-2">
