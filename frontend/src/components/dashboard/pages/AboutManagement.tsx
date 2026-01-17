@@ -15,6 +15,7 @@ import {
   formatFileSize,
   type CompressedImage 
 } from '@/lib/imageUtils';
+import { sanitizeForPreview } from '@/lib/sanitize';
 import Image from 'next/image';
 
 const LexicalEditor = dynamic(() => import('@/components/editor/LexicalEditor'), {
@@ -152,14 +153,7 @@ const AboutManagement: React.FC = () => {
     return label?.icon || FileText;
   };
 
-  const sanitizeHTML = (html: string): string => {
-    if (typeof window === 'undefined') return html;
-    const DOMPurify = require('dompurify');
-    return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: ['b', 'i', 'u', 'strong', 'em', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'a', 'blockquote'],
-      ALLOWED_ATTR: ['href', 'target', 'rel']
-    });
-  };
+
 
   const handleImageSelect = async (file: File) => {
     if (!file) return;
@@ -604,7 +598,7 @@ const AboutManagement: React.FC = () => {
                           <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionContent}:</span>
                           <div 
                             className="text-gray-600 dark:text-gray-400 text-sm prose dark:prose-invert max-w-none prose-p:my-1 line-clamp-3"
-                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(section.content) }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeForPreview(section.content) }}
                           />
                         </div>
                       )}

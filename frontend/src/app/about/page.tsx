@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Sparkles, Leaf, Package, Heart, Shield, Scissors, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { sanitizeForPublic } from "@/lib/sanitize";
 
 interface AboutSection {
   id: number;
@@ -83,9 +84,10 @@ export default function AboutPage() {
               {hero.title || "Về Chúng Tôi"}
             </h1>
             {hero.content && (
-              <p className="text-base md:text-lg text-white/80 max-w-2xl mx-auto mb-8 md:mb-10 font-light leading-relaxed">
-                {hero.content}
-              </p>
+              <div 
+                className="text-base md:text-lg text-white/80 max-w-2xl mx-auto mb-8 md:mb-10 font-light leading-relaxed prose prose-lg dark:prose-invert prose-p:text-white/80"
+                dangerouslySetInnerHTML={{ __html: sanitizeForPublic(hero.content) }}
+              />
             )}
             <Link
               href="/san-pham"
@@ -138,7 +140,7 @@ export default function AboutPage() {
                 {story.content && (
                   <div 
                     className="prose prose-lg dark:prose-invert max-w-none text-gray-600 dark:text-gray-400 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: story.content }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeForPublic(story.content) }}
                   />
                 )}
               </div>
@@ -367,9 +369,10 @@ export default function AboutPage() {
               {cta.title || "Bạn đã sẵn sàng?"}
             </h2>
             {cta.content && (
-              <p className="text-gray-400 max-w-xl mx-auto mb-10">
-                {cta.content}
-              </p>
+              <div 
+                className="text-gray-400 max-w-xl mx-auto mb-10 prose dark:prose-invert prose-p:text-gray-400"
+                dangerouslySetInnerHTML={{ __html: sanitizeForPublic(cta.content) }}
+              />
             )}
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

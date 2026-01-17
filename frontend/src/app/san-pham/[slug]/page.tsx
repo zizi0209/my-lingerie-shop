@@ -14,6 +14,7 @@ import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
 import type { ProductType } from "@/lib/sizeTemplateApi";
 import { trackProductView, trackCartEvent } from "@/lib/tracking";
+import { sanitizeForPublic } from "@/lib/sanitize";
 
 interface ProductImage {
   id: number;
@@ -355,7 +356,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             </div>
 
             {product.description && (
-              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{product.description}</p>
+              <div 
+                className="text-gray-600 dark:text-gray-300 leading-relaxed prose dark:prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: sanitizeForPublic(product.description) }}
+              />
             )}
           </div>
 
@@ -551,10 +555,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
         <div className={activeTab === "description" ? "max-w-3xl" : ""}>
           {activeTab === "description" && (
-            <div className="prose prose-lg dark:prose-invert">
-              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                {product.description || "Chưa có mô tả cho sản phẩm này."}
-              </p>
+            <div className="prose prose-lg dark:prose-invert max-w-none">
+              {product.description ? (
+                <div dangerouslySetInnerHTML={{ __html: sanitizeForPublic(product.description) }} />
+              ) : (
+                <p className="text-gray-600 dark:text-gray-300">Chưa có mô tả cho sản phẩm này.</p>
+              )}
             </div>
           )}
 

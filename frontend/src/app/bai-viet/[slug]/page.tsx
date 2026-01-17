@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { sanitizeForPublic } from "@/lib/sanitize";
 
 interface Author {
   id: number;
@@ -363,7 +364,7 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
             prose-li:text-gray-700 dark:prose-li:text-gray-300
             prose-a:text-primary-600 dark:prose-a:text-primary-400 prose-a:no-underline hover:prose-a:underline
             prose-img:rounded-lg"
-          dangerouslySetInnerHTML={{ __html: post.content }}
+          dangerouslySetInnerHTML={{ __html: sanitizeForPublic(post.content) }}
         />
 
         {/* Tags / Category */}
