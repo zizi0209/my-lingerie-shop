@@ -50,8 +50,10 @@ export const authenticateToken = (
 };
 
 export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
-  const roleName = req.user?.roleName?.toLowerCase();
-  if (roleName !== 'admin') {
+  const roleName = req.user?.roleName?.toUpperCase();
+  const adminRoles = ['ADMIN', 'SUPER_ADMIN'];
+  
+  if (!roleName || !adminRoles.includes(roleName)) {
     return res.status(403).json({ error: 'Chỉ admin mới có quyền truy cập!' });
   }
   next();
