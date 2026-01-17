@@ -12,7 +12,14 @@
 ### Frontend
 - ✅ Trang `/about` với layout cố định + dynamic content
 - ✅ Dashboard `/dashboard/about` để quản lý nội dung
-- ✅ Upload hình ảnh, edit text fields
+- ✅ **Lexical Rich Text Editor** tích hợp cho content field (2026-01-18)
+  - Dynamic import với `next/dynamic` để tránh SSR issues
+  - Toolbar: Bold, Italic, Underline, Lists, Headings, Links, Blockquotes
+  - DOMPurify sanitization cho HTML preview
+  - Dark mode support đầy đủ
+  - Loading state khi editor đang tải
+- ✅ HTML content rendering với Tailwind Typography
+- ✅ Menu "Giới thiệu" trong sidebar Dashboard
 - ✅ TypeScript check passed
 
 ## 🚀 Cách Chạy Migration

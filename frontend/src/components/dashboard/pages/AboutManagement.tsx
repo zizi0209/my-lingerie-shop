@@ -1,11 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, Loader2, AlertCircle, CheckCircle, Upload, Eye, Sparkles, Heart, Users, MessageCircle } from 'lucide-react';
+import { 
+  Save, Loader2, AlertCircle, CheckCircle, Eye, EyeOff,
+  FileText, Image as ImageIcon, Type, AlignLeft, Hash, RefreshCw
+} from 'lucide-react';
 import { api } from '@/lib/api';
-import { compressImage, formatFileSize, validateImageFile } from '@/lib/imageUtils';
-import Image from 'next/image';
 import { useLanguage } from '../components/LanguageContext';
+import dynamic from 'next/dynamic';
+
+const LexicalEditor = dynamic(() => import('@/components/editor/LexicalEditor'), {
+  ssr: false,
+  loading: () => (
+    <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-4 min-h-[150px] flex items-center justify-center">
+      <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+    </div>
+  ),
+});
 
 interface AboutSection {
   id: number;
@@ -21,399 +32,329 @@ interface AboutSection {
   updatedAt: string;
 }
 
-const sectionIcons: Record<string, React.ElementType> = {
-  hero: Sparkles,
-  story: Heart,
-  values: Users,
-  team: Users,
-  cta: MessageCircle,
-};
-
-const sectionLabels: Record<string, { vi: string; en: string }> = {
-  hero: { vi: 'Hero Banner', en: 'Hero Banner' },
-  story: { vi: 'Câu chuyện thương hiệu', en: 'Brand Story' },
-  values: { vi: 'Giá trị cốt lõi', en: 'Core Values' },
-  team: { vi: 'Đội ngũ', en: 'Team' },
-  cta: { vi: 'Call to Action', en: 'Call to Action' },
-};
-
-const translations = {
-  vi: {
-    title: 'Quản lý trang Giới thiệu',
-    subtitle: 'Chỉnh sửa nội dung các phần trên trang Giới thiệu',
-    save: 'Lưu thay đổi',
-    saving: 'Đang lưu...',
-    saveSuccess: 'Đã lưu thành công!',
-    saveError: 'Lỗi khi lưu',
-    preview: 'Xem trang',
-    loading: 'Đang tải...',
-    titleField: 'Tiêu đề',
-    subtitleField: 'Phụ đề',
-    contentField: 'Nội dung',
-    imageField: 'Hình ảnh',
-    uploadImage: 'Tải ảnh lên',
-    changeImage: 'Đổi ảnh',
-    uploading: 'Đang tải...',
-    active: 'Hiển thị',
-    inactive: 'Ẩn',
-    metadata: 'Dữ liệu bổ sung (JSON)',
-  },
-  en: {
-    title: 'About Page Management',
-    subtitle: 'Edit content for About Us page sections',
-    save: 'Save Changes',
-    saving: 'Saving...',
-    saveSuccess: 'Saved successfully!',
-    saveError: 'Error saving',
-    preview: 'View Page',
-    loading: 'Loading...',
-    titleField: 'Title',
-    subtitleField: 'Subtitle',
-    contentField: 'Content',
-    imageField: 'Image',
-    uploadImage: 'Upload Image',
-    changeImage: 'Change Image',
-    uploading: 'Uploading...',
-    active: 'Visible',
-    inactive: 'Hidden',
-    metadata: 'Metadata (JSON)',
-  }
+const SECTION_LABELS: Record<string, { vi: string; en: string; icon: React.ElementType }> = {
+  hero: { vi: 'Hero Banner', en: 'Hero Banner', icon: ImageIcon },
+  story: { vi: 'Câu chuyện thương hiệu', en: 'Brand Story', icon: FileText },
+  values: { vi: 'Giá trị cốt lõi', en: 'Core Values', icon: Hash },
+  team: { vi: 'Đội ngũ & Xưởng', en: 'Team & Workshop', icon: Type },
+  cta: { vi: 'Call to Action', en: 'Call to Action', icon: AlignLeft },
 };
 
 const AboutManagement: React.FC = () => {
   const { language } = useLanguage();
-  const t = translations[language as keyof typeof translations] || translations.vi;
-
-  const [sections, setSections] = useState<AboutSection[]>([]);
+  
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [sections, setSections] = useState<AboutSection[]>([]);
+  const [editingSection, setEditingSection] = useState<AboutSection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [uploadingImages, setUploadingImages] = useState<Record<number, boolean>>({});
 
-  // Fetch sections
+  const t = {
+    title: language === 'vi' ? 'Quản lý trang Giới thiệu' : 'About Page Management',
+    subtitle: language === 'vi' ? 'Chỉnh sửa nội dung trang About Us' : 'Edit About Us page content',
+    save: language === 'vi' ? 'Lưu' : 'Save',
+    saving: language === 'vi' ? 'Đang lưu...' : 'Saving...',
+    cancel: language === 'vi' ? 'Hủy' : 'Cancel',
+    edit: language === 'vi' ? 'Chỉnh sửa' : 'Edit',
+    sectionTitle: language === 'vi' ? 'Tiêu đề' : 'Title',
+    sectionSubtitle: language === 'vi' ? 'Phụ đề' : 'Subtitle',
+    sectionContent: language === 'vi' ? 'Nội dung' : 'Content',
+    sectionImage: language === 'vi' ? 'URL hình ảnh' : 'Image URL',
+    active: language === 'vi' ? 'Đang hiển thị' : 'Active',
+    inactive: language === 'vi' ? 'Đang ẩn' : 'Inactive',
+    saveSuccess: language === 'vi' ? 'Đã lưu thành công!' : 'Saved successfully!',
+    saveError: language === 'vi' ? 'Lỗi khi lưu!' : 'Error saving!',
+    loadError: language === 'vi' ? 'Lỗi khi tải dữ liệu!' : 'Error loading data!',
+    refresh: language === 'vi' ? 'Làm mới' : 'Refresh',
+    noSections: language === 'vi' ? 'Chưa có section nào. Hãy chạy seed để tạo dữ liệu mẫu.' : 'No sections yet. Run seed to create sample data.',
+  };
+
   const fetchSections = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await api.get<{ success: boolean; data: AboutSection[] }>('/about-sections?includeInactive=true');
       if (response.success) {
-        setSections(response.data.sort((a, b) => a.order - b.order));
+        setSections(response.data);
       }
     } catch (err) {
-      setError('Không thể tải danh sách section');
-      console.error(err);
+      console.error('Error fetching sections:', err);
+      setError(t.loadError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t.loadError]);
 
   useEffect(() => {
     fetchSections();
   }, [fetchSections]);
 
-  // Update section
-  const updateSection = async (section: AboutSection) => {
+  const handleSave = async (section: AboutSection) => {
     try {
-      setSaving(true);
+      setSaving(section.sectionKey);
       setError(null);
-      
+      setSuccess(null);
+
       const response = await api.put<{ success: boolean; data: AboutSection }>(`/about-sections/${section.id}`, {
         title: section.title,
         subtitle: section.subtitle,
         content: section.content,
         imageUrl: section.imageUrl,
-        metadata: section.metadata,
         isActive: section.isActive,
+        metadata: section.metadata,
       });
 
-      if (response && response.success) {
+      if (response.success) {
+        setSections(prev => prev.map(s => s.id === section.id ? response.data : s));
         setSuccess(t.saveSuccess);
+        setEditingSection(null);
         setTimeout(() => setSuccess(null), 3000);
-        await fetchSections();
       }
     } catch (err) {
+      console.error('Error saving section:', err);
       setError(t.saveError);
-      console.error(err);
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   };
 
-  // Handle image upload
-  const handleImageUpload = async (sectionId: number, file: File) => {
-    try {
-      const validation = validateImageFile(file);
-      if (!validation.valid) {
-        alert(validation.error);
-        return;
-      }
-
-      setUploadingImages(prev => ({ ...prev, [sectionId]: true }));
-
-      // Compress image
-      const compressed = await compressImage(file);
-      
-      // Upload to backend
-      const formData = new FormData();
-      formData.append('image', compressed.file);
-
-      const response = await api.uploadFile<{ success: boolean; data: { url: string } }>('/media/upload', formData);
-
-      if (response && response.success) {
-        // Update section with new image URL
-        const section = sections.find(s => s.id === sectionId);
-        if (section) {
-          const updated = { ...section, imageUrl: response.data.url };
-          setSections(prev => prev.map(s => s.id === sectionId ? updated : s));
-          await updateSection(updated);
-        }
-      }
-    } catch (err) {
-      console.error('Upload error:', err);
-      alert('Lỗi khi tải ảnh lên');
-    } finally {
-      setUploadingImages(prev => ({ ...prev, [sectionId]: false }));
-    }
+  const handleToggleActive = async (section: AboutSection) => {
+    const updatedSection = { ...section, isActive: !section.isActive };
+    await handleSave(updatedSection);
   };
 
-  // Handle field change
-  const handleFieldChange = (sectionId: number, field: keyof AboutSection, value: string | boolean) => {
-    setSections(prev => prev.map(s => 
-      s.id === sectionId ? { ...s, [field]: value } : s
-    ));
+  const getSectionLabel = (key: string) => {
+    const label = SECTION_LABELS[key];
+    if (!label) return key;
+    return language === 'vi' ? label.vi : label.en;
   };
 
-  // Handle metadata change
-  const handleMetadataChange = (sectionId: number, value: string) => {
-    try {
-      const parsed = value ? JSON.parse(value) : null;
-      setSections(prev => prev.map(s => 
-        s.id === sectionId ? { ...s, metadata: parsed } : s
-      ));
-    } catch (err) {
-      console.error('Invalid JSON:', err);
-    }
+  const getSectionIcon = (key: string) => {
+    const label = SECTION_LABELS[key];
+    return label?.icon || FileText;
+  };
+
+  const sanitizeHTML = (html: string): string => {
+    if (typeof window === 'undefined') return html;
+    const DOMPurify = require('dompurify');
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['b', 'i', 'u', 'strong', 'em', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'a', 'blockquote'],
+      ALLOWED_ATTR: ['href', 'target', 'rel']
+    });
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
-        <span className="ml-3 text-gray-600 dark:text-gray-400">{t.loading}</span>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t.title}</h1>
-        <p className="text-gray-600 dark:text-gray-400">{t.subtitle}</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.title}</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{t.subtitle}</p>
+        </div>
+        <button
+          onClick={fetchSections}
+          className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
+        >
+          <RefreshCw className="w-4 h-4" />
+          {t.refresh}
+        </button>
       </div>
 
-      {/* Alerts */}
+      {/* Messages */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3 text-red-700 dark:text-red-400">
+          <AlertCircle className="w-5 h-5" />
+          {error}
         </div>
       )}
 
       {success && (
-        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-start gap-3">
-          <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-green-600 dark:text-green-400">{success}</div>
+        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-3 text-green-700 dark:text-green-400">
+          <CheckCircle className="w-5 h-5" />
+          {success}
         </div>
       )}
 
-      {/* Action Bar */}
-      <div className="mb-6 flex justify-between items-center">
-        <a
-          href="/about"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-        >
-          <Eye className="w-4 h-4" />
-          {t.preview}
-        </a>
-      </div>
+      {/* Sections List */}
+      {sections.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl">
+          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-400">{t.noSections}</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {sections.map((section) => {
+            const Icon = getSectionIcon(section.sectionKey);
+            const isEditing = editingSection?.id === section.id;
 
-      {/* Sections */}
-      <div className="space-y-6">
-        {sections.map((section) => {
-          const Icon = sectionIcons[section.sectionKey] || Sparkles;
-          const label = sectionLabels[section.sectionKey] || { vi: section.sectionKey, en: section.sectionKey };
-
-          return (
-            <div
-              key={section.id}
-              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-            >
-              {/* Section Header */}
-              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Icon className="w-5 h-5 text-primary-500" />
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {label[language as keyof typeof label]}
-                  </h3>
-                </div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={section.isActive}
-                    onChange={(e) => handleFieldChange(section.id, 'isActive', e.target.checked)}
-                    className="w-4 h-4 text-primary-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500"
-                  />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {section.isActive ? t.active : t.inactive}
-                  </span>
-                </label>
-              </div>
-
-              {/* Section Form */}
-              <div className="p-6 space-y-4">
-                {/* Title */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t.titleField}
-                  </label>
-                  <input
-                    type="text"
-                    value={section.title || ''}
-                    onChange={(e) => handleFieldChange(section.id, 'title', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Nhập tiêu đề..."
-                  />
-                </div>
-
-                {/* Subtitle */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t.subtitleField}
-                  </label>
-                  <input
-                    type="text"
-                    value={section.subtitle || ''}
-                    onChange={(e) => handleFieldChange(section.id, 'subtitle', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Nhập phụ đề..."
-                  />
+            return (
+              <div
+                key={section.id}
+                className={`bg-white dark:bg-gray-800 rounded-xl border ${
+                  section.isActive 
+                    ? 'border-gray-200 dark:border-gray-700' 
+                    : 'border-dashed border-gray-300 dark:border-gray-600 opacity-60'
+                } overflow-hidden`}
+              >
+                {/* Section Header */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      section.isActive ? 'bg-primary-100 dark:bg-primary-900/30' : 'bg-gray-200 dark:bg-gray-700'
+                    }`}>
+                      <Icon className={`w-5 h-5 ${section.isActive ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500'}`} />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900 dark:text-white">
+                        {getSectionLabel(section.sectionKey)}
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Key: {section.sectionKey} | Order: {section.order}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleActive(section)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                        section.isActive
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                      }`}
+                    >
+                      {section.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      {section.isActive ? t.active : t.inactive}
+                    </button>
+                    {!isEditing && (
+                      <button
+                        onClick={() => setEditingSection({ ...section })}
+                        className="px-4 py-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition"
+                      >
+                        {t.edit}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Content */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t.contentField}
-                  </label>
-                  <textarea
-                    value={section.content || ''}
-                    onChange={(e) => handleFieldChange(section.id, 'content', e.target.value)}
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                    placeholder="Nhập nội dung..."
-                  />
-                </div>
+                {/* Section Content */}
+                <div className="p-5">
+                  {isEditing && editingSection ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            {t.sectionTitle}
+                          </label>
+                          <input
+                            type="text"
+                            value={editingSection.title || ''}
+                            onChange={(e) => setEditingSection({ ...editingSection, title: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            {t.sectionSubtitle}
+                          </label>
+                          <input
+                            type="text"
+                            value={editingSection.subtitle || ''}
+                            onChange={(e) => setEditingSection({ ...editingSection, subtitle: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                          />
+                        </div>
+                      </div>
 
-                {/* Image */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t.imageField}
-                  </label>
-                  
-                  {section.imageUrl ? (
-                    <div className="space-y-3">
-                      <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
-                        <Image
-                          src={section.imageUrl}
-                          alt={section.title || ''}
-                          fill
-                          className="object-cover"
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {t.sectionContent}
+                        </label>
+                        <LexicalEditor
+                          initialValue={editingSection.content || ''}
+                          onChange={(html) => setEditingSection({ ...editingSection, content: html })}
+                          placeholder={language === 'vi' ? 'Nhập nội dung section...' : 'Enter section content...'}
+                          minHeight="200px"
                         />
                       </div>
-                      <label className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition">
-                        <Upload className="w-4 h-4" />
-                        {uploadingImages[section.id] ? t.uploading : t.changeImage}
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {t.sectionImage}
+                        </label>
                         <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleImageUpload(section.id, file);
-                          }}
-                          className="hidden"
-                          disabled={uploadingImages[section.id]}
+                          type="text"
+                          value={editingSection.imageUrl || ''}
+                          onChange={(e) => setEditingSection({ ...editingSection, imageUrl: e.target.value })}
+                          placeholder="https://..."
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
                         />
-                      </label>
+                      </div>
+
+                      <div className="flex justify-end gap-3 pt-2">
+                        <button
+                          onClick={() => setEditingSection(null)}
+                          className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                        >
+                          {t.cancel}
+                        </button>
+                        <button
+                          onClick={() => handleSave(editingSection)}
+                          disabled={saving === section.sectionKey}
+                          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition disabled:opacity-50"
+                        >
+                          {saving === section.sectionKey ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4" />
+                          )}
+                          {saving === section.sectionKey ? t.saving : t.save}
+                        </button>
+                      </div>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition">
-                      <div className="flex flex-col items-center justify-center py-6">
-                        <Upload className="w-10 h-10 text-gray-400 mb-3" />
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {uploadingImages[section.id] ? t.uploading : t.uploadImage}
-                        </p>
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleImageUpload(section.id, file);
-                        }}
-                        className="hidden"
-                        disabled={uploadingImages[section.id]}
-                      />
-                    </label>
+                    <div className="space-y-3">
+                      {section.title && (
+                        <div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionTitle}:</span>
+                          <p className="text-gray-900 dark:text-white font-medium">{section.title}</p>
+                        </div>
+                      )}
+                      {section.subtitle && (
+                        <div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionSubtitle}:</span>
+                          <p className="text-gray-700 dark:text-gray-300">{section.subtitle}</p>
+                        </div>
+                      )}
+                      {section.content && (
+                        <div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionContent}:</span>
+                          <div 
+                            className="text-gray-600 dark:text-gray-400 text-sm prose dark:prose-invert max-w-none prose-p:my-1 line-clamp-3"
+                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(section.content) }}
+                          />
+                        </div>
+                      )}
+                      {section.imageUrl && (
+                        <div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionImage}:</span>
+                          <p className="text-blue-600 dark:text-blue-400 text-sm truncate">{section.imageUrl}</p>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-
-                {/* Metadata (for advanced users) */}
-                {section.metadata && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {t.metadata}
-                    </label>
-                    <textarea
-                      value={JSON.stringify(section.metadata, null, 2)}
-                      onChange={(e) => handleMetadataChange(section.id, e.target.value)}
-                      rows={6}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-900 dark:bg-gray-950 text-green-400 font-mono text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                      placeholder='{"key": "value"}'
-                    />
-                  </div>
-                )}
-
-                {/* Save Button */}
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={() => updateSection(section)}
-                    disabled={saving}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {saving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        {t.saving}
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        {t.save}
-                      </>
-                    )}
-                  </button>
-                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {sections.length === 0 && (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          Chưa có section nào. Vui lòng chạy seed database.
+            );
+          })}
         </div>
       )}
     </div>

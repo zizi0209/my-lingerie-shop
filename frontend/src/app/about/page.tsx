@@ -136,9 +136,10 @@ export default function AboutPage() {
                 </h2>
                 
                 {story.content && (
-                  <div className="space-y-4 text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">
-                    {story.content}
-                  </div>
+                  <div 
+                    className="prose prose-lg dark:prose-invert max-w-none text-gray-600 dark:text-gray-400 leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: story.content }}
+                  />
                 )}
               </div>
             </div>
