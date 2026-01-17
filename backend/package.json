@@ -42,6 +42,7 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^10.1.0",
+    "@img/sharp-linux-x64": "^0.34.5",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
