@@ -1,97 +1,150 @@
+'use client';
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Sparkles, Leaf, Package, Heart, Shield, Scissors } from "lucide-react";
+import { ArrowRight, Sparkles, Leaf, Package, Heart, Shield, Scissors, Loader2 } from "lucide-react";
+import { api } from "@/lib/api";
+
+interface AboutSection {
+  id: number;
+  sectionKey: string;
+  title: string | null;
+  subtitle: string | null;
+  content: string | null;
+  imageUrl: string | null;
+  metadata: Record<string, unknown> | null;
+  order: number;
+  isActive: boolean;
+}
 
 export default function AboutPage() {
+  const [sections, setSections] = useState<Record<string, AboutSection>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSections = async () => {
+      try {
+        const response = await api.get<{ success: boolean; data: AboutSection[] }>('/about-sections');
+        if (response.success) {
+          const sectionsMap = response.data.reduce((acc, section) => {
+            acc[section.sectionKey] = section;
+            return acc;
+          }, {} as Record<string, AboutSection>);
+          setSections(sectionsMap);
+        }
+      } catch (error) {
+        console.error('Error fetching about sections:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSections();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-950">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  const hero = sections.hero;
+  const story = sections.story;
+  const values = sections.values;
+  const team = sections.team;
+  const cta = sections.cta;
+
   return (
     <div className="bg-white dark:bg-gray-950">
       {/* ===== PHẦN 1: HERO SECTION ===== */}
-      <section className="relative h-screen w-full flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0">
-          <Image
-            src="https://images.unsplash.com/photo-1616002411355-49593fd89721?q=80&w=1920&auto=format&fit=crop"
-            alt="Lingerie Shop - Nâng niu vẻ đẹp"
-            fill
-            className="object-cover"
-            priority
-          />
-          <div className="absolute inset-0 bg-linear-to-b from-black/30 via-black/50 to-black/70" />
-        </div>
+      {hero?.isActive && (
+        <section className="relative h-screen w-full flex items-center justify-center overflow-hidden">
+          <div className="absolute inset-0">
+            <Image
+              src={hero.imageUrl || "https://images.unsplash.com/photo-1616002411355-49593fd89721?q=80&w=1920&auto=format&fit=crop"}
+              alt={hero.title || "Lingerie Shop - Nâng niu vẻ đẹp"}
+              fill
+              className="object-cover"
+              priority
+            />
+            <div className="absolute inset-0 bg-linear-to-b from-black/30 via-black/50 to-black/70" />
+          </div>
 
-        <div className="relative z-10 text-center text-white px-4 max-w-4xl mx-auto">
-          <p className="text-xs md:text-sm uppercase tracking-[0.3em] text-white/70 mb-4 md:mb-6">
-            Lingerie Shop
-          </p>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-light mb-6 md:mb-8 leading-tight">
-            Hơn cả nội y,
-            <span className="block mt-2">đó là <em className="text-primary-300">sự tự tin</em> của bạn</span>
-          </h1>
-          <p className="text-base md:text-lg text-white/80 max-w-2xl mx-auto mb-8 md:mb-10 font-light leading-relaxed">
-            Chúng tôi tin rằng mỗi người phụ nữ đều xứng đáng cảm thấy tự tin và quyến rũ. 
-            Lingerie Shop ra đời để nâng niu vẻ đẹp nguyên bản của bạn.
-          </p>
-          <Link
-            href="/san-pham"
-            className="ck-button inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-6 py-3 md:px-8 md:py-4 rounded-full font-medium hover:bg-gray-100 transition group"
-          >
-            Khám phá bộ sưu tập
-            <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </div>
+          <div className="relative z-10 text-center text-white px-4 max-w-4xl mx-auto">
+            {hero.subtitle && (
+              <p className="text-xs md:text-sm uppercase tracking-[0.3em] text-white/70 mb-4 md:mb-6">
+                {hero.subtitle}
+              </p>
+            )}
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-light mb-6 md:mb-8 leading-tight whitespace-pre-line">
+              {hero.title || "Về Chúng Tôi"}
+            </h1>
+            {hero.content && (
+              <p className="text-base md:text-lg text-white/80 max-w-2xl mx-auto mb-8 md:mb-10 font-light leading-relaxed">
+                {hero.content}
+              </p>
+            )}
+            <Link
+              href="/san-pham"
+              className="ck-button inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-6 py-3 md:px-8 md:py-4 rounded-full font-medium hover:bg-gray-100 transition group"
+            >
+              Khám phá bộ sưu tập
+              <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
 
-        {/* Scroll indicator - giống trang chủ */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-          <div className="w-0.5 h-10 bg-white/50 mx-auto" />
-        </div>
-      </section>
+          {/* Scroll indicator */}
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+            <div className="w-0.5 h-10 bg-white/50 mx-auto" />
+          </div>
+        </section>
+      )}
 
       {/* ===== PHẦN 2: BRAND STORY ===== */}
-      <section className="py-20 md:py-28 bg-white dark:bg-gray-950">
-        <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center max-w-7xl mx-auto">
-            {/* Image */}
-            <div className="relative">
-              <div className="aspect-[4/5] rounded-2xl overflow-hidden">
-                <Image
-                  src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=1200&auto=format&fit=crop"
-                  alt="Câu chuyện thương hiệu"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              {/* Decorative element */}
-              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-primary-100 dark:bg-primary-900/30 rounded-2xl -z-10" />
-            </div>
+      {story?.isActive && (
+        <section className="py-20 md:py-28 bg-white dark:bg-gray-950">
+          <div className="container mx-auto px-4">
+            <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center max-w-7xl mx-auto">
+              {/* Image */}
+              {story.imageUrl && (
+                <div className="relative">
+                  <div className="aspect-[4/5] rounded-2xl overflow-hidden">
+                    <Image
+                      src={story.imageUrl}
+                      alt={story.title || "Câu chuyện thương hiệu"}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  {/* Decorative element */}
+                  <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-primary-100 dark:bg-primary-900/30 rounded-2xl -z-10" />
+                </div>
+              )}
 
-            {/* Content */}
-            <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-primary-500 mb-4">
-                Câu chuyện của chúng tôi
-              </p>
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-6 text-gray-900 dark:text-white leading-tight">
-                Bắt đầu từ một
-                <span className="block text-primary-500">niềm tin</span>
-              </h2>
-              
-              <div className="space-y-4 text-gray-600 dark:text-gray-400 leading-relaxed">
-                <p>
-                  <span className="text-gray-900 dark:text-white font-medium">Năm 2020</span>, giữa lúc thị trường nội y 
-                  tràn ngập hàng giá rẻ kém chất lượng, chúng tôi nhận ra phụ nữ Việt cần một lựa chọn khác biệt — 
-                  những sản phẩm nội y vừa vặn với hình thể Á Đông nhưng vẫn mang nét quyến rũ hiện đại.
-                </p>
-                <p>
-                  Từ một studio nhỏ với 3 nhà thiết kế đam mê, Lingerie Shop đã trở thành thương hiệu được 
-                  <span className="text-gray-900 dark:text-white font-medium"> hơn 50.000 phụ nữ</span> tin tưởng. 
-                  Mỗi sản phẩm ra đời đều mang theo sứ mệnh: giúp bạn yêu cơ thể mình hơn mỗi ngày.
-                </p>
-                <p className="text-gray-900 dark:text-white italic font-serif text-lg">
-                  "Chúng tôi không chỉ bán nội y, chúng tôi bán sự tự tin."
-                </p>
+              {/* Content */}
+              <div>
+                {story.subtitle && (
+                  <p className="text-sm uppercase tracking-[0.2em] text-primary-500 mb-4">
+                    {story.subtitle}
+                  </p>
+                )}
+                <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-6 text-gray-900 dark:text-white leading-tight whitespace-pre-line">
+                  {story.title || "Câu chuyện thương hiệu"}
+                </h2>
+                
+                {story.content && (
+                  <div className="space-y-4 text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">
+                    {story.content}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ===== PHẦN 3: CRAFTSMANSHIP ===== */}
       <section className="py-20 md:py-28 bg-gray-50 dark:bg-gray-900">
@@ -306,33 +359,36 @@ export default function AboutPage() {
       </section>
 
       {/* ===== PHẦN 7: CTA ===== */}
-      <section className="py-20 md:py-28 bg-gray-900 text-white">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-6">
-            Bạn đã sẵn sàng tìm kiếm
-            <span className="block mt-2 text-primary-300">bộ nội y hoàn hảo?</span>
-          </h2>
-          <p className="text-gray-400 max-w-xl mx-auto mb-10">
-            Hãy để chúng tôi giúp bạn tìm được sản phẩm vừa vặn, thoải mái và tôn lên vẻ đẹp riêng của bạn.
-          </p>
+      {cta?.isActive && (
+        <section className="py-20 md:py-28 bg-gray-900 text-white">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-6 whitespace-pre-line">
+              {cta.title || "Bạn đã sẵn sàng?"}
+            </h2>
+            {cta.content && (
+              <p className="text-gray-400 max-w-xl mx-auto mb-10">
+                {cta.content}
+              </p>
+            )}
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/san-pham"
-              className="ck-button inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition group"
-            >
-              Khám phá bộ sưu tập
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link
-              href="/contact"
-              className="inline-flex items-center justify-center gap-2 border border-white/30 text-white px-8 py-4 rounded-full font-medium hover:bg-white/10 transition"
-            >
-              Tư vấn chọn Size
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link
+                href="/san-pham"
+                className="ck-button inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition group"
+              >
+                Khám phá bộ sưu tập
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link
+                href="/contact"
+                className="inline-flex items-center justify-center gap-2 border border-white/30 text-white px-8 py-4 rounded-full font-medium hover:bg-white/10 transition"
+              >
+                Tư vấn chọn Size
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

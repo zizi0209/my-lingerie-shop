@@ -332,6 +332,104 @@ async function main() {
   console.log(`   ✅ ${pageSections.length} page sections`);
 
   // ============================================
+  // 10. ABOUT SECTIONS
+  // ============================================
+  console.log('\n📖 Seeding About Sections...');
+
+  const aboutSections = [
+    {
+      sectionKey: 'hero',
+      title: 'Về Chúng Tôi',
+      subtitle: 'Câu chuyện của chúng tôi',
+      content: 'Chào mừng bạn đến với cửa hàng đồ lót cao cấp. Chúng tôi tự hào mang đến những sản phẩm chất lượng nhất cho phụ nữ Việt Nam.',
+      imageUrl: null,
+      order: 0,
+      isActive: true,
+    },
+    {
+      sectionKey: 'story',
+      title: 'Câu Chuyện Thương Hiệu',
+      subtitle: 'Hành trình phát triển',
+      content: 'Ra đời từ năm 2020, chúng tôi bắt đầu với mong muốn mang đến cho phụ nữ Việt những sản phẩm đồ lót cao cấp, thoải mái và phù hợp với vóc dáng người Á Đông. Qua hơn 4 năm phát triển, chúng tôi đã phục vụ hàng nghìn khách hàng trên toàn quốc.',
+      imageUrl: null,
+      order: 1,
+      isActive: true,
+    },
+    {
+      sectionKey: 'values',
+      title: 'Giá Trị Cốt Lõi',
+      subtitle: 'Những điều chúng tôi tin tưởng',
+      content: '',
+      imageUrl: null,
+      metadata: {
+        values: [
+          {
+            icon: '✨',
+            title: 'Chất lượng cao cấp',
+            description: 'Sản phẩm được chọn lọc kỹ lưỡng từ các thương hiệu uy tín'
+          },
+          {
+            icon: '💝',
+            title: 'Tận tâm phục vụ',
+            description: 'Đội ngũ tư vấn chuyên nghiệp, nhiệt tình'
+          },
+          {
+            icon: '🚚',
+            title: 'Giao hàng nhanh chóng',
+            description: 'Đóng gói kín đáo, giao hàng tận nơi toàn quốc'
+          },
+          {
+            icon: '🔒',
+            title: 'Bảo mật tuyệt đối',
+            description: 'Thông tin khách hàng được bảo vệ an toàn'
+          }
+        ]
+      },
+      order: 2,
+      isActive: true,
+    },
+    {
+      sectionKey: 'team',
+      title: 'Đội Ngũ & Xưởng Sản Xuất',
+      subtitle: 'Những người đằng sau sản phẩm',
+      content: 'Đội ngũ của chúng tôi bao gồm những chuyên gia giàu kinh nghiệm trong ngành thời trang nội y, luôn nỗ lực để mang đến sản phẩm tốt nhất.',
+      imageUrl: null,
+      metadata: {
+        gallery: []
+      },
+      order: 3,
+      isActive: true,
+    },
+    {
+      sectionKey: 'cta',
+      title: 'Hãy Khám Phá Sản Phẩm',
+      subtitle: 'Trải nghiệm ngay hôm nay',
+      content: 'Hãy để chúng tôi đồng hành cùng bạn trên hành trình tìm kiếm sự tự tin và quyến rũ.',
+      imageUrl: null,
+      metadata: {
+        buttonText: 'Xem Sản Phẩm',
+        buttonLink: '/products'
+      },
+      order: 4,
+      isActive: true,
+    },
+  ];
+
+  for (const section of aboutSections) {
+    await prisma.aboutSection.upsert({
+      where: { sectionKey: section.sectionKey },
+      update: {
+        title: section.title,
+        subtitle: section.subtitle,
+        content: section.content,
+        order: section.order,
+      },
+      create: section,
+    });
+  }
+  console.log(`   ✅ ${aboutSections.length} about sections`);
+
+  // ============================================
   // SUMMARY
   // ============================================
   console.log('\n' + '='.repeat(50));

@@ -29,6 +29,7 @@ export const translations = {
       blogPosts: 'Blog Posts',
       postTags: 'Post Tags',
       homeLayout: 'Home Layout',
+      aboutPage: 'About Page',
       coupons: 'Coupons',
       campaigns: 'Campaigns',
       rewards: 'Point Rewards',
@@ -92,6 +93,7 @@ export const translations = {
       blogPosts: 'Bài viết',
       postTags: 'Thẻ bài viết',
       homeLayout: 'Bố cục trang chủ',
+      aboutPage: 'Giới thiệu',
       coupons: 'Mã giảm giá',
       campaigns: 'Chiến dịch',
       rewards: 'Kho quà',
@@ -132,6 +134,6 @@ export const translations = {
 
 export type TranslationKeys = 
   | 'common.search' | 'common.save' | 'common.export' | 'common.actions' | 'common.filter' | 'common.total' | 'common.status' | 'common.date' | 'common.customer'
-  | 'nav.dashboard' | 'nav.default' | 'nav.analytics' | 'nav.inventory' | 'nav.products' | 'nav.categories' | 'nav.colors' | 'nav.orders' | 'nav.reviews' | 'nav.cartTracker' | 'nav.marketing' | 'nav.blogPosts' | 'nav.postTags' | 'nav.homeLayout' | 'nav.coupons' | 'nav.campaigns' | 'nav.rewards' | 'nav.search' | 'nav.system' | 'nav.staffUsers' | 'nav.customers' | 'nav.roles' | 'nav.sizeCharts' | 'nav.settings'
+  | 'nav.dashboard' | 'nav.default' | 'nav.analytics' | 'nav.inventory' | 'nav.products' | 'nav.categories' | 'nav.colors' | 'nav.orders' | 'nav.reviews' | 'nav.cartTracker' | 'nav.marketing' | 'nav.blogPosts' | 'nav.postTags' | 'nav.homeLayout' | 'nav.aboutPage' | 'nav.coupons' | 'nav.campaigns' | 'nav.rewards' | 'nav.search' | 'nav.system' | 'nav.staffUsers' | 'nav.customers' | 'nav.roles' | 'nav.sizeCharts' | 'nav.settings'
   | 'dashboard.earning' | 'dashboard.orders' | 'dashboard.income' | 'dashboard.revenue' | 'dashboard.growth' | 'dashboard.popular' | 'dashboard.bestSeller' | 'dashboard.profitGrowth' | 'dashboard.today' | 'dashboard.month' | 'dashboard.year'
   | 'settings.title' | 'settings.desc' | 'settings.storeInfo' | 'settings.storeName' | 'settings.supportEmail' | 'settings.storeDesc' | 'settings.notifications' | 'settings.orderAlerts' | 'settings.stockWarnings';

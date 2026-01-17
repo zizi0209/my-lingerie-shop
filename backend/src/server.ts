@@ -32,6 +32,7 @@ import sizeTemplateRoutes from './routes/sizeTemplateRoutes';
 import recommendationRoutes from './routes/recommendationRoutes';
 import adminRoutes from './routes/admin';
 import publicConfigRoutes from './routes/publicConfig';
+import aboutSectionRoutes from './routes/aboutSectionRoutes';
 import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
@@ -82,6 +83,7 @@ app.use('/api/colors', colorRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/page-sections', pageSectionRoutes);
 app.use('/api/post-categories', postCategoryRoutes);
+app.use('/api/about-sections', aboutSectionRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/permissions', permissionRoutes);

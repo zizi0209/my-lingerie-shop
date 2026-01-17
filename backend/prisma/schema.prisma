@@ -224,6 +224,23 @@ model PageSection {
   updatedAt DateTime @updatedAt
 }
 
+model AboutSection {
+  id         Int      @id @default(autoincrement())
+  sectionKey String   @unique // "hero", "story", "values", "team", "cta"
+  title      String?
+  subtitle   String?
+  content    String?  @db.Text
+  imageUrl   String?
+  metadata   Json?    // Cho data bổ sung (values array, gallery...)
+  order      Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([sectionKey])
+  @@index([isActive, order])
+}
+
 model Order {
   id              Int         @id @default(autoincrement())
   orderNumber     String      @unique
