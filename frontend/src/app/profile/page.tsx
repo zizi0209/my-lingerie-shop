@@ -20,6 +20,9 @@ import {
   EyeOff,
   Check,
   Star,
+  Bookmark,
+  Calendar,
+  ThumbsUp,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/context/WishlistContext";
@@ -41,7 +44,23 @@ interface ProfileResponse {
   data: UserType & { orders?: Order[] };
 }
 
-type TabType = "overview" | "orders" | "security" | "wishlist" | "addresses";
+interface BookmarkedPost {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  thumbnail: string | null;
+  likeCount: number;
+  views: number;
+  publishedAt: string | null;
+  category: {
+    id: number;
+    name: string;
+    slug: string;
+  };
+}
+
+type TabType = "overview" | "orders" | "security" | "wishlist" | "addresses" | "saved-posts";
 
 function ProfileContent() {
   const router = useRouter();
@@ -101,6 +120,10 @@ function ProfileContent() {
     totalSpent: number;
   } | null>(null);
 
+  // Saved posts state
+  const [savedPosts, setSavedPosts] = useState<BookmarkedPost[]>([]);
+  const [isLoadingSavedPosts, setIsLoadingSavedPosts] = useState(false);
+
   // Sync form with user data
   useEffect(() => {
     if (user) {
@@ -118,6 +141,13 @@ function ProfileContent() {
     }
   }, [activeTab, orders.length]);
 
+  // Load saved posts when tab changes
+  useEffect(() => {
+    if (activeTab === "saved-posts" && savedPosts.length === 0) {
+      loadSavedPosts();
+    }
+  }, [activeTab, savedPosts.length]);
+
   const loadOrders = async () => {
     setIsLoadingOrders(true);
     try {
@@ -129,6 +159,29 @@ function ProfileContent() {
       // Silent fail
     } finally {
       setIsLoadingOrders(false);
+    }
+  };
+
+  const loadSavedPosts = async () => {
+    setIsLoadingSavedPosts(true);
+    try {
+      const response = await api.get<{ success: boolean; data: BookmarkedPost[] }>("/posts/me/bookmarks");
+      if (response.success) {
+        setSavedPosts(response.data);
+      }
+    } catch {
+      // Silent fail
+    } finally {
+      setIsLoadingSavedPosts(false);
+    }
+  };
+
+  const handleRemoveBookmark = async (postId: number) => {
+    try {
+      await api.post(`/posts/${postId}/bookmark`);
+      setSavedPosts(prev => prev.filter(p => p.id !== postId));
+    } catch {
+      // Silent fail
     }
   };
 
@@ -280,6 +333,7 @@ function ProfileContent() {
                     { id: "orders" as TabType, icon: ShoppingBag, label: "Đơn hàng của tôi" },
                     { id: "addresses" as TabType, icon: MapPin, label: "Sổ địa chỉ" },
                     { id: "wishlist" as TabType, icon: Heart, label: "Sản phẩm yêu thích" },
+                    { id: "saved-posts" as TabType, icon: Bookmark, label: "Bài viết đã lưu" },
                   ].map((item) => (
                     <button
                       key={item.id}
@@ -768,6 +822,105 @@ function ProfileContent() {
                   <button className="inline-flex px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-90 transition">
                     Thêm địa chỉ mới
                   </button>
+                </div>
+              )}
+
+              {/* Saved Posts Tab */}
+              {activeTab === "saved-posts" && (
+                <div className="space-y-6">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Bài viết đã lưu ({savedPosts.length})
+                  </h2>
+
+                  {isLoadingSavedPosts ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    </div>
+                  ) : savedPosts.length === 0 ? (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+                      <Bookmark className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                        Chưa lưu bài viết nào
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400 mb-6">
+                        Lưu các bài viết hay để đọc lại sau
+                      </p>
+                      <Link
+                        href="/bai-viet"
+                        className="inline-flex px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-90 transition"
+                      >
+                        Khám phá bài viết
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {savedPosts.map((post) => (
+                        <article
+                          key={post.id}
+                          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden group"
+                        >
+                          <Link
+                            href={`/bai-viet/${post.slug}`}
+                            className="block relative aspect-[16/9] bg-gray-100 dark:bg-gray-700 overflow-hidden"
+                          >
+                            {post.thumbnail ? (
+                              <Image
+                                src={post.thumbnail}
+                                alt={post.title}
+                                fill
+                                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Bookmark className="w-12 h-12 text-gray-300 dark:text-gray-600" />
+                              </div>
+                            )}
+                            <span className="absolute top-3 left-3 px-3 py-1 bg-black/70 text-white text-xs rounded-full">
+                              {post.category.name}
+                            </span>
+                          </Link>
+                          <div className="p-5">
+                            <Link
+                              href={`/bai-viet/${post.slug}`}
+                              className="block font-semibold text-gray-900 dark:text-white hover:text-primary transition line-clamp-2 mb-2"
+                            >
+                              {post.title}
+                            </Link>
+                            {post.excerpt && (
+                              <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-4">
+                                {post.excerpt}
+                              </p>
+                            )}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                                <span className="flex items-center gap-1">
+                                  <ThumbsUp className="w-4 h-4" />
+                                  {post.likeCount}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Eye className="w-4 h-4" />
+                                  {post.views}
+                                </span>
+                                {post.publishedAt && (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-4 h-4" />
+                                    {formatDate(post.publishedAt)}
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleRemoveBookmark(post.id)}
+                                className="p-2 text-gray-400 hover:text-red-500 transition"
+                                title="Bỏ lưu bài viết"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

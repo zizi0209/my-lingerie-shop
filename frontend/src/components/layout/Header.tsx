@@ -4,7 +4,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ShoppingBag, User, Search, Menu, LogOut, Package, Settings, Heart, X, Star, Ticket, Tag, Sparkles, Flame, TrendingUp } from "lucide-react";
+import { ShoppingBag, User, Search, Menu, LogOut, Package, Settings, Heart, X, Star, Ticket, Tag, Sparkles, Flame, TrendingUp, Bookmark } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useStore } from "@/context/StoreContext";
@@ -252,6 +252,14 @@ export default function Header() {
                       >
                         <Star className="w-4 h-4" />
                         Đánh giá của tôi
+                      </Link>
+                      <Link
+                        href="/profile?tab=saved-posts"
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                      >
+                        <Bookmark className="w-4 h-4" />
+                        Bài viết đã lưu
                       </Link>
                       {user.role?.name && ["ADMIN", "SUPER_ADMIN"].includes(user.role.name.toUpperCase()) && (
                         <Link
@@ -519,6 +527,10 @@ export default function Header() {
                 <Link href="/tai-khoan/danh-gia" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-600 dark:text-gray-400">
                   <Star className="w-4 h-4" />
                   Đánh giá của tôi
+                </Link>
+                <Link href="/profile?tab=saved-posts" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-600 dark:text-gray-400">
+                  <Bookmark className="w-4 h-4" />
+                  Bài viết đã lưu
                 </Link>
                 {user.role?.name && ["ADMIN", "SUPER_ADMIN"].includes(user.role.name.toUpperCase()) && (
                   <Link href="/dashboard" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-600 dark:text-gray-400">
