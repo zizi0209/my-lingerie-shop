@@ -33,6 +33,8 @@ model User {
   orders              Order[]
   pointHistory        PointHistory[]
   posts               Post[]
+  postLikes           PostLike[]
+  postBookmarks       PostBookmark[]
   refreshTokens       RefreshToken[]
   reviews             Review[]
   role                Role?          @relation(fields: [roleId], references: [id])
@@ -304,27 +306,56 @@ model PostCategory {
 }
 
 model Post {
-  id          Int          @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   title       String
-  slug        String       @unique
+  slug        String         @unique
   content     String
   excerpt     String?
   thumbnail   String?
   authorId    Int
   categoryId  Int
-  isPublished Boolean      @default(false)
+  isPublished Boolean        @default(false)
   publishedAt DateTime?
-  views       Int          @default(0)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  views       Int            @default(0)
+  likeCount   Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
   deletedAt   DateTime?
-  author      User         @relation(fields: [authorId], references: [id])
-  category    PostCategory @relation(fields: [categoryId], references: [id])
+  author      User           @relation(fields: [authorId], references: [id])
+  category    PostCategory   @relation(fields: [categoryId], references: [id])
+  likes       PostLike[]
+  bookmarks   PostBookmark[]
 
   @@index([categoryId])
   @@index([authorId])
   @@index([slug])
   @@index([isPublished, publishedAt])
+}
+
+model PostLike {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  userId    Int
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostBookmark {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  userId    Int
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
 }
 
 model Cart {

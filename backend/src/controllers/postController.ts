@@ -107,7 +107,18 @@ export const getPostBySlug = async (req: Request, res: Response) => {
         deletedAt: null,
         isPublished: true,
       },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        content: true,
+        excerpt: true,
+        thumbnail: true,
+        views: true,
+        likeCount: true,
+        isPublished: true,
+        publishedAt: true,
+        createdAt: true,
         author: {
           select: {
             id: true,

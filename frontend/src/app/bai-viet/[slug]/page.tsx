@@ -16,6 +16,8 @@ import {
   Facebook,
   Twitter,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 
 interface Author {
   id: number;
@@ -39,19 +41,29 @@ interface Post {
   author: Author;
   category: Category;
   views: number;
+  likeCount: number;
   isPublished: boolean;
   publishedAt: string | null;
   createdAt: string;
 }
 
+interface InteractionStatus {
+  isLiked: boolean;
+  isBookmarked: boolean;
+  likeCount: number;
+}
+
 export default function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
+  const { user } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
   const [relatedPosts, setRelatedPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
@@ -70,6 +82,22 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
         }
 
         setPost(data.data);
+        setLikeCount(data.data.likeCount || 0);
+
+        // Fetch interaction status
+        try {
+          const interactionRes = await api.get<{ success: boolean; data: InteractionStatus }>(
+            `/posts/${data.data.id}/interaction`,
+            false
+          );
+          if (interactionRes.success) {
+            setIsLiked(interactionRes.data.isLiked);
+            setIsBookmarked(interactionRes.data.isBookmarked);
+            setLikeCount(interactionRes.data.likeCount);
+          }
+        } catch {
+          // Ignore - user may not be logged in
+        }
 
         // Fetch related posts from same category
         const relatedRes = await fetch(
@@ -123,6 +151,51 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
         navigator.clipboard.writeText(url);
         alert("Đã sao chép link!");
         break;
+    }
+  };
+
+  const handleLike = async () => {
+    if (!user) {
+      alert("Vui lòng đăng nhập để thích bài viết!");
+      return;
+    }
+    if (!post || actionLoading) return;
+
+    setActionLoading(true);
+    try {
+      const res = await api.post<{ success: boolean; data: { isLiked: boolean; likeCount: number } }>(
+        `/posts/${post.id}/like`
+      );
+      if (res.success) {
+        setIsLiked(res.data.isLiked);
+        setLikeCount(res.data.likeCount);
+      }
+    } catch (err) {
+      console.error("Error liking post:", err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleBookmark = async () => {
+    if (!user) {
+      alert("Vui lòng đăng nhập để lưu bài viết!");
+      return;
+    }
+    if (!post || actionLoading) return;
+
+    setActionLoading(true);
+    try {
+      const res = await api.post<{ success: boolean; data: { isBookmarked: boolean } }>(
+        `/posts/${post.id}/bookmark`
+      );
+      if (res.success) {
+        setIsBookmarked(res.data.isBookmarked);
+      }
+    } catch (err) {
+      console.error("Error bookmarking post:", err);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -229,24 +302,26 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
         {/* Social Actions */}
         <div className="flex items-center gap-4 mb-8 pb-8 border-b border-gray-200 dark:border-gray-700">
           <button
-            onClick={() => setIsLiked(!isLiked)}
+            onClick={handleLike}
+            disabled={actionLoading}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
               isLiked
                 ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                 : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-            }`}
+            } disabled:opacity-50`}
           >
             <Heart className={`w-5 h-5 ${isLiked ? "fill-current" : ""}`} />
-            <span>Thích</span>
+            <span>{likeCount > 0 ? `${likeCount} Thích` : "Thích"}</span>
           </button>
 
           <button
-            onClick={() => setIsBookmarked(!isBookmarked)}
+            onClick={handleBookmark}
+            disabled={actionLoading}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
               isBookmarked
                 ? "bg-black dark:bg-white text-white dark:text-black"
                 : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-            }`}
+            } disabled:opacity-50`}
           >
             <Bookmark className={`w-5 h-5 ${isBookmarked ? "fill-current" : ""}`} />
             <span>Lưu lại</span>
