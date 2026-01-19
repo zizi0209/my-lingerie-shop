@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, type ReactElement } from 'react';
 import ProductCardInPost from './ProductCardInPost';
@@ -89,7 +89,6 @@ export default function PostContent({ postId, content, className = '' }: PostCon
     // Parse content thành array of paragraphs và inject products
     const paragraphs = content.split(/<\/p>|<\/h[1-6]>|<\/blockquote>|<\/ul>|<\/ol>/);
     const contentParts: ReactElement[] = [];
-    let productIndex = 0;
 
     paragraphs.forEach((para, index) => {
       if (para.trim()) {
@@ -100,25 +99,19 @@ export default function PostContent({ postId, content, className = '' }: PostCon
             dangerouslySetInnerHTML={{ __html: sanitizeForPublic(para + '</p>') }}
           />
         );
-
-        // Inject inline product nếu có (mỗi 3 paragraphs)
-        if (
-          index > 0 &&
-          index % 3 === 0 &&
-          productIndex < inlineProducts.length
-        ) {
-          const productData = inlineProducts[productIndex];
-          contentParts.push(
-            <ProductCardInPost
-              key={`product-${productData.productId}`}
-              product={productData.product}
-              displayType={productData.displayType}
-              customNote={productData.customNote}
-            />
-          );
-          productIndex++;
-        }
       }
+    });
+
+    // Inject tất cả inline products sau content chính
+    inlineProducts.forEach((productData) => {
+      contentParts.push(
+        <ProductCardInPost
+          key={`product-${productData.productId}`}
+          product={productData.product}
+          displayType={productData.displayType}
+          customNote={productData.customNote}
+        />
+      );
     });
 
     return (
@@ -178,3 +171,4 @@ export default function PostContent({ postId, content, className = '' }: PostCon
 
   return renderContentWithProducts();
 }
+
