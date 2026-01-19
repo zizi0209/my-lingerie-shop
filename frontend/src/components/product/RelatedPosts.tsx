@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { FileText, Calendar, Eye, TrendingUp, ExternalLink, Sparkles } from 'lucide-react';
+import { FileText, Calendar, Eye, ExternalLink, Sparkles } from 'lucide-react';
+import { trackContentCommerce } from '@/lib/tracking';
 
 interface Post {
   id: number;
@@ -50,13 +51,12 @@ export default function RelatedPosts({ productId, className = '' }: RelatedPosts
 
   // Track click for analytics
   const handlePostClick = (post: Post) => {
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', 'related_post_click_from_product', {
-        post_id: post.id,
-        post_title: post.title,
-        product_id: productId,
-      });
-    }
+    trackContentCommerce({
+      event: 'related_post_click_from_product',
+      productId: productId,
+      postId: post.id,
+      postSlug: post.slug,
+    });
   };
 
   if (loading) {

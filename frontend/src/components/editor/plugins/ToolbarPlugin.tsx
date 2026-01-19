@@ -41,7 +41,10 @@ import {
   Heading2,
   Heading3,
   Type,
+  ShoppingBag,
 } from 'lucide-react';
+import { $createProductNode } from '../nodes/ProductNode';
+import ProductSearchModal from './ProductSearchModal';
 
 type BlockType = 'paragraph' | 'h1' | 'h2' | 'h3';
 
@@ -60,6 +63,9 @@ export default function ToolbarPlugin() {
   // History states
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  
+  // Product modal state
+  const [showProductModal, setShowProductModal] = useState(false);
 
   const updateToolbar = useCallback(() => {
     const selection = $getSelection();
@@ -150,6 +156,23 @@ export default function ToolbarPlugin() {
         undefined
       );
     }
+  };
+
+  // Insert product handler
+  const handleInsertProduct = (
+    productId: number,
+    displayType: 'inline-card' | 'sidebar' | 'end-collection',
+    customNote?: string
+  ) => {
+    editor.update(() => {
+      const productNode = $createProductNode(productId, displayType, customNote);
+      const paragraphNode = $createParagraphNode();
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        selection.insertNodes([productNode, paragraphNode]);
+      }
+    });
+    setShowProductModal(false);
   };
 
   const ToolButton = ({
@@ -313,6 +336,24 @@ export default function ToolbarPlugin() {
       >
         <AlignJustify size={16} />
       </ToolButton>
+
+      <Divider />
+
+      {/* Insert Product */}
+      <ToolButton
+        onClick={() => setShowProductModal(true)}
+        title="Chèn sản phẩm"
+      >
+        <ShoppingBag size={16} />
+      </ToolButton>
+
+      {/* Product Search Modal */}
+      {showProductModal && (
+        <ProductSearchModal
+          onSelect={handleInsertProduct}
+          onClose={() => setShowProductModal(false)}
+        />
+      )}
     </div>
   );
 }

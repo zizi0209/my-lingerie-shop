@@ -10,7 +10,7 @@ import {
   SerializedLexicalNode,
   Spread,
 } from 'lexical';
-import { Suspense, type ReactElement } from 'react';
+import { Suspense, useState, useEffect, type ReactElement } from 'react';
 
 export type SerializedProductNode = Spread<
   {
@@ -176,6 +176,16 @@ export function $isProductNode(node: LexicalNode | null | undefined): node is Pr
 }
 
 // Component hiển thị trong editor
+interface ProductData {
+  id: number;
+  name: string;
+  slug: string;
+  price: number;
+  salePrice?: number;
+  images: { url: string }[];
+  category?: { name: string };
+}
+
 function ProductNodeComponent({
   productId,
   displayType,
@@ -187,44 +197,109 @@ function ProductNodeComponent({
   customNote?: string;
   nodeKey: NodeKey;
 }) {
-  // TODO: Fetch product data từ API
-  // Tạm thời mock data
-  return (
-    <div
-      className={`
-        relative border-2 border-dashed rounded-lg p-4 bg-gradient-to-br
-        ${
-          displayType === 'inline-card'
-            ? 'border-blue-300 dark:border-blue-700 from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900'
-            : displayType === 'sidebar'
-            ? 'border-purple-300 dark:border-purple-700 from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900'
-            : 'border-green-300 dark:border-green-700 from-green-50 to-green-100 dark:from-green-950 dark:to-green-900'
-        }
-      `}
-    >
-      <div className="flex items-start gap-3">
-        <div className="w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded flex items-center justify-center text-2xl">
-          🛍️
-        </div>
-        <div className="flex-1">
-          <div className="text-sm font-semibold text-slate-900 dark:text-white">
-            Product ID: {productId}
+  const [product, setProduct] = useState<ProductData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        const res = await fetch(`${baseUrl}/products/${productId}`);
+        if (!res.ok) throw new Error('Product not found');
+        const data = await res.json();
+        setProduct(data.product || data.data || data);
+        setError(false);
+      } catch {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [productId]);
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+  };
+
+  const displayTypeColors = {
+    'inline-card': 'border-blue-300 dark:border-blue-700 from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900',
+    'sidebar': 'border-purple-300 dark:border-purple-700 from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900',
+    'end-collection': 'border-green-300 dark:border-green-700 from-green-50 to-green-100 dark:from-green-950 dark:to-green-900',
+  };
+
+  if (loading) {
+    return (
+      <div className={`relative border-2 border-dashed rounded-lg p-4 bg-gradient-to-br ${displayTypeColors[displayType]} animate-pulse`}>
+        <div className="flex items-start gap-3">
+          <div className="w-16 h-16 bg-slate-200 dark:bg-slate-700 rounded" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
+            <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2" />
           </div>
-          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-            Display: <span className="font-medium">{displayType}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className={`relative border-2 border-dashed rounded-lg p-4 bg-gradient-to-br border-red-300 dark:border-red-700 from-red-50 to-red-100 dark:from-red-950 dark:to-red-900`}>
+        <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
+          <span className="text-xl">⚠️</span>
+          <span className="text-sm font-medium">Sản phẩm không tồn tại (ID: {productId})</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`relative border-2 border-dashed rounded-lg p-4 bg-gradient-to-br ${displayTypeColors[displayType]}`}>
+      <div className="flex items-start gap-3">
+        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded overflow-hidden flex-shrink-0">
+          {product.images?.[0] ? (
+            <img src={product.images[0].url} alt={product.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-2xl">🛍️</div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+            {product.name}
+          </div>
+          {product.category && (
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {product.category.name}
+            </div>
+          )}
+          <div className="flex items-baseline gap-2 mt-1">
+            {product.salePrice ? (
+              <>
+                <span className="text-sm font-bold text-rose-600 dark:text-rose-400">
+                  {formatPrice(product.salePrice)}
+                </span>
+                <span className="text-xs text-slate-400 line-through">
+                  {formatPrice(product.price)}
+                </span>
+              </>
+            ) : (
+              <span className="text-sm font-bold text-slate-900 dark:text-white">
+                {formatPrice(product.price)}
+              </span>
+            )}
           </div>
           {customNote && (
-            <div className="text-xs text-slate-500 dark:text-slate-500 mt-2 italic">
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 italic truncate">
               &ldquo;{customNote}&rdquo;
             </div>
           )}
         </div>
-        <div className="text-xs font-mono text-slate-400 dark:text-slate-600">
-          #{nodeKey.slice(0, 6)}
-        </div>
       </div>
-      <div className="absolute top-2 right-2 text-xs px-2 py-1 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
-        Product Node
+      <div className="absolute top-2 right-2 flex items-center gap-1">
+        <span className="text-xs px-2 py-0.5 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+          {displayType}
+        </span>
       </div>
     </div>
   );

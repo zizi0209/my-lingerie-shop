@@ -1,6 +1,89 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 
+// Helper: Extract product IDs from Lexical JSON content
+interface LexicalNode {
+  type: string;
+  productId?: number;
+  displayType?: 'inline-card' | 'sidebar' | 'end-collection';
+  customNote?: string;
+  children?: LexicalNode[];
+}
+
+interface ExtractedProduct {
+  productId: number;
+  displayType: 'inline-card' | 'sidebar' | 'end-collection';
+  customNote?: string;
+  position: number;
+}
+
+function extractProductsFromContent(content: string): ExtractedProduct[] {
+  try {
+    const parsed = JSON.parse(content);
+    const products: ExtractedProduct[] = [];
+    let position = 0;
+
+    function traverse(node: LexicalNode) {
+      if (node.type === 'product' && node.productId) {
+        products.push({
+          productId: node.productId,
+          displayType: node.displayType || 'inline-card',
+          customNote: node.customNote,
+          position: position++,
+        });
+      }
+      if (node.children) {
+        node.children.forEach(traverse);
+      }
+    }
+
+    if (parsed.root) {
+      traverse(parsed.root);
+    }
+    return products;
+  } catch {
+    // Content is not JSON (might be HTML or plain text)
+    return [];
+  }
+}
+
+// Sync ProductOnPost based on extracted products
+async function syncProductOnPost(postId: number, products: ExtractedProduct[]) {
+  // Delete existing links that are not in the new list
+  const productIds = products.map(p => p.productId);
+  
+  await prisma.productOnPost.deleteMany({
+    where: {
+      postId,
+      productId: { notIn: productIds.length > 0 ? productIds : [-1] }, // -1 to handle empty array
+    },
+  });
+
+  // Upsert all products from content
+  for (const product of products) {
+    await prisma.productOnPost.upsert({
+      where: {
+        postId_productId: {
+          postId,
+          productId: product.productId,
+        },
+      },
+      update: {
+        position: product.position,
+        displayType: product.displayType,
+        customNote: product.customNote,
+      },
+      create: {
+        postId,
+        productId: product.productId,
+        position: product.position,
+        displayType: product.displayType,
+        customNote: product.customNote,
+      },
+    });
+  }
+}
+
 // Get all posts
 export const getAllPosts = async (req: Request, res: Response) => {
   try {
@@ -212,6 +295,12 @@ export const createPost = async (req: Request, res: Response) => {
       },
     });
 
+    // Auto-sync ProductOnPost from Lexical content
+    const extractedProducts = extractProductsFromContent(content);
+    if (extractedProducts.length > 0) {
+      await syncProductOnPost(post.id, extractedProducts);
+    }
+
     res.status(201).json({
       success: true,
       data: post,
@@ -290,6 +379,12 @@ export const updatePost = async (req: Request, res: Response) => {
         category: true,
       },
     });
+
+    // Auto-sync ProductOnPost from Lexical content if content was updated
+    if (content) {
+      const extractedProducts = extractProductsFromContent(content);
+      await syncProductOnPost(post.id, extractedProducts);
+    }
 
     res.json({
       success: true,

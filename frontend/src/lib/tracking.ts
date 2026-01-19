@@ -172,3 +172,57 @@ export async function trackSearch(params: TrackSearchParams): Promise<void> {
     console.error("Track search error:", error);
   }
 }
+
+interface TrackContentCommerceParams {
+  event: 'product_click_from_post' | 'related_post_click_from_product' | 'add_to_cart_from_post';
+  productId?: number;
+  postId?: number;
+  postSlug?: string;
+  productSlug?: string;
+  displayType?: 'inline-card' | 'sidebar' | 'end-collection';
+  positionIndex?: number;
+  userId?: number | null;
+}
+
+/**
+ * Track content-commerce interaction
+ * Used to measure effectiveness of product-post linking feature
+ */
+export async function trackContentCommerce(params: TrackContentCommerceParams): Promise<void> {
+  try {
+    const sessionId = getSessionId();
+    if (!sessionId) return;
+
+    // Track via cart-events endpoint with content-commerce type
+    await fetch(`${BASE_URL}/tracking/cart-events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: params.event,
+        productId: params.productId || null,
+        userId: params.userId || null,
+        sessionId,
+        data: {
+          type: 'content-commerce',
+          postId: params.postId,
+          postSlug: params.postSlug,
+          productSlug: params.productSlug,
+          displayType: params.displayType,
+          positionIndex: params.positionIndex,
+        },
+      }),
+    });
+
+    // Also send to Google Analytics if available
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('event', params.event, {
+        product_id: params.productId,
+        post_id: params.postId,
+        display_type: params.displayType,
+        position_index: params.positionIndex,
+      });
+    }
+  } catch (error) {
+    console.error("Track content-commerce error:", error);
+  }
+}

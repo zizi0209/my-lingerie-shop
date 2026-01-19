@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ShoppingBag, Tag, TrendingUp, ExternalLink } from 'lucide-react';
+import { trackContentCommerce } from '@/lib/tracking';
 
 interface Product {
   id: number;
@@ -40,15 +41,12 @@ export default function ProductCardInPost({
 
   // Track click for analytics
   const handleClick = () => {
-    // TODO: Gửi analytics event
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', 'product_click_from_post', {
-        product_id: product.id,
-        product_name: product.name,
-        display_type: displayType,
-        has_custom_note: !!customNote,
-      });
-    }
+    trackContentCommerce({
+      event: 'product_click_from_post',
+      productId: product.id,
+      productSlug: product.slug,
+      displayType,
+    });
   };
 
   // Inline Card - Nhúng giữa nội dung
