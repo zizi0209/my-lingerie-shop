@@ -348,40 +348,40 @@ async function main() {
     },
     {
       sectionKey: 'story',
-      title: 'Câu Chuyện Thương Hiệu',
-      subtitle: 'Hành trình phát triển',
+      title: 'Hành trình từ\nđam mê đến thương hiệu',
+      subtitle: 'Câu chuyện thương hiệu',
       content: 'Ra đời từ năm 2020, chúng tôi bắt đầu với mong muốn mang đến cho phụ nữ Việt những sản phẩm đồ lót cao cấp, thoải mái và phù hợp với vóc dáng người Á Đông. Qua hơn 4 năm phát triển, chúng tôi đã phục vụ hàng nghìn khách hàng trên toàn quốc.',
-      imageUrl: null,
+      imageUrl: 'https://images.unsplash.com/photo-1558171813-4c088753af8f?q=80&w=800&auto=format&fit=crop',
       order: 1,
       isActive: true,
     },
     {
-      sectionKey: 'values',
-      title: 'Giá Trị Cốt Lõi',
-      subtitle: 'Những điều chúng tôi tin tưởng',
-      content: '',
+      sectionKey: 'craftsmanship',
+      title: 'Tỉ mỉ trong từng đường kim',
+      subtitle: 'Cam kết chất lượng',
+      content: 'Chúng tôi hiểu rằng nội y chạm trực tiếp vào làn da nhạy cảm nhất của bạn. Vì vậy, mỗi sản phẩm đều được chọn lọc và kiểm định nghiêm ngặt.',
       imageUrl: null,
       metadata: {
-        values: [
+        items: [
           {
-            icon: '✨',
-            title: 'Chất lượng cao cấp',
-            description: 'Sản phẩm được chọn lọc kỹ lưỡng từ các thương hiệu uy tín'
+            icon: 'sparkles',
+            title: 'Ren cao cấp',
+            description: 'Ren Pháp (French Lace) mềm mại, không gây ngứa, giữ form sau nhiều lần giặt'
           },
           {
-            icon: '💝',
-            title: 'Tận tâm phục vụ',
-            description: 'Đội ngũ tư vấn chuyên nghiệp, nhiệt tình'
+            icon: 'heart',
+            title: 'Lụa tơ tằm',
+            description: '100% Silk tự nhiên, thoáng mát mùa hè, ấm áp mùa đông'
           },
           {
-            icon: '🚚',
-            title: 'Giao hàng nhanh chóng',
-            description: 'Đóng gói kín đáo, giao hàng tận nơi toàn quốc'
+            icon: 'scissors',
+            title: 'Đường may Seamless',
+            description: 'Công nghệ may không hằn, thoải mái tối đa dưới mọi trang phục'
           },
           {
-            icon: '🔒',
-            title: 'Bảo mật tuyệt đối',
-            description: 'Thông tin khách hàng được bảo vệ an toàn'
+            icon: 'shield',
+            title: 'Gọng mềm Soft-wire',
+            description: 'Nâng đỡ hoàn hảo mà không gây khó chịu hay hằn da'
           }
         ]
       },
@@ -389,28 +389,108 @@ async function main() {
       isActive: true,
     },
     {
-      sectionKey: 'team',
-      title: 'Đội Ngũ & Xưởng Sản Xuất',
-      subtitle: 'Những người đằng sau sản phẩm',
-      content: 'Đội ngũ của chúng tôi bao gồm những chuyên gia giàu kinh nghiệm trong ngành thời trang nội y, luôn nỗ lực để mang đến sản phẩm tốt nhất.',
+      sectionKey: 'values',
+      title: 'Những điều chúng tôi tin tưởng',
+      subtitle: 'Giá trị cốt lõi',
+      content: '',
       imageUrl: null,
       metadata: {
-        gallery: []
+        values: [
+          {
+            icon: '💖',
+            title: 'Body Positivity',
+            description: 'Chúng tôi tôn vinh mọi đường cong. Từ size XS đến XXL, mọi cơ thể đều đẹp và xứng đáng được nâng niu.'
+          },
+          {
+            icon: '🌿',
+            title: 'Sustainability',
+            description: 'Bao bì từ giấy tái chế, túi vải thay vì túi nhựa. Chúng tôi cam kết giảm thiểu tác động môi trường.'
+          },
+          {
+            icon: '📦',
+            title: 'Discrete Packaging',
+            description: 'Đóng gói kín đáo, không ghi tên sản phẩm bên ngoài. Sự riêng tư của bạn là ưu tiên hàng đầu.'
+          }
+        ]
       },
       order: 3,
       isActive: true,
     },
     {
-      sectionKey: 'cta',
-      title: 'Hãy Khám Phá Sản Phẩm',
-      subtitle: 'Trải nghiệm ngay hôm nay',
-      content: 'Hãy để chúng tôi đồng hành cùng bạn trên hành trình tìm kiếm sự tự tin và quyến rũ.',
+      sectionKey: 'stats',
+      title: 'Con số ấn tượng',
+      subtitle: 'Thành tựu',
+      content: '',
       imageUrl: null,
       metadata: {
-        buttonText: 'Xem Sản Phẩm',
-        buttonLink: '/products'
+        stats: [
+          { number: 50000, suffix: '+', label: 'Khách hàng hài lòng' },
+          { number: 200, suffix: '+', label: 'Mẫu thiết kế độc quyền' },
+          { number: 4.9, suffix: '/5', label: 'Đánh giá trung bình', decimals: 1 },
+          { number: 3, suffix: '', label: 'Cửa hàng vật lý' }
+        ]
       },
       order: 4,
+      isActive: true,
+    },
+    {
+      sectionKey: 'team',
+      title: 'Những người đứng sau Lingerie Shop',
+      subtitle: 'Đội ngũ',
+      content: 'Đội ngũ thiết kế và tư vấn viên tận tâm, luôn sẵn sàng giúp bạn tìm được sản phẩm phù hợp nhất.',
+      imageUrl: null,
+      metadata: {
+        members: [
+          {
+            name: 'Nguyễn Minh Anh',
+            role: 'Founder & Creative Director',
+            image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=400&auto=format&fit=crop'
+          },
+          {
+            name: 'Trần Thu Hà',
+            role: 'Head of Design',
+            image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=400&auto=format&fit=crop'
+          },
+          {
+            name: 'Lê Hoàng Yến',
+            role: 'Customer Experience Lead',
+            image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop'
+          }
+        ]
+      },
+      order: 5,
+      isActive: true,
+    },
+    {
+      sectionKey: 'socialproof',
+      title: 'Báo chí & Đối tác',
+      subtitle: 'Được tin tưởng bởi',
+      content: '',
+      imageUrl: null,
+      metadata: {
+        partners: ['Elle', 'Đẹp', 'VnExpress', "Harper's Bazaar", 'Vogue VN'],
+        testimonial: {
+          quote: 'Lingerie Shop là một trong những thương hiệu nội y Việt hiếm hoi hiểu được vóc dáng và nhu cầu của phụ nữ châu Á. Chất lượng sản phẩm ngang tầm các thương hiệu quốc tế.',
+          author: 'Elle Vietnam',
+          date: 'Tháng 10/2024'
+        }
+      },
+      order: 6,
+      isActive: true,
+    },
+    {
+      sectionKey: 'cta',
+      title: 'Bạn đã sẵn sàng?',
+      subtitle: 'Trải nghiệm ngay hôm nay',
+      content: '<p>Hãy để chúng tôi đồng hành cùng bạn trên hành trình tìm kiếm sự tự tin và quyến rũ.</p>',
+      imageUrl: 'https://images.unsplash.com/photo-1616002411355-49593fd89721?q=80&w=1920&auto=format&fit=crop',
+      metadata: {
+        buttons: [
+          { text: 'Khám phá bộ sưu tập', link: '/san-pham', variant: 'primary' },
+          { text: 'Tư vấn chọn Size', link: '/contact', variant: 'outline' }
+        ]
+      },
+      order: 7,
       isActive: true,
     },
   ];

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Save, Loader2, AlertCircle, CheckCircle, Eye, EyeOff,
+  Save, Loader2, AlertCircle, CheckCircle, Eye, EyeOff, Plus, Trash2,
   FileText, Image as ImageIcon, Type, AlignLeft, Hash, RefreshCw,
   Upload, Link as LinkIcon, X
 } from 'lucide-react';
@@ -44,10 +44,45 @@ interface AboutSection {
 const SECTION_LABELS: Record<string, { vi: string; en: string; icon: React.ElementType }> = {
   hero: { vi: 'Hero Banner', en: 'Hero Banner', icon: ImageIcon },
   story: { vi: 'Câu chuyện thương hiệu', en: 'Brand Story', icon: FileText },
+  craftsmanship: { vi: 'Cam kết chất lượng', en: 'Quality Commitment', icon: Hash },
   values: { vi: 'Giá trị cốt lõi', en: 'Core Values', icon: Hash },
-  team: { vi: 'Đội ngũ & Xưởng', en: 'Team & Workshop', icon: Type },
+  stats: { vi: 'Thống kê', en: 'Statistics', icon: Hash },
+  team: { vi: 'Đội ngũ', en: 'Team', icon: Type },
+  socialproof: { vi: 'Báo chí & Đối tác', en: 'Press & Partners', icon: FileText },
   cta: { vi: 'Call to Action', en: 'Call to Action', icon: AlignLeft },
 };
+
+// Metadata type definitions
+interface CraftsmanshipItem {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+interface ValueItem {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+interface StatItem {
+  number: number;
+  suffix: string;
+  label: string;
+  decimals?: number;
+}
+
+interface TeamMember {
+  name: string;
+  role: string;
+  image: string;
+}
+
+interface CTAButton {
+  text: string;
+  link: string;
+  variant: 'primary' | 'outline';
+}
 
 const AboutManagement: React.FC = () => {
   const { language } = useLanguage();
@@ -153,7 +188,95 @@ const AboutManagement: React.FC = () => {
     return label?.icon || FileText;
   };
 
+  // ===== METADATA MANAGEMENT HANDLERS =====
+  
+  // Craftsmanship Items
+  const handleAddCraftsmanshipItem = () => {
+    if (!editingSection) return;
+    const items = (editingSection.metadata as { items?: CraftsmanshipItem[] })?.items || [];
+    const newItem: CraftsmanshipItem = { icon: 'sparkles', title: '', description: '' };
+    setEditingSection({
+      ...editingSection,
+      metadata: { ...editingSection.metadata, items: [...items, newItem] }
+    });
+  };
 
+  const handleUpdateCraftsmanshipItem = (index: number, field: keyof CraftsmanshipItem, value: string) => {
+    if (!editingSection) return;
+    const items = [...((editingSection.metadata as { items?: CraftsmanshipItem[] })?.items || [])];
+    items[index] = { ...items[index], [field]: value };
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, items } });
+  };
+
+  const handleDeleteCraftsmanshipItem = (index: number) => {
+    if (!editingSection) return;
+    const items = ((editingSection.metadata as { items?: CraftsmanshipItem[] })?.items || []).filter((_, i) => i !== index);
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, items } });
+  };
+
+  // Values Items
+  const handleAddValueItem = () => {
+    if (!editingSection) return;
+    const values = (editingSection.metadata as { values?: ValueItem[] })?.values || [];
+    const newValue: ValueItem = { icon: '💖', title: '', description: '' };
+    setEditingSection({
+      ...editingSection,
+      metadata: { ...editingSection.metadata, values: [...values, newValue] }
+    });
+  };
+
+  const handleUpdateValueItem = (index: number, field: keyof ValueItem, value: string) => {
+    if (!editingSection) return;
+    const values = [...((editingSection.metadata as { values?: ValueItem[] })?.values || [])];
+    values[index] = { ...values[index], [field]: value };
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, values } });
+  };
+
+  const handleDeleteValueItem = (index: number) => {
+    if (!editingSection) return;
+    const values = ((editingSection.metadata as { values?: ValueItem[] })?.values || []).filter((_, i) => i !== index);
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, values } });
+  };
+
+  // Stats Management
+  const handleUpdateStat = (index: number, field: keyof StatItem, value: string | number) => {
+    if (!editingSection) return;
+    const stats = [...((editingSection.metadata as { stats?: StatItem[] })?.stats || [])];
+    stats[index] = { ...stats[index], [field]: field === 'number' || field === 'decimals' ? Number(value) : value };
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, stats } });
+  };
+
+  // Team Members Management
+  const handleAddTeamMember = () => {
+    if (!editingSection) return;
+    const members = (editingSection.metadata as { members?: TeamMember[] })?.members || [];
+    const newMember: TeamMember = { name: '', role: '', image: '' };
+    setEditingSection({
+      ...editingSection,
+      metadata: { ...editingSection.metadata, members: [...members, newMember] }
+    });
+  };
+
+  const handleUpdateTeamMember = (index: number, field: keyof TeamMember, value: string) => {
+    if (!editingSection) return;
+    const members = [...((editingSection.metadata as { members?: TeamMember[] })?.members || [])];
+    members[index] = { ...members[index], [field]: value };
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, members } });
+  };
+
+  const handleDeleteTeamMember = (index: number) => {
+    if (!editingSection) return;
+    const members = ((editingSection.metadata as { members?: TeamMember[] })?.members || []).filter((_, i) => i !== index);
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, members } });
+  };
+
+  // CTA Buttons Management
+  const handleUpdateCTAButton = (index: number, field: keyof CTAButton, value: string) => {
+    if (!editingSection) return;
+    const buttons = [...((editingSection.metadata as { buttons?: CTAButton[] })?.buttons || [])];
+    buttons[index] = { ...buttons[index], [field]: value };
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, buttons } });
+  };
 
   const handleImageSelect = async (file: File) => {
     if (!file) return;
@@ -378,6 +501,259 @@ const AboutManagement: React.FC = () => {
                           minHeight="200px"
                         />
                       </div>
+
+                      {/* ===== METADATA MANAGEMENT UI ===== */}
+
+                      {/* Craftsmanship Items */}
+                      {editingSection.sectionKey === 'craftsmanship' && (
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                              ✨ Các mục chất lượng (Ren cao cấp, Lụa tơ tằm, Đường may Seamless, Gọng mềm)
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={handleAddCraftsmanshipItem}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Thêm mục
+                            </button>
+                          </div>
+                          <div className="space-y-3">
+                            {((editingSection.metadata as { items?: CraftsmanshipItem[] })?.items || []).map((item, index) => (
+                              <div key={index} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-1 space-y-2">
+                                    <input
+                                      type="text"
+                                      value={item.icon}
+                                      onChange={(e) => handleUpdateCraftsmanshipItem(index, 'icon', e.target.value)}
+                                      placeholder="Icon (sparkles, heart, scissors, shield)"
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={item.title}
+                                      onChange={(e) => handleUpdateCraftsmanshipItem(index, 'title', e.target.value)}
+                                      placeholder="Tiêu đề"
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                    />
+                                    <textarea
+                                      value={item.description}
+                                      onChange={(e) => handleUpdateCraftsmanshipItem(index, 'description', e.target.value)}
+                                      placeholder="Mô tả"
+                                      rows={2}
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm resize-none"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteCraftsmanshipItem(index)}
+                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 mt-1"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Values Items */}
+                      {editingSection.sectionKey === 'values' && (
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                              💎 Các giá trị (Body Positivity, Sustainability, Discrete Packaging)
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={handleAddValueItem}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Thêm giá trị
+                            </button>
+                          </div>
+                          <div className="space-y-3">
+                            {((editingSection.metadata as { values?: ValueItem[] })?.values || []).map((item, index) => (
+                              <div key={index} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-1 space-y-2">
+                                    <input
+                                      type="text"
+                                      value={item.icon}
+                                      onChange={(e) => handleUpdateValueItem(index, 'icon', e.target.value)}
+                                      placeholder="Emoji (💖, 🌿, 📦)"
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={item.title}
+                                      onChange={(e) => handleUpdateValueItem(index, 'title', e.target.value)}
+                                      placeholder="Tiêu đề (Body Positivity)"
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                    />
+                                    <textarea
+                                      value={item.description}
+                                      onChange={(e) => handleUpdateValueItem(index, 'description', e.target.value)}
+                                      placeholder="Mô tả"
+                                      rows={2}
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm resize-none"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteValueItem(index)}
+                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 mt-1"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Stats */}
+                      {editingSection.sectionKey === 'stats' && (
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
+                            📊 Số liệu thống kê (với hiệu ứng đếm tăng dần khi scroll)
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {((editingSection.metadata as { stats?: StatItem[] })?.stats || []).map((stat, index) => (
+                              <div key={index} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                      type="number"
+                                      value={stat.number}
+                                      onChange={(e) => handleUpdateStat(index, 'number', e.target.value)}
+                                      placeholder="Số"
+                                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={stat.suffix}
+                                      onChange={(e) => handleUpdateStat(index, 'suffix', e.target.value)}
+                                      placeholder="Hậu tố (+, /5)"
+                                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                    />
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={stat.label}
+                                    onChange={(e) => handleUpdateStat(index, 'label', e.target.value)}
+                                    placeholder="Nhãn (Khách hàng hài lòng)"
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Team Members */}
+                      {editingSection.sectionKey === 'team' && (
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                              👥 Thành viên đội ngũ (tên, vị trí, ảnh đại diện)
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={handleAddTeamMember}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Thêm thành viên
+                            </button>
+                          </div>
+                          <div className="space-y-3">
+                            {((editingSection.metadata as { members?: TeamMember[] })?.members || []).map((member, index) => (
+                              <div key={index} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-1 space-y-2">
+                                    <input
+                                      type="text"
+                                      value={member.name}
+                                      onChange={(e) => handleUpdateTeamMember(index, 'name', e.target.value)}
+                                      placeholder="Tên"
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={member.role}
+                                      onChange={(e) => handleUpdateTeamMember(index, 'role', e.target.value)}
+                                      placeholder="Vị trí (Founder & Creative Director)"
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={member.image}
+                                      onChange={(e) => handleUpdateTeamMember(index, 'image', e.target.value)}
+                                      placeholder="URL ảnh đại diện"
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteTeamMember(index)}
+                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 mt-1"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* CTA Buttons */}
+                      {editingSection.sectionKey === 'cta' && (
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
+                            🎯 Các nút hành động (Khám phá bộ sưu tập, Tư vấn chọn Size)
+                          </h4>
+                          <div className="space-y-3">
+                            {((editingSection.metadata as { buttons?: CTAButton[] })?.buttons || []).map((button, index) => (
+                              <div key={index} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <input
+                                    type="text"
+                                    value={button.text}
+                                    onChange={(e) => handleUpdateCTAButton(index, 'text', e.target.value)}
+                                    placeholder="Text button"
+                                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={button.link}
+                                    onChange={(e) => handleUpdateCTAButton(index, 'link', e.target.value)}
+                                    placeholder="Link (/san-pham, /contact)"
+                                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                  />
+                                  <select
+                                    value={button.variant}
+                                    onChange={(e) => handleUpdateCTAButton(index, 'variant', e.target.value)}
+                                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                  >
+                                    <option value="primary">Primary (nền trắng)</option>
+                                    <option value="outline">Outline (viền)</option>
+                                  </select>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
