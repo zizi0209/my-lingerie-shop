@@ -385,6 +385,7 @@ model ProductOnPost {
   position     Int?     // Position in post content (for inline display)
   displayType  String   @default("inline-card") // "inline-card" | "sidebar" | "end-collection"
   customNote   String?  // Custom note from admin (e.g., "Perfect for date night")
+  isAutoRecommended Boolean @default(false) // Auto-generated recommendation vs manual link
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   
@@ -395,6 +396,7 @@ model ProductOnPost {
   @@index([postId])
   @@index([productId])
   @@index([displayType])
+  @@index([isAutoRecommended])
 }
 
 
