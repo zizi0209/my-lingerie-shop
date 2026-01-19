@@ -3,15 +3,62 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Phone, Mail, Instagram, Truck, RefreshCw, ShieldCheck, ChevronRight } from "lucide-react";
+import { Phone, Mail, Instagram, Truck, RefreshCw, ShieldCheck, ChevronRight, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { useNewsletterVoucher } from "@/hooks/useNewsletterVoucher";
+import { useState } from "react";
 
 export default function Footer() {
   const { store_name, store_logo, store_description, social_facebook, social_instagram, social_tiktok, social_zalo } = useStore();
   const { config: voucherConfig } = useNewsletterVoucher();
   
   const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
+  
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'already' | 'verify'>('idle');
+  const [message, setMessage] = useState('');
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    
+    setLoading(true);
+    setStatus('idle');
+    
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/newsletter/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'footer' }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        if (data.alreadySubscribed) {
+          setStatus('already');
+          setMessage(data.message || 'Email này đã đăng ký trước đó!');
+        } else if (data.needsVerification) {
+          setStatus('verify');
+          setMessage(data.message || 'Vui lòng kiểm tra email để xác nhận!');
+          setEmail('');
+        } else {
+          setStatus('success');
+          setMessage(data.message || 'Đăng ký thành công!');
+          setEmail('');
+        }
+      } else {
+        setStatus('error');
+        setMessage(data.message || 'Có lỗi xảy ra');
+      }
+    } catch {
+      setStatus('error');
+      setMessage('Không thể kết nối server');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <footer className="bg-brand-secondary dark:bg-gray-900 text-gray-900 dark:text-white pt-20 md:pt-24 pb-8 border-t border-brand-border/20 transition-colors">
@@ -108,16 +155,53 @@ export default function Footer() {
             <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
               Đăng ký nhận tin để hưởng ưu đãi {formatCurrency(voucherConfig.discountValue)}₫ cho đơn đầu tiên.
             </p>
-            <div className="relative group w-full max-w-[260px] pt-2">
-              <input 
-                type="email" 
-                placeholder="Địa chỉ email" 
-                className="w-full bg-transparent border-b border-brand-border/40 py-2 pr-8 text-sm focus:outline-none focus:border-brand-accent transition-all placeholder:opacity-50 text-gray-900 dark:text-white" 
-              />
-              <button className="absolute right-0 bottom-1/2 translate-y-1/2 p-1 text-gray-400 group-focus-within:text-brand-accent transition-colors">
-                <ChevronRight size={16} />
-              </button>
-            </div>
+            
+            {status === 'verify' ? (
+              <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                  <Mail className="w-4 h-4" />
+                  <span className="text-xs font-medium">Kiểm tra email!</span>
+                </div>
+                <p className="text-xs text-blue-700 dark:text-blue-300">{message}</p>
+              </div>
+            ) : status === 'success' ? (
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-xs">{message}</span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <form onSubmit={handleSubmit} className="relative group w-full max-w-[260px] pt-2">
+                  <input 
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Địa chỉ email" 
+                    className="w-full bg-transparent border-b border-brand-border/40 py-2 pr-8 text-sm focus:outline-none focus:border-brand-accent transition-all placeholder:opacity-50 text-gray-900 dark:text-white"
+                    required
+                  />
+                  <button 
+                    type="submit"
+                    disabled={loading}
+                    className="absolute right-0 bottom-1/2 translate-y-1/2 p-1 text-gray-400 group-focus-within:text-brand-accent hover:text-brand-accent transition-colors disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight size={16} />}
+                  </button>
+                </form>
+                {status === 'error' && (
+                  <div className="flex items-center gap-2 text-red-500 text-xs">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>{message}</span>
+                  </div>
+                )}
+                {status === 'already' && (
+                  <div className="flex items-center gap-2 text-amber-500 text-xs">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>{message}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-3 pt-4">
