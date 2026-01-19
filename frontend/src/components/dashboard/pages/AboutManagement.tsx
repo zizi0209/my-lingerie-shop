@@ -310,11 +310,19 @@ const AboutManagement: React.FC = () => {
     setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, buttons } });
   };
 
+  // Helper: Generate current date in "Tháng MM/YYYY" format
+  const generateCurrentDate = () => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `Tháng ${month}/${year}`;
+  };
+
   // Social Proof Management - Quotes
   const handleAddQuote = () => {
     if (!editingSection) return;
     const quotes = (editingSection.metadata as { quotes?: Quote[] })?.quotes || [];
-    const newQuote: Quote = { quote: '', author: '', publication: '', date: '' };
+    const newQuote: Quote = { quote: '', author: '', publication: '', date: generateCurrentDate() };
     setEditingSection({
       ...editingSection,
       metadata: { ...editingSection.metadata, quotes: [...quotes, newQuote] }
@@ -858,13 +866,17 @@ const AboutManagement: React.FC = () => {
                                         className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                                       />
                                     </div>
-                                    <input
-                                      type="text"
-                                      value={quote.date}
-                                      onChange={(e) => handleUpdateQuote(index, 'date', e.target.value)}
-                                      placeholder="Ngày tháng (vd: 'Tháng 10/2024')"
-                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                                    />
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-gray-500 dark:text-gray-400">
+                                        📅 Ngày tháng (Tự động điền, không cần chỉnh sửa)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={quote.date}
+                                        readOnly
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm cursor-not-allowed"
+                                      />
+                                    </div>
                                   </div>
                                   <button
                                     type="button"

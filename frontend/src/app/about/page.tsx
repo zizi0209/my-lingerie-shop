@@ -331,27 +331,31 @@ export default function AboutPage() {
           </div>
 
           {/* Media logos */}
-          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 mb-16 opacity-60">
-            {((socialproof.metadata as { partners?: Array<{ name: string }> })?.partners || []).map((partner, index) => (
-              <span 
-                key={index} 
-                className="text-xl md:text-2xl font-serif text-gray-400 dark:text-gray-500"
-              >
-                {partner.name}
-              </span>
-            ))}
-          </div>
+          {((socialproof.metadata as { partners?: Array<{ name: string }> })?.partners || []).length > 0 && (
+            <div className="flex flex-wrap justify-center items-center gap-6 md:gap-8 lg:gap-10 mb-16 opacity-60">
+              {((socialproof.metadata as { partners?: Array<{ name: string }> })?.partners || []).map((partner, index) => (
+                <div 
+                  key={index}
+                  className="text-center"
+                >
+                  <p className="text-lg md:text-xl lg:text-2xl font-serif text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {partner.name}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Testimonials & Quotes */}
           {((socialproof.metadata as { quotes?: Array<{ quote: string; author: string; publication: string; date: string }> })?.quotes || []).length > 0 && (
-            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            <div className="flex flex-wrap justify-center gap-8 md:gap-10 max-w-6xl mx-auto">
               {((socialproof.metadata as { quotes?: Array<{ quote: string; author: string; publication: string; date: string }> })?.quotes || []).map((item, index) => (
-                <div key={index} className="bg-gray-50 dark:bg-gray-900/50 p-8 rounded-2xl border border-gray-200 dark:border-gray-700">
-                  <blockquote className="text-lg md:text-xl font-serif font-light text-gray-700 dark:text-gray-300 italic mb-6">
+                <div key={index} className="bg-gray-50 dark:bg-gray-900/50 p-8 rounded-2xl border border-gray-200 dark:border-gray-700 w-full sm:w-80 md:w-96 lg:w-80">
+                  <blockquote className="text-lg md:text-xl font-serif font-light text-gray-700 dark:text-gray-300 italic mb-6 line-clamp-4">
                     "{item.quote}"
                   </blockquote>
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <p className="text-gray-600 dark:text-gray-400 font-medium text-sm mb-1">
+                    <p className="text-gray-600 dark:text-gray-400 font-medium text-sm mb-1 truncate">
                       {item.author}
                     </p>
                     <p className="text-gray-500 dark:text-gray-500 text-xs">
