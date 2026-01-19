@@ -181,6 +181,26 @@ const AboutManagement: React.FC = () => {
     setError(null);
 
     try {
+      // Debug: kiểm tra authentication
+      const token = localStorage.getItem('accessToken');
+      const user = api.getUserFromToken();
+      const isAdmin = api.isAdmin();
+      
+      console.log('🔐 Upload Debug Info:');
+      console.log('  - Token exists:', !!token);
+      console.log('  - Token preview:', token?.substring(0, 30) + '...');
+      console.log('  - User info:', user);
+      console.log('  - Is admin:', isAdmin);
+      console.log('  - Is authenticated:', api.isAuthenticated());
+      
+      if (!token) {
+        throw new Error('Token không tồn tại. Vui lòng đăng nhập lại!');
+      }
+      
+      if (!isAdmin) {
+        throw new Error('Bạn không có quyền admin để upload ảnh!');
+      }
+      
       const formData = new FormData();
       formData.append('file', uploadingImage.file);
 
@@ -198,8 +218,13 @@ const AboutManagement: React.FC = () => {
         setTimeout(() => setSuccess(null), 3000);
       }
     } catch (err) {
-      console.error('Upload error:', err);
-      setError(language === 'vi' ? 'Lỗi khi tải ảnh lên' : 'Image upload error');
+      console.error('❌ Upload error:', err);
+      console.error('❌ Error details:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        token: !!localStorage.getItem('token'),
+      });
+      const errorMessage = err instanceof Error ? err.message : (language === 'vi' ? 'Lỗi khi tải ảnh lên' : 'Image upload error');
+      setError(errorMessage);
     } finally {
       setIsUploading(false);
     }

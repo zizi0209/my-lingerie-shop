@@ -300,6 +300,40 @@ class ApiService {
     }
   }
 
+  // Decode JWT token để lấy user info (không verify signature)
+  public getUserFromToken(): { userId: number; email: string; roleId: number | null; roleName?: string } | null {
+    const token = this.getToken();
+    if (!token) return null;
+
+    try {
+      // JWT format: header.payload.signature
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+
+      // Decode payload (base64url)
+      const payload = parts[1];
+      const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+      
+      return {
+        userId: decoded.userId,
+        email: decoded.email,
+        roleId: decoded.roleId,
+        roleName: decoded.roleName
+      };
+    } catch (error) {
+      console.error('Failed to decode token:', error);
+      return null;
+    }
+  }
+
+  // Kiểm tra user có phải admin không
+  public isAdmin(): boolean {
+    const user = this.getUserFromToken();
+    if (!user || !user.roleName) return false;
+    const roleName = user.roleName.toUpperCase();
+    return roleName === 'ADMIN' || roleName === 'SUPER_ADMIN';
+  }
+
   // Logout - gọi API để xóa refresh token cookie
   public async logout(): Promise<void> {
     try {
