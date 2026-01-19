@@ -866,17 +866,6 @@ const AboutManagement: React.FC = () => {
                                         className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                                       />
                                     </div>
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-gray-500 dark:text-gray-400">
-                                        📅 Ngày tháng (Tự động điền, không cần chỉnh sửa)
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={quote.date}
-                                        readOnly
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm cursor-not-allowed"
-                                      />
-                                    </div>
                                   </div>
                                   <button
                                     type="button"
