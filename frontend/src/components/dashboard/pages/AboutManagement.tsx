@@ -747,35 +747,68 @@ const AboutManagement: React.FC = () => {
                       {/* CTA Buttons */}
                       {editingSection.sectionKey === 'cta' && (
                         <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
-                          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
-                            🎯 Các nút hành động (Khám phá bộ sưu tập, Tư vấn chọn Size)
-                          </h4>
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                              🎯 Các nút hành động (Khám phá bộ sưu tập, Tư vấn chọn Size)
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!editingSection) return;
+                                const buttons = (editingSection.metadata as { buttons?: CTAButton[] })?.buttons || [];
+                                const newButton: CTAButton = { text: '', link: '', variant: 'primary' };
+                                setEditingSection({
+                                  ...editingSection,
+                                  metadata: { ...editingSection.metadata, buttons: [...buttons, newButton] }
+                                });
+                              }}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Thêm button
+                            </button>
+                          </div>
                           <div className="space-y-3">
                             {((editingSection.metadata as { buttons?: CTAButton[] })?.buttons || []).map((button, index) => (
                               <div key={index} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                  <input
-                                    type="text"
-                                    value={button.text}
-                                    onChange={(e) => handleUpdateCTAButton(index, 'text', e.target.value)}
-                                    placeholder="Text button"
-                                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={button.link}
-                                    onChange={(e) => handleUpdateCTAButton(index, 'link', e.target.value)}
-                                    placeholder="Link (/san-pham, /contact)"
-                                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                                  />
-                                  <select
-                                    value={button.variant}
-                                    onChange={(e) => handleUpdateCTAButton(index, 'variant', e.target.value)}
-                                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-1 space-y-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                      <input
+                                        type="text"
+                                        value={button.text}
+                                        onChange={(e) => handleUpdateCTAButton(index, 'text', e.target.value)}
+                                        placeholder="Text button"
+                                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={button.link}
+                                        onChange={(e) => handleUpdateCTAButton(index, 'link', e.target.value)}
+                                        placeholder="Link (/san-pham, /contact)"
+                                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                      />
+                                      <select
+                                        value={button.variant}
+                                        onChange={(e) => handleUpdateCTAButton(index, 'variant', e.target.value)}
+                                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                      >
+                                        <option value="primary">Primary (nền trắng)</option>
+                                        <option value="outline">Outline (viền)</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!editingSection) return;
+                                      const buttons = ((editingSection.metadata as { buttons?: CTAButton[] })?.buttons || []).filter((_, i) => i !== index);
+                                      setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, buttons } });
+                                    }}
+                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 mt-1"
                                   >
-                                    <option value="primary">Primary (nền trắng)</option>
-                                    <option value="outline">Outline (viền)</option>
-                                  </select>
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
                                 </div>
                               </div>
                             ))}

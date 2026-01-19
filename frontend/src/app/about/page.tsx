@@ -385,19 +385,38 @@ export default function AboutPage() {
             )}
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                href="/san-pham"
-                className="ck-button inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition group"
-              >
-                Khám phá bộ sưu tập
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link
-                href="/contact"
-                className="inline-flex items-center justify-center gap-2 border border-white/30 text-white px-8 py-4 rounded-full font-medium hover:bg-white/10 transition"
-              >
-                Tư vấn chọn Size
-              </Link>
+              {((cta.metadata as { buttons?: Array<{ text: string; link: string; variant: 'primary' | 'outline' }> })?.buttons || []).length > 0 ? (
+                ((cta.metadata as { buttons?: Array<{ text: string; link: string; variant: 'primary' | 'outline' }> })?.buttons || []).map((button, index) => (
+                  <Link
+                    key={index}
+                    href={button.link}
+                    className={`inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full font-medium transition group ${
+                      button.variant === 'primary'
+                        ? 'ck-button bg-white text-gray-900 hover:bg-gray-100'
+                        : 'border border-white/30 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {button.text}
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                ))
+              ) : (
+                <>
+                  <Link
+                    href="/san-pham"
+                    className="ck-button inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition group"
+                  >
+                    Khám phá bộ sưu tập
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                  <Link
+                    href="/contact"
+                    className="inline-flex items-center justify-center gap-2 border border-white/30 text-white px-8 py-4 rounded-full font-medium hover:bg-white/10 transition"
+                  >
+                    Tư vấn chọn Size
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </section>
