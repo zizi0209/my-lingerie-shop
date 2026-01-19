@@ -475,7 +475,7 @@ const AboutManagement: React.FC = () => {
                       {(() => {
                         const key = editingSection.sectionKey;
                         const needsTitle = ['hero', 'story', 'craftsmanship', 'values', 'team', 'socialproof', 'cta'].includes(key);
-                        const needsSubtitle = ['hero', 'story', 'craftsmanship', 'values', 'team', 'socialproof'].includes(key);
+                        const needsSubtitle = ['hero', 'story', 'craftsmanship', 'values', 'team', 'socialproof', 'cta'].includes(key);
                         const needsContent = ['hero', 'story', 'craftsmanship', 'team', 'cta'].includes(key);
                         const needsImage = ['hero', 'story'].includes(key);
 

@@ -374,6 +374,11 @@ export default function AboutPage() {
       {cta?.isActive && (
         <section className="py-20 md:py-28 bg-gray-900 text-white">
           <div className="container mx-auto px-4 text-center">
+            {cta.subtitle && (
+              <p className="text-sm uppercase tracking-[0.2em] text-primary-400 mb-4">
+                {cta.subtitle}
+              </p>
+            )}
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-6 whitespace-pre-line">
               {cta.title || "Bạn đã sẵn sàng?"}
             </h2>
