@@ -23,7 +23,8 @@ router.get('/', async (req, res) => {
             'store_address',
             'social_facebook',
             'social_instagram',
-            'social_tiktok'
+            'social_tiktok',
+            'social_zalo'
           ]
         }
       }

@@ -209,7 +209,7 @@ export default function AboutPage() {
             )}
           </div>
 
-          <div className="flex flex-wrap justify-center gap-8 max-w-6xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-6 md:gap-8 max-w-6xl mx-auto">
             {((craftsmanship.metadata as { items?: Array<{ icon: string; title: string; description: string }> })?.items || []).map((item, index) => {
               // Map icon string to Icon component
               const IconComponent = 
@@ -222,7 +222,7 @@ export default function AboutPage() {
               return (
               <div 
                 key={index} 
-                className="bg-white dark:bg-gray-800 p-8 rounded-2xl text-center hover:shadow-lg transition-shadow w-full sm:w-80 md:w-64 lg:w-72"
+                className="bg-white dark:bg-gray-800 p-8 rounded-2xl text-center hover:shadow-lg transition-shadow w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(25%-1.5rem)] max-w-sm"
               >
                 <div className="w-16 h-16 bg-primary-50 dark:bg-primary-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
                   <IconComponent className="w-8 h-8 text-primary-500" />
@@ -258,11 +258,11 @@ export default function AboutPage() {
             )}
           </div>
 
-          <div className="flex flex-wrap justify-center gap-8 md:gap-12 max-w-6xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-6 md:gap-8 lg:gap-12 max-w-6xl mx-auto">
             {((values.metadata as { values?: Array<{ icon: string; title: string; description: string }> })?.values || []).map((item, index) => (
               <div 
                 key={index} 
-                className="text-center p-8 w-full sm:w-80 md:w-64 lg:w-72"
+                className="text-center p-8 w-full sm:w-[calc(50%-0.75rem)] md:w-[calc(33.333%-1.5rem)] max-w-sm"
               >
                 <div className="text-5xl mb-6">{item.icon}</div>
                 <h3 className="text-xl font-medium mb-4">{item.title}</h3>
@@ -281,7 +281,7 @@ export default function AboutPage() {
         <div className="container mx-auto px-4">
           {/* Stats - Real-time data with animation */}
           {stats?.isActive && realTimeStats && (
-          <div className="flex flex-wrap justify-center gap-8 md:gap-12 max-w-6xl mx-auto mb-20">
+          <div className="flex flex-wrap justify-center gap-8 md:gap-10 lg:gap-16 max-w-6xl mx-auto mb-20">
             <StatCounter {...realTimeStats.satisfiedCustomers} />
             <StatCounter {...realTimeStats.designCollection} />
             <StatCounter {...realTimeStats.averageRating} />
@@ -311,9 +311,9 @@ export default function AboutPage() {
             )}
           </div>
 
-          <div className="flex flex-wrap justify-center gap-8 md:gap-12 max-w-6xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-8 md:gap-10 lg:gap-12 max-w-6xl mx-auto">
             {((team.metadata as { members?: Array<{ name: string; role: string; image: string }> })?.members || []).map((member, index) => (
-              <div key={index} className="text-center group w-full sm:w-80 md:w-64 lg:w-72">
+              <div key={index} className="text-center group w-full sm:w-[calc(50%-1rem)] md:w-auto max-w-xs">
                 <div className="relative w-40 h-40 mx-auto mb-4 rounded-full overflow-hidden">
                   <Image
                     src={member.image}

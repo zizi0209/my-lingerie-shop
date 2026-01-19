@@ -28,6 +28,7 @@ interface SystemConfig {
   social_facebook?: string;
   social_instagram?: string;
   social_tiktok?: string;
+  social_zalo?: string;
   
   // SEO
   seo_title?: string;
@@ -77,6 +78,7 @@ const defaultConfig: SystemConfig = {
   social_facebook: '',
   social_instagram: '',
   social_tiktok: '',
+  social_zalo: '',
   seo_title: '',
   seo_description: '',
   seo_keywords: '',
@@ -163,6 +165,7 @@ const Settings: React.FC = () => {
     facebook: 'Facebook',
     instagram: 'Instagram',
     tiktok: 'TikTok',
+    zalo: 'Zalo',
     
     // Fields - SEO
     seoTitle: language === 'vi' ? 'Tiêu đề SEO' : 'SEO Title',
@@ -633,6 +636,16 @@ const Settings: React.FC = () => {
                     value={config.social_tiktok || ''}
                     onChange={(e) => handleChange('social_tiktok', e.target.value)}
                     placeholder="https://tiktok.com/..."
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 font-medium"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.zalo}</label>
+                  <input
+                    type="url"
+                    value={config.social_zalo || ''}
+                    onChange={(e) => handleChange('social_zalo', e.target.value)}
+                    placeholder="https://zalo.me/..."
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 font-medium"
                   />
                 </div>
