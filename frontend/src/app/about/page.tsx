@@ -26,7 +26,12 @@ export default function AboutPage() {
   useEffect(() => {
     const fetchSections = async () => {
       try {
-        const response = await api.get<{ success: boolean; data: AboutSection[] }>('/about-sections');
+        // Thêm timestamp để bypass cache và luôn fetch dữ liệu mới
+        const timestamp = Date.now();
+        const response = await api.get<{ success: boolean; data: AboutSection[] }>(
+          `/about-sections?_t=${timestamp}`,
+          false // không cần auth cho public endpoint
+        );
         if (response.success) {
           const sectionsMap = response.data.reduce((acc, section) => {
             acc[section.sectionKey] = section;
@@ -54,8 +59,11 @@ export default function AboutPage() {
 
   const hero = sections.hero;
   const story = sections.story;
+  const craftsmanship = sections.craftsmanship;
   const values = sections.values;
+  const stats = sections.stats;
   const team = sections.team;
+  const socialproof = sections.socialproof;
   const cta = sections.cta;
 
   return (
@@ -150,120 +158,105 @@ export default function AboutPage() {
       )}
 
       {/* ===== PHẦN 3: CRAFTSMANSHIP ===== */}
+      {craftsmanship?.isActive && (
       <section className="py-20 md:py-28 bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16 max-w-3xl mx-auto">
-            <p className="text-sm uppercase tracking-[0.2em] text-primary-500 mb-4">
-              Cam kết chất lượng
-            </p>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-6 text-gray-900 dark:text-white">
-              Tỉ mỉ trong từng đường kim
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-              Chúng tôi hiểu rằng nội y chạm trực tiếp vào làn da nhạy cảm nhất của bạn. 
-              Vì vậy, mỗi sản phẩm đều được chọn lọc và kiểm định nghiêm ngặt.
-            </p>
+            {craftsmanship.subtitle && (
+              <p className="text-sm uppercase tracking-[0.2em] text-primary-500 mb-4">
+                {craftsmanship.subtitle}
+              </p>
+            )}
+            {craftsmanship.title && (
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-6 text-gray-900 dark:text-white">
+                {craftsmanship.title}
+              </h2>
+            )}
+            {craftsmanship.content && (
+              <div 
+                className="text-gray-600 dark:text-gray-400 leading-relaxed prose dark:prose-invert max-w-none prose-p:text-gray-600 dark:prose-p:text-gray-400"
+                dangerouslySetInnerHTML={{ __html: sanitizeForPublic(craftsmanship.content) }}
+              />
+            )}
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
-            {[
-              {
-                icon: Sparkles,
-                title: "Ren cao cấp",
-                desc: "Ren Pháp (French Lace) mềm mại, không gây ngứa, giữ form sau nhiều lần giặt"
-              },
-              {
-                icon: Heart,
-                title: "Lụa tơ tằm",
-                desc: "100% Silk tự nhiên, thoáng mát mùa hè, ấm áp mùa đông"
-              },
-              {
-                icon: Scissors,
-                title: "Đường may Seamless",
-                desc: "Công nghệ may không hằn, thoải mái tối đa dưới mọi trang phục"
-              },
-              {
-                icon: Shield,
-                title: "Gọng mềm Soft-wire",
-                desc: "Nâng đỡ hoàn hảo mà không gây khó chịu hay hằn da"
-              }
-            ].map((item, index) => (
+            {((craftsmanship.metadata as { items?: Array<{ icon: string; title: string; description: string }> })?.items || []).map((item, index) => {
+              // Map icon string to Icon component
+              const IconComponent = 
+                item.icon === 'sparkles' ? Sparkles :
+                item.icon === 'heart' ? Heart :
+                item.icon === 'scissors' ? Scissors :
+                item.icon === 'shield' ? Shield :
+                Package; // fallback
+              
+              return (
               <div 
                 key={index} 
                 className="bg-white dark:bg-gray-800 p-8 rounded-2xl text-center hover:shadow-lg transition-shadow"
               >
                 <div className="w-16 h-16 bg-primary-50 dark:bg-primary-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <item.icon className="w-8 h-8 text-primary-500" />
+                  <IconComponent className="w-8 h-8 text-primary-500" />
                 </div>
                 <h3 className="text-xl font-medium mb-3 text-gray-900 dark:text-white">
                   {item.title}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                  {item.desc}
+                  {item.description}
+                </p>
+              </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+      )}
+
+      {/* ===== PHẦN 4: CORE VALUES ===== */}
+      {values?.isActive && (
+      <section className="py-20 md:py-28 bg-gray-900 text-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16 max-w-3xl mx-auto">
+            {values.subtitle && (
+              <p className="text-sm uppercase tracking-[0.2em] text-primary-400 mb-4">
+                {values.subtitle}
+              </p>
+            )}
+            {values.title && (
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-6">
+                {values.title}
+              </h2>
+            )}
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {((values.metadata as { values?: Array<{ icon: string; title: string; description: string }> })?.values || []).map((item, index, arr) => (
+              <div 
+                key={index} 
+                className={`text-center p-8 ${index === 1 && arr.length === 3 ? 'border-x border-gray-800' : ''}`}
+              >
+                <div className="text-5xl mb-6">{item.icon}</div>
+                <h3 className="text-xl font-medium mb-4">{item.title}</h3>
+                <p className="text-gray-400 leading-relaxed">
+                  {item.description}
                 </p>
               </div>
             ))}
           </div>
         </div>
       </section>
-
-      {/* ===== PHẦN 4: CORE VALUES ===== */}
-      <section className="py-20 md:py-28 bg-gray-900 text-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16 max-w-3xl mx-auto">
-            <p className="text-sm uppercase tracking-[0.2em] text-primary-400 mb-4">
-              Giá trị cốt lõi
-            </p>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light mb-6">
-              Những điều chúng tôi tin tưởng
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {/* Body Positivity */}
-            <div className="text-center p-8">
-              <div className="text-5xl mb-6">💖</div>
-              <h3 className="text-xl font-medium mb-4">Body Positivity</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Chúng tôi tôn vinh mọi đường cong. Từ size XS đến XXL, mọi cơ thể đều đẹp và xứng đáng được nâng niu.
-              </p>
-            </div>
-
-            {/* Sustainability */}
-            <div className="text-center p-8 border-x border-gray-800">
-              <div className="text-5xl mb-6">🌿</div>
-              <h3 className="text-xl font-medium mb-4">Sustainability</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Bao bì từ giấy tái chế, túi vải thay vì túi nhựa. Chúng tôi cam kết giảm thiểu tác động môi trường.
-              </p>
-            </div>
-
-            {/* Privacy */}
-            <div className="text-center p-8">
-              <div className="text-5xl mb-6">📦</div>
-              <h3 className="text-xl font-medium mb-4">Discrete Packaging</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Đóng gói kín đáo, không ghi tên sản phẩm bên ngoài. Sự riêng tư của bạn là ưu tiên hàng đầu.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      )}
 
       {/* ===== PHẦN 5: STATS & TEAM ===== */}
       <section className="py-20 md:py-28 bg-white dark:bg-gray-950">
         <div className="container mx-auto px-4">
           {/* Stats */}
+          {stats?.isActive && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto mb-20">
-            {[
-              { number: "50,000+", label: "Khách hàng hài lòng" },
-              { number: "200+", label: "Mẫu thiết kế độc quyền" },
-              { number: "4.9/5", label: "Đánh giá trung bình" },
-              { number: "3", label: "Cửa hàng vật lý" }
-            ].map((stat, index) => (
+            {((stats.metadata as { stats?: Array<{ number: number; suffix: string; label: string; decimals?: number }> })?.stats || []).map((stat, index) => (
               <div key={index} className="text-center">
                 <div className="text-3xl md:text-4xl lg:text-5xl font-light mb-2 text-gray-900 dark:text-white">
-                  {stat.number}
+                  {stat.decimals ? stat.number.toFixed(stat.decimals) : stat.number.toLocaleString()}{stat.suffix}
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {stat.label}
@@ -271,38 +264,32 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
+          )}
 
           {/* Team */}
+          {team?.isActive && (
+          <>
           <div className="text-center mb-12">
-            <p className="text-sm uppercase tracking-[0.2em] text-primary-500 mb-4">
-              Đội ngũ
-            </p>
-            <h2 className="text-3xl md:text-4xl font-serif font-light mb-6 text-gray-900 dark:text-white">
-              Những người đứng sau Lingerie Shop
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Đội ngũ thiết kế và tư vấn viên tận tâm, luôn sẵn sàng giúp bạn tìm được sản phẩm phù hợp nhất.
-            </p>
+            {team.subtitle && (
+              <p className="text-sm uppercase tracking-[0.2em] text-primary-500 mb-4">
+                {team.subtitle}
+              </p>
+            )}
+            {team.title && (
+              <h2 className="text-3xl md:text-4xl font-serif font-light mb-6 text-gray-900 dark:text-white">
+                {team.title}
+              </h2>
+            )}
+            {team.content && (
+              <div 
+                className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto prose dark:prose-invert prose-p:text-gray-600 dark:prose-p:text-gray-400"
+                dangerouslySetInnerHTML={{ __html: sanitizeForPublic(team.content) }}
+              />
+            )}
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {[
-              {
-                name: "Nguyễn Minh Anh",
-                role: "Founder & Creative Director",
-                image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=400&auto=format&fit=crop"
-              },
-              {
-                name: "Trần Thu Hà",
-                role: "Head of Design",
-                image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=400&auto=format&fit=crop"
-              },
-              {
-                name: "Lê Hoàng Yến",
-                role: "Customer Experience Lead",
-                image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop"
-              }
-            ].map((member, index) => (
+            {((team.metadata as { members?: Array<{ name: string; role: string; image: string }> })?.members || []).map((member, index) => (
               <div key={index} className="text-center group">
                 <div className="relative w-40 h-40 mx-auto mb-4 rounded-full overflow-hidden">
                   <Image
@@ -321,24 +308,31 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
+          </>
+          )}
         </div>
       </section>
 
       {/* ===== PHẦN 6: SOCIAL PROOF ===== */}
+      {socialproof?.isActive && (
       <section className="py-16 md:py-20 bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <p className="text-sm uppercase tracking-[0.2em] text-primary-500 mb-4">
-              Được tin tưởng bởi
-            </p>
-            <h2 className="text-2xl md:text-3xl font-serif font-light text-gray-900 dark:text-white">
-              Báo chí & Đối tác
-            </h2>
+            {socialproof.subtitle && (
+              <p className="text-sm uppercase tracking-[0.2em] text-primary-500 mb-4">
+                {socialproof.subtitle}
+              </p>
+            )}
+            {socialproof.title && (
+              <h2 className="text-2xl md:text-3xl font-serif font-light text-gray-900 dark:text-white">
+                {socialproof.title}
+              </h2>
+            )}
           </div>
 
           {/* Media logos */}
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 mb-16 opacity-60">
-            {["Elle", "Đẹp", "VnExpress", "Harper's Bazaar", "Vogue VN"].map((name, index) => (
+            {((socialproof.metadata as { partners?: string[] })?.partners || []).map((name, index) => (
               <span 
                 key={index} 
                 className="text-xl md:text-2xl font-serif text-gray-400 dark:text-gray-500"
@@ -349,17 +343,21 @@ export default function AboutPage() {
           </div>
 
           {/* Testimonial */}
+          {(socialproof.metadata as { testimonial?: { quote: string; author: string; date: string } })?.testimonial && (
           <div className="max-w-3xl mx-auto text-center">
             <blockquote className="text-xl md:text-2xl font-serif font-light text-gray-700 dark:text-gray-300 italic mb-6">
-              "Lingerie Shop là một trong những thương hiệu nội y Việt hiếm hoi hiểu được vóc dáng và nhu cầu của phụ nữ châu Á. 
-              Chất lượng sản phẩm ngang tầm các thương hiệu quốc tế."
+              "{((socialproof.metadata as { testimonial?: { quote: string; author: string; date: string } })?.testimonial?.quote)}"
             </blockquote>
             <p className="text-gray-500 dark:text-gray-400">
-              — <span className="font-medium">Elle Vietnam</span>, Tháng 10/2024
+              — <span className="font-medium">
+                {((socialproof.metadata as { testimonial?: { quote: string; author: string; date: string } })?.testimonial?.author)}
+              </span>, {((socialproof.metadata as { testimonial?: { quote: string; author: string; date: string } })?.testimonial?.date)}
             </p>
           </div>
+          )}
         </div>
       </section>
+      )}
 
       {/* ===== PHẦN 7: CTA ===== */}
       {cta?.isActive && (
