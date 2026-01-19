@@ -5,9 +5,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { Phone, Mail, Instagram, Truck, RefreshCw, ShieldCheck, ChevronRight } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
+import { useNewsletterVoucher } from "@/hooks/useNewsletterVoucher";
 
 export default function Footer() {
   const { store_name, store_logo, store_description, social_facebook, social_instagram, social_tiktok, social_zalo } = useStore();
+  const { config: voucherConfig } = useNewsletterVoucher();
+  
+  const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
   return (
     <footer className="bg-brand-secondary dark:bg-gray-900 text-gray-900 dark:text-white pt-20 md:pt-24 pb-8 border-t border-brand-border/20 transition-colors">
@@ -102,7 +106,7 @@ export default function Footer() {
           <div className="space-y-4">
             <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Bản tin</h4>
             <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-              Đăng ký nhận tin để hưởng ưu đãi 10% cho đơn đầu tiên.
+              Đăng ký nhận tin để hưởng ưu đãi {formatCurrency(voucherConfig.discountValue)}₫ cho đơn đầu tiên.
             </p>
             <div className="relative group w-full max-w-[260px] pt-2">
               <input 
