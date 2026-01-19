@@ -62,19 +62,13 @@ export default function PostContent({ postId, content, className = '' }: PostCon
 
   // Parse HTML and inject ProductCardInPost components
   const renderContentWithProducts = () => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(sanitizeForPublic(content), 'text/html');
-
-    // Find all product node placeholders
-    const productNodes = doc.querySelectorAll('[data-product-id]');
-
     // Group products by display type for easier rendering
     const inlineProducts = products.filter((p) => p.displayType === 'inline-card');
     const sidebarProducts = products.filter((p) => p.displayType === 'sidebar');
     const collectionProducts = products.filter((p) => p.displayType === 'end-collection');
 
-    // Nếu không có embedded products, render content bình thường
-    if (products.length === 0 || productNodes.length === 0) {
+    // Nếu không có products, render content bình thường
+    if (products.length === 0) {
       return (
         <div
           className={className}
