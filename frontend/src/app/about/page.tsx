@@ -332,12 +332,12 @@ export default function AboutPage() {
 
           {/* Media logos */}
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 mb-16 opacity-60">
-            {((socialproof.metadata as { partners?: string[] })?.partners || []).map((name, index) => (
+            {((socialproof.metadata as { partners?: Array<{ name: string }> })?.partners || []).map((partner, index) => (
               <span 
                 key={index} 
                 className="text-xl md:text-2xl font-serif text-gray-400 dark:text-gray-500"
               >
-                {name}
+                {partner.name}
               </span>
             ))}
           </div>
