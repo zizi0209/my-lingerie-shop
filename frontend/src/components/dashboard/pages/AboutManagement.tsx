@@ -3,20 +3,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Save, Loader2, AlertCircle, CheckCircle, Eye, EyeOff, Plus, Trash2,
-  FileText, Image as ImageIcon, Type, AlignLeft, Hash, RefreshCw,
-  Upload, Link as LinkIcon, X
+  FileText, Image as ImageIcon, Type, AlignLeft, Hash, RefreshCw
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useLanguage } from '../components/LanguageContext';
 import dynamic from 'next/dynamic';
-import { 
-  compressImage, 
-  validateImageFile, 
-  formatFileSize,
-  type CompressedImage 
-} from '@/lib/imageUtils';
+
 import { sanitizeForPreview } from '@/lib/sanitize';
 import Image from 'next/image';
+import { ImageUploadField } from './ImageUploadField';
 
 const LexicalEditor = dynamic(() => import('@/components/editor/LexicalEditor'), {
   ssr: false,
@@ -93,9 +88,6 @@ const AboutManagement: React.FC = () => {
   const [editingSection, setEditingSection] = useState<AboutSection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = useState<CompressedImage | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [imageInputMode, setImageInputMode] = useState<'url' | 'upload'>('url');
 
   const t = {
     title: language === 'vi' ? 'Quản lý trang Giới thiệu' : 'About Page Management',
@@ -115,12 +107,6 @@ const AboutManagement: React.FC = () => {
     loadError: language === 'vi' ? 'Lỗi khi tải dữ liệu!' : 'Error loading data!',
     refresh: language === 'vi' ? 'Làm mới' : 'Refresh',
     noSections: language === 'vi' ? 'Chưa có section nào. Hãy chạy seed để tạo dữ liệu mẫu.' : 'No sections yet. Run seed to create sample data.',
-    uploadImage: language === 'vi' ? 'Tải ảnh lên' : 'Upload Image',
-    pasteUrl: language === 'vi' ? 'Dán URL' : 'Paste URL',
-    uploading: language === 'vi' ? 'Đang tải lên...' : 'Uploading...',
-    selectImage: language === 'vi' ? 'Chọn ảnh' : 'Select Image',
-    changeImage: language === 'vi' ? 'Đổi ảnh' : 'Change Image',
-    compressionInfo: language === 'vi' ? 'Giảm' : 'Reduced',
   };
 
   const fetchSections = useCallback(async () => {
@@ -143,11 +129,35 @@ const AboutManagement: React.FC = () => {
     fetchSections();
   }, [fetchSections]);
 
+  // Helper function để update editingSection safely (tránh stale closure)
+  const updateEditingSection = (updates: Partial<AboutSection>) => {
+    setEditingSection(prev => prev ? { ...prev, ...updates } : prev);
+  };
+
+  // Helper để update metadata safely
+  const updateMetadata = (metadataUpdates: Record<string, unknown>) => {
+    setEditingSection(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        metadata: { ...prev.metadata, ...metadataUpdates }
+      };
+    });
+  };
+
   const handleSave = async (section: AboutSection) => {
     try {
       setSaving(section.sectionKey);
       setError(null);
       setSuccess(null);
+
+      // Debug: log data trước khi save
+      console.log('💾 Saving section:', {
+        id: section.id,
+        sectionKey: section.sectionKey,
+        imageUrl: section.imageUrl,
+        hasImage: !!section.imageUrl
+      });
 
       const response = await api.put<{ success: boolean; data: AboutSection }>(`/about-sections/${section.id}`, {
         title: section.title,
@@ -156,6 +166,11 @@ const AboutManagement: React.FC = () => {
         imageUrl: section.imageUrl,
         isActive: section.isActive,
         metadata: section.metadata,
+      });
+
+      console.log('💾 Save response:', {
+        success: response.success,
+        imageUrl: response.data?.imageUrl
       });
 
       if (response.success) {
@@ -203,15 +218,21 @@ const AboutManagement: React.FC = () => {
 
   const handleUpdateCraftsmanshipItem = (index: number, field: keyof CraftsmanshipItem, value: string) => {
     if (!editingSection) return;
-    const items = [...((editingSection.metadata as { items?: CraftsmanshipItem[] })?.items || [])];
-    items[index] = { ...items[index], [field]: value };
-    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, items } });
+    setEditingSection(prev => {
+      if (!prev) return prev;
+      const items = [...((prev.metadata as { items?: CraftsmanshipItem[] })?.items || [])];
+      items[index] = { ...items[index], [field]: value };
+      return { ...prev, metadata: { ...prev.metadata, items } };
+    });
   };
 
   const handleDeleteCraftsmanshipItem = (index: number) => {
     if (!editingSection) return;
-    const items = ((editingSection.metadata as { items?: CraftsmanshipItem[] })?.items || []).filter((_, i) => i !== index);
-    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, items } });
+    setEditingSection(prev => {
+      if (!prev) return prev;
+      const items = ((prev.metadata as { items?: CraftsmanshipItem[] })?.items || []).filter((_, i) => i !== index);
+      return { ...prev, metadata: { ...prev.metadata, items } };
+    });
   };
 
   // Values Items
@@ -276,88 +297,6 @@ const AboutManagement: React.FC = () => {
     const buttons = [...((editingSection.metadata as { buttons?: CTAButton[] })?.buttons || [])];
     buttons[index] = { ...buttons[index], [field]: value };
     setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, buttons } });
-  };
-
-  const handleImageSelect = async (file: File) => {
-    if (!file) return;
-
-    const validation = validateImageFile(file);
-    if (!validation.valid) {
-      setError(validation.error || 'Invalid image file');
-      return;
-    }
-
-    try {
-      const compressed = await compressImage(file);
-      setUploadingImage(compressed);
-      setError(null);
-    } catch (err) {
-      console.error('Image compression error:', err);
-      setError(language === 'vi' ? 'Lỗi khi nén ảnh' : 'Image compression error');
-    }
-  };
-
-  const handleImageUpload = async () => {
-    if (!uploadingImage || !editingSection) return;
-
-    setIsUploading(true);
-    setError(null);
-
-    try {
-      // Debug: kiểm tra authentication
-      const token = localStorage.getItem('accessToken');
-      const user = api.getUserFromToken();
-      const isAdmin = api.isAdmin();
-      
-      console.log('🔐 Upload Debug Info:');
-      console.log('  - Token exists:', !!token);
-      console.log('  - Token preview:', token?.substring(0, 30) + '...');
-      console.log('  - User info:', user);
-      console.log('  - Is admin:', isAdmin);
-      console.log('  - Is authenticated:', api.isAuthenticated());
-      
-      if (!token) {
-        throw new Error('Token không tồn tại. Vui lòng đăng nhập lại!');
-      }
-      
-      if (!isAdmin) {
-        throw new Error('Bạn không có quyền admin để upload ảnh!');
-      }
-      
-      const formData = new FormData();
-      formData.append('file', uploadingImage.file);
-
-      const response = await api.uploadFile<{ success: boolean; data: { url: string; webpUrl?: string } }>(
-        '/media/upload',
-        formData
-      );
-
-      if (response.success && response.data) {
-        // Ưu tiên dùng webpUrl nếu có, fallback về url
-        const imageUrl = response.data.webpUrl || response.data.url;
-        setEditingSection({ ...editingSection, imageUrl });
-        setUploadingImage(null);
-        setSuccess(language === 'vi' ? 'Ảnh đã được tải lên!' : 'Image uploaded!');
-        setTimeout(() => setSuccess(null), 3000);
-      }
-    } catch (err) {
-      console.error('❌ Upload error:', err);
-      console.error('❌ Error details:', {
-        message: err instanceof Error ? err.message : 'Unknown error',
-        token: !!localStorage.getItem('token'),
-      });
-      const errorMessage = err instanceof Error ? err.message : (language === 'vi' ? 'Lỗi khi tải ảnh lên' : 'Image upload error');
-      setError(errorMessage);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleClearUploadingImage = () => {
-    if (uploadingImage?.preview) {
-      URL.revokeObjectURL(uploadingImage.preview);
-    }
-    setUploadingImage(null);
   };
 
   if (loading) {
@@ -486,7 +425,7 @@ const AboutManagement: React.FC = () => {
                                     <input
                                       type="text"
                                       value={editingSection.title || ''}
-                                      onChange={(e) => setEditingSection({ ...editingSection, title: e.target.value })}
+                                      onChange={(e) => updateEditingSection({ title: e.target.value })}
                                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
                                     />
                                   </div>
@@ -499,7 +438,7 @@ const AboutManagement: React.FC = () => {
                                     <input
                                       type="text"
                                       value={editingSection.subtitle || ''}
-                                      onChange={(e) => setEditingSection({ ...editingSection, subtitle: e.target.value })}
+                                      onChange={(e) => updateEditingSection({ subtitle: e.target.value })}
                                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
                                     />
                                   </div>
@@ -515,7 +454,7 @@ const AboutManagement: React.FC = () => {
                                 </label>
                                 <LexicalEditor
                                   initialValue={editingSection.content || ''}
-                                  onChange={(html) => setEditingSection({ ...editingSection, content: html })}
+                                  onChange={(html) => updateEditingSection({ content: html })}
                                   placeholder={language === 'vi' ? 'Nhập nội dung section...' : 'Enter section content...'}
                                   minHeight="200px"
                                 />
@@ -701,7 +640,7 @@ const AboutManagement: React.FC = () => {
                             {((editingSection.metadata as { members?: TeamMember[] })?.members || []).map((member, index) => (
                               <div key={index} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
                                 <div className="flex items-start gap-3">
-                                  <div className="flex-1 space-y-2">
+                                  <div className="flex-1 space-y-3">
                                     <input
                                       type="text"
                                       value={member.name}
@@ -716,12 +655,12 @@ const AboutManagement: React.FC = () => {
                                       placeholder="Vị trí (Founder & Creative Director)"
                                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                                     />
-                                    <input
-                                      type="text"
+                                    <ImageUploadField
                                       value={member.image}
-                                      onChange={(e) => handleUpdateTeamMember(index, 'image', e.target.value)}
+                                      onChange={(url) => handleUpdateTeamMember(index, 'image', url)}
+                                      label={language === 'vi' ? 'Ảnh đại diện' : 'Avatar'}
                                       placeholder="URL ảnh đại diện"
-                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                      language={language}
                                     />
                                   </div>
                                   <button
@@ -779,209 +718,13 @@ const AboutManagement: React.FC = () => {
 
                       {/* Image Upload - Chỉ cho hero và story */}
                       {['hero', 'story'].includes(editingSection.sectionKey) && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {t.sectionImage}
-                        </label>
-                        
-                        {/* Mode Toggle */}
-                        <div className="flex gap-2 mb-3">
-                          <button
-                            type="button"
-                            onClick={() => setImageInputMode('upload')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
-                              imageInputMode === 'upload'
-                                ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                            }`}
-                          >
-                            <Upload className="w-4 h-4" />
-                            {t.uploadImage}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setImageInputMode('url')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
-                              imageInputMode === 'url'
-                                ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                            }`}
-                          >
-                            <LinkIcon className="w-4 h-4" />
-                            {t.pasteUrl}
-                          </button>
-                        </div>
-
-                        {/* Upload Mode */}
-                        {imageInputMode === 'upload' ? (
-                          <div className="space-y-3">
-                            {/* Drag & Drop Zone */}
-                            <div
-                              className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center bg-gray-50 dark:bg-gray-900/50 hover:border-primary-400 dark:hover:border-primary-600 transition"
-                              onDragOver={(e) => e.preventDefault()}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                const file = e.dataTransfer.files?.[0];
-                                if (file) handleImageSelect(file);
-                              }}
-                            >
-                              <Upload className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                                {language === 'vi' ? 'Tải ảnh lên' : 'Upload Image'}
-                              </h3>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                {language === 'vi' 
-                                  ? 'Tự động chuyển đổi sang WebP để tối ưu dung lượng'
-                                  : 'Auto-convert to WebP for optimization'}
-                              </p>
-                              <div className="relative inline-block">
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) handleImageSelect(file);
-                                  }}
-                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                />
-                                <button
-                                  type="button"
-                                  className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition"
-                                >
-                                  {language === 'vi' ? 'Chọn file hoặc kéo thả vào đây' : 'Choose file or drag here'}
-                                </button>
-                              </div>
-                              <p className="text-xs text-gray-400 mt-3">
-                                JPG, PNG, GIF, WebP (max 10MB)
-                              </p>
-                            </div>
-
-                            {/* Uploading Preview */}
-                            {uploadingImage && (
-                              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
-                                <div className="flex items-start gap-4">
-                                  <div className="relative w-24 h-24 flex-shrink-0">
-                                    <Image
-                                      src={uploadingImage.preview}
-                                      alt="Preview"
-                                      fill
-                                      className="object-cover rounded-lg"
-                                    />
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-start justify-between">
-                                      <div>
-                                        <p className="font-medium text-gray-900 dark:text-white">
-                                          {uploadingImage.file.name}
-                                        </p>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                          {formatFileSize(uploadingImage.file.size)}
-                                          {uploadingImage.reduction && (
-                                            <span className="ml-2 text-green-600 dark:text-green-400">
-                                              ({t.compressionInfo} {uploadingImage.reduction.toFixed(1)}%)
-                                            </span>
-                                          )}
-                                        </p>
-                                      </div>
-                                      {!isUploading && (
-                                        <button
-                                          type="button"
-                                          onClick={handleClearUploadingImage}
-                                          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                                        >
-                                          <X className="w-5 h-5" />
-                                        </button>
-                                      )}
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={handleImageUpload}
-                                      disabled={isUploading}
-                                      className="mt-3 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center gap-2"
-                                    >
-                                      {isUploading ? (
-                                        <>
-                                          <Loader2 className="w-4 h-4 animate-spin" />
-                                          {t.uploading}
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Upload className="w-4 h-4" />
-                                          {language === 'vi' ? 'Tải lên' : 'Upload'}
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Current Image Preview */}
-                            {editingSection.imageUrl && !uploadingImage && (
-                              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
-                                <div className="flex items-center gap-4">
-                                  <div className="relative w-20 h-20 flex-shrink-0">
-                                    <Image
-                                      src={editingSection.imageUrl}
-                                      alt="Current"
-                                      fill
-                                      className="object-cover rounded-lg"
-                                    />
-                                  </div>
-                                  <div className="flex-1">
-                                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                      {language === 'vi' ? 'Ảnh hiện tại' : 'Current Image'}
-                                    </p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">
-                                      {editingSection.imageUrl}
-                                    </p>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingSection({ ...editingSection, imageUrl: '' })}
-                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                  >
-                                    <X className="w-5 h-5" />
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          /* URL Mode */
-                          <div>
-                            <input
-                              type="text"
-                              value={editingSection.imageUrl || ''}
-                              onChange={(e) => setEditingSection({ ...editingSection, imageUrl: e.target.value })}
-                              placeholder="https://..."
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
-                            />
-                            {editingSection.imageUrl && (
-                              <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900/50">
-                                <div className="flex items-center gap-4">
-                                  <div className="relative w-20 h-20 flex-shrink-0">
-                                    <Image
-                                      src={editingSection.imageUrl}
-                                      alt="Preview"
-                                      fill
-                                      className="object-cover rounded-lg"
-                                    />
-                                  </div>
-                                  <div className="flex-1">
-                                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                      {language === 'vi' ? 'Xem trước' : 'Preview'}
-                                    </p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">
-                                      {editingSection.imageUrl}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                        <ImageUploadField
+                          value={editingSection.imageUrl || ''}
+                          onChange={(url) => updateEditingSection({ imageUrl: url })}
+                          label={t.sectionImage}
+                          placeholder="https://..."
+                          language={language}
+                        />
                       )}
 
                       <div className="flex justify-end gap-3 pt-2">
