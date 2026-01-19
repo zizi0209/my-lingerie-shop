@@ -31,10 +31,12 @@ export default function PostContent({ postId, content, className = '' }: PostCon
   const [products, setProducts] = useState<ProductOnPost[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
   useEffect(() => {
     const fetchEmbeddedProducts = async () => {
       try {
-        const response = await fetch(`/api/product-posts/posts/${postId}/products`);
+        const response = await fetch(`${baseUrl}/product-posts/posts/${postId}/products`);
         const data = await response.json();
         if (data.success) {
           setProducts(data.data);
@@ -47,7 +49,7 @@ export default function PostContent({ postId, content, className = '' }: PostCon
     };
 
     fetchEmbeddedProducts();
-  }, [postId]);
+  }, [postId, baseUrl]);
 
   if (loading) {
     return (

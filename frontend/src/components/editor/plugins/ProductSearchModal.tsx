@@ -35,6 +35,8 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
   // Fetch products
   const fetchProducts = useCallback(async (query: string) => {
     setLoading(true);
@@ -44,7 +46,7 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
         limit: '20',
         isVisible: 'true',
       });
-      const response = await fetch(`/api/products?${params}`);
+      const response = await fetch(`${baseUrl}/products?${params}`);
       const data = await response.json();
       setProducts(data.products || []);
     } catch (error) {
@@ -53,7 +55,7 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [baseUrl]);
 
   useEffect(() => {
     if (debouncedSearch) {

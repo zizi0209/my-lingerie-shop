@@ -28,10 +28,12 @@ export default function RelatedPosts({ productId, className = '' }: RelatedPosts
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const response = await fetch(`/api/product-posts/products/${productId}/posts`);
+        const response = await fetch(`${baseUrl}/product-posts/products/${productId}/posts`);
         const data = await response.json();
         if (data.success) {
           setPosts(data.data.map((item: any) => item.post).filter(Boolean));
@@ -44,7 +46,7 @@ export default function RelatedPosts({ productId, className = '' }: RelatedPosts
     };
 
     fetchPosts();
-  }, [productId]);
+  }, [productId, baseUrl]);
 
   // Track click for analytics
   const handlePostClick = (post: Post) => {
