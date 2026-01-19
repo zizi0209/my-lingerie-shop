@@ -29,26 +29,35 @@ interface PostContentProps {
 
 export default function PostContent({ postId, content, className = '' }: PostContentProps) {
   const [products, setProducts] = useState<ProductOnPost[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
   useEffect(() => {
-    const fetchEmbeddedProducts = async () => {
+    const fetchProducts = async () => {
       try {
-        const response = await fetch(`${baseUrl}/product-posts/posts/${postId}/products`);
-        const data = await response.json();
-        if (data.success) {
-          setProducts(data.data);
+        // Fetch manual linked products
+        const linkedResponse = await fetch(`${baseUrl}/product-posts/posts/${postId}/products`);
+        const linkedData = await linkedResponse.json();
+        if (linkedData.success) {
+          setProducts(linkedData.data);
+        }
+
+        // Fetch auto-recommended products
+        const recommendedResponse = await fetch(`${baseUrl}/product-posts/posts/${postId}/recommended?limit=6`);
+        const recommendedData = await recommendedResponse.json();
+        if (recommendedData.success) {
+          setRecommendedProducts(recommendedData.data);
         }
       } catch (error) {
-        console.error('Error fetching embedded products:', error);
+        console.error('Error fetching products:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchEmbeddedProducts();
+    fetchProducts();
   }, [postId, baseUrl]);
 
   if (loading) {
@@ -133,18 +142,31 @@ export default function PostContent({ postId, content, className = '' }: PostCon
         <div>{contentParts}</div>
 
         {/* Collection products at the end */}
-        {collectionProducts.length > 0 && (
+        {(collectionProducts.length > 0 || recommendedProducts.length > 0) && (
           <div className="mt-12 pt-12 border-t border-slate-200 dark:border-slate-800">
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
               Sản phẩm được đề xuất
             </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+              Các sản phẩm liên quan đến nội dung bài viết này
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Manual linked products (hiển thị trước) */}
               {collectionProducts.map((productData) => (
                 <ProductCardInPost
                   key={`collection-${productData.productId}`}
                   product={productData.product}
                   displayType={productData.displayType}
                   customNote={productData.customNote}
+                />
+              ))}
+              
+              {/* Auto-recommended products (hiển thị sau) */}
+              {recommendedProducts.map((product) => (
+                <ProductCardInPost
+                  key={`recommended-${product.id}`}
+                  product={product}
+                  displayType="end-collection"
                 />
               ))}
             </div>

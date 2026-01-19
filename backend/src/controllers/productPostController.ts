@@ -190,3 +190,127 @@ export const batchLinkProducts = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Lỗi khi liên kết hàng loạt!' });
   }
 };
+
+// Tự động gợi ý sản phẩm liên quan dựa trên nội dung bài viết
+export const getRecommendedProducts = async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+    const limit = Number(req.query.limit) || 6;
+
+    // Lấy thông tin bài viết
+    const post = await prisma.post.findUnique({
+      where: { id: Number(postId) },
+      include: {
+        category: true,
+        relatedProducts: {
+          select: { productId: true },
+        },
+      },
+    });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Không tìm thấy bài viết!' });
+    }
+
+    // Lấy danh sách ID sản phẩm đã được link thủ công
+    const linkedProductIds = post.relatedProducts.map((p) => p.productId);
+
+    // Extract keywords từ title (các từ khóa phổ biến trong ngành nội y)
+    const keywords = [
+      'nội y', 'áo lót', 'áo ngực', 'quần lót', 'đồ lót', 'bra', 'lingerie',
+      'sexy', 'ren', 'lụa', 'cotton', 'lace', 'satin', 'silk',
+      'bikini', 'thong', 'brief', 'boxer', 'push-up', 'bralette',
+      'bodysuit', 'corset', 'babydoll', 'chemise', 'teddy',
+      'pajama', 'pyjama', 'ngủ', 'mặc nhà', 'sleepwear',
+      'sport', 'thể thao', 'yoga', 'gym',
+      'nursing', 'bầu', 'cho con bú', 'maternity',
+    ];
+
+    // Tìm keywords trong title và content (lowercase)
+    const postText = `${post.title} ${post.content || ''}`.toLowerCase();
+    const matchedKeywords = keywords.filter((kw) => postText.includes(kw.toLowerCase()));
+
+    // Build search condition
+    const searchConditions: any[] = [];
+
+    // 1. Match theo category name (ưu tiên cao nhất)
+    if (post.category) {
+      const categoryKeywords = post.category.name
+        .toLowerCase()
+        .split(/[\s,]+/)
+        .filter((w) => w.length > 2);
+
+      searchConditions.push({
+        category: {
+          OR: [
+            { name: { contains: post.category.name, mode: 'insensitive' } },
+            ...categoryKeywords.map((kw) => ({
+              name: { contains: kw, mode: 'insensitive' },
+            })),
+          ],
+        },
+      });
+    }
+
+    // 2. Match theo keywords trong title/content
+    if (matchedKeywords.length > 0) {
+      searchConditions.push({
+        OR: matchedKeywords.map((kw) => ({
+          OR: [
+            { name: { contains: kw, mode: 'insensitive' } },
+            { description: { contains: kw, mode: 'insensitive' } },
+          ],
+        })),
+      });
+    }
+
+    // Fallback: nếu không có điều kiện nào, lấy sản phẩm featured
+    if (searchConditions.length === 0) {
+      searchConditions.push({ isFeatured: true });
+    }
+
+    // Query sản phẩm
+    const products = await prisma.product.findMany({
+      where: {
+        AND: [
+          { isVisible: true },
+          { deletedAt: null },
+          { id: { notIn: linkedProductIds } }, // Loại trừ sản phẩm đã link
+          {
+            OR: searchConditions,
+          },
+        ],
+      },
+      include: {
+        images: {
+          take: 1,
+          orderBy: { id: 'asc' },
+        },
+        category: {
+          select: { name: true, slug: true },
+        },
+      },
+      orderBy: [
+        { isFeatured: 'desc' },
+        { ratingAverage: 'desc' },
+        { reviewCount: 'desc' },
+      ],
+      take: limit,
+    });
+
+    res.json({
+      success: true,
+      data: products,
+      meta: {
+        postId: post.id,
+        postTitle: post.title,
+        postCategory: post.category?.name,
+        matchedKeywords,
+        totalFound: products.length,
+      },
+    });
+  } catch (error) {
+    console.error('Get recommended products error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy sản phẩm gợi ý!' });
+  }
+};

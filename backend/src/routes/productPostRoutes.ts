@@ -1,10 +1,11 @@
-﻿import express from 'express';
+import express from 'express';
 import {
   linkProductToPost,
   unlinkProductFromPost,
   getPostProducts,
   getProductPosts,
   batchLinkProducts,
+  getRecommendedProducts,
 } from '../controllers/productPostController';
 import { authenticateToken, isAdmin } from '../middleware/auth';
 
@@ -12,6 +13,7 @@ const router = express.Router();
 
 // Public routes
 router.get('/posts/:postId/products', getPostProducts); // Get products in a post
+router.get('/posts/:postId/recommended', getRecommendedProducts); // Get auto-recommended products for a post
 router.get('/products/:productId/posts', getProductPosts); // Get posts featuring a product
 
 // Admin routes
