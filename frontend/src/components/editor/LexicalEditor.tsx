@@ -16,7 +16,9 @@ import ToolbarPlugin from './plugins/ToolbarPlugin';
 import OnChangePlugin from './plugins/OnChangePlugin';
 import InitialContentPlugin from './plugins/InitialContentPlugin';
 import AutoFocusPlugin from './plugins/AutoFocusPlugin';
+import ProductPlugin from './plugins/ProductPlugin';
 import { editorTheme } from './themes/EditorTheme';
+import { ProductNode } from './nodes/ProductNode';
 
 interface LexicalEditorProps {
   initialValue?: string;
@@ -38,7 +40,7 @@ export default function LexicalEditor({
     () => ({
       namespace: 'RichTextEditor',
       theme: editorTheme,
-      nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode],
+      nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, ProductNode],
       onError: (error: Error) => {
         console.error('Lexical error:', error);
       },
@@ -78,6 +80,7 @@ export default function LexicalEditor({
         <HistoryPlugin />
         <ListPlugin />
         <LinkPlugin />
+        <ProductPlugin />
         <OnChangePlugin onChange={handleChange} />
         {initialValue && <InitialContentPlugin initialHtml={initialValue} />}
         {autoFocus && <AutoFocusPlugin />}

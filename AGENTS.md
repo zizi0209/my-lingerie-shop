@@ -7,6 +7,8 @@ Chọn Best practices
 - Áp dụng Explicit over Implicit
 - Áp dụng DRY over WET
 
+- Mọi thay đổi sau khi kiểm tra xong cần phải commit và TUYỆT ĐỐI KHÔNG được phép push
+
 - Áp sticket QA & phân tích các vấn đề theo các mức (Critical, High, Medium, Low)
 
 Intentional I/O:
@@ -32,7 +34,6 @@ Tuân thủ nguyên tắc :
 ## TypeScript/ESLint Rules
 
 - KHÔNG dùng `any` type. Thay vào đó:
-
   - Dùng `unknown` rồi type guard: `if (err instanceof Error)`
   - Định nghĩa interface/type cụ thể
   - Dùng generic type `<T>`

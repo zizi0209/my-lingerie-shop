@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import ReviewList from "@/components/product/ReviewList";
 import SizeGuideModal from "@/components/product/SizeGuideModal";
 import RecommendationSection from "@/components/product/RecommendationSection";
+import RelatedPosts from "@/components/product/RelatedPosts";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
@@ -571,6 +572,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           )}
         </div>
       </div>
+
+      {/* Related Posts - Blog Articles about this Product */}
+      {product && (
+        <RelatedPosts productId={product.id} className="mb-20" />
+      )}
 
       {/* Similar Products - AI Recommendation */}
       {product && (

@@ -126,7 +126,6 @@ model Product {
   productViews    ProductView[]
   reviews         Review[]
   wishlistItems   WishlistItem[]
-  relatedPosts    ProductOnPost[]
 
   @@index([categoryId])
   @@index([productType])
@@ -343,7 +342,6 @@ model Post {
   category    PostCategory   @relation(fields: [categoryId], references: [id])
   likes       PostLike[]
   bookmarks   PostBookmark[]
-  relatedProducts ProductOnPost[]
 
   @@index([categoryId])
   @@index([authorId])
@@ -376,28 +374,6 @@ model PostBookmark {
   @@index([postId])
   @@index([userId])
 }
-
-// Product-Post Many-to-Many Relationship for Content-Commerce Integration
-model ProductOnPost {
-  id           Int      @id @default(autoincrement())
-  postId       Int
-  productId    Int
-  position     Int?     // Position in post content (for inline display)
-  displayType  String   @default("inline-card") // "inline-card" | "sidebar" | "end-collection"
-  customNote   String?  // Custom note from admin (e.g., "Perfect for date night")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  post         Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  @@unique([postId, productId])
-  @@index([postId])
-  @@index([productId])
-  @@index([displayType])
-}
-
-
 
 model Cart {
   id                 Int        @id @default(autoincrement())
