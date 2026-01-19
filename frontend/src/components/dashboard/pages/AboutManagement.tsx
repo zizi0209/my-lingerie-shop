@@ -465,42 +465,65 @@ const AboutManagement: React.FC = () => {
                 <div className="p-5">
                   {isEditing && editingSection ? (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            {t.sectionTitle}
-                          </label>
-                          <input
-                            type="text"
-                            value={editingSection.title || ''}
-                            onChange={(e) => setEditingSection({ ...editingSection, title: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            {t.sectionSubtitle}
-                          </label>
-                          <input
-                            type="text"
-                            value={editingSection.subtitle || ''}
-                            onChange={(e) => setEditingSection({ ...editingSection, subtitle: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
-                          />
-                        </div>
-                      </div>
+                      {/* Định nghĩa fields cần hiển thị cho từng section */}
+                      {(() => {
+                        const key = editingSection.sectionKey;
+                        const needsTitle = ['hero', 'story', 'craftsmanship', 'values', 'team', 'socialproof', 'cta'].includes(key);
+                        const needsSubtitle = ['hero', 'story', 'craftsmanship', 'values', 'team', 'socialproof'].includes(key);
+                        const needsContent = ['hero', 'story', 'craftsmanship', 'team', 'cta'].includes(key);
+                        const needsImage = ['hero', 'story'].includes(key);
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {t.sectionContent}
-                        </label>
-                        <LexicalEditor
-                          initialValue={editingSection.content || ''}
-                          onChange={(html) => setEditingSection({ ...editingSection, content: html })}
-                          placeholder={language === 'vi' ? 'Nhập nội dung section...' : 'Enter section content...'}
-                          minHeight="200px"
-                        />
-                      </div>
+                        return (
+                          <>
+                            {/* Title & Subtitle */}
+                            {(needsTitle || needsSubtitle) && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {needsTitle && (
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                      {t.sectionTitle}
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={editingSection.title || ''}
+                                      onChange={(e) => setEditingSection({ ...editingSection, title: e.target.value })}
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                                    />
+                                  </div>
+                                )}
+                                {needsSubtitle && (
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                      {t.sectionSubtitle}
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={editingSection.subtitle || ''}
+                                      onChange={(e) => setEditingSection({ ...editingSection, subtitle: e.target.value })}
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Content Editor */}
+                            {needsContent && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                  {t.sectionContent}
+                                </label>
+                                <LexicalEditor
+                                  initialValue={editingSection.content || ''}
+                                  onChange={(html) => setEditingSection({ ...editingSection, content: html })}
+                                  placeholder={language === 'vi' ? 'Nhập nội dung section...' : 'Enter section content...'}
+                                  minHeight="200px"
+                                />
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
 
                       {/* ===== METADATA MANAGEMENT UI ===== */}
 
@@ -754,7 +777,8 @@ const AboutManagement: React.FC = () => {
                         </div>
                       )}
 
-
+                      {/* Image Upload - Chỉ cho hero và story */}
+                      {['hero', 'story'].includes(editingSection.sectionKey) && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           {t.sectionImage}
@@ -958,6 +982,7 @@ const AboutManagement: React.FC = () => {
                           </div>
                         )}
                       </div>
+                      )}
 
                       <div className="flex justify-end gap-3 pt-2">
                         <button
@@ -982,33 +1007,62 @@ const AboutManagement: React.FC = () => {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {section.title && (
-                        <div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionTitle}:</span>
-                          <p className="text-gray-900 dark:text-white font-medium">{section.title}</p>
-                        </div>
-                      )}
-                      {section.subtitle && (
-                        <div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionSubtitle}:</span>
-                          <p className="text-gray-700 dark:text-gray-300">{section.subtitle}</p>
-                        </div>
-                      )}
-                      {section.content && (
-                        <div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionContent}:</span>
-                          <div 
-                            className="text-gray-600 dark:text-gray-400 text-sm prose dark:prose-invert max-w-none prose-p:my-1 line-clamp-3"
-                            dangerouslySetInnerHTML={{ __html: sanitizeForPreview(section.content) }}
-                          />
-                        </div>
-                      )}
-                      {section.imageUrl && (
-                        <div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionImage}:</span>
-                          <p className="text-blue-600 dark:text-blue-400 text-sm truncate">{section.imageUrl}</p>
-                        </div>
-                      )}
+                      {(() => {
+                        const key = section.sectionKey;
+                        const hasMetadata = section.metadata && Object.keys(section.metadata).length > 0;
+                        
+                        return (
+                          <>
+                            {section.title && (
+                              <div>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionTitle}:</span>
+                                <p className="text-gray-900 dark:text-white font-medium">{section.title}</p>
+                              </div>
+                            )}
+                            {section.subtitle && (
+                              <div>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionSubtitle}:</span>
+                                <p className="text-gray-700 dark:text-gray-300">{section.subtitle}</p>
+                              </div>
+                            )}
+                            {section.content && (
+                              <div>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionContent}:</span>
+                                <div 
+                                  className="text-gray-600 dark:text-gray-400 text-sm prose dark:prose-invert max-w-none prose-p:my-1 line-clamp-3"
+                                  dangerouslySetInnerHTML={{ __html: sanitizeForPreview(section.content) }}
+                                />
+                              </div>
+                            )}
+                            {section.imageUrl && (
+                              <div>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{t.sectionImage}:</span>
+                                <p className="text-blue-600 dark:text-blue-400 text-sm truncate">{section.imageUrl}</p>
+                              </div>
+                            )}
+                            {hasMetadata && (
+                              <div>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  {key === 'craftsmanship' && '✨ Cam kết chất lượng'}
+                                  {key === 'values' && '💎 Giá trị cốt lõi'}
+                                  {key === 'stats' && '📊 Thống kê'}
+                                  {key === 'team' && '👥 Đội ngũ'}
+                                  {key === 'socialproof' && '🏆 Báo chí & Đối tác'}
+                                  {key === 'cta' && '🎯 Các nút CTA'}
+                                </span>
+                                <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                                  {key === 'craftsmanship' && `${(section.metadata as { items?: unknown[] })?.items?.length || 0} mục`}
+                                  {key === 'values' && `${(section.metadata as { values?: unknown[] })?.values?.length || 0} giá trị`}
+                                  {key === 'stats' && `${(section.metadata as { stats?: unknown[] })?.stats?.length || 0} số liệu`}
+                                  {key === 'team' && `${(section.metadata as { members?: unknown[] })?.members?.length || 0} thành viên`}
+                                  {key === 'socialproof' && `${(section.metadata as { partners?: unknown[] })?.partners?.length || 0} đối tác`}
+                                  {key === 'cta' && `${(section.metadata as { buttons?: unknown[] })?.buttons?.length || 0} nút`}
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
