@@ -6,6 +6,7 @@ import Image from "next/image";
 import { ArrowRight, Sparkles, Leaf, Package, Heart, Shield, Scissors, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { sanitizeForPublic } from "@/lib/sanitize";
+import { StatCounter } from "@/components/about/StatCounter";
 
 interface AboutSection {
   id: number;
@@ -19,34 +20,62 @@ interface AboutSection {
   isActive: boolean;
 }
 
+interface RealTimeStat {
+  number: number;
+  suffix: string;
+  label: string;
+  decimals?: number;
+}
+
+interface RealTimeStats {
+  satisfiedCustomers: RealTimeStat;
+  designCollection: RealTimeStat;
+  averageRating: RealTimeStat;
+  physicalStores: RealTimeStat;
+}
+
 export default function AboutPage() {
   const [sections, setSections] = useState<Record<string, AboutSection>>({});
+  const [realTimeStats, setRealTimeStats] = useState<RealTimeStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchSections = async () => {
+    const fetchData = async () => {
       try {
         // Thêm timestamp để bypass cache và luôn fetch dữ liệu mới
         const timestamp = Date.now();
-        const response = await api.get<{ success: boolean; data: AboutSection[] }>(
-          `/about-sections?_t=${timestamp}`,
-          false // không cần auth cho public endpoint
-        );
-        if (response.success) {
-          const sectionsMap = response.data.reduce((acc, section) => {
+        
+        // Fetch sections và real-time stats song song
+        const [sectionsResponse, statsResponse] = await Promise.all([
+          api.get<{ success: boolean; data: AboutSection[] }>(
+            `/about-sections?_t=${timestamp}`,
+            false // không cần auth cho public endpoint
+          ),
+          api.get<{ success: boolean; data: RealTimeStats }>(
+            `/about-stats?_t=${timestamp}`,
+            false
+          )
+        ]);
+
+        if (sectionsResponse.success) {
+          const sectionsMap = sectionsResponse.data.reduce((acc, section) => {
             acc[section.sectionKey] = section;
             return acc;
           }, {} as Record<string, AboutSection>);
           setSections(sectionsMap);
         }
+
+        if (statsResponse.success) {
+          setRealTimeStats(statsResponse.data);
+        }
       } catch (error) {
-        console.error('Error fetching about sections:', error);
+        console.error('Error fetching about data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSections();
+    fetchData();
   }, []);
 
   if (loading) {
@@ -250,19 +279,13 @@ export default function AboutPage() {
       {/* ===== PHẦN 5: STATS & TEAM ===== */}
       <section className="py-20 md:py-28 bg-white dark:bg-gray-950">
         <div className="container mx-auto px-4">
-          {/* Stats */}
-          {stats?.isActive && (
+          {/* Stats - Real-time data with animation */}
+          {stats?.isActive && realTimeStats && (
           <div className="flex flex-wrap justify-center gap-8 md:gap-12 max-w-6xl mx-auto mb-20">
-            {((stats.metadata as { stats?: Array<{ number: number; suffix: string; label: string; decimals?: number }> })?.stats || []).map((stat, index) => (
-              <div key={index} className="text-center w-40 sm:w-48 md:w-56">
-                <div className="text-3xl md:text-4xl lg:text-5xl font-light mb-2 text-gray-900 dark:text-white">
-                  {stat.decimals ? stat.number.toFixed(stat.decimals) : stat.number.toLocaleString()}{stat.suffix}
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {stat.label}
-                </p>
-              </div>
-            ))}
+            <StatCounter {...realTimeStats.satisfiedCustomers} />
+            <StatCounter {...realTimeStats.designCollection} />
+            <StatCounter {...realTimeStats.averageRating} />
+            <StatCounter {...realTimeStats.physicalStores} />
           </div>
           )}
 

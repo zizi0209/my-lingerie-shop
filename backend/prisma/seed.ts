@@ -133,6 +133,7 @@ async function main() {
     { key: 'store_email', value: 'contact@mylingerie.com' },
     { key: 'store_phone', value: '0901234567' },
     { key: 'store_address', value: 'TP. Hồ Chí Minh, Việt Nam' },
+    { key: 'physical_stores_count', value: '3' },
   ];
 
   for (const config of systemConfigs) {

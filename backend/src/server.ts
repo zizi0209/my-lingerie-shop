@@ -33,6 +33,7 @@ import recommendationRoutes from './routes/recommendationRoutes';
 import adminRoutes from './routes/admin';
 import publicConfigRoutes from './routes/publicConfig';
 import aboutSectionRoutes from './routes/aboutSectionRoutes';
+import aboutStatsRoutes from './routes/aboutStatsRoutes';
 import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
@@ -70,6 +71,7 @@ app.use(cookieParser());
 
 // Public routes (no rate limit, no auth required)
 app.use('/api/public/config', publicConfigRoutes);
+app.use('/api/about-stats', aboutStatsRoutes);
 
 // Rate limiting for all API routes
 app.use('/api', apiLimiter);
