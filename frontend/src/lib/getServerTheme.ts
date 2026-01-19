@@ -11,6 +11,7 @@ export interface StoreConfig {
   social_facebook?: string;
   social_instagram?: string;
   social_tiktok?: string;
+  social_zalo?: string;
 }
 
 /**
@@ -50,6 +51,7 @@ export const getServerTheme = cache(async (): Promise<StoreConfig> => {
       social_facebook: config.social_facebook,
       social_instagram: config.social_instagram,
       social_tiktok: config.social_tiktok,
+      social_zalo: config.social_zalo,
     };
   } catch (error) {
     console.error('[SSR] Config fetch error:', error);

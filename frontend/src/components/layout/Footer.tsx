@@ -7,7 +7,7 @@ import { Phone, Mail, Instagram, Truck, RefreshCw, ShieldCheck, ChevronRight } f
 import { useStore } from "@/context/StoreContext";
 
 export default function Footer() {
-  const { store_name, store_logo, store_description, social_facebook, social_instagram, social_tiktok } = useStore();
+  const { store_name, store_logo, store_description, social_facebook, social_instagram, social_tiktok, social_zalo } = useStore();
 
   return (
     <footer className="bg-brand-secondary dark:bg-gray-900 text-gray-900 dark:text-white pt-20 md:pt-24 pb-8 border-t border-brand-border/20 transition-colors">
@@ -46,6 +46,11 @@ export default function Footer() {
             {social_tiktok && (
               <a href={social_tiktok} target="_blank" rel="noopener noreferrer" className="p-2.5 border border-brand-border/30 hover:text-brand-accent hover:border-brand-accent transition-all duration-300 rounded-sm text-gray-500 dark:text-gray-400">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1.04-.1z"/></svg>
+              </a>
+            )}
+            {social_zalo && (
+              <a href={social_zalo} target="_blank" rel="noopener noreferrer" className="p-2.5 border border-brand-border/30 hover:text-brand-accent hover:border-brand-accent transition-all duration-300 rounded-sm text-gray-500 dark:text-gray-400" title="Zalo">
+                <svg width="16" height="16" viewBox="0 0 48 48" fill="currentColor"><path d="M24 4C12.95 4 4 12.95 4 24c0 11.05 8.95 20 20 20 11.05 0 20-8.95 20-20C44 12.95 35.05 4 24 4zm9.14 28.75h-4.54c-.41 0-.75-.34-.75-.75V21.53l-5.91 10.13c-.14.23-.39.38-.66.38h-.56c-.27 0-.52-.14-.66-.38l-5.91-10.13V32c0 .41-.34.75-.75.75H9.86c-.41 0-.75-.34-.75-.75V16c0-.41.34-.75.75-.75h4.54c.27 0 .52.14.66.38l5.94 10.18 5.94-10.18c.14-.23.39-.38.66-.38h4.54c.41 0 .75.34.75.75V32c0 .41-.34.75-.75.75z"/></svg>
               </a>
             )}
           </div>
