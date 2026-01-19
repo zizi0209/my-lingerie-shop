@@ -342,18 +342,25 @@ export default function AboutPage() {
             ))}
           </div>
 
-          {/* Testimonial */}
-          {(socialproof.metadata as { testimonial?: { quote: string; author: string; date: string } })?.testimonial && (
-          <div className="max-w-3xl mx-auto text-center">
-            <blockquote className="text-xl md:text-2xl font-serif font-light text-gray-700 dark:text-gray-300 italic mb-6">
-              "{((socialproof.metadata as { testimonial?: { quote: string; author: string; date: string } })?.testimonial?.quote)}"
-            </blockquote>
-            <p className="text-gray-500 dark:text-gray-400">
-              — <span className="font-medium">
-                {((socialproof.metadata as { testimonial?: { quote: string; author: string; date: string } })?.testimonial?.author)}
-              </span>, {((socialproof.metadata as { testimonial?: { quote: string; author: string; date: string } })?.testimonial?.date)}
-            </p>
-          </div>
+          {/* Testimonials & Quotes */}
+          {((socialproof.metadata as { quotes?: Array<{ quote: string; author: string; publication: string; date: string }> })?.quotes || []).length > 0 && (
+            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+              {((socialproof.metadata as { quotes?: Array<{ quote: string; author: string; publication: string; date: string }> })?.quotes || []).map((item, index) => (
+                <div key={index} className="bg-gray-50 dark:bg-gray-900/50 p-8 rounded-2xl border border-gray-200 dark:border-gray-700">
+                  <blockquote className="text-lg md:text-xl font-serif font-light text-gray-700 dark:text-gray-300 italic mb-6">
+                    "{item.quote}"
+                  </blockquote>
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <p className="text-gray-600 dark:text-gray-400 font-medium text-sm mb-1">
+                      {item.author}
+                    </p>
+                    <p className="text-gray-500 dark:text-gray-500 text-xs">
+                      {item.publication} • {item.date}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </section>

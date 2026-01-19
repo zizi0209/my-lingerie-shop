@@ -79,6 +79,17 @@ interface CTAButton {
   variant: 'primary' | 'outline';
 }
 
+interface Quote {
+  quote: string;
+  author: string;
+  publication: string;
+  date: string;
+}
+
+interface Partner {
+  name: string;
+}
+
 const AboutManagement: React.FC = () => {
   const { language } = useLanguage();
   
@@ -297,6 +308,54 @@ const AboutManagement: React.FC = () => {
     const buttons = [...((editingSection.metadata as { buttons?: CTAButton[] })?.buttons || [])];
     buttons[index] = { ...buttons[index], [field]: value };
     setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, buttons } });
+  };
+
+  // Social Proof Management - Quotes
+  const handleAddQuote = () => {
+    if (!editingSection) return;
+    const quotes = (editingSection.metadata as { quotes?: Quote[] })?.quotes || [];
+    const newQuote: Quote = { quote: '', author: '', publication: '', date: '' };
+    setEditingSection({
+      ...editingSection,
+      metadata: { ...editingSection.metadata, quotes: [...quotes, newQuote] }
+    });
+  };
+
+  const handleUpdateQuote = (index: number, field: keyof Quote, value: string) => {
+    if (!editingSection) return;
+    const quotes = [...((editingSection.metadata as { quotes?: Quote[] })?.quotes || [])];
+    quotes[index] = { ...quotes[index], [field]: value };
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, quotes } });
+  };
+
+  const handleDeleteQuote = (index: number) => {
+    if (!editingSection) return;
+    const quotes = ((editingSection.metadata as { quotes?: Quote[] })?.quotes || []).filter((_, i) => i !== index);
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, quotes } });
+  };
+
+  // Social Proof Management - Partners
+  const handleAddPartner = () => {
+    if (!editingSection) return;
+    const partners = (editingSection.metadata as { partners?: Partner[] })?.partners || [];
+    const newPartner: Partner = { name: '' };
+    setEditingSection({
+      ...editingSection,
+      metadata: { ...editingSection.metadata, partners: [...partners, newPartner] }
+    });
+  };
+
+  const handleUpdatePartner = (index: number, field: keyof Partner, value: string) => {
+    if (!editingSection) return;
+    const partners = [...((editingSection.metadata as { partners?: Partner[] })?.partners || [])];
+    partners[index] = { ...partners[index], [field]: value };
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, partners } });
+  };
+
+  const handleDeletePartner = (index: number) => {
+    if (!editingSection) return;
+    const partners = ((editingSection.metadata as { partners?: Partner[] })?.partners || []).filter((_, i) => i !== index);
+    setEditingSection({ ...editingSection, metadata: { ...editingSection.metadata, partners } });
   };
 
   if (loading) {
@@ -709,6 +768,111 @@ const AboutManagement: React.FC = () => {
                                     <option value="primary">Primary (nền trắng)</option>
                                     <option value="outline">Outline (viền)</option>
                                   </select>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Social Proof - Partners */}
+                      {editingSection.sectionKey === 'socialproof' && (
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                              📰 Các thương hiệu hợp tác (Elle, Đẹp, VnExpress, Harper's Bazaar, Vogue VN)
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={handleAddPartner}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Thêm thương hiệu
+                            </button>
+                          </div>
+                          <div className="space-y-2">
+                            {((editingSection.metadata as { partners?: Partner[] })?.partners || []).map((partner, index) => (
+                              <div key={index} className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={partner.name}
+                                  onChange={(e) => handleUpdatePartner(index, 'name', e.target.value)}
+                                  placeholder="Tên thương hiệu (Elle, Đẹp, VnExpress...)"
+                                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePartner(index)}
+                                  className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Social Proof - Quotes */}
+                      {editingSection.sectionKey === 'socialproof' && (
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                              💬 Các quotes/báo chí (Lingerie Shop là một..., Elle Vietnam, Tháng 10/2024)
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={handleAddQuote}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Thêm quote
+                            </button>
+                          </div>
+                          <div className="space-y-3">
+                            {((editingSection.metadata as { quotes?: Quote[] })?.quotes || []).map((quote, index) => (
+                              <div key={index} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-1 space-y-2">
+                                    <textarea
+                                      value={quote.quote}
+                                      onChange={(e) => handleUpdateQuote(index, 'quote', e.target.value)}
+                                      placeholder="Nội dung quote (vd: 'Lingerie Shop là một thương hiệu tôi yêu thích...')"
+                                      rows={2}
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm resize-none"
+                                    />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                      <input
+                                        type="text"
+                                        value={quote.author}
+                                        onChange={(e) => handleUpdateQuote(index, 'author', e.target.value)}
+                                        placeholder="Tác giả/Người viết"
+                                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={quote.publication}
+                                        onChange={(e) => handleUpdateQuote(index, 'publication', e.target.value)}
+                                        placeholder="Tờ báo/Xuất xứ (Elle Vietnam, Vogue VN)"
+                                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                      />
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={quote.date}
+                                      onChange={(e) => handleUpdateQuote(index, 'date', e.target.value)}
+                                      placeholder="Ngày tháng (vd: 'Tháng 10/2024')"
+                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteQuote(index)}
+                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 mt-1"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
                                 </div>
                               </div>
                             ))}
