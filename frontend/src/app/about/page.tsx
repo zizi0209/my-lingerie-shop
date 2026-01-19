@@ -180,7 +180,7 @@ export default function AboutPage() {
             )}
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-8 max-w-6xl mx-auto">
             {((craftsmanship.metadata as { items?: Array<{ icon: string; title: string; description: string }> })?.items || []).map((item, index) => {
               // Map icon string to Icon component
               const IconComponent = 
@@ -193,7 +193,7 @@ export default function AboutPage() {
               return (
               <div 
                 key={index} 
-                className="bg-white dark:bg-gray-800 p-8 rounded-2xl text-center hover:shadow-lg transition-shadow"
+                className="bg-white dark:bg-gray-800 p-8 rounded-2xl text-center hover:shadow-lg transition-shadow w-full sm:w-80 md:w-64 lg:w-72"
               >
                 <div className="w-16 h-16 bg-primary-50 dark:bg-primary-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
                   <IconComponent className="w-8 h-8 text-primary-500" />
@@ -229,11 +229,11 @@ export default function AboutPage() {
             )}
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {((values.metadata as { values?: Array<{ icon: string; title: string; description: string }> })?.values || []).map((item, index, arr) => (
+          <div className="flex flex-wrap justify-center gap-8 md:gap-12 max-w-6xl mx-auto">
+            {((values.metadata as { values?: Array<{ icon: string; title: string; description: string }> })?.values || []).map((item, index) => (
               <div 
                 key={index} 
-                className={`text-center p-8 ${index === 1 && arr.length === 3 ? 'border-x border-gray-800' : ''}`}
+                className="text-center p-8 w-full sm:w-80 md:w-64 lg:w-72"
               >
                 <div className="text-5xl mb-6">{item.icon}</div>
                 <h3 className="text-xl font-medium mb-4">{item.title}</h3>
@@ -252,9 +252,9 @@ export default function AboutPage() {
         <div className="container mx-auto px-4">
           {/* Stats */}
           {stats?.isActive && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto mb-20">
+          <div className="flex flex-wrap justify-center gap-8 md:gap-12 max-w-6xl mx-auto mb-20">
             {((stats.metadata as { stats?: Array<{ number: number; suffix: string; label: string; decimals?: number }> })?.stats || []).map((stat, index) => (
-              <div key={index} className="text-center">
+              <div key={index} className="text-center w-40 sm:w-48 md:w-56">
                 <div className="text-3xl md:text-4xl lg:text-5xl font-light mb-2 text-gray-900 dark:text-white">
                   {stat.decimals ? stat.number.toFixed(stat.decimals) : stat.number.toLocaleString()}{stat.suffix}
                 </div>
@@ -288,9 +288,9 @@ export default function AboutPage() {
             )}
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-8 md:gap-12 max-w-6xl mx-auto">
             {((team.metadata as { members?: Array<{ name: string; role: string; image: string }> })?.members || []).map((member, index) => (
-              <div key={index} className="text-center group">
+              <div key={index} className="text-center group w-full sm:w-80 md:w-64 lg:w-72">
                 <div className="relative w-40 h-40 mx-auto mb-4 rounded-full overflow-hidden">
                   <Image
                     src={member.image}
