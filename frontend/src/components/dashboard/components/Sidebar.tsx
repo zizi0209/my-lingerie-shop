@@ -52,7 +52,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
       items: [
         { name: t('nav.blogPosts'), path: '/dashboard/posts', icon: FileText },
         { name: t('nav.postTags'), path: '/dashboard/post-categories', icon: Tag },
-        { name: 'Liên kết SP-BV', path: '/dashboard/product-posts', icon: LinkIcon },
         { name: t('nav.homeLayout'), path: '/dashboard/home-component', icon: Home },
         { name: t('nav.aboutPage'), path: '/dashboard/about', icon: Info },
         { name: t('nav.coupons'), path: '/dashboard/coupons', icon: Ticket },
