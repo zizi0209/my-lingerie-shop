@@ -78,7 +78,10 @@ export const getPostProducts = async (req: Request, res: Response) => {
     const { postId } = req.params;
     const { displayType } = req.query;
 
-    const where: any = { postId: Number(postId) };
+    const where: any = { 
+      postId: Number(postId),
+      isAutoRecommended: false, // Chỉ lấy products được link thủ công
+    };
     if (displayType) where.displayType = String(displayType);
 
     const products = await prisma.productOnPost.findMany({
