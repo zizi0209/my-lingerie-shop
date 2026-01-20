@@ -48,7 +48,7 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
       });
       const response = await fetch(`${baseUrl}/products?${params}`);
       const data = await response.json();
-      setProducts(data.products || []);
+      setProducts(data.data || []); // Fix: API trả về data.data, không phải data.products
     } catch (error) {
       console.error('Error fetching products:', error);
       setProducts([]);
