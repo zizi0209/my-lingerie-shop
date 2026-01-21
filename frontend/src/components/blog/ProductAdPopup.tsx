@@ -41,21 +41,40 @@ export default function ProductAdPopup({ postId, delaySeconds, enabled }: Produc
     // Fetch ad products
     const fetchAdProducts = async () => {
       try {
-        const res = await fetch(`${baseUrl}/product-posts/posts/${postId}/ad-products`);
+        const adUrl = `${baseUrl}/product-posts/posts/${postId}/ad-products`;
+        console.log('[ProductAdPopup] Fetching ad products from:', adUrl);
+        const res = await fetch(adUrl);
+        
+        if (!res.ok) {
+          console.error('[ProductAdPopup] Response not OK:', res.status, res.statusText);
+          const text = await res.text();
+          console.error('[ProductAdPopup] Response text:', text.substring(0, 200));
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        
         const data = await res.json();
+        console.log('[ProductAdPopup] Ad products data:', data);
         
         if (data.success && data.data?.length > 0) {
           setProducts(data.data);
+          console.log('[ProductAdPopup] Will show popup after', delaySeconds, 'seconds');
           
           // Show popup after delay
           const timer = setTimeout(() => {
+            console.log('[ProductAdPopup] Showing popup now');
             setIsOpen(true);
           }, delaySeconds * 1000);
 
           return () => clearTimeout(timer);
+        } else {
+          console.log('[ProductAdPopup] No ad products to show');
         }
       } catch (error) {
-        console.error('Failed to fetch ad products:', error);
+        console.error('[ProductAdPopup] Failed to fetch ad products:', error);
+        if (error instanceof Error) {
+          console.error('[ProductAdPopup] Error message:', error.message);
+          console.error('[ProductAdPopup] Error stack:', error.stack);
+        }
       } finally {
         setLoading(false);
       }

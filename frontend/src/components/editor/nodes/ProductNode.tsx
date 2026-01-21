@@ -9,8 +9,11 @@ import {
   NodeKey,
   SerializedLexicalNode,
   Spread,
+  $getNodeByKey,
 } from 'lexical';
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { Suspense, useState, useEffect, type ReactElement } from 'react';
+import { X } from 'lucide-react';
 
 export type SerializedProductNode = Spread<
   {
@@ -218,6 +221,16 @@ function ProductNodeComponent({
   const [product, setProduct] = useState<ProductData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [editor] = useLexicalComposerContext();
+
+  const handleRemove = () => {
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey);
+      if (node) {
+        node.remove();
+      }
+    });
+  };
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -315,6 +328,14 @@ function ProductNodeComponent({
         </div>
       </div>
       <div className="absolute top-2 right-2 flex items-center gap-1">
+        <button
+          type="button"
+          onClick={handleRemove}
+          className="p-1 bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 text-red-600 dark:text-red-400 rounded-full transition-colors"
+          title="Xóa sản phẩm"
+        >
+          <X className="w-4 h-4" />
+        </button>
         {isAd && (
           <span className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900 rounded-full border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-semibold">
             📢 AD
@@ -327,3 +348,5 @@ function ProductNodeComponent({
     </div>
   );
 }
+
+
