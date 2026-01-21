@@ -3,6 +3,7 @@
  import { useEffect, useState, useMemo } from 'react';
  import ProductCardInPost from './ProductCardInPost';
  import ContentWithInlineProducts from './ContentWithInlineProducts';
+ import SmartFloatingCard from './SmartFloatingCard';
  import { sanitizeForPublic } from '@/lib/sanitize';
  
  interface Product {
@@ -19,6 +20,7 @@
    productId: number;
    displayType: 'inline-card' | 'sidebar' | 'end-collection';
    customNote?: string;
+   isAd?: boolean;
    product: Product;
  }
  
@@ -115,71 +117,88 @@
  
    // Parse HTML and inject ProductCardInPost components
    const renderContentWithProducts = () => {
+     // Extract Ad products for SmartFloatingCard
+     const adProducts = manualProducts
+       .filter(p => p.isAd && p.displayType === 'inline-card')
+       .map((p, index) => ({
+         productId: p.productId,
+         customNote: p.customNote,
+         product: p.product,
+         elementId: `ad-product-${p.productId}-${index}`,
+       }));
+
      return (
-       <div className={className}>
-         {/* Sidebar products (sticky) */}
-         {manualProducts.filter(p => p.displayType === 'sidebar').length > 0 && (
-           <div className="lg:float-right lg:ml-6 lg:mb-6 lg:w-80 space-y-4">
-             {manualProducts.filter(p => p.displayType === 'sidebar').map((productData) => (
-               <div key={`sidebar-${productData.productId}`} className="lg:sticky lg:top-24">
-                 <ProductCardInPost
-                   product={productData.product}
-                   displayType={productData.displayType}
-                   customNote={productData.customNote}
-                   onRemove={handleRemoveProduct}
-                 />
+       <>
+         <div className={className}>
+           {/* Sidebar products (sticky) */}
+           {manualProducts.filter(p => p.displayType === 'sidebar').length > 0 && (
+             <div className="lg:float-right lg:ml-6 lg:mb-6 lg:w-80 space-y-4">
+               {manualProducts.filter(p => p.displayType === 'sidebar').map((productData) => (
+                 <div key={`sidebar-${productData.productId}`} className="lg:sticky lg:top-24">
+                   <ProductCardInPost
+                     product={productData.product}
+                     displayType={productData.displayType}
+                     customNote={productData.customNote}
+                     onRemove={handleRemoveProduct}
+                   />
+                 </div>
+               ))}
+             </div>
+           )}
+ 
+           {/* Main content with inline products */}
+           <ContentWithInlineProducts content={content} products={manualProducts} onRemove={handleRemoveProduct} />
+ 
+           {/* Manual collection products at the end */}
+           {manualProducts.filter(p => p.displayType === 'end-collection').length > 0 && (
+             <div className="mt-12 pt-12 border-t border-slate-200 dark:border-slate-800">
+               <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                Sản phẩm liên quan
+               </h3>
+               <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                Các sản phẩm được admin chọn để giới thiệu trong bài viết
+               </p>
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {manualProducts.filter(p => p.displayType === 'end-collection').map((productData) => (
+                   <ProductCardInPost
+                     key={`collection-${productData.productId}`}
+                     product={productData.product}
+                     displayType={productData.displayType}
+                     customNote={productData.customNote}
+                     onRemove={handleRemoveProduct}
+                   />
+                 ))}
                </div>
-             ))}
-           </div>
-         )}
- 
-         {/* Main content with inline products */}
-         <ContentWithInlineProducts content={content} products={manualProducts} onRemove={handleRemoveProduct} />
- 
-         {/* Manual collection products at the end */}
-         {manualProducts.filter(p => p.displayType === 'end-collection').length > 0 && (
-           <div className="mt-12 pt-12 border-t border-slate-200 dark:border-slate-800">
-             <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-              Sản phẩm liên quan
-             </h3>
-             <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-              Các sản phẩm được admin chọn để giới thiệu trong bài viết
-             </p>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               {manualProducts.filter(p => p.displayType === 'end-collection').map((productData) => (
-                 <ProductCardInPost
-                   key={`collection-${productData.productId}`}
-                   product={productData.product}
-                   displayType={productData.displayType}
-                   customNote={productData.customNote}
-                   onRemove={handleRemoveProduct}
-                 />
-               ))}
              </div>
-           </div>
-         )}
+           )}
  
-         {/* Auto-recommended products at the end */}
-         {recommendedProducts.length > 0 && (
-           <div className="mt-12 pt-12 border-t border-slate-200 dark:border-slate-800">
-             <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-               Sản phẩm được đề xuất
-             </h3>
-             <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-               Gợi ý tự động dựa trên nội dung bài viết
-             </p>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               {recommendedProducts.map((product) => (
-                 <ProductCardInPost
-                   key={`recommended-${product.id}`}
-                   product={product}
-                   displayType="end-collection"
-                 />
-               ))}
+           {/* Auto-recommended products at the end */}
+           {recommendedProducts.length > 0 && (
+             <div className="mt-12 pt-12 border-t border-slate-200 dark:border-slate-800">
+               <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                 Sản phẩm được đề xuất
+               </h3>
+               <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                 Gợi ý tự động dựa trên nội dung bài viết
+               </p>
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {recommendedProducts.map((product) => (
+                   <ProductCardInPost
+                     key={`recommended-${product.id}`}
+                     product={product}
+                     displayType="end-collection"
+                   />
+                 ))}
+               </div>
              </div>
-           </div>
+           )}
+         </div>
+
+         {/* Smart Floating Card for Ad products */}
+         {adProducts.length > 0 && (
+           <SmartFloatingCard products={adProducts} postId={postId} />
          )}
-       </div>
+       </>
      );
    };
  
