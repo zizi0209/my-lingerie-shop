@@ -52,18 +52,23 @@ function extractProductsFromContent(content: string): ExtractedProduct[] {
 
 // Sync ProductOnPost based on extracted products
 async function syncProductOnPost(postId: number, products: ExtractedProduct[]) {
-  // Delete existing links that are not in the new list
-  const productIds = products.map(p => p.productId);
+  // Get unique product IDs using Set to avoid duplicate inserts
+  const uniqueProductIds = Array.from(new Set(products.map(p => p.productId)));
   
+  // Delete existing links that are not in the new list
   await prisma.productOnPost.deleteMany({
     where: {
       postId,
-      productId: { notIn: productIds.length > 0 ? productIds : [-1] }, // -1 to handle empty array
+      productId: { notIn: uniqueProductIds.length > 0 ? uniqueProductIds : [-1] },
     },
   });
 
-  // Upsert all products from content
-  for (const product of products) {
+  // Upsert unique products only (take first occurrence for each productId)
+  const uniqueProducts = products.filter((product, index, self) => 
+    index === self.findIndex(p => p.productId === product.productId)
+  );
+
+  for (const product of uniqueProducts) {
     await prisma.productOnPost.upsert({
       where: {
         postId_productId: {

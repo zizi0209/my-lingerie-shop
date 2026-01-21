@@ -97,7 +97,6 @@
      let lastIndex = 0;
      let fragmentIndex = 0;
      const bodyHTML = doc.body.innerHTML;
-     const seenProductIds = new Set<number>();
  
      productNodes.forEach((node) => {
        const productId = Number(node.getAttribute('data-product-id'));
@@ -113,13 +112,7 @@
            });
          }
  
-         // Skip duplicate products
-         if (seenProductIds.has(productId)) {
-           lastIndex = nodeIndex + nodeHTML.length;
-           return;
-         }
-         seenProductIds.add(productId);
- 
+         // Allow duplicate products - don't skip
          // Try to find product in manual products first
          if (productMap.has(productId)) {
            fragments.push({
