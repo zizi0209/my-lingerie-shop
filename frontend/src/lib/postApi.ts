@@ -20,6 +20,8 @@ export interface Post {
   isPublished: boolean;
   publishedAt: Date | null;
   views: number;
+  adEnabled: boolean;
+  adDelaySeconds: number;
   createdAt: Date;
   updatedAt: Date;
   author: {
@@ -64,6 +66,8 @@ export interface CreatePostData {
   categoryId: number;
   isPublished?: boolean;
   publishedAt?: string;
+  adEnabled?: boolean;
+  adDelaySeconds?: number;
 }
 
 export interface UpdatePostData {
@@ -75,6 +79,8 @@ export interface UpdatePostData {
   categoryId?: number;
   isPublished?: boolean;
   publishedAt?: string;
+  adEnabled?: boolean;
+  adDelaySeconds?: number;
 }
 
 export const postApi = {

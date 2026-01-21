@@ -336,6 +336,8 @@ model Post {
   publishedAt DateTime?
   views       Int            @default(0)
   likeCount   Int            @default(0)
+  adEnabled   Boolean        @default(false) // Enable popup ad for products
+  adDelaySeconds Int         @default(5) // Delay in seconds before showing ad popup
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   deletedAt   DateTime?
@@ -386,6 +388,7 @@ model ProductOnPost {
   displayType  String   @default("inline-card") // "inline-card" | "sidebar" | "end-collection"
   customNote   String?  // Custom note from admin (e.g., "Perfect for date night")
   isAutoRecommended Boolean @default(false) // Auto-generated recommendation vs manual link
+  isAd         Boolean  @default(false) // Show this product in popup ad
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   

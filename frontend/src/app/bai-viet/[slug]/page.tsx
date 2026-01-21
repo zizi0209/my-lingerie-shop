@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import PostContent from "@/components/blog/PostContent";
+import ProductAdPopup from "@/components/blog/ProductAdPopup";
 
 interface Author {
   id: number;
@@ -46,6 +47,8 @@ interface Post {
   isPublished: boolean;
   publishedAt: string | null;
   createdAt: string;
+  adEnabled: boolean;
+  adDelaySeconds: number;
 }
 
 interface InteractionStatus {
@@ -439,6 +442,15 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
           </Link>
         </div>
       </article>
+
+      {/* Product Ad Popup */}
+      {post && (
+        <ProductAdPopup
+          postId={post.id}
+          delaySeconds={post.adDelaySeconds}
+          enabled={post.adEnabled}
+        />
+      )}
     </div>
   );
 }

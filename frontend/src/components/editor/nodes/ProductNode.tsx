@@ -17,6 +17,7 @@ export type SerializedProductNode = Spread<
     productId: number;
     displayType: 'inline-card' | 'sidebar' | 'end-collection';
     customNote?: string;
+    isAd?: boolean;
   },
   SerializedLexicalNode
 >;
@@ -25,30 +26,33 @@ export class ProductNode extends DecoratorNode<ReactElement> {
   __productId: number;
   __displayType: 'inline-card' | 'sidebar' | 'end-collection';
   __customNote?: string;
+  __isAd: boolean;
 
   static getType(): string {
     return 'product';
   }
 
   static clone(node: ProductNode): ProductNode {
-    return new ProductNode(node.__productId, node.__displayType, node.__customNote, node.__key);
+    return new ProductNode(node.__productId, node.__displayType, node.__customNote, node.__isAd, node.__key);
   }
 
   constructor(
     productId: number,
     displayType: 'inline-card' | 'sidebar' | 'end-collection' = 'inline-card',
     customNote?: string,
+    isAd: boolean = false,
     key?: NodeKey
   ) {
     super(key);
     this.__productId = productId;
     this.__displayType = displayType;
     this.__customNote = customNote;
+    this.__isAd = isAd;
   }
 
   static importJSON(serializedNode: SerializedProductNode): ProductNode {
-    const { productId, displayType, customNote } = serializedNode;
-    return $createProductNode(productId, displayType, customNote);
+    const { productId, displayType, customNote, isAd } = serializedNode;
+    return $createProductNode(productId, displayType, customNote, isAd);
   }
 
   exportJSON(): SerializedProductNode {
@@ -58,6 +62,7 @@ export class ProductNode extends DecoratorNode<ReactElement> {
       productId: this.__productId,
       displayType: this.__displayType,
       customNote: this.__customNote,
+      isAd: this.__isAd,
     };
   }
 
@@ -120,6 +125,10 @@ export class ProductNode extends DecoratorNode<ReactElement> {
     return this.__customNote;
   }
 
+  getIsAd(): boolean {
+    return this.__isAd;
+  }
+
   setDisplayType(displayType: 'inline-card' | 'sidebar' | 'end-collection'): void {
     const writable = this.getWritable();
     writable.__displayType = displayType;
@@ -128,6 +137,11 @@ export class ProductNode extends DecoratorNode<ReactElement> {
   setCustomNote(customNote: string | undefined): void {
     const writable = this.getWritable();
     writable.__customNote = customNote;
+  }
+
+  setIsAd(isAd: boolean): void {
+    const writable = this.getWritable();
+    writable.__isAd = isAd;
   }
 
   decorate(): ReactElement {
@@ -144,6 +158,7 @@ export class ProductNode extends DecoratorNode<ReactElement> {
           productId={this.__productId}
           displayType={this.__displayType}
           customNote={this.__customNote}
+          isAd={this.__isAd}
           nodeKey={this.getKey()}
         />
       </Suspense>
@@ -166,9 +181,10 @@ export class ProductNode extends DecoratorNode<ReactElement> {
 export function $createProductNode(
   productId: number,
   displayType: 'inline-card' | 'sidebar' | 'end-collection' = 'inline-card',
-  customNote?: string
+  customNote?: string,
+  isAd: boolean = false
 ): ProductNode {
-  return new ProductNode(productId, displayType, customNote);
+  return new ProductNode(productId, displayType, customNote, isAd);
 }
 
 export function $isProductNode(node: LexicalNode | null | undefined): node is ProductNode {
@@ -190,11 +206,13 @@ function ProductNodeComponent({
   productId,
   displayType,
   customNote,
+  isAd,
   nodeKey,
 }: {
   productId: number;
   displayType: 'inline-card' | 'sidebar' | 'end-collection';
   customNote?: string;
+  isAd: boolean;
   nodeKey: NodeKey;
 }) {
   const [product, setProduct] = useState<ProductData | null>(null);
@@ -297,6 +315,11 @@ function ProductNodeComponent({
         </div>
       </div>
       <div className="absolute top-2 right-2 flex items-center gap-1">
+        {isAd && (
+          <span className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900 rounded-full border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-semibold">
+            📢 AD
+          </span>
+        )}
         <span className="text-xs px-2 py-0.5 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
           {displayType}
         </span>

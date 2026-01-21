@@ -7,6 +7,7 @@ interface LexicalNode {
   productId?: number;
   displayType?: 'inline-card' | 'sidebar' | 'end-collection';
   customNote?: string;
+  isAd?: boolean;
   children?: LexicalNode[];
 }
 
@@ -14,6 +15,7 @@ interface ExtractedProduct {
   productId: number;
   displayType: 'inline-card' | 'sidebar' | 'end-collection';
   customNote?: string;
+  isAd: boolean;
   position: number;
 }
 
@@ -29,6 +31,7 @@ function extractProductsFromContent(content: string): ExtractedProduct[] {
           productId: node.productId,
           displayType: node.displayType || 'inline-card',
           customNote: node.customNote,
+          isAd: node.isAd ?? false,
           position: position++,
         });
       }
@@ -72,6 +75,7 @@ async function syncProductOnPost(postId: number, products: ExtractedProduct[]) {
         position: product.position,
         displayType: product.displayType,
         customNote: product.customNote,
+        isAd: product.isAd,
       },
       create: {
         postId,
@@ -79,6 +83,7 @@ async function syncProductOnPost(postId: number, products: ExtractedProduct[]) {
         position: product.position,
         displayType: product.displayType,
         customNote: product.customNote,
+        isAd: product.isAd,
       },
     });
   }
@@ -201,6 +206,8 @@ export const getPostBySlug = async (req: Request, res: Response) => {
         likeCount: true,
         isPublished: true,
         publishedAt: true,
+        adEnabled: true,
+        adDelaySeconds: true,
         createdAt: true,
         author: {
           select: {
@@ -252,6 +259,8 @@ export const createPost = async (req: Request, res: Response) => {
       categoryId,
       isPublished,
       publishedAt,
+      adEnabled,
+      adDelaySeconds,
     } = req.body;
 
     if (!title || !slug || !content || !authorId || !categoryId) {
@@ -282,6 +291,8 @@ export const createPost = async (req: Request, res: Response) => {
         categoryId: Number(categoryId),
         isPublished: isPublished || false,
         publishedAt: publishedAt ? new Date(publishedAt) : null,
+        adEnabled: adEnabled ?? false,
+        adDelaySeconds: adDelaySeconds ?? 5,
       },
       include: {
         author: {
@@ -324,6 +335,8 @@ export const updatePost = async (req: Request, res: Response) => {
       categoryId,
       isPublished,
       publishedAt,
+      adEnabled,
+      adDelaySeconds,
     } = req.body;
 
     const existingPost = await prisma.post.findFirst({
@@ -364,6 +377,8 @@ export const updatePost = async (req: Request, res: Response) => {
       }
     }
     if (publishedAt) updateData.publishedAt = new Date(publishedAt);
+    if (adEnabled !== undefined) updateData.adEnabled = adEnabled;
+    if (adDelaySeconds !== undefined) updateData.adDelaySeconds = adDelaySeconds;
 
     const post = await prisma.post.update({
       where: { id: Number(id) },

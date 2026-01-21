@@ -18,7 +18,8 @@ interface ProductSearchModalProps {
   onSelect: (
     productId: number,
     displayType: 'inline-card' | 'sidebar' | 'end-collection',
-    customNote?: string
+    customNote?: string,
+    isAd?: boolean
   ) => void;
   onClose: () => void;
 }
@@ -32,6 +33,7 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
     'inline-card'
   );
   const [customNote, setCustomNote] = useState('');
+  const [isAd, setIsAd] = useState(false);
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
@@ -68,7 +70,7 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
 
   const handleConfirm = () => {
     if (selectedProduct) {
-      onSelect(selectedProduct.id, displayType, customNote || undefined);
+      onSelect(selectedProduct.id, displayType, customNote || undefined, isAd);
     }
   };
 
@@ -95,6 +97,7 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
@@ -138,6 +141,24 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
               </div>
             ) : products.length === 0 ? (
               <div className="text-center py-12">
+              {/* Ad Checkbox */}
+              <div className="mb-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isAd}
+                    onChange={(e) => setIsAd(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-amber-600 focus:ring-amber-500"
+                  />
+                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                    📢 Hiển thị trong popup quảng cáo
+                  </span>
+                </label>
+                <p className="text-xs text-slate-400 mt-1 ml-6">
+                  Sản phẩm này sẽ xuất hiện trong popup quảng cáo khi người đọc bài viết
+                </p>
+              </div>
+
                 <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Search className="w-8 h-8 text-slate-400" />
                 </div>
@@ -149,6 +170,7 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
               <div className="space-y-2">
                 {products.map((product) => (
                   <button
+                    type="button"
                     key={product.id}
                     onClick={() => setSelectedProduct(product)}
                     className={`w-full flex gap-4 p-4 border-2 rounded-xl transition-all text-left ${
@@ -229,6 +251,7 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
                     },
                   ].map((type) => (
                     <button
+                      type="button"
                       key={type.value}
                       onClick={() =>
                         setDisplayType(
@@ -292,12 +315,14 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
               {/* Actions */}
               <div className="space-y-2">
                 <button
+                  type="button"
                   onClick={handleConfirm}
                   className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-lg transition-colors"
                 >
                   Xác nhận
                 </button>
                 <button
+                  type="button"
                   onClick={onClose}
                   className="w-full py-3 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-colors"
                 >

@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 
 export const linkProductToPost = async (req: Request, res: Response) => {
   try {
-    const { postId, productId, position, displayType, customNote } = req.body;
+    const { postId, productId, position, displayType, customNote, isAd } = req.body;
 
     if (!postId || !productId) {
       return res.status(400).json({ error: 'postId và productId là bắt buộc!' });
@@ -30,6 +30,7 @@ export const linkProductToPost = async (req: Request, res: Response) => {
         position: position ? Number(position) : null,
         displayType: displayType || 'inline-card',
         customNote: customNote || null,
+        isAd: isAd ?? false,
       },
       create: {
         postId: Number(postId),
@@ -37,6 +38,7 @@ export const linkProductToPost = async (req: Request, res: Response) => {
         position: position ? Number(position) : null,
         displayType: displayType || 'inline-card',
         customNote: customNote || null,
+        isAd: isAd ?? false,
       },
     });
 
@@ -76,13 +78,14 @@ export const unlinkProductFromPost = async (req: Request, res: Response) => {
 export const getPostProducts = async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;
-    const { displayType } = req.query;
+    const { displayType, isAd } = req.query;
 
     const where: any = { 
       postId: Number(postId),
       isAutoRecommended: false, // Chỉ lấy products được link thủ công
     };
     if (displayType) where.displayType = String(displayType);
+    if (isAd !== undefined) where.isAd = isAd === 'true';
 
     const products = await prisma.productOnPost.findMany({
       where,
@@ -146,6 +149,37 @@ export const getProductPosts = async (req: Request, res: Response) => {
   }
 };
 
+// Get ad products for a post (for popup display)
+export const getPostAdProducts = async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+
+    const products = await prisma.productOnPost.findMany({
+      where: {
+        postId: Number(postId),
+        isAd: true,
+      },
+      include: {
+        product: {
+          include: {
+            images: { take: 1 },
+            category: { select: { name: true, slug: true } },
+          },
+        },
+      },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    res.json({
+      success: true,
+      data: products,
+    });
+  } catch (error) {
+    console.error('Get post ad products error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách sản phẩm quảng cáo!' });
+  }
+};
+
 export const batchLinkProducts = async (req: Request, res: Response) => {
   try {
     const { postId, products } = req.body;
@@ -172,6 +206,7 @@ export const batchLinkProducts = async (req: Request, res: Response) => {
             position: p.position ? Number(p.position) : null,
             displayType: p.displayType || 'inline-card',
             customNote: p.customNote || null,
+            isAd: p.isAd ?? false,
           },
           create: {
             postId: Number(postId),
@@ -179,6 +214,7 @@ export const batchLinkProducts = async (req: Request, res: Response) => {
             position: p.position ? Number(p.position) : null,
             displayType: p.displayType || 'inline-card',
             customNote: p.customNote || null,
+            isAd: p.isAd ?? false,
           },
         })
       )
