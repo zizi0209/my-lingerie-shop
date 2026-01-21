@@ -41,7 +41,7 @@ export default function ProductAdPopup({ postId, delaySeconds, enabled }: Produc
     // Fetch ad products
     const fetchAdProducts = async () => {
       try {
-        const res = await fetch(`${baseUrl}/product-post/posts/${postId}/ad-products`);
+        const res = await fetch(`${baseUrl}/product-posts/posts/${postId}/ad-products`);
         const data = await res.json();
         
         if (data.success && data.data?.length > 0) {
