@@ -29,9 +29,6 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [displayType, setDisplayType] = useState<'inline-card' | 'sidebar' | 'end-collection'>(
-    'inline-card'
-  );
   const [customNote, setCustomNote] = useState('');
   const [isAd, setIsAd] = useState(false);
 
@@ -70,7 +67,8 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
 
   const handleConfirm = () => {
     if (selectedProduct) {
-      onSelect(selectedProduct.id, displayType, customNote || undefined, isAd);
+      // Always use inline-card as default display type
+      onSelect(selectedProduct.id, 'inline-card', customNote || undefined, isAd);
     }
   };
 
@@ -141,24 +139,6 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
               </div>
             ) : products.length === 0 ? (
               <div className="text-center py-12">
-              {/* Ad Checkbox */}
-              <div className="mb-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isAd}
-                    onChange={(e) => setIsAd(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-amber-600 focus:ring-amber-500"
-                  />
-                  <span className="text-sm text-slate-600 dark:text-slate-400">
-                    📢 Hiển thị trong popup quảng cáo
-                  </span>
-                </label>
-                <p className="text-xs text-slate-400 mt-1 ml-6">
-                  Sản phẩm này sẽ xuất hiện trong popup quảng cáo khi người đọc bài viết
-                </p>
-              </div>
-
                 <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Search className="w-8 h-8 text-slate-400" />
                 </div>
@@ -235,46 +215,6 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
                 Cấu hình hiển thị
               </h3>
 
-              {/* Display Type */}
-              <div className="mb-6">
-                <label className="text-sm text-slate-600 dark:text-slate-400 mb-2 block">
-                  Kiểu hiển thị
-                </label>
-                <div className="space-y-2">
-                  {[
-                    { value: 'inline-card', label: 'Inline Card', desc: 'Nhúng giữa nội dung' },
-                    { value: 'sidebar', label: 'Sidebar', desc: 'Hiển thị bên cạnh' },
-                    {
-                      value: 'end-collection',
-                      label: 'Collection',
-                      desc: 'Bộ sưu tập cuối bài',
-                    },
-                  ].map((type) => (
-                    <button
-                      type="button"
-                      key={type.value}
-                      onClick={() =>
-                        setDisplayType(
-                          type.value as 'inline-card' | 'sidebar' | 'end-collection'
-                        )
-                      }
-                      className={`w-full p-3 text-left border-2 rounded-lg transition-all ${
-                        displayType === type.value
-                          ? 'border-rose-500 bg-rose-50 dark:bg-rose-500/10'
-                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="font-medium text-sm text-slate-900 dark:text-white">
-                        {type.label}
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        {type.desc}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Custom Note */}
               <div className="mb-6">
                 <label className="text-sm text-slate-600 dark:text-slate-400 mb-2 block">
@@ -287,6 +227,29 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
                   rows={3}
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
                 />
+                <p className="text-xs text-slate-400 mt-1">
+                  Ghi chú này sẽ hiển thị cùng với sản phẩm trong bài viết
+                </p>
+              </div>
+
+              {/* Ad Checkbox */}
+              <div className="mb-6">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={isAd}
+                    onChange={(e) => setIsAd(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-amber-600 focus:ring-amber-500"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                      📢 Hiển thị trong popup quảng cáo
+                    </span>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Sản phẩm này sẽ xuất hiện trong popup quảng cáo khi người đọc bài viết
+                    </p>
+                  </div>
+                </label>
               </div>
 
               {/* Preview */}
@@ -294,19 +257,23 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
                 <label className="text-sm text-slate-600 dark:text-slate-400 mb-2 block">
                   Preview
                 </label>
-                <div className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                <div className="p-4 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
-                    <ExternalLink className="w-4 h-4 text-slate-400" />
-                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                      {displayType}
-                    </span>
+                    <div className="px-2 py-1 bg-blue-100 dark:bg-blue-500/20 rounded text-xs font-medium text-blue-600 dark:text-blue-400">
+                      Inline Card
+                    </div>
+                    {isAd && (
+                      <div className="px-2 py-1 bg-amber-100 dark:bg-amber-500/20 rounded text-xs font-medium text-amber-600 dark:text-amber-400">
+                        📢 AD
+                      </div>
+                    )}
                   </div>
-                  <div className="text-xs text-slate-900 dark:text-white font-medium truncate">
+                  <div className="text-sm text-slate-900 dark:text-white font-medium line-clamp-2 mb-1">
                     {selectedProduct.name}
                   </div>
                   {customNote && (
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 italic">
-                      &ldquo;{customNote}&rdquo;
+                    <div className="text-xs text-slate-500 dark:text-slate-400 italic mt-2 p-2 bg-slate-50 dark:bg-slate-900 rounded">
+                      💡 &ldquo;{customNote}&rdquo;
                     </div>
                   )}
                 </div>
@@ -317,7 +284,7 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-lg transition-colors"
+                  className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-lg transition-colors shadow-lg shadow-rose-500/30"
                 >
                   Xác nhận
                 </button>
