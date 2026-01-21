@@ -43,7 +43,7 @@ import {
   Type,
   ShoppingBag,
 } from 'lucide-react';
-import { $createProductNode } from '../nodes/ProductNode';
+import { $createProductNode } from '../nodes';
 import ProductSearchModal from './ProductSearchModal';
 
 type BlockType = 'paragraph' | 'h1' | 'h2' | 'h3';

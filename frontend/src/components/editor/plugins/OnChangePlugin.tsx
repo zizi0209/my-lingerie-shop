@@ -20,7 +20,6 @@ export default function OnChangePlugin({ onChange }: OnChangePluginProps) {
 
       editorState.read(() => {
         const html = $generateHtmlFromNodes(editor, null);
-        console.log('[OnChangePlugin] Generated HTML:', html.substring(0, 500));
         // Clean empty content
         const cleanHtml = html === '<p class="mb-2 last:mb-0"><br></p>' ? '' : html;
         onChange(cleanHtml);

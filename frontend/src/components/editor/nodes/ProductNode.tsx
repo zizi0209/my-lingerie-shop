@@ -39,6 +39,11 @@ export class ProductNode extends DecoratorNode<ReactElement> {
     return new ProductNode(node.__productId, node.__displayType, node.__customNote, node.__isAd, node.__key);
   }
 
+  // Add version to help Lexical identify node changes
+  getVersion(): number {
+    return 1;
+  }
+
   constructor(
     productId: number,
     displayType: 'inline-card' | 'sidebar' | 'end-collection' = 'inline-card',
@@ -96,13 +101,6 @@ export class ProductNode extends DecoratorNode<ReactElement> {
     // Add placeholder content để HTML không bị empty
     element.textContent = `[Product ${this.__productId}]`;
     
-    console.log('[ProductNode.exportDOM] Exporting:', {
-      productId: this.__productId,
-      displayType: this.__displayType,
-      customNote: this.__customNote,
-      isAd: this.__isAd,
-      html: element.outerHTML
-    });
     return { element };
   }
 

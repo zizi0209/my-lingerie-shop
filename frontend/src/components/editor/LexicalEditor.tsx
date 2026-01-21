@@ -18,7 +18,7 @@ import InitialContentPlugin from './plugins/InitialContentPlugin';
 import AutoFocusPlugin from './plugins/AutoFocusPlugin';
 import ProductPlugin from './plugins/ProductPlugin';
 import { editorTheme } from './themes/EditorTheme';
-import { ProductNode } from './nodes/ProductNode';
+import { ProductNode } from './nodes';
 
 interface LexicalEditorProps {
   initialValue?: string;
@@ -45,7 +45,7 @@ export default function LexicalEditor({
         console.error('Lexical error:', error);
       },
     }),
-    []
+    [] // Empty deps is fine - config should be stable
   );
 
   // Memoize onChange to prevent unnecessary re-renders
@@ -57,7 +57,7 @@ export default function LexicalEditor({
   );
 
   return (
-    <LexicalComposer initialConfig={initialConfig}>
+    <LexicalComposer initialConfig={initialConfig} key="lexical-editor">
       <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
         <ToolbarPlugin />
         <div className="relative">

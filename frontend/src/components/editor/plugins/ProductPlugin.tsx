@@ -9,7 +9,7 @@ import {
   $isRangeSelection,
   $createParagraphNode,
 } from 'lexical';
-import { $createProductNode } from '../nodes/ProductNode';
+import { $createProductNode } from '../nodes';
 import { mergeRegister } from '@lexical/utils';
 import ProductSearchModal from './ProductSearchModal';
 
