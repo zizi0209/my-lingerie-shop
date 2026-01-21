@@ -76,7 +76,7 @@ export class ProductNode extends DecoratorNode<ReactElement> {
 
   createDOM(_config: EditorConfig): HTMLElement {
     const div = document.createElement('div');
-    div.className = 'product-node-wrapper my-4';
+    div.className = 'product-node-wrapper';
     div.setAttribute('data-product-id', String(this.__productId));
     div.setAttribute('data-display-type', this.__displayType);
     return div;
@@ -181,7 +181,7 @@ export class ProductNode extends DecoratorNode<ReactElement> {
   }
 
   isInline(): boolean {
-    return this.__displayType === 'inline-card';
+    return false; // ProductNode is block-level, not inline
   }
 
   isIsolated(): boolean {
@@ -189,7 +189,7 @@ export class ProductNode extends DecoratorNode<ReactElement> {
   }
 
   isTopLevel(): boolean {
-    return true;
+    return false; // Don't force top-level, let it be embedded naturally
   }
 }
 
