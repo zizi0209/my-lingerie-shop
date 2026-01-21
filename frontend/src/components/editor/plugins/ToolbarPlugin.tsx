@@ -166,10 +166,9 @@ export default function ToolbarPlugin() {
   ) => {
     editor.update(() => {
       const productNode = $createProductNode(productId, displayType, customNote);
-      const paragraphNode = $createParagraphNode();
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
-        selection.insertNodes([productNode, paragraphNode]);
+        selection.insertNodes([productNode]);
       }
     });
     setShowProductModal(false);

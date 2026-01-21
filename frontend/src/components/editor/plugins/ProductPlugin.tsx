@@ -7,7 +7,6 @@ import {
   TextNode,
   $getSelection,
   $isRangeSelection,
-  $createParagraphNode,
 } from 'lexical';
 import { $createProductNode } from '../nodes';
 import { mergeRegister } from '@lexical/utils';
@@ -70,13 +69,12 @@ export default function ProductPlugin() {
         }
       }
 
-      // Insert ProductNode
+      // Insert ProductNode only (no extra paragraph)
       const productNode = $createProductNode(productId, displayType, customNote, isAd ?? false);
-      const paragraphNode = $createParagraphNode();
       
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
-        selection.insertNodes([productNode, paragraphNode]);
+        selection.insertNodes([productNode]);
       }
     });
 
