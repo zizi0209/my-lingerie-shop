@@ -20,7 +20,6 @@ export type SerializedProductNode = Spread<
     productId: number;
     displayType: 'inline-card' | 'sidebar' | 'end-collection';
     customNote?: string;
-    isAd?: boolean;
   },
   SerializedLexicalNode
 >;
@@ -29,14 +28,13 @@ export class ProductNode extends DecoratorNode<ReactElement> {
   __productId: number;
   __displayType: 'inline-card' | 'sidebar' | 'end-collection';
   __customNote?: string;
-  __isAd: boolean;
 
   static getType(): string {
     return 'product';
   }
 
   static clone(node: ProductNode): ProductNode {
-    return new ProductNode(node.__productId, node.__displayType, node.__customNote, node.__isAd, node.__key);
+    return new ProductNode(node.__productId, node.__displayType, node.__customNote, node.__key);
   }
 
   // Add version to help Lexical identify node changes
@@ -48,19 +46,17 @@ export class ProductNode extends DecoratorNode<ReactElement> {
     productId: number,
     displayType: 'inline-card' | 'sidebar' | 'end-collection' = 'inline-card',
     customNote?: string,
-    isAd: boolean = false,
     key?: NodeKey
   ) {
     super(key);
     this.__productId = productId;
     this.__displayType = displayType;
     this.__customNote = customNote;
-    this.__isAd = isAd;
   }
 
   static importJSON(serializedNode: SerializedProductNode): ProductNode {
-    const { productId, displayType, customNote, isAd } = serializedNode;
-    return $createProductNode(productId, displayType, customNote, isAd);
+    const { productId, displayType, customNote } = serializedNode;
+    return $createProductNode(productId, displayType, customNote);
   }
 
   exportJSON(): SerializedProductNode {
@@ -70,7 +66,6 @@ export class ProductNode extends DecoratorNode<ReactElement> {
       productId: this.__productId,
       displayType: this.__displayType,
       customNote: this.__customNote,
-      isAd: this.__isAd,
     };
   }
 
@@ -79,6 +74,9 @@ export class ProductNode extends DecoratorNode<ReactElement> {
     div.className = 'product-node-wrapper';
     div.setAttribute('data-product-id', String(this.__productId));
     div.setAttribute('data-display-type', this.__displayType);
+    if (this.__customNote) {
+      div.setAttribute('data-custom-note', this.__customNote);
+    }
     return div;
   }
 
@@ -93,9 +91,6 @@ export class ProductNode extends DecoratorNode<ReactElement> {
     element.setAttribute('data-display-type', this.__displayType);
     if (this.__customNote) {
       element.setAttribute('data-custom-note', this.__customNote);
-    }
-    if (this.__isAd) {
-      element.setAttribute('data-is-ad', 'true');
     }
     
     // Add placeholder content để HTML không bị empty
@@ -140,10 +135,6 @@ export class ProductNode extends DecoratorNode<ReactElement> {
     return this.__customNote;
   }
 
-  getIsAd(): boolean {
-    return this.__isAd;
-  }
-
   setDisplayType(displayType: 'inline-card' | 'sidebar' | 'end-collection'): void {
     const writable = this.getWritable();
     writable.__displayType = displayType;
@@ -152,11 +143,6 @@ export class ProductNode extends DecoratorNode<ReactElement> {
   setCustomNote(customNote: string | undefined): void {
     const writable = this.getWritable();
     writable.__customNote = customNote;
-  }
-
-  setIsAd(isAd: boolean): void {
-    const writable = this.getWritable();
-    writable.__isAd = isAd;
   }
 
   decorate(): ReactElement {
@@ -173,7 +159,6 @@ export class ProductNode extends DecoratorNode<ReactElement> {
           productId={this.__productId}
           displayType={this.__displayType}
           customNote={this.__customNote}
-          isAd={this.__isAd}
           nodeKey={this.getKey()}
         />
       </Suspense>
@@ -196,10 +181,9 @@ export class ProductNode extends DecoratorNode<ReactElement> {
 export function $createProductNode(
   productId: number,
   displayType: 'inline-card' | 'sidebar' | 'end-collection' = 'inline-card',
-  customNote?: string,
-  isAd: boolean = false
+  customNote?: string
 ): ProductNode {
-  return new ProductNode(productId, displayType, customNote, isAd);
+  return new ProductNode(productId, displayType, customNote);
 }
 
 export function $isProductNode(node: LexicalNode | null | undefined): node is ProductNode {
@@ -221,13 +205,11 @@ function ProductNodeComponent({
   productId,
   displayType,
   customNote,
-  isAd,
   nodeKey,
 }: {
   productId: number;
   displayType: 'inline-card' | 'sidebar' | 'end-collection';
   customNote?: string;
-  isAd: boolean;
   nodeKey: NodeKey;
 }) {
   const [product, setProduct] = useState<ProductData | null>(null);
@@ -348,11 +330,6 @@ function ProductNodeComponent({
         >
           <X className="w-4 h-4" />
         </button>
-        {isAd && (
-          <span className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900 rounded-full border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-semibold">
-            📢 AD
-          </span>
-        )}
       </div>
     </div>
   );

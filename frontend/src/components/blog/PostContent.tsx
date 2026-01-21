@@ -1,9 +1,8 @@
  'use client';
  
- import { useEffect, useState, useMemo } from 'react';
+ import { useEffect, useState } from 'react';
  import ProductCardInPost from './ProductCardInPost';
  import ContentWithInlineProducts from './ContentWithInlineProducts';
- import SmartFloatingCard from './SmartFloatingCard';
  import { sanitizeForPublic } from '@/lib/sanitize';
  
  interface Product {
@@ -117,19 +116,8 @@
  
    // Parse HTML and inject ProductCardInPost components
    const renderContentWithProducts = () => {
-     // Extract Ad products for SmartFloatingCard
-     const adProducts = manualProducts
-       .filter(p => p.isAd && p.displayType === 'inline-card')
-       .map((p, index) => ({
-         productId: p.productId,
-         customNote: p.customNote,
-         product: p.product,
-         elementId: `ad-product-${p.productId}-${index}`,
-       }));
-
      return (
-       <>
-         <div className={className}>
+       <div className={className}>
            {/* Sidebar products (sticky) */}
            {manualProducts.filter(p => p.displayType === 'sidebar').length > 0 && (
              <div className="lg:float-right lg:ml-6 lg:mb-6 lg:w-80 space-y-4">
@@ -193,12 +181,6 @@
              </div>
            )}
          </div>
-
-         {/* Smart Floating Card for Ad products */}
-         {adProducts.length > 0 && (
-           <SmartFloatingCard products={adProducts} postId={postId} />
-         )}
-       </>
      );
    };
  

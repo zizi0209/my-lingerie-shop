@@ -46,8 +46,7 @@ export default function ProductPlugin() {
   const handleProductSelect = (
     productId: number,
     displayType: 'inline-card' | 'sidebar' | 'end-collection',
-    customNote?: string,
-    isAd?: boolean
+    customNote?: string
   ) => {
     editor.update(() => {
       if (pendingPosition) {
@@ -70,7 +69,7 @@ export default function ProductPlugin() {
       }
 
       // Insert ProductNode only (no extra paragraph)
-      const productNode = $createProductNode(productId, displayType, customNote, isAd ?? false);
+      const productNode = $createProductNode(productId, displayType, customNote);
       
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {

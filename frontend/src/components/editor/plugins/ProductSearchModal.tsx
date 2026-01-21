@@ -18,8 +18,7 @@ interface ProductSearchModalProps {
   onSelect: (
     productId: number,
     displayType: 'inline-card' | 'sidebar' | 'end-collection',
-    customNote?: string,
-    isAd?: boolean
+    customNote?: string
   ) => void;
   onClose: () => void;
 }
@@ -30,7 +29,6 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
   const [loading, setLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [customNote, setCustomNote] = useState('');
-  const [isAd, setIsAd] = useState(false);
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
@@ -68,7 +66,7 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
   const handleConfirm = () => {
     if (selectedProduct) {
       // Always use inline-card as default display type
-      onSelect(selectedProduct.id, 'inline-card', customNote || undefined, isAd);
+      onSelect(selectedProduct.id, 'inline-card', customNote || undefined);
     }
   };
 
@@ -232,26 +230,6 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
                 </p>
               </div>
 
-              {/* Ad Checkbox */}
-              <div className="mb-6">
-                <label className="flex items-start gap-3 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={isAd}
-                    onChange={(e) => setIsAd(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-amber-600 focus:ring-amber-500"
-                  />
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                      📢 Hiển thị trong popup quảng cáo
-                    </span>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Sản phẩm này sẽ xuất hiện trong popup quảng cáo khi người đọc bài viết
-                    </p>
-                  </div>
-                </label>
-              </div>
-
               {/* Preview */}
               <div className="mb-6">
                 <label className="text-sm text-slate-600 dark:text-slate-400 mb-2 block">
@@ -262,11 +240,6 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
                     <div className="px-2 py-1 bg-blue-100 dark:bg-blue-500/20 rounded text-xs font-medium text-blue-600 dark:text-blue-400">
                       Inline Card
                     </div>
-                    {isAd && (
-                      <div className="px-2 py-1 bg-amber-100 dark:bg-amber-500/20 rounded text-xs font-medium text-amber-600 dark:text-amber-400">
-                        📢 AD
-                      </div>
-                    )}
                   </div>
                   <div className="text-sm text-slate-900 dark:text-white font-medium line-clamp-2 mb-1">
                     {selectedProduct.name}

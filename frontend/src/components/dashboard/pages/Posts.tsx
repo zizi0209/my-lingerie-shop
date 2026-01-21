@@ -40,7 +40,7 @@ const initialFormData: PostFormData = {
   categoryId: '',
   isPublished: false,
   adEnabled: false,
-  adDelaySeconds: 5,
+  adDelaySeconds: Math.floor(Math.random() * 3) + 8, // Random 8-10 giây
 };
 
 const Posts: React.FC = () => {
@@ -209,7 +209,7 @@ const Posts: React.FC = () => {
       categoryId: post.categoryId.toString(),
       isPublished: post.isPublished,
       adEnabled: post.adEnabled ?? false,
-      adDelaySeconds: post.adDelaySeconds ?? 5,
+      adDelaySeconds: post.adDelaySeconds ?? (Math.floor(Math.random() * 3) + 8), // Random 8-10 giây
     });
     setFormError(null);
     setSuccessMessage(null);
@@ -803,21 +803,10 @@ const Posts: React.FC = () => {
                     {/* Ad Delay Config */}
                     {formData.adEnabled && (
                       <div className="pt-2">
-                        <label className="text-xs text-slate-600 dark:text-slate-400 mb-2 block">
-                          {language === 'vi' ? 'Hiển thị sau (giây):' : 'Show after (seconds):'}
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="60"
-                          value={formData.adDelaySeconds}
-                          onChange={(e) => setFormData(prev => ({ ...prev, adDelaySeconds: parseInt(e.target.value) || 5 }))}
-                          className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
-                        />
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           {language === 'vi' 
-                            ? `Popup sẽ xuất hiện sau ${formData.adDelaySeconds} giây khi người dùng đọc bài viết` 
-                            : `Popup will appear after ${formData.adDelaySeconds} seconds when users read the post`
+                            ? '⏱️ Popup sẽ tự động xuất hiện sau 8-10 giây khi người dùng đọc bài viết' 
+                            : '⏱️ Popup will automatically appear after 8-10 seconds when users read the post'
                           }
                         </p>
                       </div>
