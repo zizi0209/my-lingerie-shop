@@ -140,10 +140,10 @@
          {manualProducts.filter(p => p.displayType === 'end-collection').length > 0 && (
            <div className="mt-12 pt-12 border-t border-slate-200 dark:border-slate-800">
              <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-               Sản phẩm được đề xuất
+              Sản phẩm liên quan
              </h3>
              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-               Các sản phẩm liên quan đến nội dung bài viết này
+              Các sản phẩm được admin chọn để giới thiệu trong bài viết
              </p>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                {manualProducts.filter(p => p.displayType === 'end-collection').map((productData) => (

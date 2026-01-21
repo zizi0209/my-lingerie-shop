@@ -89,6 +89,20 @@ export class ProductNode extends DecoratorNode<ReactElement> {
     if (this.__customNote) {
       element.setAttribute('data-custom-note', this.__customNote);
     }
+    if (this.__isAd) {
+      element.setAttribute('data-is-ad', 'true');
+    }
+    
+    // Add placeholder content để HTML không bị empty
+    element.textContent = `[Product ${this.__productId}]`;
+    
+    console.log('[ProductNode.exportDOM] Exporting:', {
+      productId: this.__productId,
+      displayType: this.__displayType,
+      customNote: this.__customNote,
+      isAd: this.__isAd,
+      html: element.outerHTML
+    });
     return { element };
   }
 
