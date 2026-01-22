@@ -127,8 +127,12 @@ const DashboardHome: React.FC = () => {
         // Convert date range to period using utility function
         const period = dateRangeToPeriod(dateRange);
         
+        // Format dates for API
+        const startDate = dateRange.startDate.toISOString();
+        const endDate = dateRange.endDate.toISOString();
+        
         const [statsRes, analyticsRes, activitiesRes, liveFeedRes] = await Promise.all([
-          adminDashboardApi.getStats(),
+          adminDashboardApi.getStats({ startDate, endDate }),
           adminDashboardApi.getAnalytics(period),
           adminDashboardApi.getRecentActivities(10),
           adminDashboardApi.getLiveFeed(10)

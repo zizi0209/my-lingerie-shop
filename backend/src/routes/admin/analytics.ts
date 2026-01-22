@@ -17,61 +17,98 @@ const SUCCESS_ORDER_STATUSES = {
 /**
  * GET /api/admin/analytics/overview
  * Real-time overview statistics
+ * Query params: startDate, endDate (optional, defaults to today)
  */
 router.get('/overview', async (req, res) => {
   try {
+    const { startDate: startDateParam, endDate: endDateParam } = req.query;
+    
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+    
+    // Use provided dates or default to today
+    const periodStart = startDateParam 
+      ? new Date(startDateParam as string)
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const periodEnd = endDateParam
+      ? new Date(endDateParam as string)
+      : now;
+    
+    // Calculate previous period for comparison (same duration)
+    const duration = periodEnd.getTime() - periodStart.getTime();
+    const previousStart = new Date(periodStart.getTime() - duration);
+    const previousEnd = new Date(periodStart.getTime());
 
     const [
-      todayPageViews,
-      yesterdayPageViews,
-      todayProductViews,
-      todayOrders,
-      todayRevenue,
-      todayCartAdds,
+      currentPageViews,
+      previousPageViews,
+      currentProductViews,
+      currentOrders,
+      currentRevenue,
+      currentCartAdds,
       totalCarts,
       abandonedCarts,
       activeSessionsCount
     ] = await Promise.all([
-      // Today's page views
+      // Current period page views
       prisma.pageView.count({
-        where: { createdAt: { gte: todayStart } }
-      }),
-      // Yesterday's page views (for comparison)
-      prisma.pageView.count({
-        where: {
-          createdAt: { gte: yesterdayStart, lt: todayStart }
+        where: { 
+          createdAt: { 
+            gte: periodStart,
+            lte: periodEnd
+          } 
         }
       }),
-      // Today's product views
-      prisma.productView.count({
-        where: { createdAt: { gte: todayStart } }
+      // Previous period page views (for comparison)
+      prisma.pageView.count({
+        where: {
+          createdAt: { 
+            gte: previousStart, 
+            lt: previousEnd 
+          }
+        }
       }),
-      // Today's orders (exclude cancelled/refunded)
+      // Current period product views
+      prisma.productView.count({
+        where: { 
+          createdAt: { 
+            gte: periodStart,
+            lte: periodEnd
+          } 
+        }
+      }),
+      // Current period orders (exclude cancelled/refunded)
       prisma.order.count({
         where: { 
-          createdAt: { gte: todayStart },
+          createdAt: { 
+            gte: periodStart,
+            lte: periodEnd
+          },
           status: { notIn: ['CANCELLED', 'REFUNDED'] }
         }
       }),
-      // Today's revenue (exclude cancelled/refunded)
+      // Current period revenue (exclude cancelled/refunded)
       prisma.order.aggregate({
         _sum: { totalAmount: true },
         where: {
-          createdAt: { gte: todayStart },
+          createdAt: { 
+            gte: periodStart,
+            lte: periodEnd
+          },
           status: { notIn: ['CANCELLED', 'REFUNDED'] }
         }
       }),
-      // Today's add to cart events
+      // Current period add to cart events
       prisma.cartEvent.count({
         where: {
-          createdAt: { gte: todayStart },
+          createdAt: { 
+            gte: periodStart,
+            lte: periodEnd
+          },
           event: 'ADD_TO_CART'
         }
       }),
-      // Total carts with items
+      // Total carts with items (not affected by date range)
       prisma.cart.count({
         where: { items: { some: {} } }
       }),
@@ -82,7 +119,7 @@ router.get('/overview', async (req, res) => {
           items: { some: {} }
         }
       }),
-      // Active sessions in last 15 minutes
+      // Active sessions in last 15 minutes (always real-time)
       prisma.pageView.groupBy({
         by: ['sessionId'],
         where: {
@@ -92,16 +129,16 @@ router.get('/overview', async (req, res) => {
     ]);
 
     // Calculate metrics
-    const trafficChange = yesterdayPageViews > 0
-      ? Math.round(((todayPageViews - yesterdayPageViews) / yesterdayPageViews) * 100)
+    const trafficChange = previousPageViews > 0
+      ? Math.round(((currentPageViews - previousPageViews) / previousPageViews) * 100)
       : 0;
 
-    const conversionRate = todayProductViews > 0
-      ? Math.round((todayOrders / todayProductViews) * 10000) / 100
+    const conversionRate = currentProductViews > 0
+      ? Math.round((currentOrders / currentProductViews) * 10000) / 100
       : 0;
 
-    const averageOrderValue = todayOrders > 0
-      ? Math.round((todayRevenue._sum.totalAmount || 0) / todayOrders)
+    const averageOrderValue = currentOrders > 0
+      ? Math.round((currentRevenue._sum.totalAmount || 0) / currentOrders)
       : 0;
 
     const cartAbandonmentRate = totalCarts > 0
@@ -111,16 +148,16 @@ router.get('/overview', async (req, res) => {
     res.json({
       success: true,
       data: {
-        todayTraffic: todayPageViews,
+        todayTraffic: currentPageViews,
         trafficChange,
-        productViews: todayProductViews,
+        productViews: currentProductViews,
         conversionRate,
-        todayOrders,
-        todayRevenue: todayRevenue._sum.totalAmount || 0,
+        todayOrders: currentOrders,
+        todayRevenue: currentRevenue._sum.totalAmount || 0,
         averageOrderValue,
         cartAbandonmentRate,
         activeUsers: activeSessionsCount.length,
-        cartAddsToday: todayCartAdds
+        cartAddsToday: currentCartAdds
       }
     });
   } catch (error) {

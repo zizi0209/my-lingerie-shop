@@ -214,13 +214,17 @@ const Tracking: React.FC = () => {
       // Convert date range to period using utility function
       const period = dateRangeToPeriod(dateRange);
       
+      // Format dates for API
+      const startDate = dateRange.startDate.toISOString();
+      const endDate = dateRange.endDate.toISOString();
+      
       interface ApiResponse<T> {
         success: boolean;
         data: T;
       }
 
       const results = await Promise.allSettled([
-        api.get('/admin/analytics/overview') as Promise<ApiResponse<OverviewData>>,
+        api.get(`/admin/analytics/overview?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`) as Promise<ApiResponse<OverviewData>>,
         api.get(`/admin/analytics/funnel?period=${period}`) as Promise<ApiResponse<FunnelData>>,
         api.get(`/admin/analytics/wishlist?period=${period}`) as Promise<ApiResponse<WishlistData>>,
         api.get(`/admin/analytics/search-keywords?period=${period}`) as Promise<ApiResponse<{ topKeywords: SearchKeyword[] }>>,

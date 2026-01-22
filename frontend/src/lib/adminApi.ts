@@ -239,8 +239,16 @@ export const adminAuditLogApi = {
 // Admin Dashboard API
 export const adminDashboardApi = {
   // Get overview statistics
-  async getStats(): Promise<{ success: boolean; data: DashboardStats }> {
-    return api.get('/admin/dashboard/stats');
+  async getStats(params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{ success: boolean; data: DashboardStats }> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.set('startDate', params.startDate);
+    if (params?.endDate) queryParams.set('endDate', params.endDate);
+    
+    const queryString = queryParams.toString();
+    return api.get(`/admin/dashboard/stats${queryString ? `?${queryString}` : ''}`);
   },
 
   // Get analytics data
@@ -262,6 +270,19 @@ export const adminDashboardApi = {
     };
   }> {
     return api.get(`/admin/dashboard/analytics?period=${period}`);
+  },
+
+  // Get analytics overview (for Tracking page)
+  async getAnalyticsOverview(params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{ success: boolean; data: unknown }> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.set('startDate', params.startDate);
+    if (params?.endDate) queryParams.set('endDate', params.endDate);
+    
+    const queryString = queryParams.toString();
+    return api.get(`/admin/analytics/overview${queryString ? `?${queryString}` : ''}`);
   },
 
   // Get recent activities (Admin actions only)

@@ -7,9 +7,20 @@ const router = express.Router();
 /**
  * GET /api/admin/dashboard/stats
  * Get overview statistics for dashboard
+ * Query params: startDate, endDate (optional, defaults to all-time)
  */
 router.get('/stats', async (req, res) => {
   try {
+    const { startDate, endDate } = req.query;
+    
+    // Build date filter
+    const dateFilter = startDate && endDate ? {
+      createdAt: {
+        gte: new Date(startDate as string),
+        lte: new Date(endDate as string)
+      }
+    } : {};
+
     // Calculate start of today for new users
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -27,20 +38,24 @@ router.get('/stats', async (req, res) => {
       revenueResult,
       recentOrders
     ] = await Promise.all([
-      // Total users
+      // Total users (in date range if specified)
       prisma.user.count({
-        where: { deletedAt: null }
+        where: { 
+          deletedAt: null,
+          ...dateFilter
+        }
       }),
       
       // Active users
       prisma.user.count({
         where: { 
           deletedAt: null,
-          isActive: true
+          isActive: true,
+          ...dateFilter
         }
       }),
       
-      // New users today
+      // New users today (always today, not affected by date range)
       prisma.user.count({
         where: {
           createdAt: { gte: startOfToday },
@@ -48,7 +63,7 @@ router.get('/stats', async (req, res) => {
         }
       }),
       
-      // Total products
+      // Total products (not affected by date range - products don't have date filter)
       prisma.product.count({
         where: { deletedAt: null }
       }),
@@ -77,26 +92,33 @@ router.get('/stats', async (req, res) => {
         }
       }),
       
-      // Total orders
-      prisma.order.count(),
-      
-      // Pending orders
+      // Total orders (in date range)
       prisma.order.count({
-        where: { status: 'PENDING' }
+        where: dateFilter
       }),
       
-      // Total revenue (all orders except cancelled/refunded)
+      // Pending orders (in date range)
+      prisma.order.count({
+        where: { 
+          status: 'PENDING',
+          ...dateFilter
+        }
+      }),
+      
+      // Total revenue (in date range, exclude cancelled/refunded)
       prisma.order.aggregate({
         _sum: { totalAmount: true },
         where: { 
           status: { 
             notIn: ['CANCELLED', 'REFUNDED'] 
-          } 
+          },
+          ...dateFilter
         }
       }),
       
-      // Recent orders (last 10)
+      // Recent orders (last 10 in date range)
       prisma.order.findMany({
+        where: dateFilter,
         take: 10,
         orderBy: { createdAt: 'desc' },
         select: {
