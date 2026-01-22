@@ -60,11 +60,14 @@ export interface DashboardStats {
     total: number;
     active: number;
     inactive: number;
+    newToday: number;
   };
   products: {
     total: number;
     visible: number;
     hidden: number;
+    lowStock: number;
+    outOfStock: number;
   };
   orders: {
     total: number;

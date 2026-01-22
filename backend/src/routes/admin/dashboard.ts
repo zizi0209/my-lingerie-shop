@@ -10,11 +10,18 @@ const router = express.Router();
  */
 router.get('/stats', async (req, res) => {
   try {
+    // Calculate start of today for new users
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
     const [
       totalUsers,
       activeUsers,
+      newUsersToday,
       totalProducts,
       visibleProducts,
+      lowStockVariants,
+      outOfStockVariants,
       totalOrders,
       pendingOrders,
       revenueResult,
@@ -33,6 +40,14 @@ router.get('/stats', async (req, res) => {
         }
       }),
       
+      // New users today
+      prisma.user.count({
+        where: {
+          createdAt: { gte: startOfToday },
+          deletedAt: null
+        }
+      }),
+      
       // Total products
       prisma.product.count({
         where: { deletedAt: null }
@@ -46,6 +61,22 @@ router.get('/stats', async (req, res) => {
         }
       }),
       
+      // Low stock variants (< 5 but > 0)
+      prisma.productVariant.count({
+        where: {
+          stock: { lt: 5, gt: 0 },
+          product: { deletedAt: null }
+        }
+      }),
+      
+      // Out of stock variants
+      prisma.productVariant.count({
+        where: {
+          stock: 0,
+          product: { deletedAt: null }
+        }
+      }),
+      
       // Total orders
       prisma.order.count(),
       
@@ -54,10 +85,14 @@ router.get('/stats', async (req, res) => {
         where: { status: 'PENDING' }
       }),
       
-      // Total revenue (delivered orders)
+      // Total revenue (all orders except cancelled/refunded)
       prisma.order.aggregate({
         _sum: { totalAmount: true },
-        where: { status: 'DELIVERED' }
+        where: { 
+          status: { 
+            notIn: ['CANCELLED', 'REFUNDED'] 
+          } 
+        }
       }),
       
       // Recent orders (last 10)
@@ -87,12 +122,15 @@ router.get('/stats', async (req, res) => {
         users: {
           total: totalUsers,
           active: activeUsers,
-          inactive: totalUsers - activeUsers
+          inactive: totalUsers - activeUsers,
+          newToday: newUsersToday
         },
         products: {
           total: totalProducts,
           visible: visibleProducts,
-          hidden: totalProducts - visibleProducts
+          hidden: totalProducts - visibleProducts,
+          lowStock: lowStockVariants,
+          outOfStock: outOfStockVariants
         },
         orders: {
           total: totalOrders,

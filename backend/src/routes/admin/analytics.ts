@@ -3,6 +3,17 @@ import { prisma } from '../../lib/prisma';
 
 const router = express.Router();
 
+// Constants for order status filtering
+// Doanh thu = Tất cả đơn hàng trừ CANCELLED và REFUNDED
+const REVENUE_VALID_STATUSES = {
+  notIn: ['CANCELLED', 'REFUNDED']
+};
+
+// Đơn hàng thành công (để tính conversion, top products, etc.)
+const SUCCESS_ORDER_STATUSES = {
+  in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED']
+};
+
 /**
  * GET /api/admin/analytics/overview
  * Real-time overview statistics
@@ -38,16 +49,19 @@ router.get('/overview', async (req, res) => {
       prisma.productView.count({
         where: { createdAt: { gte: todayStart } }
       }),
-      // Today's orders
+      // Today's orders (exclude cancelled/refunded)
       prisma.order.count({
-        where: { createdAt: { gte: todayStart } }
+        where: { 
+          createdAt: { gte: todayStart },
+          status: { notIn: ['CANCELLED', 'REFUNDED'] }
+        }
       }),
-      // Today's revenue
+      // Today's revenue (exclude cancelled/refunded)
       prisma.order.aggregate({
         _sum: { totalAmount: true },
         where: {
           createdAt: { gte: todayStart },
-          status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+          status: { notIn: ['CANCELLED', 'REFUNDED'] }
         }
       }),
       // Today's add to cart events
@@ -171,7 +185,7 @@ router.get('/funnel', async (req, res) => {
       prisma.order.count({
         where: {
           createdAt: { gte: startDate },
-          status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+          status: REVENUE_VALID_STATUSES
         }
       })
     ]);
@@ -252,7 +266,7 @@ router.get('/size-distribution', async (req, res) => {
       where: {
         order: {
           createdAt: { gte: startDate },
-          status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+          status: REVENUE_VALID_STATUSES
         }
       },
       select: {
@@ -454,7 +468,7 @@ router.get('/high-view-no-buy', async (req, res) => {
         productId: { in: productIds },
         order: {
           createdAt: { gte: startDate },
-          status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+          status: REVENUE_VALID_STATUSES
         }
       },
       _sum: { quantity: true }
@@ -692,7 +706,7 @@ router.get('/size-heatmap', async (req, res) => {
       where: {
         order: {
           createdAt: { gte: startDate },
-          status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+          status: REVENUE_VALID_STATUSES
         }
       },
       select: {
@@ -823,7 +837,7 @@ router.get('/color-trends', async (req, res) => {
       where: {
         order: {
           createdAt: { gte: startDate },
-          status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+          status: REVENUE_VALID_STATUSES
         }
       },
       select: {
@@ -1079,7 +1093,7 @@ router.get('/product-performance', async (req, res) => {
         productId: { in: productIds },
         order: {
           createdAt: { gte: startDate },
-          status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+          status: REVENUE_VALID_STATUSES
         }
       },
       _sum: { quantity: true }
@@ -1227,7 +1241,7 @@ router.get('/recommendation-effectiveness', async (req, res) => {
           productId: { in: purchasedProductIds },
           order: {
             createdAt: { gte: startDate },
-            status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+            status: REVENUE_VALID_STATUSES
           }
         },
         select: { price: true, quantity: true }
@@ -1240,7 +1254,7 @@ router.get('/recommendation-effectiveness', async (req, res) => {
       _sum: { totalAmount: true },
       where: {
         createdAt: { gte: startDate },
-        status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+        status: REVENUE_VALID_STATUSES
       }
     });
 
@@ -1474,7 +1488,7 @@ router.get('/bought-together', async (req, res) => {
     const orders = await prisma.order.findMany({
       where: {
         createdAt: { gte: startDate },
-        status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+        status: REVENUE_VALID_STATUSES
       },
       select: {
         id: true,
@@ -1811,7 +1825,7 @@ router.get('/wishlist', async (req, res) => {
         productId: { in: productIds },
         order: {
           createdAt: { gte: startDate },
-          status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+          status: REVENUE_VALID_STATUSES
         }
       }
     });
@@ -1901,3 +1915,4 @@ router.get('/low-stock', async (req, res) => {
 });
 
 export default router;
+

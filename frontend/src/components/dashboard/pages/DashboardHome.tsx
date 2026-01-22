@@ -282,7 +282,16 @@ const DashboardHome: React.FC = () => {
           </div>
           <p className="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wide mb-1">Đơn hàng</p>
           <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.orders.total}</h3>
-          <p className="text-xs text-amber-500 mt-1">{stats.orders.pending} đang chờ xử lý</p>
+          {stats.orders.pending > 0 ? (
+            <Link 
+              href="/dashboard/orders?status=PENDING"
+              className="text-xs text-amber-500 hover:text-amber-600 font-medium mt-1 inline-flex items-center gap-1"
+            >
+              ⚠️ {stats.orders.pending} cần xử lý ngay
+            </Link>
+          ) : (
+            <p className="text-xs text-emerald-500 mt-1">Không có đơn chờ xử lý</p>
+          )}
         </div>
 
         {/* Products Card */}
@@ -294,7 +303,16 @@ const DashboardHome: React.FC = () => {
           </div>
           <p className="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wide mb-1">Sản phẩm</p>
           <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.products.total}</h3>
-          <p className="text-xs text-slate-400 mt-1">{stats.products.visible} đang hiển thị</p>
+          {stats.products.lowStock > 0 ? (
+            <Link 
+              href="/dashboard/products?filter=lowStock"
+              className="text-xs text-red-500 hover:text-red-600 font-medium mt-1 inline-flex items-center gap-1"
+            >
+              🔴 {stats.products.lowStock} sắp hết hàng
+            </Link>
+          ) : (
+            <p className="text-xs text-slate-400 mt-1">{stats.products.visible} đang hiển thị</p>
+          )}
         </div>
 
         {/* Users Card */}
@@ -304,9 +322,13 @@ const DashboardHome: React.FC = () => {
               <Users size={20} />
             </div>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wide mb-1">Người dùng</p>
+          <p className="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wide mb-1">Khách hàng</p>
           <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.users.total}</h3>
-          <p className="text-xs text-emerald-500 mt-1">{stats.users.active} đang hoạt động</p>
+          {stats.users.newToday > 0 ? (
+            <p className="text-xs text-emerald-500 mt-1">+{stats.users.newToday} khách mới hôm nay</p>
+          ) : (
+            <p className="text-xs text-slate-400 mt-1">{stats.users.active} đang hoạt động</p>
+          )}
         </div>
       </div>
 
