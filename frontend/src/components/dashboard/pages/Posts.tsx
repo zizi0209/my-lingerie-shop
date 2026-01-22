@@ -27,8 +27,6 @@ interface PostFormData {
   thumbnail: string;
   categoryId: string;
   isPublished: boolean;
-  adEnabled: boolean;
-  adDelaySeconds: number;
 }
 
 const initialFormData: PostFormData = {
@@ -39,8 +37,6 @@ const initialFormData: PostFormData = {
   thumbnail: '',
   categoryId: '',
   isPublished: false,
-  adEnabled: false,
-  adDelaySeconds: Math.floor(Math.random() * 3) + 8, // Random 8-10 giây
 };
 
 const Posts: React.FC = () => {
@@ -208,8 +204,6 @@ const Posts: React.FC = () => {
       thumbnail: post.thumbnail || '',
       categoryId: post.categoryId.toString(),
       isPublished: post.isPublished,
-      adEnabled: post.adEnabled ?? false,
-      adDelaySeconds: post.adDelaySeconds ?? (Math.floor(Math.random() * 3) + 8), // Random 8-10 giây
     });
     setFormError(null);
     setSuccessMessage(null);
@@ -295,8 +289,6 @@ const Posts: React.FC = () => {
           thumbnail: thumbnailUrl || undefined,
           categoryId: parseInt(formData.categoryId),
           isPublished: formData.isPublished,
-          adEnabled: formData.adEnabled,
-          adDelaySeconds: formData.adDelaySeconds,
         };
         await postApi.update(editingPost.id, updateData);
       } else {
@@ -309,8 +301,6 @@ const Posts: React.FC = () => {
           authorId: currentUserId,
           categoryId: parseInt(formData.categoryId),
           isPublished: formData.isPublished,
-          adEnabled: formData.adEnabled,
-          adDelaySeconds: formData.adDelaySeconds,
         };
         await postApi.create(createData);
       }
@@ -754,63 +744,6 @@ const Posts: React.FC = () => {
                         }
                       </p>
                     </div>
-                  </div>
-
-                  {/* Ad Configuration */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                      {language === 'vi' ? 'Quảng cáo sản phẩm' : 'Product Ads'}
-                    </label>
-                    
-                    {/* Ad Enable Toggle */}
-                    <div 
-                      onClick={() => setFormData(prev => ({ ...prev, adEnabled: !prev.adEnabled }))}
-                      className={`p-4 rounded-xl cursor-pointer border-2 transition-all ${
-                        formData.adEnabled 
-                          ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/30' 
-                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-6 rounded-full p-1 transition-colors ${
-                            formData.adEnabled ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'
-                          }`}>
-                            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                              formData.adEnabled ? 'translate-x-4' : 'translate-x-0'
-                            }`} />
-                          </div>
-                          <span className={`text-sm font-bold ${
-                            formData.adEnabled 
-                              ? 'text-blue-700 dark:text-blue-400' 
-                              : 'text-slate-600 dark:text-slate-400'
-                          }`}>
-                            {formData.adEnabled 
-                              ? (language === 'vi' ? 'Popup quảng cáo BẬT' : 'Ad Popup ON') 
-                              : (language === 'vi' ? 'Popup quảng cáo TẮT' : 'Ad Popup OFF')
-                            }
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                        {formData.adEnabled 
-                          ? (language === 'vi' ? 'Sẽ hiển thị popup quảng cáo sản phẩm khi người dùng đọc bài viết' : 'Will show product ad popup when users read the post')
-                          : (language === 'vi' ? 'Không hiển thị popup quảng cáo' : 'No ad popup will be shown')
-                        }
-                      </p>
-                    </div>
-
-                    {/* Ad Delay Config */}
-                    {formData.adEnabled && (
-                      <div className="pt-2">
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {language === 'vi' 
-                            ? '⏱️ Popup sẽ tự động xuất hiện sau 8-10 giây khi người dùng đọc bài viết' 
-                            : '⏱️ Popup will automatically appear after 8-10 seconds when users read the post'
-                          }
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>

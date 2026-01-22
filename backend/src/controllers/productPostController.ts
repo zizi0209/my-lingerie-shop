@@ -149,37 +149,6 @@ export const getProductPosts = async (req: Request, res: Response) => {
   }
 };
 
-// Get ad products for a post (for popup display)
-export const getPostAdProducts = async (req: Request, res: Response) => {
-  try {
-    const { postId } = req.params;
-
-    const products = await prisma.productOnPost.findMany({
-      where: {
-        postId: Number(postId),
-        isAd: true,
-      },
-      include: {
-        product: {
-          include: {
-            images: { take: 1 },
-            category: { select: { name: true, slug: true } },
-          },
-        },
-      },
-      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
-    });
-
-    res.json({
-      success: true,
-      data: products,
-    });
-  } catch (error) {
-    console.error('Get post ad products error:', error);
-    res.status(500).json({ error: 'Lỗi khi lấy danh sách sản phẩm quảng cáo!' });
-  }
-};
-
 export const batchLinkProducts = async (req: Request, res: Response) => {
   try {
     const { postId, products } = req.body;
