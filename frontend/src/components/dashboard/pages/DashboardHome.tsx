@@ -16,6 +16,7 @@ import { useLanguage } from '../components/LanguageContext';
 import { adminDashboardApi, type DashboardStats, type AuditLog, type LiveFeedItem } from '@/lib/adminApi';
 import DateRangePicker, { type DateRange } from '../DateRangePicker';
 import GrowthIndicator from '../GrowthIndicator';
+import { dateRangeToPeriod } from '@/lib/dateRangeUtils';
 
 interface ChartDataPoint {
   name: string;
@@ -123,14 +124,8 @@ const DashboardHome: React.FC = () => {
       try {
         setLoading(true);
         
-        // Convert date range to period for backward compatibility
-        const duration = dateRange.endDate.getTime() - dateRange.startDate.getTime();
-        const days = Math.ceil(duration / (1000 * 60 * 60 * 24));
-        let period: '24hours' | '7days' | '30days' | '90days' = '7days';
-        if (days <= 1) period = '24hours';
-        else if (days <= 7) period = '7days';
-        else if (days <= 30) period = '30days';
-        else period = '90days';
+        // Convert date range to period using utility function
+        const period = dateRangeToPeriod(dateRange);
         
         const [statsRes, analyticsRes, activitiesRes, liveFeedRes] = await Promise.all([
           adminDashboardApi.getStats(),

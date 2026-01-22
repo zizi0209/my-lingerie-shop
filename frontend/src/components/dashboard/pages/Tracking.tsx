@@ -15,6 +15,7 @@ import { useTheme } from '../components/ThemeContext';
 import { api } from '@/lib/api';
 import DateRangePicker, { type DateRange } from '../DateRangePicker';
 import GrowthIndicator from '../GrowthIndicator';
+import { dateRangeToPeriod } from '@/lib/dateRangeUtils';
 
 // ============== TYPES ==============
 interface OverviewData {
@@ -210,13 +211,8 @@ const Tracking: React.FC = () => {
     try {
       setLoading(true);
       
-      // Convert date range to period for backward compatibility
-      const duration = dateRange.endDate.getTime() - dateRange.startDate.getTime();
-      const days = Math.ceil(duration / (1000 * 60 * 60 * 24));
-      let period: '24hours' | '7days' | '30days' = '7days';
-      if (days <= 1) period = '24hours';
-      else if (days <= 7) period = '7days';
-      else period = '30days';
+      // Convert date range to period using utility function
+      const period = dateRangeToPeriod(dateRange);
       
       interface ApiResponse<T> {
         success: boolean;
