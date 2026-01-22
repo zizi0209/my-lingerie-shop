@@ -22,6 +22,7 @@
     "useGitignore": true,
     "useDefaultPatterns": true,
     "customPatterns": [
+      "**/docs/**",
       "**/node_modules/**",
       "**/dist/**",
       "**/build/**",
