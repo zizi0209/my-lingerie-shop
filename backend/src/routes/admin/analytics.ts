@@ -44,11 +44,19 @@ router.get('/overview', async (req, res) => {
       previousPageViews,
       currentProductViews,
       currentOrders,
+      previousOrders,
       currentRevenue,
+      previousRevenue,
       currentCartAdds,
+      previousCartAdds,
       totalCarts,
       abandonedCarts,
-      activeSessionsCount
+      activeSessionsCount,
+      successOrders,
+      cancelledOrders,
+      processingOrders,
+      checkoutEvents,
+      uniqueSessions
     ] = await Promise.all([
       // Current period page views
       prisma.pageView.count({
@@ -87,6 +95,16 @@ router.get('/overview', async (req, res) => {
           status: { notIn: ['CANCELLED', 'REFUNDED'] }
         }
       }),
+      // Previous period orders
+      prisma.order.count({
+        where: { 
+          createdAt: { 
+            gte: previousStart,
+            lt: previousEnd
+          },
+          status: { notIn: ['CANCELLED', 'REFUNDED'] }
+        }
+      }),
       // Current period revenue (exclude cancelled/refunded)
       prisma.order.aggregate({
         _sum: { totalAmount: true },
@@ -98,12 +116,33 @@ router.get('/overview', async (req, res) => {
           status: { notIn: ['CANCELLED', 'REFUNDED'] }
         }
       }),
+      // Previous period revenue
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: {
+          createdAt: { 
+            gte: previousStart,
+            lt: previousEnd
+          },
+          status: { notIn: ['CANCELLED', 'REFUNDED'] }
+        }
+      }),
       // Current period add to cart events
       prisma.cartEvent.count({
         where: {
           createdAt: { 
             gte: periodStart,
             lte: periodEnd
+          },
+          event: 'ADD_TO_CART'
+        }
+      }),
+      // Previous period add to cart events
+      prisma.cartEvent.count({
+        where: {
+          createdAt: { 
+            gte: previousStart,
+            lt: previousEnd
           },
           event: 'ADD_TO_CART'
         }
@@ -125,6 +164,56 @@ router.get('/overview', async (req, res) => {
         where: {
           createdAt: { gte: new Date(now.getTime() - 15 * 60 * 1000) }
         }
+      }),
+      // Success orders (DELIVERED)
+      prisma.order.count({
+        where: {
+          createdAt: { 
+            gte: periodStart,
+            lte: periodEnd
+          },
+          status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+        }
+      }),
+      // Cancelled orders
+      prisma.order.count({
+        where: {
+          createdAt: { 
+            gte: periodStart,
+            lte: periodEnd
+          },
+          status: 'CANCELLED'
+        }
+      }),
+      // Processing orders
+      prisma.order.count({
+        where: {
+          createdAt: { 
+            gte: periodStart,
+            lte: periodEnd
+          },
+          status: { in: ['PENDING', 'CONFIRMED', 'PROCESSING'] }
+        }
+      }),
+      // Checkout events
+      prisma.cartEvent.count({
+        where: {
+          createdAt: { 
+            gte: periodStart,
+            lte: periodEnd
+          },
+          event: { in: ['CHECKOUT_STARTED', 'CHECKOUT_INIT', 'INITIATE_CHECKOUT'] }
+        }
+      }),
+      // Unique sessions (for session to cart rate)
+      prisma.pageView.groupBy({
+        by: ['sessionId'],
+        where: {
+          createdAt: { 
+            gte: periodStart,
+            lte: periodEnd
+          }
+        }
       })
     ]);
 
@@ -137,27 +226,70 @@ router.get('/overview', async (req, res) => {
       ? Math.round((currentOrders / currentProductViews) * 10000) / 100
       : 0;
 
+    const grossRevenue = currentRevenue._sum.totalAmount || 0;
+    const netRevenue = grossRevenue; // Simplified - can add shipping/tax deductions later
+    
+    const previousGrossRevenue = previousRevenue._sum.totalAmount || 0;
+    const revenueChange = previousGrossRevenue > 0
+      ? Math.round(((grossRevenue - previousGrossRevenue) / previousGrossRevenue) * 100)
+      : 0;
+
     const averageOrderValue = currentOrders > 0
-      ? Math.round((currentRevenue._sum.totalAmount || 0) / currentOrders)
+      ? Math.round(grossRevenue / currentOrders)
+      : 0;
+    
+    const previousAov = previousOrders > 0
+      ? Math.round((previousRevenue._sum.totalAmount || 0) / previousOrders)
+      : 0;
+    
+    const aovChange = previousAov > 0
+      ? Math.round(((averageOrderValue - previousAov) / previousAov) * 100)
       : 0;
 
     const cartAbandonmentRate = totalCarts > 0
       ? Math.round((abandonedCarts / totalCarts) * 100)
       : 0;
 
+    // Session to cart rate (% of sessions that added to cart)
+    const totalSessions = uniqueSessions.length;
+    const sessionToCartRate = totalSessions > 0
+      ? Math.round((currentCartAdds / totalSessions) * 10000) / 100
+      : 0;
+
+    // Cart to checkout rate
+    const cartToCheckoutRate = currentCartAdds > 0
+      ? Math.round((checkoutEvents / currentCartAdds) * 10000) / 100
+      : 0;
+
     res.json({
       success: true,
       data: {
+        // Revenue
+        grossRevenue,
+        netRevenue,
+        revenueChange,
+        // Orders
+        totalOrders: currentOrders,
+        successOrders,
+        cancelledOrders,
+        processingOrders,
+        // Metrics
+        aov: averageOrderValue,
+        aovChange,
+        conversionRate,
+        sessionToCartRate,
+        cartToCheckoutRate,
+        // Traffic
         todayTraffic: currentPageViews,
         trafficChange,
         productViews: currentProductViews,
-        conversionRate,
-        todayOrders: currentOrders,
-        todayRevenue: currentRevenue._sum.totalAmount || 0,
-        averageOrderValue,
-        cartAbandonmentRate,
         activeUsers: activeSessionsCount.length,
-        cartAddsToday: currentCartAdds
+        cartAddsToday: currentCartAdds,
+        cartAbandonmentRate,
+        // For backward compatibility
+        todayOrders: currentOrders,
+        todayRevenue: grossRevenue,
+        averageOrderValue
       }
     });
   } catch (error) {
