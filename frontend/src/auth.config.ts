@@ -91,6 +91,7 @@ export default {
               email: user.email,
               name: user.name,
               image: user.image,
+            credentials: "include", // Include cookies for refresh token
             }),
           });
 
@@ -100,7 +101,14 @@ export default {
           }
 
           const data = await response.json();
-          console.log("✅ Social user created/updated:", data);
+          console.log("✅ Social user created/updated with token:", data);
+          
+          // Store backend token in user object (will be passed to JWT callback)
+          if (data.success && data.data.accessToken) {
+            user.backendToken = data.data.accessToken;
+            user.role = data.data.user.role?.name || "USER";
+          }
+          
           return true;
         } catch (error) {
           console.error("Social login error:", error);

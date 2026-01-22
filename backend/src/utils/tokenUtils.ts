@@ -1,5 +1,6 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
+import { Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { AUTH_CONFIG, isAdminRole } from '../config/auth';
 
@@ -161,4 +162,44 @@ export function getTokenExpiryInfo(roleName: string | null) {
       ? AUTH_CONFIG.REFRESH_TOKEN.ADMIN.expiresInMs
       : AUTH_CONFIG.REFRESH_TOKEN.USER.expiresInMs,
   };
+}
+
+/**
+ * Generate both access and refresh tokens
+ */
+export async function generateTokens(
+  user: { userId: number; email: string; roleId: number | null; roleName?: string | null; tokenVersion: number },
+  req?: { ip?: string; headers?: { 'user-agent'?: string } }
+) {
+  const userForToken: UserForToken = {
+    id: user.userId,
+    email: user.email,
+    roleId: user.roleId,
+    role: user.roleName ? { name: user.roleName } : null,
+    tokenVersion: user.tokenVersion,
+  };
+
+  const accessToken = generateAccessToken(userForToken);
+  const refreshToken = await generateRefreshToken(userForToken, req);
+  
+  const { accessTokenExpiresIn } = getTokenExpiryInfo(user.roleName ?? null);
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresIn: accessTokenExpiresIn,
+  };
+}
+
+/**
+ * Set refresh token as httpOnly cookie
+ */
+export function setRefreshTokenCookie(res: Response, refreshToken: string) {
+  res.cookie(AUTH_CONFIG.COOKIE.NAME, refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: AUTH_CONFIG.REFRESH_TOKEN.USER.expiresInMs, // Use max expiry
+    path: '/',
+  });
 }

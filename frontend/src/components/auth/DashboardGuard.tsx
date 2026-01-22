@@ -27,7 +27,7 @@ function isAdminRole(roleName: string | null | undefined): boolean {
 
 export function DashboardGuard({ children }: DashboardGuardProps) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, token, isAuthenticated, isLoading: authLoading } = useAuth();
   const [showReAuthModal, setShowReAuthModal] = useState(false);
   const [isDashboardAuth, setIsDashboardAuth] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
@@ -36,6 +36,11 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
     if (!isAuthenticated) {
       setIsChecking(false);
       return;
+    }
+
+    // Ensure token is set in localStorage before making API call
+    if (token) {
+      api.setToken(token);
     }
 
     try {
@@ -62,7 +67,7 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
     } finally {
       setIsChecking(false);
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, token, router]);
 
   useEffect(() => {
     if (!authLoading) {

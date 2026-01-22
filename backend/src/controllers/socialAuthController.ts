@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { generateTokens, setRefreshTokenCookie } from '../utils/tokenUtils';
 
 /**
  * POST /api/auth/social-login
@@ -31,10 +32,35 @@ export const socialLogin = async (req: Request, res: Response) => {
 
     if (existingAccount) {
       // Account exists, return user
+      // Generate JWT tokens for existing user
+      const userWithRole = await prisma.user.findUnique({
+        where: { id: existingAccount.user.id },
+        include: { role: { select: { name: true } } },
+      });
+
+      if (!userWithRole) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found',
+        });
+      }
+
+      const { accessToken, refreshToken, expiresIn } = await generateTokens({
+        userId: userWithRole.id,
+        email: userWithRole.email,
+        roleId: userWithRole.roleId,
+        roleName: userWithRole.role?.name,
+        tokenVersion: userWithRole.tokenVersion,
+      });
+
+      setRefreshTokenCookie(res, refreshToken);
+
       return res.json({
         success: true,
         data: {
-          user: existingAccount.user,
+          user: userWithRole,
+          accessToken,
+          expiresIn,
           isNew: false,
         },
       });
@@ -129,10 +155,35 @@ export const socialLogin = async (req: Request, res: Response) => {
       console.log(`✅ New social user created: ${email} via ${provider}`);
     }
 
+    // Generate JWT tokens for the user
+    const userWithRole = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: { role: { select: { name: true } } },
+    });
+
+    if (!userWithRole) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve user data',
+      });
+    }
+
+    const { accessToken, refreshToken, expiresIn } = await generateTokens({
+      userId: userWithRole.id,
+      email: userWithRole.email,
+      roleId: userWithRole.roleId,
+      roleName: userWithRole.role?.name,
+      tokenVersion: userWithRole.tokenVersion,
+    });
+
+    setRefreshTokenCookie(res, refreshToken);
+
     return res.json({
       success: true,
       data: {
-        user,
+        user: userWithRole,
+        accessToken,
+        expiresIn,
         isNew: !existingUser,
       },
     });
