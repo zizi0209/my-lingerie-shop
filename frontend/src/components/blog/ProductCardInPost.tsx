@@ -3,7 +3,7 @@
  import { useState } from 'react';
  import Link from 'next/link';
  import Image from 'next/image';
- import { ShoppingBag, Tag, TrendingUp, ExternalLink, X } from 'lucide-react';
+ import { ShoppingBag, Tag, TrendingUp } from 'lucide-react';
  import { trackContentCommerce } from '@/lib/tracking';
  
  interface Product {
@@ -50,14 +50,6 @@
      });
    };
  
-   const handleRemoveClick = (e: React.MouseEvent) => {
-     e.preventDefault();
-     e.stopPropagation();
-     if (onRemove) {
-       onRemove(product.id);
-     }
-   };
- 
    if (displayType === 'inline-card') {
      return (
        <div className={`my-4 sm:my-6 lg:my-8 ${className}`}>
@@ -66,22 +58,6 @@
            onClick={handleClick}
            className="block group relative overflow-hidden rounded-xl sm:rounded-2xl border-2 border-rose-100 dark:border-rose-900/30 bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-950/20 dark:to-pink-950/20 hover:border-rose-300 dark:hover:border-rose-700 transition-all duration-300 hover:shadow-xl hover:shadow-rose-500/10"
          >
-           <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 flex items-center gap-1 sm:gap-2">
-             {onRemove && (
-               <button
-                 type="button"
-                 onClick={handleRemoveClick}
-                 className="p-1.5 sm:p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-red-100 dark:hover:bg-red-900 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                 title="Xóa sản phẩm"
-               >
-                 <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-               </button>
-             )}
-             <div className="p-1.5 sm:p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-full shadow-lg group-hover:scale-110 transition-transform">
-               <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500" />
-             </div>
-           </div>
- 
            {customNote && (
              <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10 max-w-[60%]">
                <div className="px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[10px] sm:text-xs font-medium rounded-full shadow-lg">
@@ -192,16 +168,6 @@
                  -{discount}%
                </div>
              )}
-             {onRemove && (
-               <button
-                 type="button"
-                 onClick={handleRemoveClick}
-                 className="absolute top-2 left-2 p-1.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-red-100 dark:hover:bg-red-900 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors z-20"
-                 title="Xóa sản phẩm"
-               >
-                 <X className="w-3.5 h-3.5" />
-               </button>
-             )}
            </div>
  
            <div className="p-3">
@@ -275,16 +241,6 @@
              <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg shadow-lg">
                -{discount}%
              </div>
-           )}
-           {onRemove && (
-             <button
-               type="button"
-               onClick={handleRemoveClick}
-               className="absolute top-3 left-3 p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-red-100 dark:hover:bg-red-900 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors z-20"
-               title="Xóa sản phẩm"
-             >
-               <X className="w-4 h-4" />
-             </button>
            )}
            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
          </div>
