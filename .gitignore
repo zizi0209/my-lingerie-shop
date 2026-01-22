@@ -63,9 +63,17 @@ test
 prompt
 
 server.log
- 
-# 
-#/AGENTS.md
+
+# --- REPOMIX OUTPUT ---
+repomix-output.txt
+repomix-output.xml
+repomix-output.md
+
+# --- DOCS (Include docs/ folder but ignore temp files) ---
+# docs/ folder is tracked
+!docs/
+docs/**/*.tmp
+docs/**/*.bak
 
 prisma.config.js
 prisma.config.d.ts.map

@@ -1,0 +1,46 @@
+{
+  "output": {
+    "filePath": "repomix-output.txt",
+    "style": "xml",
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "topFilesLength": 5,
+    "showLineNumbers": false,
+    "copyToClipboard": false
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.js",
+    "**/*.jsx",
+    "**/*.json",
+    "**/*.prisma",
+    "**/*.sql",
+    "**/*.md"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.next/**",
+      "**/coverage/**",
+      "**/*.log",
+      "**/.env*",
+      "**/package-lock.json",
+      "**/bun.lock",
+      "**/yarn.lock",
+      "**/.git/**",
+      "**/uploads/**",
+      "**/test-results/**",
+      "**/playwright-report/**",
+      "repomix-output.txt",
+      "repomix-output.xml"
+    ]
+  },
+  "security": {
+    "enableSecurityCheck": true
+  }
+}
