@@ -8,11 +8,19 @@ import Credentials from "next-auth/providers/credentials";
  * Hybrid approach: NextAuth for social + credentials gateway to Express backend
  */
 export default {
+  debug: true, // Enable debug logs
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       allowDangerousEmailAccountLinking: true, // Enable account linking
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
     }),
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -69,11 +77,38 @@ export default {
     error: "/login-register",
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // For social login, ensure user has verified email
+    async signIn({ user, account, profile, email }) {
+      // Social login: Create user in backend database
       if (account?.provider === "google" || account?.provider === "github") {
-        return true; // Google/GitHub emails are already verified
+        try {
+          // Call backend API to create/update social user
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/social-login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              provider: account.provider,
+              providerAccountId: account.providerAccountId,
+              email: user.email,
+              name: user.name,
+              image: user.image,
+            }),
+          });
+
+          if (!response.ok) {
+            console.error("Failed to create social user in backend");
+            return false;
+          }
+
+          const data = await response.json();
+          console.log("✅ Social user created/updated:", data);
+          return true;
+        } catch (error) {
+          console.error("Social login error:", error);
+          return false;
+        }
       }
+
+      // Credentials login
       return true;
     },
     async jwt({ token, user, account }) {
@@ -107,7 +142,7 @@ export default {
     },
   },
   session: {
-    strategy: "jwt", // Use JWT for stateless sessions
+    strategy: "jwt",
     maxAge: 7 * 24 * 60 * 60, // 7 days
   },
   trustHost: true,

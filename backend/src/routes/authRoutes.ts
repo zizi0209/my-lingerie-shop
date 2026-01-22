@@ -9,6 +9,7 @@ import {
   checkDashboardAuth,
   revokeDashboardAuth,
 } from '../controllers/authController';
+import { socialLogin } from '../controllers/socialAuthController';
 import { authenticateToken } from '../middleware/auth';
 import { loginLimiter, registerLimiter } from '../middleware/rateLimiter';
 
@@ -17,6 +18,7 @@ const router = express.Router();
 // Public routes với rate limiting
 router.post('/register', registerLimiter, register);
 router.post('/login', loginLimiter, login);
+router.post('/social-login', socialLogin); // Social OAuth login
 router.post('/refresh', refresh);
 router.post('/logout', logout);
 
