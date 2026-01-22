@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 
 export const linkProductToPost = async (req: Request, res: Response) => {
   try {
-    const { postId, productId, position, displayType, customNote, isAd } = req.body;
+    const { postId, productId, position, displayType, customNote } = req.body;
 
     if (!postId || !productId) {
       return res.status(400).json({ error: 'postId và productId là bắt buộc!' });
@@ -30,7 +30,6 @@ export const linkProductToPost = async (req: Request, res: Response) => {
         position: position ? Number(position) : null,
         displayType: displayType || 'inline-card',
         customNote: customNote || null,
-        isAd: isAd ?? false,
       },
       create: {
         postId: Number(postId),
@@ -38,7 +37,6 @@ export const linkProductToPost = async (req: Request, res: Response) => {
         position: position ? Number(position) : null,
         displayType: displayType || 'inline-card',
         customNote: customNote || null,
-        isAd: isAd ?? false,
       },
     });
 
@@ -175,7 +173,6 @@ export const batchLinkProducts = async (req: Request, res: Response) => {
             position: p.position ? Number(p.position) : null,
             displayType: p.displayType || 'inline-card',
             customNote: p.customNote || null,
-            isAd: p.isAd ?? false,
           },
           create: {
             postId: Number(postId),
@@ -183,7 +180,6 @@ export const batchLinkProducts = async (req: Request, res: Response) => {
             position: p.position ? Number(p.position) : null,
             displayType: p.displayType || 'inline-card',
             customNote: p.customNote || null,
-            isAd: p.isAd ?? false,
           },
         })
       )

@@ -139,6 +139,13 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
+    // Check if social user
+    if (!user.password) {
+      return res.status(400).json({
+        error: 'Tài khoản này đăng ký qua mạng xã hội và không có mật khẩu.',
+      });
+    }
+
     // Verify password
     const isPasswordValid = await bcrypt.compare(validated.password, user.password);
 
@@ -648,6 +655,13 @@ export const changePassword = async (req: Request, res: Response) => {
 
     if (!user) {
       return res.status(404).json({ error: 'Không tìm thấy người dùng!' });
+    }
+
+    // Check if social user (no password)
+    if (!user.password) {
+      return res.status(400).json({
+        error: 'Tài khoản này đăng ký qua mạng xã hội và không có mật khẩu để đổi. Vui lòng quản lý mật khẩu qua nhà cung cấp OAuth.',
+      });
     }
 
     // Verify current password

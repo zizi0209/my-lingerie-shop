@@ -80,7 +80,6 @@ async function syncProductOnPost(postId: number, products: ExtractedProduct[]) {
         position: product.position,
         displayType: product.displayType,
         customNote: product.customNote,
-        isAd: product.isAd,
       },
       create: {
         postId,
@@ -88,7 +87,6 @@ async function syncProductOnPost(postId: number, products: ExtractedProduct[]) {
         position: product.position,
         displayType: product.displayType,
         customNote: product.customNote,
-        isAd: product.isAd,
       },
     });
   }
@@ -211,8 +209,6 @@ export const getPostBySlug = async (req: Request, res: Response) => {
         likeCount: true,
         isPublished: true,
         publishedAt: true,
-        adEnabled: true,
-        adDelaySeconds: true,
         createdAt: true,
         author: {
           select: {
@@ -296,8 +292,6 @@ export const createPost = async (req: Request, res: Response) => {
         categoryId: Number(categoryId),
         isPublished: isPublished || false,
         publishedAt: publishedAt ? new Date(publishedAt) : null,
-        adEnabled: adEnabled ?? false,
-        adDelaySeconds: adDelaySeconds ?? 5,
       },
       include: {
         author: {

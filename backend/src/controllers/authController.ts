@@ -171,6 +171,13 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
+    // Check if user is a social login user (no password)
+    if (!user.password) {
+      return res.status(400).json({
+        error: 'Tài khoản này đăng ký qua mạng xã hội. Vui lòng đăng nhập bằng Google hoặc GitHub.',
+      });
+    }
+
     // Verify password
     const isPasswordValid = await bcrypt.compare(validated.password, user.password);
 
@@ -420,6 +427,13 @@ export const verifyPassword = async (req: Request, res: Response) => {
     // Kiểm tra quyền admin
     if (!isAdminRole(user.role?.name)) {
       return res.status(403).json({ error: 'Bạn không có quyền truy cập Dashboard!' });
+    }
+
+    // Check if social user (no password)
+    if (!user.password) {
+      return res.status(400).json({
+        error: 'Tài khoản admin không thể đăng nhập qua mạng xã hội. Vui lòng liên hệ quản trị viên.',
+      });
     }
 
     // Verify password
