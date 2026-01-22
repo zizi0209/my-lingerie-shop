@@ -32,6 +32,25 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
   const [isDashboardAuth, setIsDashboardAuth] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
+  // Refresh dashboard auth every 30 minutes to keep session alive
+  useEffect(() => {
+    if (!isDashboardAuth) return;
+
+    const refreshInterval = setInterval(() => {
+      // Silent refresh - just ping the check endpoint to renew cookie
+      if (token) {
+        api.setToken(token);
+      }
+      api.get("/auth/check-dashboard-auth").catch(() => {
+        // If fails, show re-auth modal
+        setIsDashboardAuth(false);
+        setShowReAuthModal(true);
+      });
+    }, 30 * 60 * 1000); // 30 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, [isDashboardAuth, token]);
+
   const checkDashboardAuth = useCallback(async () => {
     if (!isAuthenticated) {
       setIsChecking(false);

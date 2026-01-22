@@ -26,17 +26,17 @@ export const AUTH_CONFIG = {
     OPTIONS: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' as const : 'lax' as const,
       path: '/',
     },
   },
   DASHBOARD_AUTH: {
     COOKIE_NAME: 'dashboardAuth',
-    EXPIRES_IN_MS: 30 * 60 * 1000, // 30 phút
+    EXPIRES_IN_MS: 4 * 60 * 60 * 1000, // 4 giờ
     OPTIONS: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' as const : 'lax' as const,
       path: '/',
     },
   },
