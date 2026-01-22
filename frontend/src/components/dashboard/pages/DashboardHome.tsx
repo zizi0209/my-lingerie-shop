@@ -14,6 +14,8 @@ import Link from 'next/link';
 import { useTheme } from '../components/ThemeContext';
 import { useLanguage } from '../components/LanguageContext';
 import { adminDashboardApi, type DashboardStats, type AuditLog, type LiveFeedItem } from '@/lib/adminApi';
+import DateRangePicker, { type DateRange } from '../DateRangePicker';
+import GrowthIndicator from '../GrowthIndicator';
 
 interface ChartDataPoint {
   name: string;
@@ -106,13 +108,30 @@ const DashboardHome: React.FC = () => {
   const [ordersByStatus, setOrdersByStatus] = useState<OrderStatus[]>([]);
   const [recentActivities, setRecentActivities] = useState<AuditLog[]>([]);
   const [liveFeed, setLiveFeed] = useState<LiveFeedItem[]>([]);
-  const [period, setPeriod] = useState<'24hours' | '7days' | '30days' | '90days'>('7days');
   const [chartType, setChartType] = useState<'area' | 'bar' | 'line'>('area');
+  
+  // Date Range State
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { startDate: monthStart, endDate: now, preset: 'thisMonth' };
+  });
+  const [compareEnabled, setCompareEnabled] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+        
+        // Convert date range to period for backward compatibility
+        const duration = dateRange.endDate.getTime() - dateRange.startDate.getTime();
+        const days = Math.ceil(duration / (1000 * 60 * 60 * 24));
+        let period: '24hours' | '7days' | '30days' | '90days' = '7days';
+        if (days <= 1) period = '24hours';
+        else if (days <= 7) period = '7days';
+        else if (days <= 30) period = '30days';
+        else period = '90days';
+        
         const [statsRes, analyticsRes, activitiesRes, liveFeedRes] = await Promise.all([
           adminDashboardApi.getStats(),
           adminDashboardApi.getAnalytics(period),
@@ -161,7 +180,7 @@ const DashboardHome: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, [period]);
+  }, [dateRange]);
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('vi-VN', {
@@ -222,21 +241,17 @@ const DashboardHome: React.FC = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Tổng quan</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Chào mừng trở lại! Đây là tổng quan hoạt động của bạn.</p>
         </div>
-        <select 
-          value={period}
-          onChange={(e) => setPeriod(e.target.value as typeof period)}
-          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 outline-none cursor-pointer"
-        >
-          <option value="24hours">24 giờ qua</option>
-          <option value="7days">7 ngày qua</option>
-          <option value="30days">30 ngày qua</option>
-          <option value="90days">90 ngày qua</option>
-        </select>
+        <DateRangePicker
+          value={dateRange}
+          onChange={setDateRange}
+          compareEnabled={compareEnabled}
+          onCompareChange={setCompareEnabled}
+        />
       </div>
 
       {/* Stats Cards */}

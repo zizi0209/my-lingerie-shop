@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../components/ThemeContext';
 import { api } from '@/lib/api';
+import DateRangePicker, { type DateRange } from '../DateRangePicker';
+import GrowthIndicator from '../GrowthIndicator';
 
 // ============== TYPES ==============
 interface OverviewData {
@@ -179,8 +181,16 @@ const Tracking: React.FC = () => {
   const isDark = theme === 'dark';
 
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'24hours' | '7days' | '30days'>('7days');
   const [activeTab, setActiveTab] = useState<'overview' | 'behavior' | 'product' | 'ai'>('overview');
+  
+  // Date Range State
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const now = new Date();
+    const last7 = new Date(now);
+    last7.setDate(last7.getDate() - 7);
+    return { startDate: last7, endDate: now, preset: 'last7days' };
+  });
+  const [compareEnabled, setCompareEnabled] = useState(false);
 
   // Data states
   const [overview, setOverview] = useState<OverviewData | null>(null);
@@ -199,6 +209,14 @@ const Tracking: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      
+      // Convert date range to period for backward compatibility
+      const duration = dateRange.endDate.getTime() - dateRange.startDate.getTime();
+      const days = Math.ceil(duration / (1000 * 60 * 60 * 24));
+      let period: '24hours' | '7days' | '30days' = '7days';
+      if (days <= 1) period = '24hours';
+      else if (days <= 7) period = '7days';
+      else period = '30days';
       
       interface ApiResponse<T> {
         success: boolean;
@@ -262,7 +280,7 @@ const Tracking: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [period]);
+  }, [dateRange]);
 
   // ============== HELPERS ==============
   const formatCurrency = (amount: number): string => {
@@ -316,15 +334,12 @@ const Tracking: React.FC = () => {
           >
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as typeof period)}
-            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="24hours">24 giờ qua</option>
-            <option value="7days">7 ngày qua</option>
-            <option value="30days">30 ngày qua</option>
-          </select>
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            compareEnabled={compareEnabled}
+            onCompareChange={setCompareEnabled}
+          />
           {overview && (
             <div className="hidden sm:flex items-center text-emerald-500 font-bold bg-emerald-50 dark:bg-emerald-500/10 px-4 py-2 rounded-xl">
               <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
