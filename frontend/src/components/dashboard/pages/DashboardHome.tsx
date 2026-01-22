@@ -133,7 +133,7 @@ const DashboardHome: React.FC = () => {
         
         const [statsRes, analyticsRes, activitiesRes, liveFeedRes] = await Promise.all([
           adminDashboardApi.getStats({ startDate, endDate }),
-          adminDashboardApi.getAnalytics(period),
+          adminDashboardApi.getAnalytics(undefined, { startDate, endDate }),
           adminDashboardApi.getRecentActivities(10),
           adminDashboardApi.getLiveFeed(10)
         ]);
@@ -143,20 +143,11 @@ const DashboardHome: React.FC = () => {
         }
 
         if (analyticsRes.success) {
-          const revenueMap = new Map<string, number>();
-          const ordersMap = new Map<string, number>();
-
-          analyticsRes.data.revenueByDay.forEach((item) => {
-            const date = new Date(item.createdAt);
-            const key = `${date.getDate()}/${date.getMonth() + 1}`;
-            revenueMap.set(key, (revenueMap.get(key) || 0) + item.totalAmount);
-            ordersMap.set(key, (ordersMap.get(key) || 0) + 1);
-          });
-
-          const chartPoints: ChartDataPoint[] = Array.from(revenueMap.keys()).map(key => ({
-            name: key,
-            revenue: Math.round(revenueMap.get(key) || 0),
-            orders: ordersMap.get(key) || 0
+          // Use the date field from backend (already grouped)
+          const chartPoints: ChartDataPoint[] = analyticsRes.data.revenueByDay.map(item => ({
+            name: item.date,
+            revenue: Math.round(item.totalAmount),
+            orders: item.orderCount
           }));
 
           setChartData(chartPoints);

@@ -177,35 +177,44 @@ router.get('/stats', async (req, res) => {
 /**
  * GET /api/admin/dashboard/analytics
  * Get analytics data (orders, revenue by time)
+ * Query params: period (for backward compatibility) OR startDate/endDate
  */
 router.get('/analytics', async (req, res) => {
   try {
-    const { period = '7days' } = req.query;
+    const { period, startDate: startDateParam, endDate: endDateParam } = req.query;
 
-    // Calculate date range based on period
     const now = new Date();
     let startDate: Date;
+    let endDate: Date = now;
 
-    switch (period) {
-      case '24hours':
-        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        break;
-      case '7days':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case '30days':
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case '90days':
-        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    // Support both period and startDate/endDate params
+    if (startDateParam && endDateParam) {
+      // Use provided dates
+      startDate = new Date(startDateParam as string);
+      endDate = new Date(endDateParam as string);
+    } else {
+      // Calculate date range based on period
+      switch (period) {
+        case '24hours':
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7days':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30days':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90days':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
     }
 
     const [
       ordersByStatus,
-      revenueByDay,
+      allOrders,
       topProducts
     ] = await Promise.all([
       // Orders grouped by status
@@ -213,15 +222,23 @@ router.get('/analytics', async (req, res) => {
         by: ['status'],
         _count: { status: true },
         where: {
-          createdAt: { gte: startDate }
+          createdAt: { 
+            gte: startDate,
+            lte: endDate
+          }
         }
       }),
       
-      // Revenue by day (simplified - just get orders)
+      // All orders for revenue calculation (exclude CANCELLED/REFUNDED)
       prisma.order.findMany({
         where: {
-          createdAt: { gte: startDate },
-          status: 'DELIVERED'
+          createdAt: { 
+            gte: startDate,
+            lte: endDate
+          },
+          status: { 
+            notIn: ['CANCELLED', 'REFUNDED'] 
+          }
         },
         select: {
           totalAmount: true,
@@ -234,8 +251,13 @@ router.get('/analytics', async (req, res) => {
       prisma.orderItem.findMany({
         where: {
           order: {
-            createdAt: { gte: startDate },
-            status: { in: ['DELIVERED', 'SHIPPED', 'CONFIRMED', 'PROCESSING'] }
+            createdAt: { 
+              gte: startDate,
+              lte: endDate
+            },
+            status: { 
+              notIn: ['CANCELLED', 'REFUNDED']
+            }
           }
         },
         select: {
@@ -246,12 +268,69 @@ router.get('/analytics', async (req, res) => {
       })
     ]);
 
+    // Group revenue by day/hour based on date range duration
+    const duration = endDate.getTime() - startDate.getTime();
+    const durationDays = duration / (1000 * 60 * 60 * 24);
+    
+    // Determine grouping interval
+    let groupBy: 'hour' | 'day' | 'week' = 'day';
+    if (durationDays <= 1) {
+      groupBy = 'hour';
+    } else if (durationDays > 60) {
+      groupBy = 'week';
+    }
+
+    // Group orders by time period
+    const revenueMap = new Map<string, { revenue: number; orders: number }>();
+    
+    allOrders.forEach(order => {
+      const date = new Date(order.createdAt);
+      let key: string;
+      
+      if (groupBy === 'hour') {
+        // Format: "14:00" (hour)
+        key = `${date.getHours().toString().padStart(2, '0')}:00`;
+      } else if (groupBy === 'week') {
+        // Format: "Tuần 1" (week number)
+        const weekNum = Math.ceil(date.getDate() / 7);
+        key = `Tuần ${weekNum}/${date.getMonth() + 1}`;
+      } else {
+        // Format: "15/1" (day/month)
+        key = `${date.getDate()}/${date.getMonth() + 1}`;
+      }
+      
+      const existing = revenueMap.get(key) || { revenue: 0, orders: 0 };
+      existing.revenue += order.totalAmount;
+      existing.orders += 1;
+      revenueMap.set(key, existing);
+    });
+
+    // Convert to array and sort
+    const revenueByDay = Array.from(revenueMap.entries())
+      .map(([date, data]) => ({
+        date,
+        totalAmount: data.revenue,
+        orderCount: data.orders,
+        createdAt: date // For backward compatibility
+      }))
+      .sort((a, b) => {
+        // Sort by date
+        if (groupBy === 'hour') {
+          return a.date.localeCompare(b.date);
+        }
+        // For day/week, parse and compare
+        const [dayA, monthA] = a.date.replace('Tuần ', '').split('/').map(Number);
+        const [dayB, monthB] = b.date.replace('Tuần ', '').split('/').map(Number);
+        if (monthA !== monthB) return monthA - monthB;
+        return dayA - dayB;
+      });
+
     // Aggregate top products from order items
-    const productStatsMap = new Map<number, { totalSold: number; totalRevenue: number; orderCount: Set<number> }>();
+    const productStatsMap = new Map<number, { totalSold: number; totalRevenue: number }>();
     
     topProducts.forEach(item => {
       const existing = productStatsMap.get(item.productId);
-      const itemRevenue = item.price * item.quantity; // price is unit price, multiply by quantity
+      const itemRevenue = item.price * item.quantity;
       
       if (existing) {
         existing.totalSold += item.quantity;
@@ -259,8 +338,7 @@ router.get('/analytics', async (req, res) => {
       } else {
         productStatsMap.set(item.productId, {
           totalSold: item.quantity,
-          totalRevenue: itemRevenue,
-          orderCount: new Set()
+          totalRevenue: itemRevenue
         });
       }
     });
@@ -281,7 +359,7 @@ router.get('/analytics', async (req, res) => {
           productName: product?.name || 'Unknown',
           price: product?.salePrice || product?.price || 0,
           totalSold: stats.totalSold,
-          orderCount: stats.totalSold, // Use totalSold as a proxy
+          orderCount: stats.totalSold, // Use totalSold as proxy
           totalRevenue: stats.totalRevenue
         };
       })
@@ -291,9 +369,10 @@ router.get('/analytics', async (req, res) => {
     res.json({
       success: true,
       data: {
-        period,
+        period: period || 'custom',
         startDate,
-        endDate: now,
+        endDate,
+        groupBy,
         ordersByStatus: ordersByStatus.map(item => ({
           status: item.status,
           count: item._count.status

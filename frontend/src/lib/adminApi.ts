@@ -252,24 +252,43 @@ export const adminDashboardApi = {
   },
 
   // Get analytics data
-  async getAnalytics(period: '24hours' | '7days' | '30days' | '90days' = '7days'): Promise<{
+  async getAnalytics(
+    period?: '24hours' | '7days' | '30days' | '90days',
+    params?: {
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<{
     success: boolean;
     data: {
       period: string;
       startDate: Date;
       endDate: Date;
+      groupBy: 'hour' | 'day' | 'week';
       ordersByStatus: Array<{ status: string; count: number }>;
-      revenueByDay: Array<{ totalAmount: number; createdAt: Date }>;
+      revenueByDay: Array<{ 
+        date: string;
+        totalAmount: number; 
+        orderCount: number;
+        createdAt: string;
+      }>;
       topProducts: Array<{
         productId: number;
         productName: string;
         price: number;
         totalSold: number;
         orderCount: number;
+        totalRevenue: number;
       }>;
     };
   }> {
-    return api.get(`/admin/dashboard/analytics?period=${period}`);
+    const queryParams = new URLSearchParams();
+    if (period) queryParams.set('period', period);
+    if (params?.startDate) queryParams.set('startDate', params.startDate);
+    if (params?.endDate) queryParams.set('endDate', params.endDate);
+    
+    const queryString = queryParams.toString();
+    return api.get(`/admin/dashboard/analytics${queryString ? `?${queryString}` : ''}`);
   },
 
   // Get analytics overview (for Tracking page)
