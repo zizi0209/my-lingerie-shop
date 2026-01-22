@@ -4,23 +4,12 @@ import { PrismaClient } from "@prisma/client";
 import authConfig from "./auth.config";
 
 /**
- * Initialize Prisma Client for Auth.js
- * Points to the same database as Express backend
+ * Prisma Client for NextAuth
+ * Uses the same database as backend
  */
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
-});
+const prisma = new PrismaClient();
 
-export const {
-  handlers: { GET, POST },
-  auth,
-  signIn,
-  signOut,
-} = NextAuth({
+const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   ...authConfig,
   events: {
@@ -35,3 +24,6 @@ export const {
     },
   },
 });
+
+// Export handlers for API routes
+export { handlers, auth, signIn, signOut };

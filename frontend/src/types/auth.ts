@@ -4,6 +4,10 @@ export interface User {
   name: string | null;
   phone?: string | null;
   avatar?: string | null;
+  birthday?: string | null;
+  memberTier?: string;
+  pointBalance?: number;
+  totalSpent?: number;
   roleId: number | null;
   role: {
     id: number;

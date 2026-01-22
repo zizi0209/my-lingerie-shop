@@ -48,14 +48,13 @@ export default {
             return null;
           }
 
-          // Return user object that will be stored in session
+          // Return user object + custom fields (will be passed to JWT callback)
           return {
             id: data.data.user.id.toString(),
             email: data.data.user.email,
             name: data.data.user.name,
             image: data.data.user.avatar,
             role: data.data.user.role?.name || "USER",
-            // Store backend token in session for API calls
             backendToken: data.data.accessToken,
           };
         } catch (error) {
@@ -82,7 +81,10 @@ export default {
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.backendToken = user.backendToken;
+        // Store backend token from credentials login
+        if ("backendToken" in user && user.backendToken) {
+          token.backendToken = user.backendToken as string;
+        }
       }
 
       // Store OAuth tokens for social accounts
@@ -97,7 +99,9 @@ export default {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
-        session.backendToken = token.backendToken as string;
+        if (token.backendToken) {
+          session.backendToken = token.backendToken as string;
+        }
       }
       return session;
     },

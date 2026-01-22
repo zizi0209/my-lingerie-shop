@@ -8,7 +8,6 @@ import {
   useCallback,
   ReactNode,
 } from "react";
-import { signIn, signOut, useSession } from "next-auth/react";
 import { api } from "@/lib/api";
 import type {
   User,
@@ -29,82 +28,73 @@ interface AuthContextType extends AuthState {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: session, status } = useSession();
-  
   const [state, setState] = useState<AuthState>({
     user: null,
     token: null,
     isAuthenticated: false,
-    isLoading: status === "loading",
+    isLoading: true,
   });
 
-  // Sync NextAuth session to AuthContext
+  // Khởi tạo: kiểm tra token và lấy user info
   useEffect(() => {
-    if (status === "loading") {
-      setState((prev) => ({ ...prev, isLoading: true }));
-      return;
-    }
-
-    if (session?.user) {
-      // User authenticated via NextAuth (social or credentials)
-      const user: User = {
-        id: parseInt(session.user.id),
-        email: session.user.email || "",
-        name: session.user.name || null,
-        avatar: session.user.image || null,
-        roleId: null,
-        role: session.user.role ? { id: 0, name: session.user.role } : null,
-        phone: null,
-        birthday: null,
-        memberTier: "BRONZE",
-        pointBalance: 0,
-        totalSpent: 0,
-        createdAt: new Date().toISOString(),
-      };
-
-      // Set backend token if from credentials login
-      if (session.backendToken) {
-        api.setToken(session.backendToken);
+    const initAuth = async () => {
+      if (!api.isAuthenticated()) {
+        setState((prev) => ({ ...prev, isLoading: false }));
+        return;
       }
 
-      setState({
-        user,
-        token: session.backendToken || null,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-      return;
-    }
+      try {
+        const response = await api.get<ProfileResponse>("/users/profile");
+        if (response.success && response.data) {
+          setState({
+            user: response.data,
+            token: localStorage.getItem("accessToken"),
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } else {
+          api.removeToken();
+          setState({
+            user: null,
+            token: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
+        }
+      } catch {
+        // Silent fail - chỉ cleanup token, không hiện thông báo lỗi
+        // Đây là trường hợp token cũ hết hạn khi user mở web lần đầu
+        api.removeToken();
+        setState({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      }
+    };
 
-    // Not authenticated
-    setState({
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      isLoading: false,
-    });
-  }, [session, status]);
+    initAuth();
+  }, []);
 
   const login = useCallback(
     async (credentials: LoginCredentials): Promise<{ success: boolean; error?: string }> => {
       try {
-        // Use NextAuth credentials provider (calls backend internally)
-        const result = await signIn("credentials", {
-          redirect: false,
-          email: credentials.email,
-          password: credentials.password,
-        });
+        const response = await api.post<AuthResponse>(
+          "/auth/login",
+          credentials,
+          false
+        );
 
-        if (result?.error) {
-          return {
-            success: false,
-            error: result.error === "CredentialsSignin"
-              ? "Email hoặc mật khẩu không đúng"
-              : result.error,
-          };
-        }
-
-        if (result?.ok) {
+        if (response.success && response.data) {
+          api.setToken(response.data.accessToken);
+          api.setTokenExpiry(response.data.expiresIn);
+          setState({
+            user: response.data.user,
+            token: response.data.accessToken,
+            isAuthenticated: true,
+            isLoading: false,
+          });
           return { success: true };
         }
 
@@ -120,7 +110,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async (credentials: RegisterCredentials): Promise<{ success: boolean; error?: string }> => {
       try {
-        // Register via backend API
         const response = await api.post<AuthResponse>(
           "/auth/register",
           credentials,
@@ -128,21 +117,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
 
         if (response.success && response.data) {
-          // After registration, auto-login via NextAuth
-          const loginResult = await signIn("credentials", {
-            redirect: false,
-            email: credentials.email,
-            password: credentials.password,
+          api.setToken(response.data.accessToken);
+          api.setTokenExpiry(response.data.expiresIn);
+          setState({
+            user: response.data.user,
+            token: response.data.accessToken,
+            isAuthenticated: true,
+            isLoading: false,
           });
-
-          if (loginResult?.ok) {
-            return { success: true };
-          }
-
-          return {
-            success: false,
-            error: "Đăng ký thành công nhưng đăng nhập thất bại. Vui lòng đăng nhập lại.",
-          };
+          return { success: true };
         }
 
         return { success: false, error: "Đăng ký thất bại" };
@@ -155,13 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    // Logout from NextAuth
-    await signOut({ redirect: false });
-    
-    // Clear backend JWT
-    api.removeToken();
-    
-    // Clear state
+    await api.logout();
     setState({
       user: null,
       token: null,
@@ -171,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
-    if (!state.isAuthenticated || !state.token) return;
+    if (!api.isAuthenticated()) return;
 
     try {
       const response = await api.get<ProfileResponse>("/users/profile");
@@ -184,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Silent fail
     }
-  }, [state.isAuthenticated, state.token]);
+  }, []);
 
   return (
     <AuthContext.Provider
