@@ -9,6 +9,7 @@ export default function ForgetPasswordPage() {
   const [step, setStep] = useState(1); // 1: Email, 2: OTP, 3: New Password
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
+  const [token, setToken] = useState(""); // Token from verify OTP
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -26,12 +27,26 @@ export default function ForgetPasswordPage() {
     setIsLoading(true);
     setMessage("");
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
       setIsLoading(false);
-      setStep(2);
-      setMessage("Mã OTP đã được gửi đến email của bạn");
-    }, 1500);
+
+      if (data.success) {
+        setStep(2);
+        setMessage(data.message);
+      } else {
+        setMessage(data.error || "Có lỗi xảy ra. Vui lòng thử lại.");
+      }
+    } catch (error) {
+      setIsLoading(false);
+      setMessage("Không thể kết nối đến server. Vui lòng thử lại.");
+    }
   };
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
@@ -44,15 +59,27 @@ export default function ForgetPasswordPage() {
     setIsLoading(true);
     setMessage("");
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+
+      const data = await response.json();
       setIsLoading(false);
-      if (otp === "123456") { // Mock OTP
+
+      if (data.success) {
+        setToken(data.token); // Store token for reset password
         setStep(3);
+        setMessage("");
       } else {
-        setMessage("Mã OTP không đúng. Vui lòng thử lại");
+        setMessage(data.error || "Mã OTP không hợp lệ");
       }
-    }, 1000);
+    } catch (error) {
+      setIsLoading(false);
+      setMessage("Không thể kết nối đến server. Vui lòng thử lại.");
+    }
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -68,20 +95,34 @@ export default function ForgetPasswordPage() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setMessage("Mật khẩu phải có ít nhất 6 ký tự");
+    if (newPassword.length < 8) {
+      setMessage("Mật khẩu phải có ít nhất 8 ký tự");
       return;
     }
 
     setIsLoading(true);
     setMessage("");
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, newPassword }),
+      });
+
+      const data = await response.json();
       setIsLoading(false);
-      setStep(4);
-      setMessage("Mật khẩu đã được đặt lại thành công");
-    }, 1500);
+
+      if (data.success) {
+        setStep(4);
+        setMessage(data.message);
+      } else {
+        setMessage(data.error || "Có lỗi xảy ra. Vui lòng thử lại.");
+      }
+    } catch (error) {
+      setIsLoading(false);
+      setMessage("Không thể kết nối đến server. Vui lòng thử lại.");
+    }
   };
 
   return (
@@ -192,9 +233,6 @@ export default function ForgetPasswordPage() {
                   maxLength={6}
                   required
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                  Mã OTP: 123456 (để test)
-                </p>
               </div>
 
               {message && (

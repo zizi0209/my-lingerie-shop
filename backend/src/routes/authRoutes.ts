@@ -10,6 +10,7 @@ import {
   revokeDashboardAuth,
 } from '../controllers/authController';
 import { socialLogin } from '../controllers/socialAuthController';
+import { forgotPassword, verifyOTP, resetPassword } from '../controllers/forgotPasswordController';
 import { authenticateToken } from '../middleware/auth';
 import { loginLimiter, registerLimiter } from '../middleware/rateLimiter';
 
@@ -19,6 +20,12 @@ const router = express.Router();
 router.post('/register', registerLimiter, register);
 router.post('/login', loginLimiter, login);
 router.post('/social-login', socialLogin); // Social OAuth login
+
+// Forgot password routes
+router.post('/forgot-password', loginLimiter, forgotPassword);
+router.post('/verify-otp', verifyOTP);
+router.post('/reset-password', resetPassword);
+
 router.post('/refresh', refresh);
 router.post('/logout', logout);
 
