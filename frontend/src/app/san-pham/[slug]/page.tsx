@@ -209,7 +209,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       if (success) {
         // Track add to cart event
         trackCartEvent({
-          event: 'add_to_cart',
+          event: 'ADD_TO_CART',
           productId: product.id,
           variantId: selectedVariant?.id,
           quantity,

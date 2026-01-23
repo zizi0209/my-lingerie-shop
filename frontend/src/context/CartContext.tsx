@@ -159,7 +159,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (data.success) {
         // Track add to cart event
         trackCartEvent({
-          event: 'add_to_cart',
+          event: 'ADD_TO_CART',
           productId,
           variantId: variantId || undefined,
           quantity,
@@ -241,7 +241,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         // Track remove from cart
         if (itemToRemove) {
           trackCartEvent({
-            event: 'remove_from_cart',
+            event: 'REMOVE_FROM_CART',
             productId: itemToRemove.productId,
             variantId: itemToRemove.variantId || undefined,
             quantity: itemToRemove.quantity,

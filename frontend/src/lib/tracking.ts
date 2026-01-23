@@ -30,7 +30,7 @@ interface TrackProductViewParams {
 }
 
 interface TrackCartEventParams {
-  event: 'add_to_cart' | 'remove_from_cart' | 'update_quantity' | 'view_cart' | 'begin_checkout';
+  event: 'ADD_TO_CART' | 'REMOVE_FROM_CART' | 'UPDATE_QUANTITY' | 'VIEW_CART' | 'BEGIN_CHECKOUT';
   productId?: number;
   variantId?: number;
   quantity?: number;
