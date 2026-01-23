@@ -606,8 +606,9 @@ function ProfileContent() {
                           onChange={(e) =>
                             setPasswordForm({ ...passwordForm, currentPassword: e.target.value })
                           }
-                          className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
                           placeholder="Nhập mật khẩu hiện tại"
+                          autoComplete="current-password"
                           required
                         />
                         <button
@@ -615,7 +616,8 @@ function ProfileContent() {
                           onClick={() =>
                             setShowPasswords({ ...showPasswords, current: !showPasswords.current })
                           }
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          aria-label={showPasswords.current ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                         >
                           {showPasswords.current ? (
                             <EyeOff className="w-5 h-5" />
@@ -637,8 +639,9 @@ function ProfileContent() {
                           onChange={(e) =>
                             setPasswordForm({ ...passwordForm, newPassword: e.target.value })
                           }
-                          className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
                           placeholder="Tối thiểu 8 ký tự"
+                          autoComplete="new-password"
                           required
                         />
                         <button
@@ -646,7 +649,8 @@ function ProfileContent() {
                           onClick={() =>
                             setShowPasswords({ ...showPasswords, new: !showPasswords.new })
                           }
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          aria-label={showPasswords.new ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                         >
                           {showPasswords.new ? (
                             <EyeOff className="w-5 h-5" />
@@ -668,8 +672,9 @@ function ProfileContent() {
                           onChange={(e) =>
                             setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
                           }
-                          className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
                           placeholder="Nhập lại mật khẩu mới"
+                          autoComplete="new-password"
                           required
                         />
                         <button
@@ -677,7 +682,8 @@ function ProfileContent() {
                           onClick={() =>
                             setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })
                           }
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          aria-label={showPasswords.confirm ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                         >
                           {showPasswords.confirm ? (
                             <EyeOff className="w-5 h-5" />
