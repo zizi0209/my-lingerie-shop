@@ -251,3 +251,142 @@ export const sendWelcomeCouponEmail = async (
 
   return result;
 };
+
+
+/**
+ * Gửi email thông báo đổi mật khẩu thành công
+ */
+export const sendPasswordChangeNotification = async (
+  email: string,
+  userName: string | null,
+  metadata: {
+    ip: string;
+    userAgent: string;
+    timestamp: Date;
+  }
+) => {
+  const fromEmail = process.env.CONTACT_EMAIL_FROM || 'onboarding@resend.dev';
+  const storeName = process.env.STORE_NAME || 'Lingerie Shop';
+  const supportEmail = process.env.SUPPORT_EMAIL || 'support@example.com';
+  
+  const displayName = userName || 'Khách hàng';
+  const formattedTime = new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'full',
+    timeStyle: 'long',
+    timeZone: 'Asia/Ho_Chi_Minh'
+  }).format(metadata.timestamp);
+
+  // Parse user agent to get browser and device info
+  const getBrowserInfo = (ua: string) => {
+    if (ua.includes('Chrome')) return 'Chrome';
+    if (ua.includes('Firefox')) return 'Firefox';
+    if (ua.includes('Safari')) return 'Safari';
+    if (ua.includes('Edge')) return 'Edge';
+    return 'Unknown Browser';
+  };
+
+  const getDeviceInfo = (ua: string) => {
+    if (ua.includes('Mobile')) return 'Mobile';
+    if (ua.includes('Tablet')) return 'Tablet';
+    return 'Desktop';
+  };
+
+  const browser = getBrowserInfo(metadata.userAgent);
+  const device = getDeviceInfo(metadata.userAgent);
+
+  const result = await resend.emails.send({
+    from: fromEmail,
+    to: email,
+    subject: `[Bảo mật] Mật khẩu của bạn đã được thay đổi`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #fff;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%); padding: 40px 20px; text-align: center;">
+          <h1 style="color: #fff; margin: 0; font-size: 28px;">${storeName}</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Thông báo bảo mật</p>
+        </div>
+        
+        <!-- Content -->
+        <div style="padding: 40px 30px;">
+          <h2 style="color: #333; margin-top: 0;">Mật khẩu đã được thay đổi</h2>
+          
+          <p style="color: #555; line-height: 1.8;">
+            Xin chào <strong>${displayName}</strong>,
+          </p>
+          
+          <p style="color: #555; line-height: 1.8;">
+            Mật khẩu tài khoản của bạn vừa được thay đổi thành công.
+          </p>
+          
+          <!-- Security Details -->
+          <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 30px 0;">
+            <p style="margin: 0 0 15px 0; color: #333; font-weight: bold;">Chi tiết thay đổi:</p>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #666; width: 120px;">Thời gian:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${formattedTime}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666;">Thiết bị:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${device}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666;">Trình duyệt:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${browser}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666;">Địa chỉ IP:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${metadata.ip}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <!-- Security Notice -->
+          <div style="background: #fff3e0; padding: 20px; border-radius: 8px; border-left: 4px solid #ff9800; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0; color: #e65100; font-weight: bold;">⚠️ Quan trọng:</p>
+            <p style="margin: 0; color: #555; line-height: 1.8;">
+              Để bảo mật tài khoản, tất cả các phiên đăng nhập khác trên các thiết bị khác đã được đăng xuất tự động.
+            </p>
+          </div>
+          
+          <!-- Warning if not user -->
+          <div style="background: #ffebee; padding: 20px; border-radius: 8px; border-left: 4px solid #f44336; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0; color: #c62828; font-weight: bold;">🚨 Nếu bạn KHÔNG thực hiện thay đổi này:</p>
+            <p style="margin: 0 0 15px 0; color: #555; line-height: 1.8;">
+              Tài khoản của bạn có thể đã bị xâm nhập. Vui lòng liên hệ ngay với chúng tôi để được hỗ trợ khẩn cấp.
+            </p>
+            <a href="mailto:${supportEmail}" 
+               style="display: inline-block; background: #f44336; color: #fff; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              LIÊN HỆ HỖ TRỢ NGAY
+            </a>
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+          
+          <!-- Security Tips -->
+          <p style="color: #555; line-height: 1.8; margin-bottom: 10px;">
+            <strong>Mẹo bảo mật:</strong>
+          </p>
+          <ul style="color: #555; line-height: 2; margin-top: 0;">
+            <li>Không chia sẻ mật khẩu với bất kỳ ai</li>
+            <li>Sử dụng mật khẩu mạnh và khác nhau cho mỗi tài khoản</li>
+            <li>Đổi mật khẩu định kỳ (3-6 tháng/lần)</li>
+            <li>Cảnh giác với email lừa đảo (phishing)</li>
+          </ul>
+        </div>
+        
+        <!-- Footer -->
+        <div style="background: #f5f5f5; padding: 20px 30px; text-align: center; border-top: 1px solid #eee;">
+          <p style="color: #888; font-size: 12px; margin: 0 0 10px 0;">
+            Email này được gửi tự động từ hệ thống bảo mật của ${storeName}.
+          </p>
+          <p style="color: #888; font-size: 12px; margin: 0;">
+            Nếu có thắc mắc, vui lòng liên hệ: <a href="mailto:${supportEmail}" style="color: #e91e63;">${supportEmail}</a>
+          </p>
+        </div>
+      </div>
+    `,
+  });
+
+  return result;
+};

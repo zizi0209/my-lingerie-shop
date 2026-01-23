@@ -6,6 +6,7 @@ import { validate, registerSchema, loginSchema, updateUserSchema, changePassword
 import { sanitizeUser, sanitizeUsers } from '../utils/sanitize';
 import { auditLog } from '../utils/auditLog';
 import { AuditActions } from '../utils/constants';
+import { sendPasswordChangeNotification } from '../services/emailService';
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET không được cấu hình trong file .env!');
@@ -694,6 +695,19 @@ export const changePassword = async (req: Request, res: Response) => {
     await prisma.refreshToken.updateMany({
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
+    });
+
+    // Send security notification email (async - don't block response)
+    const ip = req.ip || req.headers['x-forwarded-for'] as string || 'Unknown';
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    
+    sendPasswordChangeNotification(user.email, user.name, {
+      ip,
+      userAgent,
+      timestamp: new Date()
+    }).catch(error => {
+      // Log error but don't fail the password change
+      console.error('Failed to send password change notification:', error);
     });
 
     // Không ghi audit log cho user tự đổi mật khẩu - đây là user action thông thường
