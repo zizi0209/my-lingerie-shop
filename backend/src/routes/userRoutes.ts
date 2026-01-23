@@ -8,11 +8,13 @@ import {
   deleteUser,
   getProfile,
   updateProfile,
+  uploadAvatar,
   changePassword,
 } from '../controllers/userController';
 import { authenticateToken } from '../middleware/auth';
 import { requireAdmin } from '../middleware/requireAdmin';
 import { loginLimiter, registerLimiter } from '../middleware/rateLimiter';
+import { upload } from '../config/multer';
 
 const router = express.Router();
 
@@ -23,6 +25,7 @@ router.post('/login', loginLimiter, login);
 // Protected routes (require authentication)
 router.get('/profile', authenticateToken, getProfile);
 router.put('/profile', authenticateToken, updateProfile);
+router.post('/upload-avatar', authenticateToken, upload.single('avatar'), uploadAvatar);
 router.put('/change-password', authenticateToken, changePassword);
 
 // Admin only routes

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -108,6 +108,10 @@ function ProfileContent() {
     confirm: false,
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Avatar upload state
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -253,6 +257,54 @@ function ProfileContent() {
     router.push("/");
   };
 
+  const handleAvatarClick = () => {
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setMessage({ type: 'error', text: 'Chỉ chấp nhận file ảnh!' });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'Kích thước file tối đa 5MB!' });
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    setMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await api.uploadFile<{ success: boolean; data: UserType; message?: string }>(
+        '/users/upload-avatar',
+        formData
+      );
+
+      if (response.success) {
+        setMessage({ type: 'success', text: 'Cập nhật ảnh đại diện thành công!' });
+        await refreshUser();
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Lỗi khi upload ảnh!';
+      setMessage({ type: 'error', text: errorMessage });
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset input
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "pending":
@@ -304,7 +356,7 @@ function ProfileContent() {
                 {/* User Info */}
                 <div className="text-center mb-6">
                   <div className="relative w-20 h-20 mx-auto mb-4">
-                    <div className="w-full h-full rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+                    <div className="w-full h-full rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center overflow-hidden">
                       {user?.avatar ? (
                         <Image
                           src={user.avatar}
@@ -316,9 +368,25 @@ function ProfileContent() {
                         <User className="w-10 h-10 text-primary" />
                       )}
                     </div>
-                    <button className="absolute bottom-0 right-0 w-7 h-7 bg-black dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black shadow-lg">
-                      <Camera className="w-3.5 h-3.5" />
+                    <button
+                      onClick={handleAvatarClick}
+                      disabled={isUploadingAvatar}
+                      className="absolute bottom-0 right-0 w-7 h-7 bg-black dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black shadow-lg hover:scale-110 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      aria-label="Thay đổi ảnh đại diện"
+                    >
+                      {isUploadingAvatar ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Camera className="w-3.5 h-3.5" />
+                      )}
                     </button>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
                   </div>
                   <h3 className="font-medium text-gray-900 dark:text-white">
                     {user?.name || "Chưa cập nhật tên"}

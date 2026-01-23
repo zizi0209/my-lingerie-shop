@@ -73,6 +73,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: true,
         isLoading: false,
       });
+
+      // Fetch full user profile from backend after session is established
+      if (session.backendToken) {
+        api.get<ProfileResponse>("/users/profile")
+          .then((response) => {
+            if (response.success && response.data) {
+              setState((prev) => ({
+                ...prev,
+                user: response.data,
+              }));
+            }
+          })
+          .catch(() => {
+            // Silent fail - keep session data
+          });
+      }
       return;
     }
 
@@ -171,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
-    if (!state.isAuthenticated || !state.token) return;
+    if (!state.isAuthenticated) return;
 
     try {
       const response = await api.get<ProfileResponse>("/users/profile");
@@ -181,10 +197,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user: response.data,
         }));
       }
-    } catch {
-      // Silent fail
+    } catch (error) {
+      console.error("Error refreshing user:", error);
     }
-  }, [state.isAuthenticated, state.token]);
+  }, [state.isAuthenticated]);
 
   return (
     <AuthContext.Provider

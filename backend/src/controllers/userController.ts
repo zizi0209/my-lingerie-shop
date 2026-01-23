@@ -634,6 +634,92 @@ export const updateProfile = async (req: Request, res: Response) => {
   }
 };
 
+// Upload avatar (authenticated user)
+export const uploadAvatar = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa xác thực!' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Không có file được upload!' });
+    }
+
+    // Validate file type
+    if (!req.file.mimetype.startsWith('image/')) {
+      return res.status(400).json({ error: 'Chỉ chấp nhận file ảnh!' });
+    }
+
+    // Validate file size (max 5MB)
+    if (req.file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Kích thước file tối đa 5MB!' });
+    }
+
+    // Import cloudinary dynamically
+    const { cloudinary } = await import('../config/cloudinary');
+
+    // Upload to Cloudinary with avatar-specific transformations
+    const uploadPromise = new Promise<string>((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'image',
+          folder: 'lingerie-shop/avatars',
+          transformation: [
+            { width: 400, height: 400, crop: 'fill', gravity: 'face' }, // Square crop, focus on face
+            { quality: 'auto:good' }, // Good quality
+            { fetch_format: 'webp' }, // Auto convert to WebP
+          ],
+          public_id: `user_${userId}_${Date.now()}`, // Unique filename
+        },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else if (!result) {
+            reject(new Error('Không nhận được kết quả từ Cloudinary!'));
+          } else {
+            resolve(result.secure_url);
+          }
+        }
+      ).end(req.file!.buffer);
+    });
+
+    const avatarUrl = await uploadPromise;
+
+    // Update user avatar in database
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { avatar: avatarUrl },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+        phone: true,
+        roleId: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: sanitizeUser(user),
+      message: 'Cập nhật ảnh đại diện thành công!',
+    });
+  } catch (error) {
+    console.error('Upload avatar error:', error);
+    res.status(500).json({ error: 'Lỗi khi upload ảnh đại diện!' });
+  }
+};
+
 // Change password (authenticated user)
 export const changePassword = async (req: Request, res: Response) => {
   try {
