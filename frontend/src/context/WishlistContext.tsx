@@ -57,13 +57,25 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
           Authorization: `Bearer ${token}`,
         },
       });
+      
+      // Chỉ xử lý nếu response OK
+      if (!res.ok) {
+        // Không log lỗi 401/403 - đây là trường hợp bình thường khi chưa auth
+        if (res.status !== 401 && res.status !== 403) {
+          console.error("Fetch wishlist error:", res.status);
+        }
+        setItems([]);
+        return;
+      }
+      
       const data = await res.json();
 
       if (data.success) {
         setItems(data.data);
       }
     } catch (err) {
-      console.error("Fetch wishlist error:", err);
+      // Silent fail - không log error
+      setItems([]);
     } finally {
       setLoading(false);
     }

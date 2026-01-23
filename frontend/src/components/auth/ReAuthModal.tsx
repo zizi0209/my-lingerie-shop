@@ -49,8 +49,18 @@ export function ReAuthModal({ isOpen, onSuccess, onCancel }: ReAuthModalProps) {
         setError("Xác thực thất bại");
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Lỗi không xác định";
-      setError(message);
+      // Xử lý error message
+      if (err instanceof Error) {
+        if (err.message === 'SESSION_EXPIRED') {
+          setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+        } else if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+          setError("Mật khẩu không đúng");
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError("Lỗi không xác định");
+      }
     } finally {
       setIsLoading(false);
     }

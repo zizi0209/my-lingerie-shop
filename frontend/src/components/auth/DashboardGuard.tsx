@@ -41,10 +41,13 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
       if (token) {
         api.setToken(token);
       }
-      api.get("/auth/check-dashboard-auth").catch(() => {
-        // If fails, show re-auth modal
-        setIsDashboardAuth(false);
-        setShowReAuthModal(true);
+      api.get("/auth/check-dashboard-auth").catch((error) => {
+        // Chỉ xử lý nếu là lỗi session
+        const isSessionError = error instanceof Error && error.message === 'SESSION_EXPIRED';
+        if (isSessionError) {
+          setIsDashboardAuth(false);
+          setShowReAuthModal(true);
+        }
       });
     }, 30 * 60 * 1000); // 30 minutes
 
@@ -80,9 +83,16 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
           setShowReAuthModal(true);
         }
       }
-    } catch {
-      // Lỗi, hiển thị modal
-      setShowReAuthModal(true);
+    } catch (error) {
+      // Chỉ hiển thị modal nếu là lỗi SESSION_EXPIRED
+      const isSessionError = error instanceof Error && error.message === 'SESSION_EXPIRED';
+      if (isSessionError) {
+        setShowReAuthModal(true);
+      } else {
+        // Lỗi khác, log và redirect
+        console.error('Dashboard auth check failed:', error);
+        router.replace("/");
+      }
     } finally {
       setIsChecking(false);
     }

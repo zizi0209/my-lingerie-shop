@@ -94,6 +94,8 @@ class ApiService {
       });
 
       if (!response.ok) {
+        // Refresh token không hợp lệ hoặc hết hạn - đây là trường hợp bình thường
+        // Browser sẽ hiển thị 401 trong Network tab nhưng không phải lỗi
         this.removeToken();
         return false;
       }
@@ -108,6 +110,7 @@ class ApiService {
       this.removeToken();
       return false;
     } catch {
+      // Network error hoặc server không phản hồi
       this.removeToken();
       return false;
     }
@@ -175,7 +178,11 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
-      console.error('API Error:', error);
+      // Không log silent errors (SESSION_EXPIRED) để tránh nhiễu console
+      const isSilent = error instanceof Error && (error as Error & { silent?: boolean }).silent;
+      if (!isSilent) {
+        console.error('API Error:', error);
+      }
       throw error;
     }
   }
