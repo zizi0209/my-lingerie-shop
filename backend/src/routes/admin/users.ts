@@ -296,24 +296,40 @@ router.patch('/:id/status', async (req, res) => {
       });
     }
 
-    // Get current user
-    const currentUser = await prisma.user.findFirst({
+    // Get target user with role
+    const targetUser = await prisma.user.findFirst({
       where: {
         id: Number(id),
         deletedAt: null
+      },
+      include: {
+        role: true
       }
     });
 
-    if (!currentUser) {
+    if (!targetUser) {
       return res.status(404).json({ 
         error: 'User không tồn tại' 
       });
     }
 
     // Prevent deactivating your own account
-    if (currentUser.id === req.user?.id) {
+    if (targetUser.id === req.user?.id) {
       return res.status(400).json({
         error: 'Không thể thay đổi trạng thái tài khoản của chính mình'
+      });
+    }
+
+    // Get current user's role
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { role: true }
+    });
+
+    // SUPER_ADMIN protection: Only SUPER_ADMIN can modify other SUPER_ADMIN
+    if (targetUser.role?.name === 'SUPER_ADMIN' && currentUser?.role?.name !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        error: 'Chỉ SUPER ADMIN mới có thể thao tác với tài khoản SUPER ADMIN khác'
       });
     }
 
@@ -335,7 +351,7 @@ router.patch('/:id/status', async (req, res) => {
       action: isActive ? 'ACTIVATE_USER' : 'DEACTIVATE_USER',
       resource: 'user',
       resourceId: id,
-      oldValue: { isActive: currentUser.isActive },
+      oldValue: { isActive: targetUser.isActive },
       newValue: { isActive },
       severity: 'WARNING'
     }, req);
@@ -426,24 +442,46 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const user = await prisma.user.findFirst({
+    // Get target user with role
+    const targetUser = await prisma.user.findFirst({
       where: {
         id: Number(id),
         deletedAt: null
+      },
+      include: {
+        role: true
       }
     });
 
-    if (!user) {
+    if (!targetUser) {
       return res.status(404).json({ 
         error: 'User không tồn tại' 
       });
     }
 
     // Prevent deleting your own account
-    if (user.id === req.user?.id) {
+    if (targetUser.id === req.user?.id) {
       return res.status(400).json({
         error: 'Không thể xóa tài khoản của chính mình'
       });
+    }
+
+    // CRITICAL: SUPER_ADMIN cannot be deleted (protected account)
+    if (targetUser.role?.name === 'SUPER_ADMIN') {
+      return res.status(403).json({
+        error: 'SUPER ADMIN không thể bị xóa (tài khoản được bảo vệ)'
+      });
+    }
+
+    // Get current user's role for permission check
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { role: true }
+    });
+
+    // Regular ADMIN cannot delete other ADMIN/STAFF if target has equal/higher role
+    if (currentUser?.role?.name === 'ADMIN' && targetUser.role?.name === 'ADMIN') {
+      // Allow ADMIN to delete other ADMIN (but not SUPER_ADMIN, already blocked above)
     }
 
     // Soft delete
@@ -462,7 +500,7 @@ router.delete('/:id', async (req, res) => {
       resource: 'user',
       resourceId: id,
       severity: 'CRITICAL',
-      oldValue: { email: user.email, name: user.name }
+      oldValue: { email: targetUser.email, name: targetUser.name, role: targetUser.role?.name }
     }, req);
 
     res.json({

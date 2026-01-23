@@ -11,6 +11,7 @@
  import SearchInput from '../components/SearchInput';
  import Pagination from '../components/Pagination';
  import { useLanguage } from '../components/LanguageContext';
+import { useAuth } from '@/context/AuthContext';
  
  interface Role {
    id: number;
@@ -36,6 +37,7 @@
  
  const Staff: React.FC = () => {
    const { language } = useLanguage();
+  const { user: currentUser } = useAuth();
    
    // List states
    const [loading, setLoading] = useState(true);
@@ -64,6 +66,38 @@
    // Actions
    const [actionLoading, setActionLoading] = useState<number | null>(null);
  
+  // Permission helpers
+  const isSuperAdmin = currentUser?.role?.name === 'SUPER_ADMIN';
+  const currentUserRole = currentUser?.role?.name;
+  
+  // Check if current user can modify target user
+  const canModify = (targetUser: User): boolean => {
+    const targetRole = targetUser.role?.name;
+    
+    // Super Admin can modify anyone
+    if (isSuperAdmin) return true;
+    
+    // Regular Admin CANNOT modify Super Admin
+    if (targetRole === 'SUPER_ADMIN') return false;
+    
+    // Admin can modify other roles
+    if (currentUserRole === 'ADMIN') return true;
+    
+    // Other roles cannot modify anyone
+    return false;
+  };
+  
+  // Check if a user can be deleted
+  const canDelete = (targetUser: User): boolean => {
+    const targetRole = targetUser.role?.name;
+    
+    // SUPER_ADMIN cannot be deleted (protected)
+    if (targetRole === 'SUPER_ADMIN') return false;
+    
+    // Apply same rules as canModify for other roles
+    return canModify(targetUser);
+  };
+
    // Translations
    const t = {
      title: language === 'vi' ? 'Quản lý Nhân viên & Admin' : 'Staff & Admin Management',
@@ -113,6 +147,12 @@
      twoFA: '2FA',
      enabled: language === 'vi' ? 'Bật' : 'Enabled',
      disabled: language === 'vi' ? 'Tắt' : 'Disabled',
+    superAdminProtected: language === 'vi' 
+      ? '🛡️ SUPER ADMIN không thể bị xóa (tài khoản được bảo vệ)' 
+      : '🛡️ SUPER ADMIN cannot be deleted (protected account)',
+    noPermission: language === 'vi'
+      ? '⚠️ Bạn không có quyền thao tác với SUPER ADMIN'
+      : '⚠️ You do not have permission to modify SUPER ADMIN',
    };
  
    // Load roles (filter only admin roles)
@@ -433,7 +473,12 @@
                </thead>
                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                  {staff.map((member) => (
-                   <tr key={member.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                   <tr 
+                     key={member.id} 
+                     className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 ${
+                       member.role?.name === 'SUPER_ADMIN' ? 'bg-purple-50/30 dark:bg-purple-900/10' : ''
+                     }`}
+                   >
                      <td className="px-6 py-4">
                        <div className="flex items-center gap-3">
                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-bold">
@@ -455,7 +500,12 @@
                        </div>
                      </td>
                      <td className="px-6 py-4">
-                       <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                       <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                         member.role?.name === 'SUPER_ADMIN' 
+                           ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
+                           : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                       }`}>
+                         {member.role?.name === 'SUPER_ADMIN' && <Shield className="w-3 h-3 inline mr-1" />}
                          {member.role?.name || 'N/A'}
                        </span>
                      </td>
@@ -480,17 +530,21 @@
                      </td>
                      <td className="px-6 py-4 text-right">
                        <div className="flex items-center justify-end gap-2">
+                         {/* Edit Button - disabled if user cannot modify */}
                          <button
                            onClick={() => handleEdit(member)}
-                           className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+                           disabled={!canModify(member)}
+                           className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
                            title={t.edit}
                          >
                            <Edit2 className="w-4 h-4" />
                          </button>
+                         
+                         {/* Activate/Deactivate Button - disabled if user cannot modify */}
                          <button
                            onClick={() => handleToggleActive(member)}
-                           disabled={actionLoading === member.id}
-                           className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-50"
+                           disabled={actionLoading === member.id || !canModify(member)}
+                           className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
                            title={member.isActive ? t.deactivate : t.activate}
                          >
                            {actionLoading === member.id ? (
@@ -501,16 +555,20 @@
                              <UserCheck className="w-4 h-4" />
                            )}
                          </button>
+                         
+                         {/* Delete Button - disabled if user cannot delete (especially SUPER_ADMIN) */}
                          <button
                            onClick={() => {
                              setDeletingStaff(member);
                              setShowDeleteModal(true);
                            }}
-                           className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                           disabled={!canDelete(member)}
+                           className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
                            title={t.delete}
                          >
                            <Trash2 className="w-4 h-4" />
                          </button>
+                         
                          <button
                            className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
                            title={t.viewAuditLog}
@@ -647,12 +705,43 @@
          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
            <div className="bg-white dark:bg-slate-800 rounded-xl max-w-md w-full p-6">
              <div className="flex items-center gap-3 mb-4">
-               <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
-                 <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              <div className={`p-3 rounded-full ${
+                deletingStaff?.role?.name === 'SUPER_ADMIN'
+                  ? 'bg-purple-100 dark:bg-purple-900/30'
+                  : 'bg-red-100 dark:bg-red-900/30'
+              }`}>
+                {deletingStaff?.role?.name === 'SUPER_ADMIN' ? (
+                  <Shield className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                ) : (
+                  <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                )}
                </div>
                <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t.confirmDelete}</h2>
              </div>
-             <p className="text-slate-600 dark:text-slate-400 mb-6">{t.deleteWarning}</p>
+            
+            {/* Show special warning for SUPER_ADMIN */}
+            {deletingStaff?.role?.name === 'SUPER_ADMIN' ? (
+              <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-800 rounded-lg">
+                <p className="text-purple-700 dark:text-purple-300 font-semibold mb-2">
+                  {t.superAdminProtected}
+                </p>
+                <p className="text-sm text-purple-600 dark:text-purple-400">
+                  {language === 'vi' 
+                    ? 'Tài khoản SUPER ADMIN là cấp cao nhất và được bảo vệ khỏi việc xóa bỏ để đảm bảo an toàn hệ thống.'
+                    : 'SUPER ADMIN is the highest level account and is protected from deletion to ensure system security.'
+                  }
+                </p>
+              </div>
+            ) : !canDelete(deletingStaff!) ? (
+              <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800 rounded-lg">
+                <p className="text-amber-700 dark:text-amber-300 font-semibold">
+                  {t.noPermission}
+                </p>
+              </div>
+            ) : (
+              <p className="text-slate-600 dark:text-slate-400 mb-6">{t.deleteWarning}</p>
+            )}
+            
              <div className="flex gap-3">
                <button
                  onClick={() => setShowDeleteModal(false)}
@@ -662,8 +751,8 @@
                </button>
                <button
                  onClick={handleDeleteConfirm}
-                 disabled={deleting}
-                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                disabled={deleting || !canDelete(deletingStaff!)}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                >
                  {deleting && <Loader2 className="w-4 h-4 animate-spin" />}
                  {t.delete}
