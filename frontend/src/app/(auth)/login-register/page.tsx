@@ -7,6 +7,21 @@ import { Eye, EyeOff, Mail, Lock, User, Check, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { SocialLoginButtons } from "@/components/auth/SocialLoginButtons";
 
+// CSS để ẩn icon toggle password mặc định của browser
+const passwordInputStyles = `
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none;
+  }
+  input[type="password"]::-webkit-credentials-auto-fill-button,
+  input[type="password"]::-webkit-contacts-auto-fill-button {
+    visibility: hidden;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+  }
+`;
+
 export default function LoginRegisterPage() {
   const router = useRouter();
   const { login, register, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -107,6 +122,8 @@ export default function LoginRegisterPage() {
   };
 
   return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: passwordInputStyles }} />
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors">
       <div className="container mx-auto px-4 py-8 md:py-12">
         <div className="max-w-md mx-auto">
@@ -440,5 +457,6 @@ export default function LoginRegisterPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
