@@ -31,6 +31,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   
+  // Track if we've fetched the initial profile to prevent flash
+  const [profileFetched, setProfileFetched] = useState(false);
+  
   const [state, setState] = useState<AuthState>({
     user: null,
     token: null,
@@ -46,48 +49,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (session?.user) {
-      // User authenticated via NextAuth (social or credentials)
-      const user: User = {
-        id: parseInt(session.user.id),
-        email: session.user.email || "",
-        name: session.user.name || null,
-        avatar: session.user.image || null,
-        roleId: null,
-        role: session.user.role ? { id: 0, name: session.user.role } : null,
-        phone: null,
-        birthday: null,
-        memberTier: "BRONZE",
-        pointBalance: 0,
-        totalSpent: 0,
-        createdAt: new Date().toISOString(),
-      };
-
       // Set backend token if from credentials login
       if (session.backendToken) {
         api.setToken(session.backendToken);
       }
 
-      setState({
-        user,
-        token: session.backendToken || null,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-
       // Fetch full user profile from backend after session is established
       if (session.backendToken) {
+        // Keep loading state while fetching to prevent flash
+        if (!profileFetched) {
+          setState((prev) => ({ ...prev, isLoading: true }));
+        }
+        
         api.get<ProfileResponse>("/users/profile")
           .then((response) => {
             if (response.success && response.data) {
               setState((prev) => ({
                 ...prev,
                 user: response.data,
+                token: session.backendToken || null,
+                isAuthenticated: true,
+                isLoading: false,
               }));
+              setProfileFetched(true);
             }
           })
-          .catch(() => {
-            // Silent fail - keep session data
+          .catch((error) => {
+            console.error("Error fetching profile:", error);
+            // Fallback to session data
+            const user: User = {
+              id: parseInt(session.user!.id),
+              email: session.user!.email || "",
+              name: session.user!.name || null,
+              avatar: session.user!.image || null,
+              roleId: null,
+              role: session.user!.role ? { id: 0, name: session.user!.role } : null,
+              phone: null,
+              birthday: null,
+              memberTier: "BRONZE",
+              pointBalance: 0,
+              totalSpent: 0,
+              createdAt: new Date().toISOString(),
+            };
+            setState({
+              user,
+              token: session.backendToken || null,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+            setProfileFetched(true);
           });
+      } else {
+        // Social login without backend token - use session data
+        const user: User = {
+          id: parseInt(session.user.id),
+          email: session.user.email || "",
+          name: session.user.name || null,
+          avatar: session.user.image || null,
+          roleId: null,
+          role: session.user.role ? { id: 0, name: session.user.role } : null,
+          phone: null,
+          birthday: null,
+          memberTier: "BRONZE",
+          pointBalance: 0,
+          totalSpent: 0,
+          createdAt: new Date().toISOString(),
+        };
+        setState({
+          user,
+          token: null,
+          isAuthenticated: true,
+          isLoading: false,
+          });
+        setProfileFetched(true);
       }
       return;
     }
@@ -99,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: false,
       isLoading: false,
     });
+    setProfileFetched(false);
   }, [session, status]);
 
   const login = useCallback(

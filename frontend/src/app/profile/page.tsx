@@ -131,12 +131,23 @@ function ProfileContent() {
   // Sync form with user data
   useEffect(() => {
     if (user) {
+      // Always sync form with latest user data
       setProfileForm({
         name: user.name || "",
         phone: user.phone || "",
       });
     }
   }, [user]);
+
+  // Reset form when exiting edit mode
+  useEffect(() => {
+    if (!isEditing && user) {
+      setProfileForm({
+        name: user.name || "",
+        phone: user.phone || "",
+      });
+    }
+  }, [isEditing, user]);
 
   // Load orders when tab changes
   useEffect(() => {
