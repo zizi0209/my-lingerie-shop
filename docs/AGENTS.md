@@ -2,7 +2,7 @@
 Trả lời bằng Tiếng Việt
 Chọn Best approve
 Chọn Best practices
-Dùng Contextual practice
+Dùng Contextual practices
 
 - Áp dụng Convenient over Configuration
 - Áp dụng Explicit over Implicit
