@@ -124,6 +124,7 @@ const Customers: React.FC = () => {
       queryParams.set('page', pagination.page.toString());
       queryParams.set('limit', pagination.limit.toString());
       if (searchQuery) queryParams.set('search', searchQuery);
+      queryParams.set('role', 'USER'); // Only customers, not staff
       queryParams.set('hasOrders', 'true');
 
       const response = await api.get<PaginatedResponse>(`/admin/users?${queryParams.toString()}`);

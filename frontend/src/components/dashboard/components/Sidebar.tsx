@@ -63,7 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
     {
       label: t('nav.system'),
       items: [
-        { name: t('nav.staffUsers'), path: '/dashboard/users', icon: Users },
+        { name: t('nav.staffUsers'), path: '/dashboard/staff', icon: Users },
         { name: t('nav.customers'), path: '/dashboard/customers', icon: UserCheck },
         { name: t('nav.roles'), path: '/dashboard/roles', icon: ShieldCheck },
         { name: t('nav.sizeCharts') || 'Bảng size', path: '/dashboard/settings/size-charts', icon: Ruler },

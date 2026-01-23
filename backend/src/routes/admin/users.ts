@@ -15,6 +15,7 @@ router.get('/', async (req, res) => {
       page = '1', 
       limit = '20',
       role,
+      excludeRole,
       isActive,
       search,
       hasOrders
@@ -31,6 +32,13 @@ router.get('/', async (req, res) => {
     if (role) {
       where.role = {
         name: (role as string).toUpperCase()
+      };
+    }
+
+    // Exclude specific role (e.g., exclude USER to get only staff)
+    if (excludeRole) {
+      where.role = {
+        name: { not: (excludeRole as string).toUpperCase() }
       };
     }
 
