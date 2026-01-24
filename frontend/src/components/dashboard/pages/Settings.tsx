@@ -118,6 +118,8 @@ const Settings: React.FC = () => {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [uploadingLogo, setUploadingLogo] = useState<CompressedImage | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [removeLogoBackground, setRemoveLogoBackground] = useState(false);
+  const [isRemovingBackground, setIsRemovingBackground] = useState(false);
   
   // OG Image upload
   const ogImageInputRef = useRef<HTMLInputElement>(null);
@@ -217,6 +219,9 @@ const Settings: React.FC = () => {
     uploadLogo: language === 'vi' ? 'Tải logo lên' : 'Upload Logo',
     removeLogo: language === 'vi' ? 'Xóa logo' : 'Remove Logo',
     compressing: language === 'vi' ? 'Đang nén...' : 'Compressing...',
+    removeBackground: language === 'vi' ? 'Xóa nền ảnh' : 'Remove Background',
+    removingBackground: language === 'vi' ? 'Đang xóa nền...' : 'Removing background...',
+    backgroundRemoved: language === 'vi' ? 'Đã xóa nền' : 'Background removed',
     
     // Currency
     vnd: language === 'vi' ? 'VNĐ' : 'VND',
@@ -281,11 +286,49 @@ const Settings: React.FC = () => {
     }
   };
 
+  // Remove background from logo
+  const handleRemoveLogoBackground = async () => {
+    if (!uploadingLogo) return;
+
+    setIsRemovingBackground(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', uploadingLogo.file);
+      formData.append('folder', 'settings/no-bg');
+      formData.append('model', 'medium'); // 'small' or 'medium'
+
+      const response = await api.uploadFile<{ success: boolean; data: { url: string; processedUrl: string } }>(
+        '/background-removal/remove',
+        formData
+      );
+
+      if (response.success && response.data?.processedUrl) {
+        // Update the preview with the no-background version
+        const noBgImage: CompressedImage = {
+          ...uploadingLogo,
+          preview: response.data.processedUrl,
+        };
+        setUploadingLogo(noBgImage);
+        setRemoveLogoBackground(true);
+      }
+    } catch (err) {
+      console.error('Background removal error:', err);
+      setError(language === 'vi' ? 'Không thể xóa nền ảnh' : 'Failed to remove background');
+    } finally {
+      setIsRemovingBackground(false);
+    }
+  };
+
   // Upload logo to server
   const uploadLogo = async (): Promise<string | null> => {
     if (!uploadingLogo) return config.store_logo || null;
 
     try {
+      // If background removal was applied, the preview already has the processed URL
+      if (removeLogoBackground && uploadingLogo.preview.startsWith('http')) {
+        return uploadingLogo.preview;
+      }
+
       const formData = new FormData();
       formData.append('image', uploadingLogo.file);
       formData.append('folder', 'settings');
@@ -358,6 +401,7 @@ const Settings: React.FC = () => {
   // Remove logo
   const handleRemoveLogo = () => {
     setUploadingLogo(null);
+    setRemoveLogoBackground(false);
     setConfig(prev => ({ ...prev, store_logo: '' }));
   };
 
@@ -521,6 +565,25 @@ const Settings: React.FC = () => {
                           <><Upload size={14} /> {t.uploadLogo}</>
                         )}
                       </button>
+                      {uploadingLogo && !removeLogoBackground && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveLogoBackground}
+                          disabled={isRemovingBackground}
+                          className="px-4 py-2 text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded-lg flex items-center gap-2 disabled:opacity-50"
+                        >
+                          {isRemovingBackground ? (
+                            <><Loader2 size={14} className="animate-spin" /> {t.removingBackground}</>
+                          ) : (
+                            <><Zap size={14} /> {t.removeBackground}</>
+                          )}
+                        </button>
+                      )}
+                      {removeLogoBackground && (
+                        <div className="px-3 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg flex items-center gap-2">
+                          <CheckCircle size={14} /> {t.backgroundRemoved}
+                        </div>
+                      )}
                       {(uploadingLogo || config.store_logo) && (
                         <button
                           type="button"

@@ -35,6 +35,7 @@ import publicConfigRoutes from './routes/publicConfig';
 import aboutSectionRoutes from './routes/aboutSectionRoutes';
 import aboutStatsRoutes from './routes/aboutStatsRoutes';
 import productPostRoutes from './routes/productPostRoutes';
+import backgroundRemovalRoutes from './routes/backgroundRemovalRoutes';
 import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
@@ -103,6 +104,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/size-templates', sizeTemplateRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/product-posts', productPostRoutes);
+app.use('/api/background-removal', backgroundRemovalRoutes);
 
 // Admin routes (protected)
 app.use('/api/admin', adminRoutes);
