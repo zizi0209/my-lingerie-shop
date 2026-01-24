@@ -359,6 +359,17 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Verify role exists first (before checking existing user)
+    const role = await prisma.role.findUnique({
+      where: { id: Number(roleId) }
+    });
+
+    if (!role) {
+      return res.status(404).json({
+        error: 'Role không tồn tại'
+      });
+    }
+
     // Check if email already exists
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -401,17 +412,6 @@ router.post('/', async (req, res) => {
         requestedRoleId: Number(roleId),
         suggestion: 'PROMOTE_ROLE',
         message: 'Tài khoản này đã tồn tại. Bạn có muốn nâng cấp quyền không?'
-      });
-    }
-
-    // Verify role exists
-    const role = await prisma.role.findUnique({
-      where: { id: Number(roleId) }
-    });
-
-    if (!role) {
-      return res.status(404).json({
-        error: 'Role không tồn tại'
       });
     }
 
@@ -489,28 +489,30 @@ router.post('/', async (req, res) => {
         });
 
         // Send alert email (async, don't block response)
-        const { sendSuperAdminCreationAlert } = require('../services/emailService');
-        sendSuperAdminCreationAlert(
-          {
-            id: currentUser.id,
-            email: currentUser.email,
-            name: currentUser.name
-          },
-          {
-            id: newUser.id,
-            email: newUser.email,
-            name: newUser.name
-          },
-          {
-            ip: req.ip || req.connection.remoteAddress || 'unknown',
-            userAgent: req.headers['user-agent'] || 'unknown',
-            timestamp: new Date()
-          },
-          allSuperAdmins
-        ).catch((err: Error) => {
-          // Log error but don't fail the user creation
-          console.error('Failed to send Super Admin creation alert:', err);
-        });
+        if (currentUser) {
+          const { sendSuperAdminCreationAlert } = require('../services/emailService');
+          sendSuperAdminCreationAlert(
+            {
+              id: currentUser.id,
+              email: currentUser.email,
+              name: currentUser.name
+            },
+            {
+              id: newUser.id,
+              email: newUser.email,
+              name: newUser.name
+            },
+            {
+              ip: req.ip || req.connection.remoteAddress || 'unknown',
+              userAgent: req.headers['user-agent'] || 'unknown',
+              timestamp: new Date()
+            },
+            allSuperAdmins
+          ).catch((err: Error) => {
+            // Log error but don't fail the user creation
+            console.error('Failed to send Super Admin creation alert:', err);
+          });
+        }
       } catch (err) {
         console.error('Error preparing Super Admin alert:', err);
       }
@@ -1073,14 +1075,12 @@ router.patch('/:id/promote-role', async (req, res) => {
       },
       newValue: {
         role: newRole.name,
-        roleId: newRole.id
-      },
-      severity: (newRole.name === 'SUPER_ADMIN' || newRole.name === 'ADMIN') ? 'CRITICAL' : 'WARNING',
-      metadata: {
+        roleId: newRole.id,
         reason: 'ROLE_PROMOTION',
         tokensRevoked: true,
         forceLogout: true
-      }
+      },
+      severity: (newRole.name === 'SUPER_ADMIN' || newRole.name === 'ADMIN') ? 'CRITICAL' : 'WARNING'
     }, req);
 
     // Step 5: Send email alert if promoted to Super Admin
@@ -1098,27 +1098,29 @@ router.patch('/:id/promote-role', async (req, res) => {
           }
         });
 
-        const { sendSuperAdminCreationAlert } = require('../../services/emailService');
-        sendSuperAdminCreationAlert(
-          {
-            id: currentUser.id,
-            email: currentUser.email,
-            name: currentUser.name
-          },
-          {
-            id: updatedUser.id,
-            email: updatedUser.email,
-            name: updatedUser.name
-          },
-          {
-            ip: req.ip || req.connection.remoteAddress || 'unknown',
-            userAgent: req.headers['user-agent'] || 'unknown',
-            timestamp: new Date()
-          },
-          allSuperAdmins
-        ).catch((err: Error) => {
-          console.error('Failed to send Super Admin promotion alert:', err);
-        });
+        if (currentUser) {
+          const { sendSuperAdminCreationAlert } = require('../../services/emailService');
+          sendSuperAdminCreationAlert(
+            {
+              id: currentUser.id,
+              email: currentUser.email,
+              name: currentUser.name
+            },
+            {
+              id: updatedUser.id,
+              email: updatedUser.email,
+              name: updatedUser.name
+            },
+            {
+              ip: req.ip || req.connection.remoteAddress || 'unknown',
+              userAgent: req.headers['user-agent'] || 'unknown',
+              timestamp: new Date()
+            },
+            allSuperAdmins
+          ).catch((err: Error) => {
+            console.error('Failed to send Super Admin promotion alert:', err);
+          });
+        }
       } catch (err) {
         console.error('Error preparing Super Admin promotion alert:', err);
       }
