@@ -69,14 +69,14 @@ export default function Footer() {
             <Image 
               src={store_logo} 
               alt={store_name} 
-              width={150} 
-              height={50} 
-              className="h-10 w-auto object-contain"
+              width={180} 
+              height={60} 
+              className="h-12 md:h-14 w-auto object-contain"
               style={{ background: 'transparent' }}
               unoptimized={store_logo.includes('cloudinary')}
             />
           ) : (
-            <h3 className="logo-font text-2xl tracking-tighter text-gray-900 dark:text-white opacity-90">
+            <h3 className="logo-font text-2xl md:text-3xl tracking-tighter text-gray-900 dark:text-white opacity-90">
               {store_name}
             </h3>
           )}

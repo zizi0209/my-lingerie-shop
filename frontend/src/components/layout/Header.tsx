@@ -129,14 +129,15 @@ export default function Header() {
                 <Image 
                   src={store_logo} 
                   alt={store_name} 
-                  width={140} 
-                  height={40} 
-                  className="h-7 sm:h-8 w-auto object-contain"
+                  width={200} 
+                  height={60} 
+                  className="h-10 sm:h-12 md:h-14 w-auto object-contain"
                   style={{ background: 'transparent' }}
                   unoptimized={store_logo.includes('cloudinary')}
+                  priority
                 />
               ) : (
-                <span className="logo-font text-2xl md:text-3xl tracking-tighter text-gray-900 dark:text-white">
+                <span className="logo-font text-2xl md:text-3xl lg:text-4xl tracking-tighter text-gray-900 dark:text-white">
                   {store_name}
                 </span>
               )}
