@@ -390,3 +390,191 @@ export const sendPasswordChangeNotification = async (
 
   return result;
 };
+
+
+/**
+ * 🔴 CRITICAL SECURITY ALERT
+ * Gửi email cảnh báo khi có Super Admin mới được tạo
+ * Phòng ngừa backdoor attack (Super Admin bị hack tạo tài khoản Super Admin khác)
+ * Enterprise Standard: Transparency & Accountability
+ */
+export const sendSuperAdminCreationAlert = async (
+  createdBy: {
+    id: number;
+    email: string;
+    name: string | null;
+  },
+  newSuperAdmin: {
+    id: number;
+    email: string;
+    name: string | null;
+  },
+  metadata: {
+    ip: string;
+    userAgent: string;
+    timestamp: Date;
+  },
+  allSuperAdmins: Array<{ email: string; name: string | null }>
+) => {
+  const { Resend } = require('resend');
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  const fromEmail = process.env.CONTACT_EMAIL_FROM || 'onboarding@resend.dev';
+  const storeName = process.env.STORE_NAME || 'Lingerie Shop';
+  const dashboardUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+  const creatorName = createdBy.name || createdBy.email;
+  const newAdminName = newSuperAdmin.name || newSuperAdmin.email;
+  const formattedTime = new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'full',
+    timeStyle: 'long',
+    timeZone: 'Asia/Ho_Chi_Minh'
+  }).format(metadata.timestamp);
+
+  // Gửi email tới TẤT CẢ Super Admins (trừ người vừa được tạo)
+  const recipients = allSuperAdmins
+    .filter(admin => admin.email !== newSuperAdmin.email)
+    .map(admin => admin.email);
+
+  if (recipients.length === 0) {
+    console.warn('No existing Super Admins to notify (first Super Admin creation)');
+    return null;
+  }
+
+  const result = await resend.emails.send({
+    from: fromEmail,
+    to: recipients,
+    subject: `🔴 [CRITICAL SECURITY ALERT] Tài khoản SUPER ADMIN mới được tạo`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #fff;">
+        <!-- CRITICAL Header -->
+        <div style="background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%); padding: 40px 20px; text-align: center;">
+          <h1 style="color: #fff; margin: 0; font-size: 28px;">🔴 CRITICAL SECURITY ALERT</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px; font-weight: bold;">
+            Tài khoản SUPER ADMIN mới được tạo
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 40px 30px;">
+          <div style="background: #ffebee; padding: 20px; border-radius: 8px; border-left: 4px solid #f44336; margin-bottom: 30px;">
+            <p style="margin: 0 0 10px 0; color: #c62828; font-weight: bold; font-size: 18px;">
+              ⚠️ Yêu cầu xác minh ngay
+            </p>
+            <p style="margin: 0; color: #555; line-height: 1.8;">
+              Một tài khoản SUPER ADMIN mới vừa được tạo trong hệ thống ${storeName}.
+              Vui lòng xác minh đây có phải là hành động hợp lệ của bạn hoặc đồng nghiệp.
+            </p>
+          </div>
+
+          <h2 style="color: #333; margin-top: 0; border-bottom: 2px solid #f44336; padding-bottom: 10px;">
+            Chi tiết tài khoản mới
+          </h2>
+
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr>
+              <td style="padding: 12px; background: #f5f5f5; font-weight: bold; width: 180px; border-bottom: 1px solid #ddd;">
+                Tài khoản mới:
+              </td>
+              <td style="padding: 12px; border-bottom: 1px solid #ddd;">
+                <strong>${newAdminName}</strong><br/>
+                <span style="color: #666;">${newSuperAdmin.email}</span><br/>
+                <span style="color: #d32f2f; font-weight: bold;">ID: #${newSuperAdmin.id}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; background: #f5f5f5; font-weight: bold; border-bottom: 1px solid #ddd;">
+                Được tạo bởi:
+              </td>
+              <td style="padding: 12px; border-bottom: 1px solid #ddd;">
+                <strong>${creatorName}</strong><br/>
+                <span style="color: #666;">${createdBy.email}</span><br/>
+                <span style="color: #666;">ID: #${createdBy.id}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; background: #f5f5f5; font-weight: bold; border-bottom: 1px solid #ddd;">
+                Thời gian:
+              </td>
+              <td style="padding: 12px; border-bottom: 1px solid #ddd;">
+                ${formattedTime}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; background: #f5f5f5; font-weight: bold; border-bottom: 1px solid #ddd;">
+                Địa chỉ IP:
+              </td>
+              <td style="padding: 12px; border-bottom: 1px solid #ddd;">
+                <code style="background: #f5f5f5; padding: 4px 8px; border-radius: 4px;">${metadata.ip}</code>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; background: #f5f5f5; font-weight: bold;">
+                User Agent:
+              </td>
+              <td style="padding: 12px; font-size: 12px; color: #666;">
+                ${metadata.userAgent}
+              </td>
+            </tr>
+          </table>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${dashboardUrl}/dashboard/staff"
+               style="display: inline-block; background: #f44336; color: #fff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+              XEM DANH SÁCH ADMIN
+            </a>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+
+          <!-- Security Instructions -->
+          <h3 style="color: #d32f2f; margin-top: 30px;">🚨 Nếu bạn KHÔNG thực hiện hoặc cho phép hành động này:</h3>
+
+          <div style="background: #fff3e0; padding: 20px; border-radius: 8px; border-left: 4px solid #ff9800; margin: 20px 0;">
+            <p style="margin: 0 0 15px 0; color: #e65100; font-weight: bold;">
+              Hệ thống có thể đã bị xâm nhập. Thực hiện NGAY các bước sau:
+            </p>
+            <ol style="margin: 0; padding-left: 20px; color: #555; line-height: 2;">
+              <li><strong>Liên hệ ngay với Super Admin khác</strong> để xác minh</li>
+              <li><strong>Đổi mật khẩu</strong> tài khoản của bạn ngay lập tức</li>
+              <li><strong>Vô hiệu hóa</strong> tài khoản Super Admin mới nếu không hợp lệ</li>
+              <li><strong>Kiểm tra Audit Logs</strong> để phát hiện hoạt động bất thường</li>
+              <li><strong>Liên hệ IT Security</strong> nếu nghi ngờ bị tấn công</li>
+            </ol>
+          </div>
+
+          <!-- Enterprise Policy -->
+          <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0; color: #1565c0; font-weight: bold;">
+              📋 Enterprise Security Policy:
+            </p>
+            <p style="margin: 0; color: #555; font-size: 14px; line-height: 1.8;">
+              Theo chính sách bảo mật chuẩn doanh nghiệp, mọi thao tác tạo tài khoản SUPER ADMIN
+              đều phải được thông báo tới toàn bộ ban quản trị để đảm bảo tính minh bạch và
+              ngăn chặn backdoor attack (tấn công qua cửa hậu).
+            </p>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+
+          <p style="color: #888; font-size: 13px; line-height: 1.8;">
+            <strong>Lưu ý:</strong> Email này được gửi tự động tới tất cả Super Admins hiện có
+            (trừ tài khoản vừa được tạo). Đây là cơ chế bảo mật bắt buộc và không thể tắt.
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f5f5f5; padding: 20px 30px; text-align: center; border-top: 1px solid #eee;">
+          <p style="color: #888; font-size: 12px; margin: 0 0 10px 0;">
+            🔒 Email bảo mật tự động từ ${storeName} Security System
+          </p>
+          <p style="color: #888; font-size: 12px; margin: 0;">
+            Timestamp: ${new Date().toISOString()}
+          </p>
+        </div>
+      </div>
+    `,
+  });
+
+  return result;
+};

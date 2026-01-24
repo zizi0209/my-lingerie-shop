@@ -62,7 +62,16 @@ import { useAuth } from '@/context/AuthContext';
    const [showDeleteModal, setShowDeleteModal] = useState(false);
    const [deletingStaff, setDeletingStaff] = useState<User | null>(null);
    const [deleting, setDeleting] = useState(false);
- 
+
+   // Role Promotion modal (Enterprise: Single Identity Principle)
+   const [showPromotionModal, setShowPromotionModal] = useState(false);
+   const [promotionData, setPromotionData] = useState<{
+     existingUser: User & { currentRole: string; currentRoleId: number };
+     requestedRole: string;
+     requestedRoleId: number;
+   } | null>(null);
+   const [promoting, setPromoting] = useState(false);
+
    // Actions
    const [actionLoading, setActionLoading] = useState<number | null>(null);
  
@@ -70,32 +79,140 @@ import { useAuth } from '@/context/AuthContext';
   const isSuperAdmin = currentUser?.role?.name === 'SUPER_ADMIN';
   const currentUserRole = currentUser?.role?.name;
   
-  // Check if current user can modify target user
+  // Helper: Get tooltip message for disabled actions
+  const getDisabledTooltip = (targetUser: User, action: 'edit' | 'permission' | 'delete'): string | undefined => {
+    const targetRole = targetUser.role?.name;
+    const isSelf = targetUser.id === currentUser?.id;
+
+    // Case: Trying to change own permissions (activate/deactivate self)
+    if (isSelf && action === 'permission') {
+      return language === 'vi'
+        ? '⛔ Không thể thay đổi trạng thái tài khoản của chính mình'
+        : '⛔ Cannot change your own account status';
+    }
+
+    // Case: Super Admin trying to modify another Super Admin
+    if (isSuperAdmin && targetRole === 'SUPER_ADMIN' && !isSelf) {
+      if (action === 'edit') {
+        return language === 'vi'
+          ? '🤝 Bạn không thể chỉnh sửa thông tin của SUPER ADMIN khác (Mutual Non-Interference)'
+          : '🤝 You cannot edit another SUPER ADMIN (Mutual Non-Interference)';
+      }
+      if (action === 'permission') {
+        return language === 'vi'
+          ? '👁️ Bạn chỉ có quyền XEM (giám sát), không có quyền SỬA'
+          : '👁️ You can only VIEW (surveillance), not MODIFY';
+      }
+      if (action === 'delete') {
+        return language === 'vi'
+          ? '🛡️ SUPER ADMIN không thể bị xóa (tài khoản được bảo vệ)'
+          : '🛡️ SUPER ADMIN cannot be deleted (protected account)';
+      }
+    }
+
+    // Case: Super Admin trying to delete themselves
+    if (isSuperAdmin && isSelf && action === 'delete') {
+      return language === 'vi'
+        ? '⛔ Không thể tự xóa tài khoản của chính mình'
+        : '⛔ Cannot delete your own account';
+    }
+
+    // Case: Super Admin is always protected from deletion
+    if (targetRole === 'SUPER_ADMIN' && action === 'delete') {
+      return language === 'vi'
+        ? '🛡️ SUPER ADMIN không thể bị xóa (tài khoản được bảo vệ)'
+        : '🛡️ SUPER ADMIN cannot be deleted (protected account)';
+    }
+
+    // Case: Regular admin trying to modify Super Admin
+    if (!isSuperAdmin && targetRole === 'SUPER_ADMIN') {
+      return language === 'vi'
+        ? '⚠️ Bạn không có quyền thao tác với SUPER ADMIN'
+        : '⚠️ You do not have permission to modify SUPER ADMIN';
+    }
+
+    return undefined;
+  };
+  
+  // Check if current user can modify target user (Edit info only - name, email, phone)
+  // Implements "Mutual Non-Interference" for SUPER_ADMIN peers
   const canModify = (targetUser: User): boolean => {
     const targetRole = targetUser.role?.name;
-    
-    // Super Admin can modify anyone
+    const isSelf = targetUser.id === currentUser?.id;
+
+    // Case 0: Regular admin/staff trying to modify SUPER_ADMIN
+    // ❌ DENIED: Cannot touch higher authority
+    if (!isSuperAdmin && targetRole === 'SUPER_ADMIN') {
+      return false;
+    }
+
+    // Case 1: SUPER_ADMIN modifying another SUPER_ADMIN (not self)
+    // ❌ DENIED: "Mutual Surveillance, Non-Interference" - prevent coup/sabotage
+    if (isSuperAdmin && targetRole === 'SUPER_ADMIN' && !isSelf) {
+      return false;
+    }
+
+    // Case 2: SUPER_ADMIN modifying self or lower roles
+    // ✅ ALLOWED: Can manage self and subordinates
     if (isSuperAdmin) return true;
-    
-    // Regular Admin CANNOT modify Super Admin
-    if (targetRole === 'SUPER_ADMIN') return false;
-    
-    // Admin can modify other roles
+
+    // Case 3: Regular ADMIN trying to modify SUPER_ADMIN
+    // (Already handled in Case 0)
+
+    // Case 4: ADMIN modifying ADMIN/STAFF
+    // ✅ ALLOWED: Peer-level management
     if (currentUserRole === 'ADMIN') return true;
-    
-    // Other roles cannot modify anyone
+
+    // Case 5: Other roles (STAFF, etc.)
+    // ❌ DENIED: No management permissions
     return false;
+  };
+
+  // Check if current user can change permissions (Toggle Active/Deactivate)
+  // Stricter than canModify - prevents self-deactivation
+  const canChangePermissions = (targetUser: User): boolean => {
+    const isSelf = targetUser.id === currentUser?.id;
+
+    // ❌ CRITICAL: Cannot deactivate your own account (backend protection at line 602)
+    if (isSelf) return false;
+
+    // For others, use same logic as canModify
+    return canModify(targetUser);
   };
   
   // Check if a user can be deleted
+  // SUPER_ADMIN is ALWAYS protected (including from themselves)
   const canDelete = (targetUser: User): boolean => {
     const targetRole = targetUser.role?.name;
+    const isSelf = targetUser.id === currentUser?.id;
     
-    // SUPER_ADMIN cannot be deleted (protected)
+    // CRITICAL: SUPER_ADMIN can NEVER be deleted
+    // - Anti-coup: Other Super Admins cannot delete each other
+    // - Anti-suicide: Cannot delete yourself
     if (targetRole === 'SUPER_ADMIN') return false;
     
-    // Apply same rules as canModify for other roles
+    // Self-deletion is prevented (even for non-Super Admins)
+    if (isSelf) return false;
+    
+    // Regular admin/staff cannot delete anyone if they can't modify them
+    if (!canModify(targetUser)) return false;
+    
+    // For other roles, allow deletion if user can modify
     return canModify(targetUser);
+  };
+  
+  // Check if current user can view audit logs
+  // SUPER_ADMIN can view anyone's logs (surveillance)
+  const canViewAuditLog = (targetUser: User): boolean => {
+    // SUPER_ADMIN can surveil everyone (including peers)
+    // This is the core of "Mutual Surveillance" - transparency among Super Admins
+    if (isSuperAdmin) return true;
+    
+    // ADMIN can view subordinates' logs
+    if (currentUserRole === 'ADMIN' && targetUser.role?.name !== 'SUPER_ADMIN') return true;
+    
+    // STAFF and below cannot view audit logs
+    return false;
   };
 
    // Translations
@@ -153,6 +270,15 @@ import { useAuth } from '@/context/AuthContext';
     noPermission: language === 'vi'
       ? '⚠️ Bạn không có quyền thao tác với SUPER ADMIN'
       : '⚠️ You do not have permission to modify SUPER ADMIN',
+    mutualNonInterference: language === 'vi'
+      ? '🤝 Bạn không thể chỉnh sửa thông tin của SUPER ADMIN khác (Mutual Non-Interference)'
+      : '🤝 You cannot edit another SUPER ADMIN (Mutual Non-Interference)',
+    cannotDeleteSelf: language === 'vi'
+      ? '⛔ Không thể tự xóa tài khoản của chính mình'
+      : '⛔ Cannot delete your own account',
+    surveillanceOnly: language === 'vi'
+      ? '👁️ Bạn chỉ có quyền XEM (giám sát), không có quyền SỬA'
+      : '👁️ You can only VIEW (surveillance), not MODIFY',
    };
  
    // Load roles (filter only admin roles)
@@ -161,18 +287,28 @@ import { useAuth } from '@/context/AuthContext';
        try {
          const response = await api.get<{ success: boolean; data: Role[] }>('/roles');
          if (response.success) {
-           // Only show admin/staff roles
-           const adminRoles = response.data.filter(r => 
+           // Filter roles based on current user's permissions
+           let availableRoles = response.data.filter(r =>
              ['ADMIN', 'SUPER_ADMIN', 'STAFF', 'MODERATOR'].includes(r.name.toUpperCase())
            );
-           setRoles(adminRoles);
+
+           // 🛡️ ENTERPRISE STANDARD: Principle of Least Privilege & Anti-Collusion
+           // Only SUPER_ADMIN can create ADMIN or SUPER_ADMIN accounts
+           // Regular ADMIN can only create STAFF/MODERATOR (prevents collusion)
+           if (!isSuperAdmin) {
+             availableRoles = availableRoles.filter(r =>
+               !['ADMIN', 'SUPER_ADMIN'].includes(r.name.toUpperCase())
+             );
+           }
+
+           setRoles(availableRoles);
          }
        } catch (err) {
          console.error('Failed to fetch roles:', err);
        }
      };
      fetchRoles();
-   }, []);
+   }, [isSuperAdmin]);
  
    // Fetch staff (only admin/staff roles)
    const fetchStaff = useCallback(async () => {
@@ -262,10 +398,10 @@ import { useAuth } from '@/context/AuthContext';
        };
  
        if (editingStaff) {
-        // Update user info via direct API call
+        // Update user info via PUT endpoint with RBAC protection
         await api.put(`/admin/users/${editingStaff.id}`, payload);
        } else {
-        // Create new staff member via direct API call
+        // Create new staff member via POST endpoint
         await api.post('/admin/users', payload);
        }
  
@@ -274,14 +410,59 @@ import { useAuth } from '@/context/AuthContext';
        setRefreshTrigger(prev => prev + 1);
        
        setTimeout(() => setSuccessMessage(null), 3000);
-     } catch (err: unknown) {
-       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-       setFormError(errorMessage);
+     } catch (err: any) {
+       // 🔄 ENTERPRISE STANDARD: Role Promotion Detection
+       // When email exists with different role, backend returns 409 with promotion suggestion
+       if (err.response?.status === 409 && err.response?.data?.suggestion === 'PROMOTE_ROLE') {
+         const promotionInfo = err.response.data;
+         setPromotionData({
+           existingUser: {
+             ...promotionInfo.existingUser,
+             currentRole: promotionInfo.existingUser.currentRole,
+             currentRoleId: promotionInfo.existingUser.currentRoleId
+           },
+           requestedRole: promotionInfo.requestedRole,
+           requestedRoleId: promotionInfo.requestedRoleId
+         });
+         setShowPromotionModal(true);
+         setShowModal(false);
+       } else {
+         const errorMessage = err.response?.data?.error || err.message || 'Unknown error';
+         setFormError(errorMessage);
+       }
      } finally {
        setSaving(false);
      }
    };
- 
+
+   // Handle Role Promotion (Enterprise: Single Identity Principle)
+   const handlePromoteRole = async () => {
+     if (!promotionData) return;
+
+     try {
+       setPromoting(true);
+       await api.patch(`/admin/users/${promotionData.existingUser.id}/promote-role`, {
+         newRoleId: promotionData.requestedRoleId
+       });
+
+       setSuccessMessage(
+         language === 'vi'
+           ? `Đã nâng cấp quyền thành công! ${promotionData.existingUser.name} cần đăng nhập lại.`
+           : `Role promoted successfully! ${promotionData.existingUser.name} needs to login again.`
+       );
+       setShowPromotionModal(false);
+       setPromotionData(null);
+       setRefreshTrigger(prev => prev + 1);
+
+       setTimeout(() => setSuccessMessage(null), 5000);
+     } catch (err: any) {
+       const errorMessage = err.response?.data?.error || err.message || 'Unknown error';
+       setFormError(errorMessage);
+     } finally {
+       setPromoting(false);
+     }
+   };
+
    // Delete staff
    const handleDeleteConfirm = async () => {
      if (!deletingStaff) return;
@@ -530,22 +711,22 @@ import { useAuth } from '@/context/AuthContext';
                      </td>
                      <td className="px-6 py-4 text-right">
                        <div className="flex items-center justify-end gap-2">
-                         {/* Edit Button - disabled if user cannot modify */}
+                         {/* Edit Button - ⛔ Disabled for peer Super Admins (Mutual Non-Interference) */}
                          <button
                            onClick={() => handleEdit(member)}
                            disabled={!canModify(member)}
-                           className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
-                           title={t.edit}
+                           className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                           title={getDisabledTooltip(member, 'edit') || t.edit}
                          >
                            <Edit2 className="w-4 h-4" />
                          </button>
                          
-                         {/* Activate/Deactivate Button - disabled if user cannot modify */}
+                         {/* Activate/Deactivate (Permission) - ⛔ Disabled for peer Super Admins + self */}
                          <button
                            onClick={() => handleToggleActive(member)}
-                           disabled={actionLoading === member.id || !canModify(member)}
-                           className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
-                           title={member.isActive ? t.deactivate : t.activate}
+                           disabled={actionLoading === member.id || !canChangePermissions(member)}
+                           className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                           title={getDisabledTooltip(member, 'permission') || (member.isActive ? t.deactivate : t.activate)}
                          >
                            {actionLoading === member.id ? (
                              <Loader2 className="w-4 h-4 animate-spin" />
@@ -556,21 +737,23 @@ import { useAuth } from '@/context/AuthContext';
                            )}
                          </button>
                          
-                         {/* Delete Button - disabled if user cannot delete (especially SUPER_ADMIN) */}
+                         {/* Delete Button - ⛔ ALWAYS disabled for Super Admin + self-deletion */}
                          <button
                            onClick={() => {
                              setDeletingStaff(member);
                              setShowDeleteModal(true);
                            }}
                            disabled={!canDelete(member)}
-                           className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
-                           title={t.delete}
+                           className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                           title={getDisabledTooltip(member, 'delete') || t.delete}
                          >
                            <Trash2 className="w-4 h-4" />
                          </button>
                          
+                         {/* Activity Log - ✅ ALWAYS enabled for Super Admins (Mutual Surveillance) */}
                          <button
-                           className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+                           disabled={!canViewAuditLog(member)}
+                           className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                            title={t.viewAuditLog}
                          >
                            <Activity className="w-4 h-4" />
@@ -654,11 +837,17 @@ import { useAuth } from '@/context/AuthContext';
                <div>
                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                    {t.role} *
+                  {editingStaff && editingStaff.id === currentUser?.id && (
+                    <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
+                      ({language === 'vi' ? 'Không thể thay đổi role của chính mình' : 'Cannot change your own role'})
+                    </span>
+                  )}
                  </label>
                  <select
                    value={formData.roleId}
                    onChange={(e) => setFormData({ ...formData, roleId: e.target.value })}
-                   className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                   className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                   disabled={editingStaff && editingStaff.id === currentUser?.id}
                  >
                    <option value="">{t.selectRole}</option>
                    {roles.map(role => (
@@ -756,6 +945,123 @@ import { useAuth } from '@/context/AuthContext';
                >
                  {deleting && <Loader2 className="w-4 h-4 animate-spin" />}
                  {t.delete}
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
+
+       {/* Role Promotion Modal (Enterprise: Single Identity Principle) */}
+       {showPromotionModal && promotionData && (
+         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+           <div className="bg-white dark:bg-slate-800 rounded-xl max-w-lg w-full p-6">
+             <div className="flex items-center gap-3 mb-6">
+               <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                 <Shield className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+               </div>
+               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                 🔄 {language === 'vi' ? 'Nâng cấp quyền tài khoản' : 'Promote Account Role'}
+               </h2>
+             </div>
+
+             {/* Info Panel */}
+             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-4 border-l-4 border-blue-500">
+               <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                 {language === 'vi' ? (
+                   <>
+                     Tài khoản <strong>{promotionData.existingUser.name || promotionData.existingUser.email}</strong> đã tồn tại trong hệ thống với vai trò <strong className="px-2 py-0.5 bg-blue-200 dark:bg-blue-800 rounded">{promotionData.existingUser.currentRole}</strong>.
+                   </>
+                 ) : (
+                   <>
+                     Account <strong>{promotionData.existingUser.name || promotionData.existingUser.email}</strong> already exists with role <strong className="px-2 py-0.5 bg-blue-200 dark:bg-blue-800 rounded">{promotionData.existingUser.currentRole}</strong>.
+                   </>
+                 )}
+               </p>
+               <p className="text-sm text-blue-700 dark:text-blue-300">
+                 {language === 'vi' ? (
+                   <>
+                     Bạn có muốn nâng cấp lên <strong className="px-2 py-0.5 bg-emerald-200 dark:bg-emerald-800 rounded">{promotionData.requestedRole}</strong> không?
+                   </>
+                 ) : (
+                   <>
+                     Do you want to promote to <strong className="px-2 py-0.5 bg-emerald-200 dark:bg-emerald-800 rounded">{promotionData.requestedRole}</strong>?
+                   </>
+                 )}
+               </p>
+             </div>
+
+             {/* User Details */}
+             <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg mb-4">
+               <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                 {language === 'vi' ? 'Thông tin tài khoản:' : 'Account details:'}
+               </p>
+               <div className="space-y-1 text-sm">
+                 <p className="text-slate-700 dark:text-slate-300">
+                   <strong>{language === 'vi' ? 'Email:' : 'Email:'}</strong> {promotionData.existingUser.email}
+                 </p>
+                 {promotionData.existingUser.name && (
+                   <p className="text-slate-700 dark:text-slate-300">
+                     <strong>{language === 'vi' ? 'Tên:' : 'Name:'}</strong> {promotionData.existingUser.name}
+                   </p>
+                 )}
+                 <p className="text-slate-700 dark:text-slate-300">
+                   <strong>ID:</strong> #{promotionData.existingUser.id}
+                 </p>
+               </div>
+             </div>
+
+             {/* Warning Panel */}
+             <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg mb-6 border-l-4 border-amber-500">
+               <p className="text-xs text-amber-700 dark:text-amber-300 mb-1">
+                 <strong>⚠️ {language === 'vi' ? 'Lưu ý quan trọng:' : 'Important Note:'}</strong>
+               </p>
+               <ul className="text-xs text-amber-700 dark:text-amber-300 list-disc list-inside space-y-1">
+                 <li>
+                   {language === 'vi'
+                     ? 'User sẽ bị đăng xuất khỏi TẤT CẢ thiết bị'
+                     : 'User will be logged out from ALL devices'}
+                 </li>
+                 <li>
+                   {language === 'vi'
+                     ? 'User phải đăng nhập lại để nhận quyền mới'
+                     : 'User must login again to receive new permissions'}
+                 </li>
+                 <li>
+                   {language === 'vi'
+                     ? 'Lịch sử và dữ liệu cũ sẽ được giữ nguyên'
+                     : 'History and old data will be preserved'}
+                 </li>
+               </ul>
+             </div>
+
+             {formError && (
+               <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
+                 {formError}
+               </div>
+             )}
+
+             {/* Action Buttons */}
+             <div className="flex gap-3">
+               <button
+                 onClick={() => {
+                   setShowPromotionModal(false);
+                   setPromotionData(null);
+                   setFormError(null);
+                 }}
+                 disabled={promoting}
+                 className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
+               >
+                 {language === 'vi' ? 'Hủy' : 'Cancel'}
+               </button>
+               <button
+                 onClick={handlePromoteRole}
+                 disabled={promoting}
+                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
+               >
+                 {promoting && <Loader2 className="w-4 h-4 animate-spin" />}
+                 {promoting
+                   ? (language === 'vi' ? 'Đang xử lý...' : 'Processing...')
+                   : (language === 'vi' ? 'Xác nhận nâng cấp' : 'Confirm Promotion')}
                </button>
              </div>
            </div>

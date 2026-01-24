@@ -187,6 +187,351 @@ router.get('/:id', async (req, res) => {
 });
 
 /**
+ * PUT /api/admin/users/:id
+ * Update user information (name, email, phone, roleId, isActive)
+ * Implements strict RBAC with Mutual Non-Interference for SUPER_ADMIN
+ */
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, roleId, isActive } = req.body;
+
+    // Get target user
+    const targetUser = await prisma.user.findFirst({
+      where: {
+        id: Number(id),
+        deletedAt: null
+      },
+      include: {
+        role: true
+      }
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({
+        error: 'User không tồn tại'
+      });
+    }
+
+    // Get current user's role
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { role: true }
+    });
+
+    const isSuperAdmin = currentUser?.role?.name === 'SUPER_ADMIN';
+    const targetIsSuperAdmin = targetUser.role?.name === 'SUPER_ADMIN';
+    const isSelf = targetUser.id === req.user?.id;
+
+    // 🛡️ MUTUAL NON-INTERFERENCE: Super Admin cannot modify peer Super Admin
+    if (targetIsSuperAdmin && !isSelf) {
+      return res.status(403).json({
+        error: 'Super Admin không thể chỉnh sửa thông tin của Super Admin khác (Mutual Non-Interference)'
+      });
+    }
+
+    // 🛡️ Regular ADMIN cannot modify SUPER_ADMIN at all
+    if (!isSuperAdmin && targetIsSuperAdmin) {
+      return res.status(403).json({
+        error: 'Bạn không có quyền thao tác với SUPER ADMIN'
+      });
+    }
+
+    // Prevent changing your own role (self-demotion)
+    if (roleId && isSelf) {
+      return res.status(400).json({
+        error: 'Không thể thay đổi role của chính mình'
+      });
+    }
+
+    // If email is being updated, check for duplicates
+    if (email && email !== targetUser.email) {
+      const emailExists = await prisma.user.findFirst({
+        where: {
+          email,
+          deletedAt: null,
+          id: { not: Number(id) }
+        }
+      });
+
+      if (emailExists) {
+        return res.status(400).json({
+          error: 'Email đã được sử dụng'
+        });
+      }
+    }
+
+    // Build update data (whitelist approach)
+    const updateData: Record<string, unknown> = {};
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone || null;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    // Only allow role change if not targeting SUPER_ADMIN
+    if (roleId !== undefined) {
+      // Verify target role exists
+      const newRole = await prisma.role.findUnique({
+        where: { id: Number(roleId) }
+      });
+
+      if (!newRole) {
+        return res.status(404).json({
+          error: 'Role không tồn tại'
+        });
+      }
+
+      // Prevent assigning SUPER_ADMIN role by non-SUPER_ADMIN
+      if (newRole.name === 'SUPER_ADMIN' && !isSuperAdmin) {
+        return res.status(403).json({
+          error: 'Chỉ SUPER ADMIN mới có thể cấp quyền SUPER ADMIN'
+        });
+      }
+
+      updateData.roleId = Number(roleId);
+    }
+
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { id: Number(id) },
+      data: updateData,
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    // Audit log with appropriate severity
+    const hasRoleChange = roleId && roleId !== targetUser.roleId;
+    const severity = hasRoleChange ? 'CRITICAL' : 'INFO';
+
+    await auditLog({
+      userId: req.user!.id,
+      action: hasRoleChange ? 'UPDATE_USER_ROLE' : 'UPDATE_USER',
+      resource: 'user',
+      resourceId: id,
+      oldValue: {
+        name: targetUser.name,
+        email: targetUser.email,
+        phone: targetUser.phone,
+        role: targetUser.role?.name,
+        isActive: targetUser.isActive
+      },
+      newValue: {
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        role: updatedUser.role?.name,
+        isActive: updatedUser.isActive
+      },
+      severity
+    }, req);
+
+    res.json({
+      success: true,
+      data: updatedUser,
+      message: 'Cập nhật thông tin user thành công'
+    });
+  } catch (error) {
+    console.error('Admin update user error:', error);
+    res.status(500).json({
+      error: 'Lỗi khi cập nhật user'
+    });
+  }
+});
+
+/**
+ * POST /api/admin/users
+ * Create new staff/admin user
+ */
+router.post('/', async (req, res) => {
+  try {
+    const { name, email, phone, roleId, isActive = true } = req.body;
+
+    // Validation
+    if (!email || !roleId) {
+      return res.status(400).json({
+        error: 'Email và Role là bắt buộc'
+      });
+    }
+
+    // Check if email already exists
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email,
+        deletedAt: null
+      },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (existingUser) {
+      // 🔄 ENTERPRISE STANDARD: Role Promotion (Single Identity Principle)
+      // Instead of blocking with error, suggest role promotion if applicable
+
+      // Case 1: Same role → Duplicate, reject
+      if (existingUser.roleId === Number(roleId)) {
+        return res.status(400).json({
+          error: 'Email đã được sử dụng với cùng vai trò'
+        });
+      }
+
+      // Case 2: Different role → Suggest promotion (409 Conflict with promotion option)
+      return res.status(409).json({
+        error: 'Email đã tồn tại trong hệ thống',
+        existingUser: {
+          id: existingUser.id,
+          name: existingUser.name,
+          email: existingUser.email,
+          currentRole: existingUser.role?.name,
+          currentRoleId: existingUser.roleId,
+          isActive: existingUser.isActive
+        },
+        requestedRole: role.name,
+        requestedRoleId: Number(roleId),
+        suggestion: 'PROMOTE_ROLE',
+        message: 'Tài khoản này đã tồn tại. Bạn có muốn nâng cấp quyền không?'
+      });
+    }
+
+    // Verify role exists
+    const role = await prisma.role.findUnique({
+      where: { id: Number(roleId) }
+    });
+
+    if (!role) {
+      return res.status(404).json({
+        error: 'Role không tồn tại'
+      });
+    }
+
+    // Get current user's role
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { role: true }
+    });
+
+    const isSuperAdmin = currentUser?.role?.name === 'SUPER_ADMIN';
+
+    // 🛡️ CRITICAL: Only SUPER_ADMIN can create ADMIN or SUPER_ADMIN accounts
+    // Implements Enterprise Standard: Anti-Collusion & Principle of Least Privilege
+    // - Admin creating Admin = Collusion risk (Admin A creates Admin B, they conspire)
+    // - Only highest authority (Super Admin) should grant administrative privileges
+    if ((role.name === 'ADMIN' || role.name === 'SUPER_ADMIN') && !isSuperAdmin) {
+      return res.status(403).json({
+        error: 'Chỉ SUPER ADMIN mới có thể tạo tài khoản ADMIN hoặc SUPER ADMIN (Anti-Collusion Policy)'
+      });
+    }
+
+    // Create user with a temporary password (should be sent via email in production)
+    const tempPassword = Math.random().toString(36).slice(-12);
+    const bcrypt = require('bcrypt');
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        phone: phone || null,
+        password: hashedPassword,
+        roleId: Number(roleId),
+        isActive
+      },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    // Audit log
+    await auditLog({
+      userId: req.user!.id,
+      action: 'CREATE_USER',
+      resource: 'user',
+      resourceId: String(newUser.id),
+      newValue: {
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role?.name
+      },
+      severity: role.name === 'SUPER_ADMIN' ? 'CRITICAL' : 'WARNING'
+    }, req);
+
+    // 🔴 CRITICAL SECURITY: Send email alert when Super Admin is created
+    // Enterprise Standard: Transparency & Accountability to prevent backdoor attacks
+    if (role.name === 'SUPER_ADMIN') {
+      try {
+        // Get all existing Super Admins to notify them
+        const allSuperAdmins = await prisma.user.findMany({
+          where: {
+            role: { name: 'SUPER_ADMIN' },
+            deletedAt: null,
+            isActive: true
+          },
+          select: {
+            email: true,
+            name: true
+          }
+        });
+
+        // Send alert email (async, don't block response)
+        const { sendSuperAdminCreationAlert } = require('../services/emailService');
+        sendSuperAdminCreationAlert(
+          {
+            id: currentUser.id,
+            email: currentUser.email,
+            name: currentUser.name
+          },
+          {
+            id: newUser.id,
+            email: newUser.email,
+            name: newUser.name
+          },
+          {
+            ip: req.ip || req.connection.remoteAddress || 'unknown',
+            userAgent: req.headers['user-agent'] || 'unknown',
+            timestamp: new Date()
+          },
+          allSuperAdmins
+        ).catch((err: Error) => {
+          // Log error but don't fail the user creation
+          console.error('Failed to send Super Admin creation alert:', err);
+        });
+      } catch (err) {
+        console.error('Error preparing Super Admin alert:', err);
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      data: newUser,
+      message: 'Tạo user thành công',
+      // In production, send this via email instead
+      tempPassword: process.env.NODE_ENV === 'development' ? tempPassword : undefined
+    });
+  } catch (error) {
+    console.error('Admin create user error:', error);
+    res.status(500).json({
+      error: 'Lỗi khi tạo user'
+    });
+  }
+});
+
+/**
  * PATCH /api/admin/users/:id/role
  * Update user role
  */
@@ -201,8 +546,8 @@ router.patch('/:id/role', async (req, res) => {
       });
     }
 
-    // Get current user
-    const currentUser = await prisma.user.findFirst({
+    // Get target user (renamed from currentUser for clarity)
+    const targetUser = await prisma.user.findFirst({
       where: {
         id: Number(id),
         deletedAt: null
@@ -212,41 +557,62 @@ router.patch('/:id/role', async (req, res) => {
       }
     });
 
-    if (!currentUser) {
-      return res.status(404).json({ 
-        error: 'User không tồn tại' 
+    if (!targetUser) {
+      return res.status(404).json({
+        error: 'User không tồn tại'
       });
     }
 
     // Find target role
-    let targetRole;
+    let newRole;
     if (roleId) {
-      targetRole = await prisma.role.findUnique({
+      newRole = await prisma.role.findUnique({
         where: { id: Number(roleId) }
       });
     } else {
-      targetRole = await prisma.role.findFirst({
+      newRole = await prisma.role.findFirst({
         where: { name: roleName.toUpperCase() }
       });
     }
 
-    if (!targetRole) {
+    if (!newRole) {
       return res.status(404).json({
         error: 'Role không tồn tại'
       });
     }
 
     // Prevent changing your own role
-    if (currentUser.id === req.user?.id) {
+    if (targetUser.id === req.user?.id) {
       return res.status(400).json({
         error: 'Không thể thay đổi role của chính mình'
+      });
+    }
+
+    // 🛡️ CRITICAL: SUPER_ADMIN role cannot be changed (Anti-Coup protection)
+    // Prevents any admin from demoting a Super Admin to remove system access
+    if (targetUser.role?.name === 'SUPER_ADMIN') {
+      return res.status(403).json({
+        error: 'Không thể thay đổi role của SUPER ADMIN (tài khoản được bảo vệ)'
+      });
+    }
+
+    // Get current user's role for additional checks
+    const currentUserData = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { role: true }
+    });
+
+    // Regular ADMIN cannot assign SUPER_ADMIN role
+    if (newRole.name === 'SUPER_ADMIN' && currentUserData?.role?.name !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        error: 'Chỉ SUPER ADMIN mới có thể cấp quyền SUPER ADMIN'
       });
     }
 
     // Update role
     const updatedUser = await prisma.user.update({
       where: { id: Number(id) },
-      data: { roleId: targetRole.id },
+      data: { roleId: newRole.id },
       include: {
         role: {
           select: {
@@ -263,9 +629,9 @@ router.patch('/:id/role', async (req, res) => {
       action: 'UPDATE_USER_ROLE',
       resource: 'user',
       resourceId: id,
-      oldValue: { role: currentUser.role?.name },
-      newValue: { role: targetRole.name },
-      severity: 'WARNING'
+      oldValue: { role: targetUser.role?.name },
+      newValue: { role: newRole.name },
+      severity: 'CRITICAL' // Changed to CRITICAL as role changes are highly sensitive
     }, req);
 
     res.json({
@@ -308,8 +674,8 @@ router.patch('/:id/status', async (req, res) => {
     });
 
     if (!targetUser) {
-      return res.status(404).json({ 
-        error: 'User không tồn tại' 
+      return res.status(404).json({
+        error: 'User không tồn tại'
       });
     }
 
@@ -326,10 +692,18 @@ router.patch('/:id/status', async (req, res) => {
       include: { role: true }
     });
 
-    // SUPER_ADMIN protection: Only SUPER_ADMIN can modify other SUPER_ADMIN
+    // 🛡️ MUTUAL NON-INTERFERENCE: Super Admins cannot modify peer Super Admins
+    // Only exception: they can view (handled in audit log endpoint)
+    if (targetUser.role?.name === 'SUPER_ADMIN' && targetUser.id !== req.user?.id) {
+      return res.status(403).json({
+        error: 'Super Admin không thể thay đổi trạng thái của Super Admin khác (Mutual Non-Interference)'
+      });
+    }
+
+    // Regular ADMIN cannot modify SUPER_ADMIN
     if (targetUser.role?.name === 'SUPER_ADMIN' && currentUser?.role?.name !== 'SUPER_ADMIN') {
       return res.status(403).json({
-        error: 'Chỉ SUPER ADMIN mới có thể thao tác với tài khoản SUPER ADMIN khác'
+        error: 'Chỉ SUPER ADMIN mới có thể thao tác với tài khoản SUPER ADMIN'
       });
     }
 
@@ -564,8 +938,202 @@ router.get('/:id/audit-logs', async (req, res) => {
     });
   } catch (error) {
     console.error('Admin get user audit logs error:', error);
-    res.status(500).json({ 
-      error: 'Lỗi khi lấy audit logs' 
+    res.status(500).json({
+      error: 'Lỗi khi lấy audit logs'
+    });
+  }
+});
+
+/**
+ * PATCH /api/admin/users/:id/promote-role
+ * Role Promotion: Nâng cấp quyền cho user hiện có
+ * Enterprise Standard: Single Identity Principle
+ *
+ * Khi Super Admin muốn biến một USER thành ADMIN, thay vì tạo tài khoản mới,
+ * hệ thống sẽ UPDATE role của tài khoản cũ (giữ nguyên lịch sử, dữ liệu).
+ *
+ * Security measures:
+ * - Revoke all active tokens (force logout)
+ * - Increment tokenVersion (invalidate old tokens)
+ * - Audit log with CRITICAL severity
+ * - Prevent self-demotion
+ */
+router.patch('/:id/promote-role', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newRoleId } = req.body;
+
+    if (!newRoleId) {
+      return res.status(400).json({
+        error: 'newRoleId là bắt buộc'
+      });
+    }
+
+    // Get target user
+    const targetUser = await prisma.user.findFirst({
+      where: {
+        id: Number(id),
+        deletedAt: null
+      },
+      include: {
+        role: true
+      }
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({
+        error: 'User không tồn tại'
+      });
+    }
+
+    // Get new role
+    const newRole = await prisma.role.findUnique({
+      where: { id: Number(newRoleId) }
+    });
+
+    if (!newRole) {
+      return res.status(404).json({
+        error: 'Role không tồn tại'
+      });
+    }
+
+    // Get current user's role
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { role: true }
+    });
+
+    const isSuperAdmin = currentUser?.role?.name === 'SUPER_ADMIN';
+    const targetIsSuperAdmin = targetUser.role?.name === 'SUPER_ADMIN';
+    const isSelf = targetUser.id === req.user?.id;
+
+    // 🛡️ SECURITY CHECKS
+
+    // Prevent self-demotion (admin cannot demote themselves)
+    if (isSelf) {
+      return res.status(403).json({
+        error: 'Không thể thay đổi role của chính mình'
+      });
+    }
+
+    // Super Admin is immutable
+    if (targetIsSuperAdmin) {
+      return res.status(403).json({
+        error: 'Không thể thay đổi role của SUPER ADMIN (tài khoản được bảo vệ)'
+      });
+    }
+
+    // Only SUPER_ADMIN can promote to ADMIN/SUPER_ADMIN
+    if ((newRole.name === 'ADMIN' || newRole.name === 'SUPER_ADMIN') && !isSuperAdmin) {
+      return res.status(403).json({
+        error: 'Chỉ SUPER ADMIN mới có thể cấp quyền ADMIN/SUPER_ADMIN (Anti-Collusion Policy)'
+      });
+    }
+
+    // Regular admin cannot modify Super Admin
+    if (!isSuperAdmin && targetIsSuperAdmin) {
+      return res.status(403).json({
+        error: 'Bạn không có quyền thao tác với SUPER ADMIN'
+      });
+    }
+
+    // 🔄 PERFORM ROLE PROMOTION
+
+    // Step 1: Increment tokenVersion (invalidate all old tokens)
+    // Step 2: Update role
+    const updatedUser = await prisma.user.update({
+      where: { id: Number(id) },
+      data: {
+        roleId: Number(newRoleId),
+        tokenVersion: { increment: 1 } // Force re-login
+      },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    // Step 3: Revoke all refresh tokens (force logout from all devices)
+    const { revokeAllUserTokens } = require('../../utils/tokenUtils');
+    await revokeAllUserTokens(Number(id));
+
+    // Step 4: Audit log with CRITICAL severity
+    await auditLog({
+      userId: req.user!.id,
+      action: 'PROMOTE_USER_ROLE',
+      resource: 'user',
+      resourceId: id,
+      oldValue: {
+        role: targetUser.role?.name,
+        roleId: targetUser.roleId
+      },
+      newValue: {
+        role: newRole.name,
+        roleId: newRole.id
+      },
+      severity: (newRole.name === 'SUPER_ADMIN' || newRole.name === 'ADMIN') ? 'CRITICAL' : 'WARNING',
+      metadata: {
+        reason: 'ROLE_PROMOTION',
+        tokensRevoked: true,
+        forceLogout: true
+      }
+    }, req);
+
+    // Step 5: Send email alert if promoted to Super Admin
+    if (newRole.name === 'SUPER_ADMIN') {
+      try {
+        const allSuperAdmins = await prisma.user.findMany({
+          where: {
+            role: { name: 'SUPER_ADMIN' },
+            deletedAt: null,
+            isActive: true
+          },
+          select: {
+            email: true,
+            name: true
+          }
+        });
+
+        const { sendSuperAdminCreationAlert } = require('../../services/emailService');
+        sendSuperAdminCreationAlert(
+          {
+            id: currentUser.id,
+            email: currentUser.email,
+            name: currentUser.name
+          },
+          {
+            id: updatedUser.id,
+            email: updatedUser.email,
+            name: updatedUser.name
+          },
+          {
+            ip: req.ip || req.connection.remoteAddress || 'unknown',
+            userAgent: req.headers['user-agent'] || 'unknown',
+            timestamp: new Date()
+          },
+          allSuperAdmins
+        ).catch((err: Error) => {
+          console.error('Failed to send Super Admin promotion alert:', err);
+        });
+      } catch (err) {
+        console.error('Error preparing Super Admin promotion alert:', err);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: updatedUser,
+      message: `Đã nâng cấp quyền thành công. User cần đăng nhập lại.`,
+      sessionInvalidated: true
+    });
+  } catch (error) {
+    console.error('Admin promote user role error:', error);
+    res.status(500).json({
+      error: 'Lỗi khi nâng cấp quyền user'
     });
   }
 });
