@@ -296,8 +296,9 @@ const Settings: React.FC = () => {
       formData.append('image', uploadingLogo.file);
       formData.append('folder', 'settings/no-bg');
       formData.append('model', 'medium'); // 'small' or 'medium'
+      formData.append('format', 'webp'); // ✅ Output WebP format
 
-      const response = await api.uploadFile<{ success: boolean; data: { url: string; processedUrl: string } }>(
+      const response = await api.uploadFile<{ success: boolean; data: { url: string; processedUrl: string; format: string } }>(
         '/background-removal/remove',
         formData
       );
@@ -310,6 +311,9 @@ const Settings: React.FC = () => {
         };
         setUploadingLogo(noBgImage);
         setRemoveLogoBackground(true);
+        
+        // Show success message with format info
+        console.log(`✅ Background removed successfully (${response.data.format || 'webp'})`);
       }
     } catch (err) {
       console.error('Background removal error:', err);
@@ -534,12 +538,24 @@ const Settings: React.FC = () => {
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.storeLogo}</label>
                   <div className="flex items-start gap-4">
-                    <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 overflow-hidden flex items-center justify-center bg-slate-50 dark:bg-slate-800">
+                    {/* Preview box with checkerboard pattern for transparency */}
+                    <div 
+                      className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 overflow-hidden flex items-center justify-center relative"
+                      style={{
+                        background: (uploadingLogo || config.store_logo) 
+                          ? 'repeating-conic-gradient(#f1f5f9 0% 25%, #e2e8f0 0% 50%) 50% / 16px 16px'
+                          : undefined,
+                        backgroundColor: (uploadingLogo || config.store_logo) 
+                          ? 'transparent' 
+                          : 'rgb(248 250 252 / 1)'
+                      }}
+                    >
                       {(uploadingLogo || config.store_logo) ? (
                         <img 
                           src={uploadingLogo?.preview || config.store_logo} 
                           alt="Logo" 
-                          className="w-full h-full object-contain" 
+                          className="w-full h-full object-contain relative z-10" 
+                          style={{ background: 'transparent' }}
                         />
                       ) : (
                         <ImageIcon size={32} className="text-slate-300 dark:text-slate-600" />

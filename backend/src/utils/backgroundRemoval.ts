@@ -22,7 +22,7 @@ import {
  * Remove background from image buffer using best available method
  * @param imageBuffer - Input image buffer
  * @param options - Optional configuration
- * @returns Buffer of image with transparent background
+ * @returns Buffer of image with transparent background (WebP format)
  */
 export async function removeImageBackground(
   imageBuffer: Buffer,
@@ -39,6 +39,8 @@ export async function removeImageBackground(
 ): Promise<Buffer> {
   try {
     const method = options?.method || (isAIAvailable ? 'ai' : 'advanced');
+    const outputFormat = options?.output?.format || 'webp'; // ✅ Default to WebP
+    const outputQuality = options?.output?.quality || 0.9;
 
     // Method 1: AI-based (best quality, requires @imgly/background-removal-node)
     if (method === 'ai' && isAIAvailable && removeBackground) {
@@ -46,8 +48,8 @@ export async function removeImageBackground(
       const blob = await removeBackground(imageBuffer, {
         model: options?.model || 'medium',
         output: {
-          format: options?.output?.format || 'png',
-          quality: options?.output?.quality || 0.9,
+          format: 'png', // AI outputs PNG first
+          quality: outputQuality,
           type: 'foreground',
         },
       });
@@ -55,10 +57,14 @@ export async function removeImageBackground(
       const arrayBuffer = await blob.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      // Optimize with sharp
-      const optimized = await sharp(buffer)
-        .png({ quality: 90, compressionLevel: 9 })
-        .toBuffer();
+      // Convert to desired format (WebP or PNG)
+      const optimized = outputFormat === 'webp'
+        ? await sharp(buffer)
+            .webp({ quality: Math.round(outputQuality * 100), alphaQuality: 100 })
+            .toBuffer()
+        : await sharp(buffer)
+            .png({ quality: 90, compressionLevel: 9 })
+            .toBuffer();
 
       return optimized;
     }
@@ -66,16 +72,32 @@ export async function removeImageBackground(
     // Method 2: Advanced (good quality, uses edge detection)
     if (method === 'advanced' || method === 'ai') {
       console.log('🎨 Using advanced background removal...');
-      return await removeImageBackgroundAdvanced(imageBuffer, {
+      const pngBuffer = await removeImageBackgroundAdvanced(imageBuffer, {
         tolerance: options?.tolerance,
       });
+      
+      // Convert to WebP if requested
+      if (outputFormat === 'webp') {
+        return await sharp(pngBuffer)
+          .webp({ quality: Math.round(outputQuality * 100), alphaQuality: 100 })
+          .toBuffer();
+      }
+      return pngBuffer;
     }
 
     // Method 3: Simple (fast, works for solid backgrounds)
     console.log('⚡ Using simple background removal...');
-    return await removeImageBackgroundSimple(imageBuffer, {
+    const pngBuffer = await removeImageBackgroundSimple(imageBuffer, {
       threshold: options?.threshold,
     });
+    
+    // Convert to WebP if requested
+    if (outputFormat === 'webp') {
+      return await sharp(pngBuffer)
+        .webp({ quality: Math.round(outputQuality * 100), alphaQuality: 100 })
+        .toBuffer();
+    }
+    return pngBuffer;
 
   } catch (error) {
     console.error('Background removal error:', error);

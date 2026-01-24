@@ -132,6 +132,8 @@ export default function Header() {
                   width={140} 
                   height={40} 
                   className="h-7 sm:h-8 w-auto object-contain"
+                  style={{ background: 'transparent' }}
+                  unoptimized={store_logo.includes('cloudinary')}
                 />
               ) : (
                 <span className="logo-font text-2xl md:text-3xl tracking-tighter text-gray-900 dark:text-white">

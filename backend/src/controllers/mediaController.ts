@@ -23,14 +23,19 @@ export const uploadImage = async (req: Request, res: Response) => {
     // Get folder from request body (default: 'lingerie-shop')
     const folder = req.body.folder || 'lingerie-shop';
 
+    // Detect if image is PNG (to preserve transparency)
+    const isPNG = req.file.mimetype === 'image/png';
+
     // Upload lên Cloudinary
     const result = await cloudinary.uploader.upload_stream(
       {
         resource_type: 'image',
         folder: folder,
+        format: isPNG ? 'png' : undefined, // Preserve PNG format for transparency
+        flags: isPNG ? 'preserve_transparency' : undefined, // Preserve alpha channel
         transformation: [
           { width: 1200, height: 1200, crop: 'limit' }, // Giới hạn kích thước
-          { quality: 'auto' }, // Tối ưu chất lượng
+          { quality: isPNG ? 'auto:best' : 'auto' }, // Best quality for PNG
         ],
       },
       async (error, result) => {
@@ -102,14 +107,19 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
     const folder = req.body.folder || 'lingerie-shop';
 
     const uploadPromises = req.files.map((file) => {
+      // Detect if image is PNG (to preserve transparency)
+      const isPNG = file.mimetype === 'image/png';
+      
       return new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
           {
             resource_type: 'image',
             folder: folder,
+            format: isPNG ? 'png' : undefined, // Preserve PNG format for transparency
+            flags: isPNG ? 'preserve_transparency' : undefined, // Preserve alpha channel
             transformation: [
               { width: 1200, height: 1200, crop: 'limit' },
-              { quality: 'auto' },
+              { quality: isPNG ? 'auto:best' : 'auto' },
             ],
           },
           async (error, result) => {

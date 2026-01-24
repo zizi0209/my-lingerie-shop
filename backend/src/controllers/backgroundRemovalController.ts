@@ -25,30 +25,32 @@ export const removeBackgroundFromImage = async (req: Request, res: Response) => 
     const folder = req.body.folder || 'lingerie-shop/no-bg';
     const method = req.body.method || 'auto'; // 'ai', 'advanced', 'simple', or 'auto'
     const model = req.body.model || 'medium'; // 'small' or 'medium' (for AI)
+    const outputFormat = req.body.format || 'webp'; // 'webp' or 'png'
 
-    console.log(`🎨 Removing background from image using ${method} method...`);
+    console.log(`🎨 Removing background from image using ${method} method, output: ${outputFormat}...`);
     
     // Remove background
     const processedBuffer = await removeImageBackground(req.file.buffer, {
       method: method === 'auto' ? undefined : method,
       model: model as 'small' | 'medium',
       output: {
-        format: 'png',
+        format: outputFormat as 'png' | 'webp',
         quality: 0.9,
       },
     });
 
     console.log('✅ Background removed successfully');
 
-    // Upload to Cloudinary
+    // Upload to Cloudinary with format preserved
     const result = await new Promise<any>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
           resource_type: 'image',
           folder: folder,
-          format: 'png',
+          format: outputFormat, // ✅ WebP or PNG
+          flags: 'preserve_transparency', // ✅ Preserve alpha channel
           transformation: [
-            { quality: 'auto' },
+            { quality: 'auto:best' }, // ✅ Best quality for transparency
           ],
         },
         (error, result) => {
@@ -62,8 +64,8 @@ export const removeBackgroundFromImage = async (req: Request, res: Response) => 
     const media = await prisma.media.create({
       data: {
         filename: result.public_id,
-        originalName: req.file.originalname.replace(/\.[^/.]+$/, '') + '-no-bg.png',
-        mimeType: 'image/png',
+        originalName: req.file.originalname.replace(/\.[^/.]+$/, '') + `-no-bg.${outputFormat}`,
+        mimeType: `image/${outputFormat}`,
         size: processedBuffer.length,
         url: result.secure_url,
         publicId: result.public_id,
@@ -80,6 +82,7 @@ export const removeBackgroundFromImage = async (req: Request, res: Response) => 
         originalUrl: req.file.originalname,
         processedUrl: result.secure_url,
         method: method,
+        format: outputFormat,
       },
     });
   } catch (error) {

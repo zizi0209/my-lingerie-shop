@@ -72,6 +72,8 @@ export default function Footer() {
               width={150} 
               height={50} 
               className="h-10 w-auto object-contain"
+              style={{ background: 'transparent' }}
+              unoptimized={store_logo.includes('cloudinary')}
             />
           ) : (
             <h3 className="logo-font text-2xl tracking-tighter text-gray-900 dark:text-white opacity-90">
