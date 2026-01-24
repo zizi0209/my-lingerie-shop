@@ -65,21 +65,29 @@ export default function Footer() {
       <div className="max-w-[1400px] mx-auto px-6 md:px-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-16 mb-16">
         {/* Cột 1: Thương hiệu & Kết nối */}
         <div className="space-y-6">
-          {store_logo ? (
-            <Image 
-              src={store_logo} 
-              alt={store_name} 
-              width={180} 
-              height={60} 
-              className="h-12 md:h-14 w-auto object-contain"
-              style={{ background: 'transparent' }}
-              unoptimized={store_logo.includes('cloudinary')}
-            />
-          ) : (
-            <h3 className="logo-font text-2xl md:text-3xl tracking-tighter text-gray-900 dark:text-white opacity-90">
-              {store_name}
-            </h3>
-          )}
+          {/* Logo + Brand Name */}
+          <div className="space-y-3">
+            {store_logo ? (
+              <>
+                <Image 
+                  src={store_logo} 
+                  alt={store_name} 
+                  width={180} 
+                  height={60} 
+                  className="h-12 md:h-14 w-auto object-contain"
+                  style={{ background: 'transparent' }}
+                  unoptimized={store_logo.includes('cloudinary')}
+                />
+                <h3 className="logo-font text-2xl md:text-3xl tracking-tighter text-gray-900 dark:text-white font-bold">
+                  {store_name}
+                </h3>
+              </>
+            ) : (
+              <h3 className="logo-font text-2xl md:text-3xl tracking-tighter text-gray-900 dark:text-white opacity-90">
+                {store_name}
+              </h3>
+            )}
+          </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed italic font-light max-w-[240px]">
             {store_description || "Nghệ thuật quyến rũ từ sự thấu hiểu cơ thể."}
           </p>

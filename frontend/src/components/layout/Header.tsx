@@ -122,20 +122,27 @@ export default function Header() {
             </button>
           </div>
 
-          {/* Center: Logo */}
+          {/* Center: Logo + Brand Name */}
           <div className="flex-1 flex justify-center lg:justify-start lg:flex-none">
-            <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
+            <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity group">
               {store_logo ? (
-                <Image 
-                  src={store_logo} 
-                  alt={store_name} 
-                  width={200} 
-                  height={60} 
-                  className="h-10 sm:h-12 md:h-14 w-auto object-contain"
-                  style={{ background: 'transparent' }}
-                  unoptimized={store_logo.includes('cloudinary')}
-                  priority
-                />
+                <>
+                  {/* Logo Image */}
+                  <Image 
+                    src={store_logo} 
+                    alt={store_name} 
+                    width={200} 
+                    height={60} 
+                    className="h-10 sm:h-12 md:h-14 w-auto object-contain"
+                    style={{ background: 'transparent' }}
+                    unoptimized={store_logo.includes('cloudinary')}
+                    priority
+                  />
+                  {/* Brand Name */}
+                  <span className="logo-font text-xl sm:text-2xl md:text-3xl tracking-tighter text-gray-900 dark:text-white font-bold group-hover:text-primary-500 transition-colors">
+                    {store_name}
+                  </span>
+                </>
               ) : (
                 <span className="logo-font text-2xl md:text-3xl lg:text-4xl tracking-tighter text-gray-900 dark:text-white">
                   {store_name}
