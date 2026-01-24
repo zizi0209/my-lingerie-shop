@@ -430,7 +430,7 @@ const Settings: React.FC = () => {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-xs flex items-center gap-2 transition-all shadow-lg shadow-primary-200 dark:shadow-none disabled:opacity-50"
+          className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-xs flex items-center gap-2 transition-all disabled:opacity-50"
         >
           {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
           <span>{saving ? t.saving : t.save}</span>
@@ -460,7 +460,7 @@ const Settings: React.FC = () => {
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === tab.key
-                  ? 'bg-primary-500 text-white shadow-lg shadow-primary-200 dark:shadow-none'
+                  ? 'bg-primary-500 text-white'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
