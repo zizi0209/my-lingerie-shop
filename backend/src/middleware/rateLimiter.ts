@@ -121,3 +121,25 @@ export const uploadLimiter = rateLimit({
     });
   }
 });
+
+/**
+ * 🔒 CRITICAL: Rate limiter for admin critical operations
+ * (user creation, role promotion, Super Admin creation)
+ * Max 10 critical operations per 15 minutes per IP
+ * Prevents abuse of privilege escalation endpoints
+ */
+export const adminCriticalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'development' ? 100 : 10, // 10 requests per 15 min (100 in dev)
+  message: {
+    error: 'Quá nhiều thao tác quan trọng. Vui lòng thử lại sau 15 phút.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Quá nhiều thao tác admin quan trọng từ IP này. Vui lòng thử lại sau 15 phút.',
+      retryAfter: Math.ceil(15 * 60)
+    });
+  }
+});

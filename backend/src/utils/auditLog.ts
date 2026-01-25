@@ -4,13 +4,20 @@ import { AuditSeverityType } from './constants';
 
 const prisma = new PrismaClient();
 
+// Type-safe audit value - can be primitive, object, or array
+export type AuditValue = string | number | boolean | null | undefined | AuditValueObject | AuditValueArray;
+export interface AuditValueObject {
+  [key: string]: AuditValue;
+}
+export interface AuditValueArray extends Array<AuditValue> {}
+
 export interface AuditLogData {
   userId: number;
   action: string;
   resource: string;
   resourceId?: string;
-  oldValue?: any;
-  newValue?: any;
+  oldValue?: AuditValue;
+  newValue?: AuditValue;
   severity?: AuditSeverityType;
 }
 
@@ -84,7 +91,17 @@ export async function getAuditLogs(options: {
     endDate
   } = options;
 
-  const where: any = {};
+  interface WhereClause {
+    action?: string;
+    userId?: number;
+    severity?: string;
+    createdAt?: {
+      gte?: Date;
+      lte?: Date;
+    };
+  }
+
+  const where: WhereClause = {};
   if (action) where.action = action;
   if (userId) where.userId = userId;
   if (severity) where.severity = severity;

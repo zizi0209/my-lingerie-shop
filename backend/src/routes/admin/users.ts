@@ -2,6 +2,8 @@ import express from 'express';
 import { prisma } from '../../lib/prisma';
 import { auditLog } from '../../utils/auditLog';
 import { z } from 'zod';
+import crypto from 'crypto';
+import { adminCriticalLimiter } from '../../middleware/rateLimiter';
 
 const router = express.Router();
 
@@ -347,8 +349,9 @@ router.put('/:id', async (req, res) => {
 /**
  * POST /api/admin/users
  * Create new staff/admin user
+ * 🔒 CRITICAL: Rate limited to prevent abuse
  */
-router.post('/', async (req, res) => {
+router.post('/', adminCriticalLimiter, async (req, res) => {
   try {
     const { name, email, phone, roleId, isActive = true } = req.body;
 
@@ -434,7 +437,8 @@ router.post('/', async (req, res) => {
     }
 
     // Create user with a temporary password (should be sent via email in production)
-    const tempPassword = Math.random().toString(36).slice(-12);
+    // 🔒 SECURITY: Use cryptographically secure random generation
+    const tempPassword = crypto.randomBytes(16).toString('base64').slice(0, 16);
     const bcrypt = require('bcrypt');
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
@@ -959,8 +963,9 @@ router.get('/:id/audit-logs', async (req, res) => {
  * - Increment tokenVersion (invalidate old tokens)
  * - Audit log with CRITICAL severity
  * - Prevent self-demotion
+ * 🔒 CRITICAL: Rate limited to prevent privilege escalation abuse
  */
-router.patch('/:id/promote-role', async (req, res) => {
+router.patch('/:id/promote-role', adminCriticalLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const { newRoleId } = req.body;
