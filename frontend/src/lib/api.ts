@@ -173,6 +173,21 @@ class ApiService {
           throw error;
         }
 
+        // 🔄 SPECIAL CASE: 409 Conflict với suggestion (Role Promotion)
+        // Không throw error, return data để caller xử lý
+        if (response.status === 409 && errorData.suggestion === 'PROMOTE_ROLE') {
+          const error = new Error(errorData.error || 'Conflict') as Error & {
+            response?: { status: number; data: unknown };
+            statusCode?: number;
+          };
+          error.response = {
+            status: 409,
+            data: errorData
+          };
+          error.statusCode = 409;
+          throw error;
+        }
+
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
