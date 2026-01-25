@@ -156,6 +156,17 @@ class ApiService {
           return this.request<T>(endpoint, { ...options, _retry: true });
         }
         this.removeToken();
+
+        // Dispatch custom event for global session expiry handler
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('session-expired', {
+            detail: {
+              message: 'SESSION_EXPIRED',
+              reason: 'Token refresh failed'
+            }
+          }));
+        }
+
         // Throw silent error for auth check (không hiện thông báo cho user)
         const error = new Error('SESSION_EXPIRED');
         (error as Error & { silent?: boolean }).silent = true;
@@ -167,6 +178,17 @@ class ApiService {
 
         if ((response.status === 401 || response.status === 403) && requireAuth) {
           this.removeToken();
+
+          // Dispatch custom event for global session expiry handler
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('session-expired', {
+              detail: {
+                message: 'SESSION_EXPIRED',
+                reason: 'Unauthorized access'
+              }
+            }));
+          }
+
           // Throw silent error for auth check
           const error = new Error('SESSION_EXPIRED');
           (error as Error & { silent?: boolean }).silent = true;

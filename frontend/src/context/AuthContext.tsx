@@ -9,6 +9,8 @@ import {
   ReactNode,
 } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type {
   User,
@@ -30,7 +32,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
-  
+  const router = useRouter();
+
   // Track if we've fetched the initial profile to prevent flash
   const [profileFetched, setProfileFetched] = useState(false);
   
@@ -136,6 +139,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileFetched(false);
   }, [session, status]);
 
+  // Define logout function before useEffect that uses it
+  const logout = useCallback(async () => {
+    // Logout from NextAuth
+    await signOut({ redirect: false });
+
+    // Clear backend JWT
+    api.removeToken();
+
+    // Clear state
+    setState({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+    });
+
+    // Redirect to home page
+    router.push('/');
+  }, [router]);
+
+  // Listen for SESSION_EXPIRED events globally
+  useEffect(() => {
+    const handleSessionExpired = (event: Event) => {
+      const customEvent = event as CustomEvent<{ message: string; reason: string }>;
+
+      console.log('[AuthContext] Session expired:', customEvent.detail);
+
+      // Show toast notification
+      toast.error('Phiên đăng nhập đã hết hạn', {
+        description: 'Vui lòng đăng nhập lại để tiếp tục.',
+        duration: 5000,
+      });
+
+      // Clear session and redirect
+      logout();
+    };
+
+    // Listen for custom session-expired event
+    window.addEventListener('session-expired', handleSessionExpired);
+
+    return () => {
+      window.removeEventListener('session-expired', handleSessionExpired);
+    };
+  }, [logout]);
+
   const login = useCallback(
     async (credentials: LoginCredentials): Promise<{ success: boolean; error?: string }> => {
       try {
@@ -204,22 +252,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     []
   );
-
-  const logout = useCallback(async () => {
-    // Logout from NextAuth
-    await signOut({ redirect: false });
-    
-    // Clear backend JWT
-    api.removeToken();
-    
-    // Clear state
-    setState({
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      isLoading: false,
-    });
-  }, []);
 
   const refreshUser = useCallback(async () => {
     if (!state.isAuthenticated) return;
