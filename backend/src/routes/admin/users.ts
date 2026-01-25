@@ -399,6 +399,19 @@ router.post('/', adminCriticalLimiter, async (req, res) => {
             id: true,
             name: true
           }
+        },
+        // 📊 Include customer activity data for context
+        orders: {
+          select: { id: true },
+          take: 1 // Just check if any orders exist
+        },
+        reviews: {
+          select: { id: true },
+          take: 1 // Just check if any reviews exist
+        },
+        wishlistItems: {
+          select: { id: true },
+          take: 1 // Just check if any wishlist items exist
         }
       }
     });
@@ -414,6 +427,19 @@ router.post('/', adminCriticalLimiter, async (req, res) => {
         });
       }
 
+      // 📊 Gather customer activity context
+      const hasOrders = existingUser.orders && existingUser.orders.length > 0;
+      const hasReviews = existingUser.reviews && existingUser.reviews.length > 0;
+      const hasWishlist = existingUser.wishlistItems && existingUser.wishlistItems.length > 0;
+      const hasCustomerActivity = hasOrders || hasReviews || hasWishlist || existingUser.pointBalance > 0;
+
+      // Get accurate counts for display
+      const [orderCount, reviewCount, wishlistCount] = await Promise.all([
+        prisma.order.count({ where: { userId: existingUser.id } }),
+        prisma.review.count({ where: { userId: existingUser.id } }),
+        prisma.wishlistItem.count({ where: { userId: existingUser.id } })
+      ]);
+
       // Case 2: Different role → Suggest promotion (409 Conflict with promotion option)
       return res.status(409).json({
         error: 'Email đã tồn tại trong hệ thống',
@@ -423,12 +449,25 @@ router.post('/', adminCriticalLimiter, async (req, res) => {
           email: existingUser.email,
           currentRole: existingUser.role?.name,
           currentRoleId: existingUser.roleId,
-          isActive: existingUser.isActive
+          isActive: existingUser.isActive,
+          memberSince: existingUser.createdAt,
+          // 📊 Customer activity context
+          customerActivity: {
+            hasActivity: hasCustomerActivity,
+            orderCount,
+            reviewCount,
+            wishlistCount,
+            pointBalance: existingUser.pointBalance,
+            totalSpent: existingUser.totalSpent,
+            memberTier: existingUser.memberTier
+          }
         },
         requestedRole: role.name,
         requestedRoleId: Number(roleId),
         suggestion: 'PROMOTE_ROLE',
-        message: 'Tài khoản này đã tồn tại. Bạn có muốn nâng cấp quyền không?'
+        message: hasCustomerActivity
+          ? `Tài khoản này đã có hoạt động mua sắm (${orderCount} đơn hàng, ${existingUser.pointBalance} điểm). Nâng cấp lên ${role.name} sẽ giữ nguyên toàn bộ lịch sử. Tiếp tục?`
+          : `Tài khoản này đã tồn tại với vai trò ${existingUser.role?.name}. Bạn có muốn nâng cấp lên ${role.name} không?`
       });
     }
 
@@ -1106,7 +1145,16 @@ router.patch('/:id/promote-role', adminCriticalLimiter, async (req, res) => {
     const { revokeAllUserTokens } = require('../../utils/tokenUtils');
     await revokeAllUserTokens(Number(id));
 
-    // Step 4: Audit log with CRITICAL severity
+    // 📊 Gather customer activity context for audit log
+    const [orderCount, pointBalance] = await Promise.all([
+      prisma.order.count({ where: { userId: Number(id) } }),
+      prisma.user.findUnique({
+        where: { id: Number(id) },
+        select: { pointBalance: true, totalSpent: true }
+      })
+    ]);
+
+    // Step 4: Audit log with CRITICAL severity + customer context
     await auditLog({
       userId: req.user!.id,
       action: 'PROMOTE_USER_ROLE',
@@ -1121,7 +1169,14 @@ router.patch('/:id/promote-role', adminCriticalLimiter, async (req, res) => {
         roleId: newRole.id,
         reason: 'ROLE_PROMOTION',
         tokensRevoked: true,
-        forceLogout: true
+        forceLogout: true,
+        // 📊 Preserve customer activity context in audit
+        preservedCustomerData: {
+          orderCount,
+          pointBalance: pointBalance?.pointBalance || 0,
+          totalSpent: pointBalance?.totalSpent || 0,
+          hadCustomerActivity: orderCount > 0 || (pointBalance?.pointBalance || 0) > 0
+        }
       },
       severity: (newRole.name === 'SUPER_ADMIN' || newRole.name === 'ADMIN') ? 'CRITICAL' : 'WARNING'
     }, req);
