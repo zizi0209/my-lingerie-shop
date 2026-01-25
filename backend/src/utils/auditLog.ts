@@ -25,10 +25,12 @@ export interface AuditLogData {
  * Create audit log entry
  * @param data - Audit log data
  * @param req - Express request object (for IP and user agent)
+ * @param options - Additional options (throwOnError for CRITICAL operations)
  */
 export async function auditLog(
   data: AuditLogData,
-  req?: Request
+  req?: Request,
+  options?: { throwOnError?: boolean }
 ): Promise<void> {
   try {
     const log = await prisma.auditLog.create({
@@ -51,7 +53,13 @@ export async function auditLog(
     }
   } catch (error) {
     console.error('Failed to create audit log:', error);
-    // Don't throw - logging failure shouldn't break the request
+
+    // 🔒 CRITICAL: For CRITICAL operations, throw error to prevent operation without audit
+    if (options?.throwOnError || data.severity === 'CRITICAL') {
+      throw new Error('Audit log creation failed for CRITICAL operation. Operation aborted for security.');
+    }
+
+    // For non-critical operations, log but don't throw
   }
 }
 

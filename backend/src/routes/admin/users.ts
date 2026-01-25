@@ -246,6 +246,20 @@ router.put('/:id', async (req, res) => {
       });
     }
 
+    // 🔒 SECURITY: Prevent deactivating yourself (account lockout prevention)
+    if (isActive === false && isSelf) {
+      return res.status(400).json({
+        error: 'Không thể vô hiệu hóa tài khoản của chính mình (ngăn chặn tự khóa)'
+      });
+    }
+
+    // 🔒 CRITICAL: Prevent deactivating SUPER_ADMIN accounts
+    if (isActive === false && targetIsSuperAdmin) {
+      return res.status(403).json({
+        error: 'SUPER ADMIN không thể bị vô hiệu hóa (tài khoản được bảo vệ)'
+      });
+    }
+
     // If email is being updated, check for duplicates
     if (email && email !== targetUser.email) {
       const emailExists = await prisma.user.findFirst({
@@ -494,7 +508,7 @@ router.post('/', adminCriticalLimiter, async (req, res) => {
 
         // Send alert email (async, don't block response)
         if (currentUser) {
-          const { sendSuperAdminCreationAlert } = require('../services/emailService');
+          const { sendSuperAdminCreationAlert } = require('../../services/emailService');
           sendSuperAdminCreationAlert(
             {
               id: currentUser.id,
@@ -512,9 +526,33 @@ router.post('/', adminCriticalLimiter, async (req, res) => {
               timestamp: new Date()
             },
             allSuperAdmins
-          ).catch((err: Error) => {
-            // Log error but don't fail the user creation
-            console.error('Failed to send Super Admin creation alert:', err);
+          ).catch(async (err: Error) => {
+            // 🔴 FALLBACK: Log to audit trail if email fails
+            console.error('🚨 CRITICAL: Failed to send Super Admin creation alert email:', err);
+
+            // Log email failure to audit log with CRITICAL severity
+            await auditLog({
+              userId: req.user!.id,
+              action: 'EMAIL_ALERT_FAILED',
+              resource: 'super_admin_creation_alert',
+              resourceId: String(newUser.id),
+              newValue: {
+                error: err.message,
+                errorStack: err.stack,
+                recipients: allSuperAdmins.map(a => a.email),
+                newSuperAdmin: {
+                  id: newUser.id,
+                  email: newUser.email,
+                  name: newUser.name
+                },
+                createdBy: {
+                  id: currentUser.id,
+                  email: currentUser.email,
+                  name: currentUser.name
+                }
+              },
+              severity: 'CRITICAL'
+            }, req);
           });
         }
       } catch (err) {
@@ -1122,8 +1160,34 @@ router.patch('/:id/promote-role', adminCriticalLimiter, async (req, res) => {
               timestamp: new Date()
             },
             allSuperAdmins
-          ).catch((err: Error) => {
-            console.error('Failed to send Super Admin promotion alert:', err);
+          ).catch(async (err: Error) => {
+            // 🔴 FALLBACK: Log to audit trail if email fails
+            console.error('🚨 CRITICAL: Failed to send Super Admin promotion alert email:', err);
+
+            // Log email failure to audit log with CRITICAL severity
+            await auditLog({
+              userId: req.user!.id,
+              action: 'EMAIL_ALERT_FAILED',
+              resource: 'super_admin_promotion_alert',
+              resourceId: String(updatedUser.id),
+              newValue: {
+                error: err.message,
+                errorStack: err.stack,
+                recipients: allSuperAdmins.map(a => a.email),
+                promotedUser: {
+                  id: updatedUser.id,
+                  email: updatedUser.email,
+                  name: updatedUser.name,
+                  newRole: newRole.name
+                },
+                promotedBy: {
+                  id: currentUser.id,
+                  email: currentUser.email,
+                  name: currentUser.name
+                }
+              },
+              severity: 'CRITICAL'
+            }, req);
           });
         }
       } catch (err) {

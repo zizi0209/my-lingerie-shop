@@ -528,10 +528,14 @@ model AuditLog {
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // 🔍 PERFORMANCE: Optimized indexes for audit log queries
   @@index([userId])
   @@index([action])
   @@index([resource])
   @@index([createdAt])
+  @@index([userId, createdAt(sort: Desc)]) // Filter by user + sort by time
+  @@index([action, severity]) // Filter critical actions
+  @@index([severity, createdAt(sort: Desc)]) // Filter by severity + time
   @@map("audit_logs")
 }
 
