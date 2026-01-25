@@ -39,8 +39,11 @@ export const forgotPassword = async (req: Request, res: Response) => {
     }
 
     // Find user
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+    const user = await prisma.user.findFirst({
+      where: {
+        email: email.toLowerCase(),
+        deletedAt: null
+      }
     });
 
     // Always return success to prevent email enumeration
@@ -242,8 +245,11 @@ export const resetPassword = async (req: Request, res: Response) => {
     }
 
     // Find user
-    const user = await prisma.user.findUnique({
-      where: { email: resetToken.email },
+    const user = await prisma.user.findFirst({
+      where: {
+        email: resetToken.email,
+        deletedAt: null
+      }
     });
 
     if (!user) {

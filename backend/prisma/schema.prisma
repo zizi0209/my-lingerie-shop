@@ -9,7 +9,7 @@ datasource db {
 
 model User {
   id                  Int            @id @default(autoincrement())
-  email               String         @unique
+  email               String
   password            String?
   name                String?
   phone               String?
@@ -46,10 +46,13 @@ model User {
   preference          UserPreference?
   accounts            Account[]
   sessions            Session[]
+  passwordSetupTokens PasswordSetupToken[]
 
   @@index([email])
   @@index([roleId])
   @@index([memberTier])
+  // Note: Partial unique index for email (active users only) is created via raw SQL migration
+  // See migration: add_partial_unique_index_for_email
 }
 
 model Role {
@@ -963,4 +966,28 @@ model PasswordResetToken {
   @@index([email])
   @@index([token])
   @@index([expires])
+}
+
+// ============================================
+// Password Setup Tokens (for Social Login -> Admin)
+// ============================================
+
+/// Password Setup Token for Admin accounts created via social login
+/// When a social-login user is promoted to ADMIN, they must set a password
+/// to access the admin dashboard (Enterprise Security Requirement)
+model PasswordSetupToken {
+  id        String    @id @default(cuid())
+  userId    Int
+  token     String    @unique
+  purpose   String    @default("ADMIN_PASSWORD_SETUP")
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@map("password_setup_tokens")
 }

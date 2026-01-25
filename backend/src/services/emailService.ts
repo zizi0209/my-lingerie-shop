@@ -578,3 +578,6 @@ export const sendSuperAdminCreationAlert = async (
 
   return result;
 };
+
+// Re-export admin password setup email
+export { sendAdminPasswordSetupEmail } from './adminPasswordSetupEmail';

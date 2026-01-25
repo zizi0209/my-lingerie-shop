@@ -11,6 +11,7 @@ import {
 } from '../controllers/authController';
 import { socialLogin } from '../controllers/socialAuthController';
 import { forgotPassword, verifyOTP, resetPassword } from '../controllers/forgotPasswordController';
+import { setAdminPassword } from '../controllers/setAdminPasswordController';
 import { authenticateToken } from '../middleware/auth';
 import { loginLimiter, registerLimiter } from '../middleware/rateLimiter';
 
@@ -25,6 +26,7 @@ router.post('/social-login', socialLogin); // Social OAuth login
 router.post('/forgot-password', loginLimiter, forgotPassword);
 router.post('/verify-otp', verifyOTP);
 router.post('/reset-password', resetPassword);
+router.post('/set-admin-password', setAdminPassword); // Admin password setup for social login users
 
 router.post('/refresh', refresh);
 router.post('/logout', logout);

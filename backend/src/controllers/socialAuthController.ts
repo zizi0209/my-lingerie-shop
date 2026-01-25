@@ -67,8 +67,11 @@ export const socialLogin = async (req: Request, res: Response) => {
     }
 
     // Check if user with this email exists (for account linking)
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email,
+        deletedAt: null
+      }
     });
 
     let user;

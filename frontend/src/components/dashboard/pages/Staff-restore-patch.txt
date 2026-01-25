@@ -1,0 +1,32 @@
+// Patch for Staff.tsx to add RESTORE_USER handling
+
+// 1. In handleSave catch block, after PROMOTE_ROLE check (around line 428), add:
+} else if (err.response?.status === 409 && err.response?.data?.suggestion === 'RESTORE_USER') {
+  const restoreInfo = err.response.data;
+  setPromotionData({
+    existingUser: {
+      ...restoreInfo.existingUser,
+      currentRole: restoreInfo.existingUser.currentRole,
+      currentRoleId: restoreInfo.existingUser.currentRoleId
+    },
+    requestedRole: restoreInfo.requestedRole,
+    requestedRoleId: restoreInfo.requestedRoleId,
+    isRestore: true
+  });
+  setShowPromotionModal(true);
+  setShowModal(false);
+} else {
+
+// 2. In handlePromoteRole function (around line 456-460), replace:
+await api.patch(`/admin/users/${promotionData.existingUser.id}/promote-role`, {
+  newRoleId: promotionData.requestedRoleId
+});
+
+// With:
+const endpoint = promotionData.isRestore
+  ? `/admin/users/${promotionData.existingUser.id}/restore`
+  : `/admin/users/${promotionData.existingUser.id}/promote-role`;
+
+await api.patch(endpoint, {
+  ...(promotionData.isRestore ? { roleId: promotionData.requestedRoleId } : { newRoleId: promotionData.requestedRoleId })
+});

@@ -99,7 +99,16 @@ export default function AdminLoginPage() {
       router.push('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
-      const message = err instanceof Error ? err.message : 'Đăng nhập thất bại. Vui lòng kiểm tra email và password.';
+      let message = 'Đăng nhập thất bại. Vui lòng kiểm tra email và password.';
+
+      if (err instanceof Error) {
+        if (err.message.includes('không thể đăng nhập qua mạng xã hội') || err.message.includes('social')) {
+          message = '⚠️ Tài khoản Admin cần thiết lập mật khẩu trước. Vui lòng kiểm tra email để nhận link thiết lập mật khẩu.';
+        } else {
+          message = err.message;
+        }
+      }
+
       setError(message);
     } finally {
       setLoading(false);

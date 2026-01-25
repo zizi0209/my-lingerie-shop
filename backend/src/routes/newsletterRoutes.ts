@@ -227,8 +227,11 @@ router.get('/verify/:token', async (req: Request, res: Response) => {
 
       if (!existingCoupon) {
         // Legacy case: coupon not in Coupon table, create it now
-        const user = await prisma.user.findUnique({
-          where: { email: subscriber.email },
+        const user = await prisma.user.findFirst({
+          where: {
+            email: subscriber.email,
+            deletedAt: null
+          },
           select: { id: true },
         });
 
@@ -301,8 +304,11 @@ router.get('/verify/:token', async (req: Request, res: Response) => {
     }
 
     // Find user by email to link coupon to their wallet
-    const user = await prisma.user.findUnique({
-      where: { email: subscriber.email },
+    const user = await prisma.user.findFirst({
+      where: {
+        email: subscriber.email,
+        deletedAt: null
+      },
       select: { id: true },
     });
 

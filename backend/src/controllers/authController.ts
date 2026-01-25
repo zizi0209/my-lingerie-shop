@@ -44,8 +44,11 @@ export const register = async (req: Request, res: Response) => {
   try {
     const validated = validate(registerSchema, req.body);
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email: validated.email },
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: validated.email,
+        deletedAt: null
+      }
     });
 
     if (existingUser) {
@@ -133,8 +136,11 @@ export const login = async (req: Request, res: Response) => {
   try {
     const validated = validate(loginSchema, req.body);
 
-    const user = await prisma.user.findUnique({
-      where: { email: validated.email },
+    const user = await prisma.user.findFirst({
+      where: {
+        email: validated.email,
+        deletedAt: null // Only find active (non-deleted) users
+      },
       include: {
         role: { select: { id: true, name: true } },
       },
@@ -142,10 +148,6 @@ export const login = async (req: Request, res: Response) => {
 
     if (!user) {
       return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng!' });
-    }
-
-    if (user.deletedAt) {
-      return res.status(401).json({ error: 'Tài khoản không tồn tại!' });
     }
 
     if (!user.isActive) {

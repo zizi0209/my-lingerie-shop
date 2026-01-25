@@ -55,6 +55,9 @@ export function ReAuthModal({ isOpen, onSuccess, onCancel }: ReAuthModalProps) {
           setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
         } else if (err.message.includes('401') || err.message.includes('Unauthorized')) {
           setError("Mật khẩu không đúng");
+        } else if (err.message.includes('không thể đăng nhập qua mạng xã hội') || err.message.includes('social')) {
+          // Social login admin without password setup
+          setError("⚠️ Tài khoản của bạn cần thiết lập mật khẩu trước. Vui lòng kiểm tra email để nhận link thiết lập mật khẩu.");
         } else {
           setError(err.message);
         }

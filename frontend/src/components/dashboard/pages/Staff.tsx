@@ -69,6 +69,7 @@ import { useAuth } from '@/context/AuthContext';
      existingUser: User & { currentRole: string; currentRoleId: number };
      requestedRole: string;
      requestedRoleId: number;
+    isRestore?: boolean; // Flag to indicate restore vs promote
    } | null>(null);
    const [promoting, setPromoting] = useState(false);
 
@@ -426,6 +427,21 @@ import { useAuth } from '@/context/AuthContext';
          });
          setShowPromotionModal(true);
          setShowModal(false);
+      } else if (err.response?.status === 409 && err.response?.data?.suggestion === 'RESTORE_USER') {
+        // 🔄 RESTORE DELETED USER
+        const restoreInfo = err.response.data;
+        setPromotionData({
+          existingUser: {
+            ...restoreInfo.existingUser,
+            currentRole: restoreInfo.existingUser.currentRole,
+            currentRoleId: restoreInfo.existingUser.currentRoleId
+          },
+          requestedRole: restoreInfo.requestedRole,
+          requestedRoleId: restoreInfo.requestedRoleId,
+          isRestore: true
+        });
+        setShowPromotionModal(true);
+        setShowModal(false);
        } else {
          const errorMessage = err.response?.data?.error || err.message || 'Unknown error';
          setFormError(errorMessage);
@@ -435,20 +451,28 @@ import { useAuth } from '@/context/AuthContext';
      }
    };
 
-   // Handle Role Promotion (Enterprise: Single Identity Principle)
+   // Handle Role Promotion & Restore (Enterprise: Single Identity Principle)
    const handlePromoteRole = async () => {
      if (!promotionData) return;
 
      try {
        setPromoting(true);
-       await api.patch(`/admin/users/${promotionData.existingUser.id}/promote-role`, {
-         newRoleId: promotionData.requestedRoleId
-       });
 
-       setSuccessMessage(
+      // Dynamic endpoint based on isRestore flag
+      const endpoint = promotionData.isRestore
+        ? `/admin/users/${promotionData.existingUser.id}/restore`
+        : `/admin/users/${promotionData.existingUser.id}/promote-role`;
+
+      await api.patch(endpoint, {
+        ...(promotionData.isRestore
+          ? { roleId: promotionData.requestedRoleId }  // restore endpoint
+          : { newRoleId: promotionData.requestedRoleId })  // promote endpoint
+      });
+
+      setSuccessMessage(
          language === 'vi'
-           ? `Đã nâng cấp quyền thành công! ${promotionData.existingUser.name} cần đăng nhập lại.`
-           : `Role promoted successfully! ${promotionData.existingUser.name} needs to login again.`
+          ? `Đã ${promotionData.isRestore ? 'khôi phục' : 'nâng cấp quyền'} thành công! ${promotionData.existingUser.name} cần đăng nhập lại.`
+          : `${promotionData.isRestore ? 'Restored' : 'Promoted'} successfully! ${promotionData.existingUser.name} needs to login again.`
        );
        setShowPromotionModal(false);
        setPromotionData(null);
@@ -960,7 +984,9 @@ import { useAuth } from '@/context/AuthContext';
                  <Shield className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                </div>
                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                 🔄 {language === 'vi' ? 'Nâng cấp quyền tài khoản' : 'Promote Account Role'}
+                 {promotionData.isRestore ? '♻️' : '🔄'} {language === 'vi'
+                   ? (promotionData.isRestore ? 'Khôi phục tài khoản' : 'Nâng cấp quyền tài khoản')
+                   : (promotionData.isRestore ? 'Restore Account' : 'Promote Account Role')}
                </h2>
              </div>
 
@@ -969,22 +995,22 @@ import { useAuth } from '@/context/AuthContext';
                <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
                  {language === 'vi' ? (
                    <>
-                     Tài khoản <strong>{promotionData.existingUser.name || promotionData.existingUser.email}</strong> đã tồn tại trong hệ thống với vai trò <strong className="px-2 py-0.5 bg-blue-200 dark:bg-blue-800 rounded">{promotionData.existingUser.currentRole}</strong>.
+                     Tài khoản <strong>{promotionData.existingUser.name || promotionData.existingUser.email}</strong> {promotionData.isRestore ? 'đã bị xóa' : 'đã tồn tại trong hệ thống'} với vai trò <strong className="px-2 py-0.5 bg-blue-200 dark:bg-blue-800 rounded">{promotionData.existingUser.currentRole}</strong>.
                    </>
                  ) : (
                    <>
-                     Account <strong>{promotionData.existingUser.name || promotionData.existingUser.email}</strong> already exists with role <strong className="px-2 py-0.5 bg-blue-200 dark:bg-blue-800 rounded">{promotionData.existingUser.currentRole}</strong>.
+                     Account <strong>{promotionData.existingUser.name || promotionData.existingUser.email}</strong> {promotionData.isRestore ? 'was deleted' : 'already exists'} with role <strong className="px-2 py-0.5 bg-blue-200 dark:bg-blue-800 rounded">{promotionData.existingUser.currentRole}</strong>.
                    </>
                  )}
                </p>
                <p className="text-sm text-blue-700 dark:text-blue-300">
                  {language === 'vi' ? (
                    <>
-                     Bạn có muốn nâng cấp lên <strong className="px-2 py-0.5 bg-emerald-200 dark:bg-emerald-800 rounded">{promotionData.requestedRole}</strong> không?
+                     Bạn có muốn {promotionData.isRestore ? 'khôi phục và đặt vai trò' : 'nâng cấp lên'} <strong className="px-2 py-0.5 bg-emerald-200 dark:bg-emerald-800 rounded">{promotionData.requestedRole}</strong> không?
                    </>
                  ) : (
                    <>
-                     Do you want to promote to <strong className="px-2 py-0.5 bg-emerald-200 dark:bg-emerald-800 rounded">{promotionData.requestedRole}</strong>?
+                     Do you want to {promotionData.isRestore ? 'restore and set role to' : 'promote to'} <strong className="px-2 py-0.5 bg-emerald-200 dark:bg-emerald-800 rounded">{promotionData.requestedRole}</strong>?
                    </>
                  )}
                </p>
@@ -1061,7 +1087,9 @@ import { useAuth } from '@/context/AuthContext';
                  {promoting && <Loader2 className="w-4 h-4 animate-spin" />}
                  {promoting
                    ? (language === 'vi' ? 'Đang xử lý...' : 'Processing...')
-                   : (language === 'vi' ? 'Xác nhận nâng cấp' : 'Confirm Promotion')}
+                   : (language === 'vi'
+                     ? (promotionData.isRestore ? 'Xác nhận khôi phục' : 'Xác nhận nâng cấp')
+                     : (promotionData.isRestore ? 'Confirm Restore' : 'Confirm Promotion'))}
                </button>
              </div>
            </div>

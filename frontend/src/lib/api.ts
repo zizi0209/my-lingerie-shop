@@ -188,14 +188,26 @@ class ApiService {
           throw error;
         }
 
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        // For all other errors, attach response data for proper error handling
+        const error = new Error(errorData.error || `HTTP error! status: ${response.status}`) as Error & {
+          response?: { status: number; data: unknown };
+          statusCode?: number;
+        };
+        error.response = {
+          status: response.status,
+          data: errorData
+        };
+        error.statusCode = response.status;
+        throw error;
       }
 
       return await response.json();
     } catch (error) {
-      // Không log silent errors (SESSION_EXPIRED) để tránh nhiễu console
+      // Không log silent errors (SESSION_EXPIRED) và expected business errors (409 PROMOTE_ROLE)
       const isSilent = error instanceof Error && (error as Error & { silent?: boolean }).silent;
-      if (!isSilent) {
+      const is409Conflict = error instanceof Error && (error as Error & { statusCode?: number }).statusCode === 409;
+
+      if (!isSilent && !is409Conflict) {
         console.error('API Error:', error);
       }
       throw error;

@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma';
 import { auditLog } from '../../utils/auditLog';
 import { z } from 'zod';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { adminCriticalLimiter } from '../../middleware/rateLimiter';
 
 const router = express.Router();
@@ -387,11 +388,11 @@ router.post('/', adminCriticalLimiter, async (req, res) => {
       });
     }
 
-    // Check if email already exists
+    // Check if email already exists (including soft-deleted users)
     const existingUser = await prisma.user.findFirst({
       where: {
-        email,
-        deletedAt: null
+        email
+        // Don't filter by deletedAt - we need to check deleted users too
       },
       include: {
         role: {
@@ -416,8 +417,55 @@ router.post('/', adminCriticalLimiter, async (req, res) => {
       }
     });
 
+    console.log('🔍 Existing user check:', { email, found: !!existingUser, userId: existingUser?.id, isDeleted: !!existingUser?.deletedAt });
+
     if (existingUser) {
-      // 🔄 ENTERPRISE STANDARD: Role Promotion (Single Identity Principle)
+      // 🔄 CASE 1: Soft-Deleted User → Offer RESTORE
+      if (existingUser.deletedAt) {
+        // 📊 Gather customer activity context
+        const hasOrders = existingUser.orders && existingUser.orders.length > 0;
+        const hasReviews = existingUser.reviews && existingUser.reviews.length > 0;
+        const hasWishlist = existingUser.wishlistItems && existingUser.wishlistItems.length > 0;
+        const hasCustomerActivity = hasOrders || hasReviews || hasWishlist || existingUser.pointBalance > 0;
+
+        // Get accurate counts for display
+        const [orderCount, reviewCount, wishlistCount] = await Promise.all([
+          prisma.order.count({ where: { userId: existingUser.id } }),
+          prisma.review.count({ where: { userId: existingUser.id } }),
+          prisma.wishlistItem.count({ where: { userId: existingUser.id } })
+        ]);
+
+        return res.status(409).json({
+          error: 'Email đã tồn tại (đã bị xóa)',
+          existingUser: {
+            id: existingUser.id,
+            name: existingUser.name,
+            email: existingUser.email,
+            currentRole: existingUser.role?.name,
+            currentRoleId: existingUser.roleId,
+            isActive: existingUser.isActive,
+            deletedAt: existingUser.deletedAt,
+            memberSince: existingUser.createdAt,
+            customerActivity: {
+              hasActivity: hasCustomerActivity,
+              orderCount,
+              reviewCount,
+              wishlistCount,
+              pointBalance: existingUser.pointBalance,
+              totalSpent: existingUser.totalSpent,
+              memberTier: existingUser.memberTier
+            }
+          },
+          requestedRole: role.name,
+          requestedRoleId: Number(roleId),
+          suggestion: 'RESTORE_USER',
+          message: hasCustomerActivity
+            ? `Tài khoản này đã bị xóa nhưng vẫn có lịch sử mua sắm (${orderCount} đơn hàng, ${existingUser.pointBalance} điểm). Khôi phục và nâng cấp lên ${role.name}?`
+            : `Tài khoản này đã bị xóa. Bạn có muốn khôi phục và đặt vai trò ${role.name} không?`
+        });
+      }
+
+      // 🔄 CASE 2: Active User → ENTERPRISE STANDARD: Role Promotion (Single Identity Principle)
       // Instead of blocking with error, suggest role promotion if applicable
 
       // Case 1: Same role → Duplicate, reject
@@ -492,7 +540,6 @@ router.post('/', adminCriticalLimiter, async (req, res) => {
     // Create user with a temporary password (should be sent via email in production)
     // 🔒 SECURITY: Use cryptographically secure random generation
     const tempPassword = crypto.randomBytes(16).toString('base64').slice(0, 16);
-    const bcrypt = require('bcrypt');
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
     const newUser = await prisma.user.create({
@@ -606,8 +653,82 @@ router.post('/', adminCriticalLimiter, async (req, res) => {
       // In production, send this via email instead
       tempPassword: process.env.NODE_ENV === 'development' ? tempPassword : undefined
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Admin create user error:', error);
+
+    // Handle Prisma unique constraint violation (P2002)
+    // This catches race conditions where user was created between our check and create
+    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+      try {
+        // Fetch the existing user to provide promotion option
+        const { email, roleId } = req.body;
+        const existingUser = await prisma.user.findFirst({
+          where: { email, deletedAt: null },
+          include: {
+            role: { select: { id: true, name: true } }
+          }
+        });
+
+        if (existingUser && existingUser.roleId !== Number(roleId)) {
+          // Different role - return PROMOTE_ROLE suggestion
+          const requestedRole = await prisma.role.findUnique({
+            where: { id: Number(roleId) }
+          });
+
+          // Get customer activity counts
+          const [orderCount, reviewCount, wishlistCount] = await Promise.all([
+            prisma.order.count({ where: { userId: existingUser.id } }),
+            prisma.review.count({ where: { userId: existingUser.id } }),
+            prisma.wishlistItem.count({ where: { userId: existingUser.id } })
+          ]);
+
+          const hasCustomerActivity = orderCount > 0 || reviewCount > 0 || wishlistCount > 0 || existingUser.pointBalance > 0;
+
+          return res.status(409).json({
+            error: 'Email đã tồn tại trong hệ thống',
+            existingUser: {
+              id: existingUser.id,
+              name: existingUser.name,
+              email: existingUser.email,
+              currentRole: existingUser.role?.name,
+              currentRoleId: existingUser.roleId,
+              isActive: existingUser.isActive,
+              memberSince: existingUser.createdAt,
+              customerActivity: {
+                hasActivity: hasCustomerActivity,
+                orderCount,
+                reviewCount,
+                wishlistCount,
+                pointBalance: existingUser.pointBalance,
+                totalSpent: existingUser.totalSpent,
+                memberTier: existingUser.memberTier
+              }
+            },
+            requestedRole: requestedRole?.name,
+            requestedRoleId: Number(roleId),
+            suggestion: 'PROMOTE_ROLE',
+            message: hasCustomerActivity
+              ? `Tài khoản này đã có hoạt động mua sắm (${orderCount} đơn hàng, ${existingUser.pointBalance} điểm). Nâng cấp lên ${requestedRole?.name} sẽ giữ nguyên toàn bộ lịch sử. Tiếp tục?`
+              : `Tài khoản này đã tồn tại với vai trò ${existingUser.role?.name}. Bạn có muốn nâng cấp lên ${requestedRole?.name} không?`
+          });
+        }
+
+        // Same role or user not found - generic duplicate error
+        return res.status(409).json({
+          error: 'Email đã tồn tại trong hệ thống',
+          message: 'Email này đã được sử dụng với cùng vai trò.',
+          suggestion: 'USE_DIFFERENT_EMAIL'
+        });
+      } catch (fetchError) {
+        console.error('Error fetching existing user in P2002 handler:', fetchError);
+        return res.status(409).json({
+          error: 'Email đã tồn tại trong hệ thống',
+          message: 'Email này đã được sử dụng. Vui lòng sử dụng email khác.',
+          suggestion: 'USE_DIFFERENT_EMAIL'
+        });
+      }
+    }
+
     res.status(500).json({
       error: 'Lỗi khi tạo user'
     });
@@ -1250,16 +1371,233 @@ router.patch('/:id/promote-role', adminCriticalLimiter, async (req, res) => {
       }
     }
 
+    // 🔐 CRITICAL: Check if promoted user needs password setup (social login → admin)
+    let requiresPasswordSetup = false;
+    if ((newRole.name === 'ADMIN' || newRole.name === 'SUPER_ADMIN') && !updatedUser.password) {
+      try {
+        // Generate password setup token
+        const setupToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = await bcrypt.hash(setupToken, 10);
+
+        await prisma.passwordSetupToken.create({
+          data: {
+            userId: updatedUser.id,
+            token: hashedToken,
+            purpose: 'ADMIN_PASSWORD_SETUP',
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+          }
+        });
+
+        // Send password setup email
+        const { sendAdminPasswordSetupEmail } = require('../../services/emailService');
+        await sendAdminPasswordSetupEmail({
+          email: updatedUser.email,
+          name: updatedUser.name,
+          role: newRole.name,
+          token: setupToken,
+          expiresInHours: 24
+        }).catch(async (emailErr: Error) => {
+          console.error('🚨 CRITICAL: Failed to send admin password setup email:', emailErr);
+
+          // Fallback: Log to audit
+          await auditLog({
+            userId: req.user!.id,
+            action: 'EMAIL_ALERT_FAILED',
+            resource: 'admin_password_setup',
+            resourceId: String(updatedUser.id),
+            newValue: {
+              error: emailErr.message,
+              recipient: updatedUser.email,
+              role: newRole.name
+            },
+            severity: 'CRITICAL'
+          }, req);
+        });
+
+        requiresPasswordSetup = true;
+
+        // Audit log
+        await auditLog({
+          userId: req.user!.id,
+          action: 'ADMIN_PASSWORD_SETUP_INITIATED',
+          resource: 'user',
+          resourceId: String(updatedUser.id),
+          newValue: {
+            reason: 'Social login user promoted to admin',
+            expiresInHours: 24,
+            emailSent: true
+          },
+          severity: 'WARNING'
+        }, req);
+
+      } catch (setupErr) {
+        console.error('Error setting up password setup flow:', setupErr);
+        // Don't fail promotion, but log error
+      }
+    }
+
     res.json({
       success: true,
       data: updatedUser,
-      message: `Đã nâng cấp quyền thành công. User cần đăng nhập lại.`,
-      sessionInvalidated: true
+      message: requiresPasswordSetup
+        ? `Đã nâng cấp quyền thành công. Email thiết lập mật khẩu đã được gửi đến ${updatedUser.email}`
+        : `Đã nâng cấp quyền thành công. User cần đăng nhập lại.`,
+      sessionInvalidated: true,
+      requiresPasswordSetup
     });
   } catch (error) {
     console.error('Admin promote user role error:', error);
     res.status(500).json({
       error: 'Lỗi khi nâng cấp quyền user'
+    });
+  }
+});
+
+/**
+ * PATCH /api/admin/users/:id/restore
+ * Restore soft-deleted user and optionally update role
+ * 🔄 ENTERPRISE STANDARD: Single Identity - Restore instead of recreate
+ */
+router.patch('/:id/restore', adminCriticalLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { roleId } = req.body;
+
+    // Find deleted user
+    const deletedUser = await prisma.user.findFirst({
+      where: {
+        id: Number(id),
+        deletedAt: { not: null } // Must be deleted
+      },
+      include: {
+        role: { select: { id: true, name: true } }
+      }
+    });
+
+    if (!deletedUser) {
+      return res.status(404).json({
+        error: 'User không tồn tại hoặc chưa bị xóa'
+      });
+    }
+
+    // Verify new role exists if provided
+    let newRole = deletedUser.role;
+    if (roleId) {
+      const role = await prisma.role.findUnique({
+        where: { id: Number(roleId) }
+      });
+
+      if (!role) {
+        return res.status(404).json({
+          error: 'Role không tồn tại'
+        });
+      }
+
+      newRole = role;
+
+      // 🛡️ CRITICAL: Only SUPER_ADMIN can restore as ADMIN or SUPER_ADMIN
+      const currentUser = await prisma.user.findUnique({
+        where: { id: req.user!.id },
+        include: { role: true }
+      });
+
+      const isSuperAdmin = currentUser?.role?.name === 'SUPER_ADMIN';
+
+      if ((role.name === 'ADMIN' || role.name === 'SUPER_ADMIN') && !isSuperAdmin) {
+        return res.status(403).json({
+          error: 'Chỉ SUPER ADMIN mới có thể khôi phục user với vai trò ADMIN hoặc SUPER ADMIN (Anti-Collusion Policy)'
+        });
+      }
+    }
+
+    // Restore user (set deletedAt = null, update role if provided, activate)
+    const restoredUser = await prisma.user.update({
+      where: { id: Number(id) },
+      data: {
+        deletedAt: null,
+        isActive: true,
+        ...(roleId && { roleId: Number(roleId) }),
+        tokenVersion: { increment: 1 } // Invalidate old sessions
+      },
+      include: {
+        role: { select: { id: true, name: true } }
+      }
+    });
+
+    // Audit log
+    await auditLog({
+      userId: req.user!.id,
+      action: 'USER_RESTORED',
+      resource: 'user',
+      resourceId: String(restoredUser.id),
+      oldValue: {
+        deletedAt: deletedUser.deletedAt?.toISOString(),
+        roleId: deletedUser.roleId,
+        roleName: deletedUser.role?.name
+      },
+      newValue: {
+        deletedAt: null,
+        roleId: restoredUser.roleId,
+        roleName: restoredUser.role?.name,
+        restoredBy: req.user!.id
+      },
+      severity: 'WARNING'
+    }, req);
+
+    // 🔐 If restored as ADMIN and no password, send password setup email
+    let requiresPasswordSetup = false;
+    if ((newRole?.name === 'ADMIN' || newRole?.name === 'SUPER_ADMIN') && !restoredUser.password) {
+      const setupToken = crypto.randomBytes(32).toString('hex');
+      const hashedToken = await bcrypt.hash(setupToken, 10);
+
+      await prisma.passwordSetupToken.create({
+        data: {
+          userId: restoredUser.id,
+          token: hashedToken,
+          purpose: 'ADMIN_PASSWORD_SETUP',
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+        }
+      });
+
+      // Send password setup email
+      const { sendAdminPasswordSetupEmail } = require('../../services/emailService');
+      await sendAdminPasswordSetupEmail({
+        email: restoredUser.email,
+        name: restoredUser.name,
+        role: newRole.name,
+        token: setupToken,
+        expiresInHours: 24
+      });
+
+      requiresPasswordSetup = true;
+
+      // Audit log for password setup email
+      await auditLog({
+        userId: restoredUser.id,
+        action: 'ADMIN_PASSWORD_SETUP_EMAIL_SENT',
+        resource: 'user',
+        resourceId: String(restoredUser.id),
+        newValue: {
+          role: newRole.name,
+          expiresInHours: 24,
+          tokenPurpose: 'ADMIN_PASSWORD_SETUP',
+          reason: 'USER_RESTORED_AS_ADMIN'
+        },
+        severity: 'WARNING'
+      }, req);
+    }
+
+    res.json({
+      success: true,
+      data: restoredUser,
+      message: `User đã được khôi phục${roleId ? ' và nâng cấp vai trò' : ''}`,
+      requiresPasswordSetup,
+      setupEmailSent: requiresPasswordSetup
+    });
+  } catch (error) {
+    console.error('Restore user error:', error);
+    res.status(500).json({
+      error: 'Lỗi khi khôi phục user'
     });
   }
 });
