@@ -75,8 +75,9 @@ async function main() {
   const hashedAdminPassword = await bcrypt.hash(adminPassword, 12);
 
   const admin = await prisma.user.upsert({
-    where: { email: adminEmail },
+    where: { id: 1 }, // Use ID instead of email
     update: {
+      email: adminEmail,
       password: hashedAdminPassword,
       roleId: superAdminRole!.id,
       passwordChangedAt: new Date(),
@@ -102,8 +103,9 @@ async function main() {
   const testUserPassword = await bcrypt.hash('Test@12345', 12);
 
   const testUser = await prisma.user.upsert({
-    where: { email: 'test@example.com' },
+    where: { id: 2 }, // Use ID instead of email
     update: {
+      email: 'test@example.com',
       password: testUserPassword,
       roleId: userRole!.id,
       isActive: true,
