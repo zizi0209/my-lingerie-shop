@@ -18,7 +18,7 @@ import type {
   RegionCode,
 } from '@/types/size-system-v2';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 // ============================================
 // SISTER SIZING API
@@ -31,7 +31,7 @@ export async function getSisterSizes(
   universalCode: string
 ): Promise<SisterSizeApiResponse> {
   const response = await axios.get<ApiResponse<SisterSizeApiResponse>>(
-    `${API_BASE_URL}/api/sizes/sister/${universalCode}`
+     `${API_BASE_URL}/sizes/sister/${universalCode}`
   );
   return response.data.data;
 }
@@ -44,13 +44,30 @@ export async function getAvailableSisterSizes(
   requestedSize: string,
   regionCode: RegionCode
 ): Promise<AlternativesApiResponse> {
-  const response = await axios.get<ApiResponse<AlternativesApiResponse>>(
-    `${API_BASE_URL}/api/products/${productId}/sizes/alternatives`,
-    {
-      params: { requestedSize, regionCode },
-    }
-  );
-  return response.data.data;
+   const url = `${API_BASE_URL}/products/${productId}/sizes/alternatives`;
+  console.log('[Size System API] Calling:', url, { requestedSize, regionCode, productId });
+
+  try {
+    const response = await axios.get<ApiResponse<AlternativesApiResponse>>(
+      url,
+      {
+        params: { requestedSize, regionCode },
+      }
+    );
+    console.log('[Size System API] Success:', response.data);
+    return response.data.data;
+  } catch (error: any) {
+    console.error('[Size System API] Error:', {
+      url,
+      productId,
+      requestedSize,
+      regionCode,
+      status: error.response?.status,
+      message: error.message,
+      baseUrl: API_BASE_URL
+    });
+    throw error;
+  }
 }
 
 /**
@@ -60,7 +77,7 @@ export async function acceptSisterSizeRecommendation(
   recommendationId: string,
   userId?: number
 ): Promise<void> {
-  await axios.post(`${API_BASE_URL}/api/sizes/sister/accept`, {
+   await axios.post(`${API_BASE_URL}/sizes/sister/accept`, {
     recommendationId,
     userId,
   });
@@ -79,7 +96,7 @@ export async function convertCupLetter(
   cupLetter: string
 ): Promise<CupConversionResult> {
   const response = await axios.post<ApiResponse<CupConversionResult>>(
-    `${API_BASE_URL}/api/sizes/cup/convert`,
+     `${API_BASE_URL}/sizes/cup/convert`,
     { fromRegion, toRegion, cupLetter }
   );
   return response.data.data;
@@ -92,7 +109,7 @@ export async function getCupProgression(
   regionCode: RegionCode
 ): Promise<string[]> {
   const response = await axios.get<ApiResponse<{ progression: string[] }>>(
-    `${API_BASE_URL}/api/sizes/cup/progression/${regionCode}`
+     `${API_BASE_URL}/sizes/cup/progression/${regionCode}`
   );
   return response.data.data.progression;
 }
@@ -104,7 +121,7 @@ export async function getCupConversionMatrix(
   cupVolume: number
 ): Promise<ConversionMatrix> {
   const response = await axios.get<ApiResponse<ConversionMatrix>>(
-    `${API_BASE_URL}/api/sizes/cup/matrix/${cupVolume}`
+     `${API_BASE_URL}/sizes/cup/matrix/${cupVolume}`
   );
   return response.data.data;
 }
@@ -122,7 +139,7 @@ export async function getBrandFitAdjustment(
   regionCode: RegionCode
 ): Promise<SizeAdjustmentResult> {
   const response = await axios.post<ApiResponse<SizeAdjustmentResult>>(
-    `${API_BASE_URL}/api/brands/fit/adjust`,
+     `${API_BASE_URL}/brands/fit/adjust`,
     { brandId, userNormalSize, regionCode }
   );
   return response.data.data;
@@ -135,7 +152,7 @@ export async function getBrandFitProfile(
   brandId: string
 ): Promise<BrandFitProfile> {
   const response = await axios.get<ApiResponse<BrandFitProfile>>(
-    `${API_BASE_URL}/api/brands/${brandId}/fit`
+     `${API_BASE_URL}/brands/${brandId}/fit`
   );
   return response.data.data;
 }
@@ -146,7 +163,7 @@ export async function getBrandFitProfile(
 export async function submitBrandFitFeedback(
   feedback: BrandFitFeedback
 ): Promise<void> {
-  await axios.post(`${API_BASE_URL}/api/brands/fit/feedback`, feedback);
+   await axios.post(`${API_BASE_URL}/brands/fit/feedback`, feedback);
 }
 
 /**
@@ -156,7 +173,7 @@ export async function getBrandFitStats(
   brandId: string
 ): Promise<BrandFitStats> {
   const response = await axios.get<ApiResponse<BrandFitStats>>(
-    `${API_BASE_URL}/api/brands/${brandId}/fit/stats`
+     `${API_BASE_URL}/brands/${brandId}/fit/stats`
   );
   return response.data.data;
 }
