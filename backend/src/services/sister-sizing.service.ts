@@ -25,7 +25,6 @@ const prisma = new PrismaClient();
  try {
    redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
      maxRetriesPerRequest: 3,
-     retryDelayOnFailover: 100,
      enableReadyCheck: false,
      lazyConnect: true,
    });
