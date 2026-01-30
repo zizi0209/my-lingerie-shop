@@ -37,8 +37,7 @@ import aboutStatsRoutes from './routes/aboutStatsRoutes';
 import productPostRoutes from './routes/productPostRoutes';
 import backgroundRemovalRoutes from './routes/backgroundRemovalRoutes';
 import seedRoutes from './routes/seedRoutes';
-// TODO: Re-enable after Railway cache clear
-// import sizeSystemV2Routes from './routes/size-system-v2.routes';
+import sizeSystemV2Routes from './routes/size-system-v2.routes';
 import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
@@ -114,9 +113,8 @@ app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/product-posts', productPostRoutes);
 app.use('/api/background-removal', backgroundRemovalRoutes);
 
-// Size System V2 routes - Temporarily disabled for Railway deployment
-// TODO: Re-enable after Docker cache cleared
-// app.use('/api', sizeSystemV2Routes);
+// Size System V2 routes
+app.use('/api', sizeSystemV2Routes);
 
 // Admin routes (protected)
 app.use('/api/admin', adminRoutes);
