@@ -23,23 +23,27 @@ export const getServerTheme = cache(async (): Promise<StoreConfig> => {
     // Use environment variable - backend runs on port 5000
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
     const url = `${baseUrl}/public/config`;
-    
-    // Fetch with no-cache to always get fresh data
+
+    // Fetch with no-cache to always get fresh data, with timeout
     const response = await fetch(url, {
       cache: 'no-store',
       next: { revalidate: 0 },
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: AbortSignal.timeout(3000), // 3s timeout
     });
 
     if (!response.ok) {
+      console.warn(`[SSR] Config API returned ${response.status}, using defaults`);
       throw new Error(`Failed to fetch theme: ${response.status}`);
     }
 
     const data = await response.json();
     const config = data.data || {};
-    
+
+    console.log('[SSR] Config loaded successfully from API');
+
     return {
       primary_color: config.primary_color || '#f43f5e',
       store_name: config.store_name || 'Lingerie Shop',
@@ -54,7 +58,10 @@ export const getServerTheme = cache(async (): Promise<StoreConfig> => {
       social_zalo: config.social_zalo,
     };
   } catch (error) {
-    console.error('[SSR] Config fetch error:', error);
+    // Database down or network error - use fallback defaults
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.warn(`[SSR] Config fetch failed (${errorMsg}), using fallback defaults`);
+
     return {
       primary_color: '#f43f5e',
       store_name: 'Lingerie Shop',

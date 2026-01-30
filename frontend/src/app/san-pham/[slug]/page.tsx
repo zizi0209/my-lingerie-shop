@@ -10,6 +10,12 @@ import ReviewList from "@/components/product/ReviewList";
 import SizeGuideModal from "@/components/product/SizeGuideModal";
 import RecommendationSection from "@/components/product/RecommendationSection";
 import RelatedPosts from "@/components/product/RelatedPosts";
+// Size System V2 Components
+import SisterSizeAlert from "@/components/product/SisterSizeAlert";
+import BrandFitNotice from "@/components/product/BrandFitNotice";
+import RegionSwitcher from "@/components/product/RegionSwitcher";
+import type { RegionCode } from "@/types/size-system-v2";
+// End Size System V2
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
@@ -46,6 +52,7 @@ interface Product {
   price: number;
   salePrice: number | null;
   productType: ProductType;
+  brandId?: string; // Size System V2
   category: Category;
   images: ProductImage[];
   variants: ProductVariant[];
@@ -82,9 +89,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const [activeTab, setActiveTab] = useState("description");
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
-  
+  // Size System V2 state
+  const [regionCode, setRegionCode] = useState<RegionCode>('US');
+
   const isLiked = product ? isInWishlist(product.id) : false;
-  
+
+  // Load region preference from localStorage
+  useEffect(() => {
+    const savedRegion = localStorage.getItem('preferredRegion') as RegionCode;
+    if (savedRegion) {
+      setRegionCode(savedRegion);
+    }
+  }, []);
+
   // Get or create session ID
   useEffect(() => {
     let sid = localStorage.getItem('sessionId');
@@ -364,6 +381,37 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             )}
           </div>
 
+          {/* Size System V2: Region Switcher & Brand Fit Notice */}
+          <div className="space-y-4 py-4 border-y border-gray-200 dark:border-gray-700">
+            {/* Region Switcher */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Size Region:
+              </span>
+              <RegionSwitcher
+                currentRegion={regionCode}
+                onRegionChange={(region) => {
+                  setRegionCode(region);
+                  localStorage.setItem('preferredRegion', region);
+                }}
+              />
+            </div>
+
+            {/* Brand Fit Notice - shows if brand runs small/large */}
+            {product?.brandId && selectedSize && (
+              <BrandFitNotice
+                brandId={product.brandId}
+                userNormalSize={selectedSize}
+                regionCode={regionCode}
+                onSizeRecommended={(recommendedSize) => {
+                  console.log('Brand recommends:', recommendedSize);
+                  // Optionally auto-select recommended size
+                  // setSelectedSize(recommendedSize);
+                }}
+              />
+            )}
+          </div>
+
           {/* Color Selection */}
           {colors.length > 0 && (
             <div>
@@ -433,6 +481,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 })}
               </div>
             </div>
+          )}
+
+          {/* Size System V2: Sister Size Alert - shows when selected size is out of stock */}
+          {product && selectedSize && selectedColor && (
+            <SisterSizeAlert
+              productId={product.id}
+              requestedSize={selectedSize}
+              regionCode={regionCode}
+              onSizeSelect={(size, universalCode) => {
+                setSelectedSize(size);
+                toast.success(`Đã chọn size thay thế: ${size}`);
+                console.log('Selected sister size:', size, 'UIC:', universalCode);
+              }}
+            />
           )}
 
           {/* Quantity */}

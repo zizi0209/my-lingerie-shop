@@ -1,0 +1,383 @@
+// ============================================
+// LINGERIE SIZE SYSTEM V2 - SCHEMA ADDITIONS
+// Add these models to your existing schema.prisma
+// ============================================
+
+// ============================================
+// REGION & SIZE STANDARD
+// ============================================
+
+model Region {
+  id          String   @id @default(cuid())
+  code        String   @unique // "US", "UK", "EU", "FR", "AU", "JP", "VN"
+  name        String   // "United States"
+  currency    String   // "USD", "GBP", "EUR"
+  isActive    Boolean  @default(true)
+  priority    Int      @default(0)
+
+  sizeStandards  SizeStandard[]
+  regionalSizes  RegionalSize[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code, isActive])
+  @@map("regions")
+}
+
+model SizeStandard {
+  id          String   @id @default(cuid())
+  code        String   @unique // "US_BRA", "UK_BRA"
+  region      Region   @relation(fields: [regionId], references: [id])
+  regionId    String
+
+  category    String   // "BRA", "PANTY", "SET", "SLEEPWEAR", "SHAPEWEAR"
+  name        String   // "US Bra Size Standard"
+  description String?
+
+  lengthUnit  String   @default("in") // "in", "cm"
+  weightUnit  String   @default("lb") // "lb", "kg"
+
+  // Cup progression rules (region-specific)
+  cupProgression Json  // ["A","B","C","D","DD","DDD","G","H"] for US
+                       // ["A","B","C","D","DD","E","F","FF"] for UK
+
+  chartVersion String  @default("1.0")
+  chartUrl    String?  // Link to official size chart image
+
+  sizes       RegionalSize[]
+  conversionsFrom SizeConversion[] @relation("FromStandard")
+  conversionsTo   SizeConversion[] @relation("ToStandard")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([regionId, category])
+  @@index([code, category])
+  @@map("size_standards")
+}
+
+// ============================================
+// REGIONAL SIZE WITH SISTER SIZING SUPPORT
+// ============================================
+
+model RegionalSize {
+  id          String   @id @default(cuid())
+
+  // Universal Internal Code - CRITICAL for cross-region mapping
+  universalCode String @unique // "UIC_BRA_BAND34_CUPVOL6"
+
+  region      Region   @relation(fields: [regionId], references: [id])
+  regionId    String
+  standard    SizeStandard @relation(fields: [standardId], references: [id])
+  standardId  String
+
+  // Display size (region-specific)
+  displaySize String   // "34C" (US), "75C" (EU), "12C" (AU)
+  sortOrder   Int
+
+  // Normalized measurements for sister sizing
+  bandSize    Int      // Normalized to cm (34in = 86cm, 75cm = 75cm)
+  cupVolume   Int      // 1-20 (standardized cup volume level)
+  cupLetter   String   // "C", "DD", "E" (region-specific letter)
+
+  // Full measurement details
+  measurements Json    // Complete measurement ranges
+
+  // Sister sizing references (UIC codes)
+  sisterSizeDownUIC String? // UIC of sister size down (band -2)
+  sisterSizeUpUIC   String? // UIC of sister size up (band +2)
+
+  productVariants ProductVariant[] @relation("VariantBaseSize")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([standardId, displaySize])
+  @@index([universalCode, regionId])
+  @@index([bandSize, cupVolume]) // Critical for sister size queries
+  @@index([standardId, sortOrder])
+  @@map("regional_sizes")
+}
+
+// ============================================
+// SIZE CONVERSION WITH CUP LETTER MAPPING
+// ============================================
+
+model SizeConversion {
+  id          String   @id @default(cuid())
+
+  fromStandard SizeStandard @relation(fields: [fromStandardId], references: [id], name: "FromStandard")
+  fromStandardId String
+  fromSize    String   // "34C"
+  fromBand    Int      // 34 (or 86 in cm)
+  fromCupLetter String // "C" (US)
+  fromCupVolume Int    // 6
+
+  toStandard  SizeStandard @relation(fields: [toStandardId], references: [id], name: "ToStandard")
+  toStandardId String
+  toSize      String   // "75C" (EU)
+  toBand      Int      // 75 (cm)
+  toCupLetter String   // "C" (EU)
+  toCupVolume Int      // 6 (same volume!)
+
+  confidence  Float    @default(1.0) // 0-1 accuracy level
+  notes       String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([fromStandardId, fromSize, toStandardId])
+  @@index([fromStandardId, toStandardId])
+  @@index([fromCupVolume, toCupVolume]) // For volume-based queries
+  @@map("size_conversions")
+}
+
+// ============================================
+// BRAND FIT PROFILE
+// ============================================
+
+model Brand {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  logoUrl     String?
+
+  // Fit profile settings
+  fitType     String   @default("TRUE_TO_SIZE") // TRUE_TO_SIZE | RUNS_SMALL | RUNS_LARGE
+
+  // Numerical adjustments
+  bandAdjustment Int   @default(0) // -2, -1, 0, +1, +2 (in band size increments)
+  cupAdjustment  Int   @default(0) // -1, 0, +1 (in cup volume levels)
+
+  // User-facing fit notes
+  fitNotes    String?  @db.Text // "This brand runs small. We recommend sizing up."
+
+  // Confidence score for fit data (based on return rates, reviews)
+  fitConfidence Float  @default(0.5) // 0-1
+
+  products    Product[]
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([fitType])
+  @@map("brands")
+}
+
+// ============================================
+// UPDATE PRODUCT MODEL (Add brand relationship)
+// ============================================
+
+// Add to existing Product model:
+// brandId     String?
+// brand       Brand?   @relation(fields: [brandId], references: [id])
+
+// ============================================
+// UPDATE PRODUCT VARIANT (Use UIC for size)
+// ============================================
+
+// Replace existing ProductVariant or enhance it:
+model ProductVariantV2 {
+  id        Int      @id @default(autoincrement())
+
+  // Physical SKU (region-agnostic, single source of truth)
+  sku       String   @unique // "BRA-001-34C-BLACK"
+
+  // Base size reference (always in ONE standard, e.g., US)
+  baseSize  String   // "34C" (display format)
+  baseSizeUIC String // "UIC_BRA_BAND34_CUPVOL6" (universal code)
+
+  // Link to RegionalSize for full size data
+  regionalSize RegionalSize @relation(fields: [baseSizeUIC], references: [universalCode], name: "VariantBaseSize")
+
+  // Color
+  colorName String
+  colorHex  String?
+
+  // SINGLE STOCK NUMBER (not duplicated per region!)
+  stock     Int      @default(0)
+
+  // Pricing
+  price     Float?
+  salePrice Float?
+
+  // Product relationship
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  cartItems CartItem[]
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, baseSize, colorName])
+  @@index([productId])
+  @@index([sku])
+  @@index([baseSizeUIC])
+  @@index([stock])
+  @@map("product_variants_v2")
+}
+
+// ============================================
+// SISTER SIZE RECOMMENDATION LOG
+// ============================================
+
+model SisterSizeRecommendation {
+  id              String   @id @default(cuid())
+
+  productId       Int
+  variantId       Int?
+
+  // What user requested
+  requestedSize   String   // "34C"
+  requestedUIC    String   // "UIC_BRA_BAND34_CUPVOL6"
+
+  // What we recommended
+  recommendedSize String   // "32D" or "36B"
+  recommendedUIC  String   // "UIC_BRA_BAND32_CUPVOL6"
+  recommendationType String // "SISTER_DOWN" | "SISTER_UP"
+
+  // User interaction
+  accepted        Boolean? // Did user accept recommendation?
+  acceptedAt      DateTime?
+
+  // Context
+  userId          Int?
+  sessionId       String
+  regionCode      String   // Size display region
+
+  createdAt       DateTime @default(now())
+
+  @@index([productId, requestedSize])
+  @@index([accepted])
+  @@index([createdAt])
+  @@index([sessionId])
+  @@map("sister_size_recommendations")
+}
+
+// ============================================
+// BRAND FIT FEEDBACK (User-generated data)
+// ============================================
+
+model BrandFitFeedback {
+  id          String   @id @default(cuid())
+
+  brandId     String
+  brand       Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  productId   Int
+  userId      Int?
+
+  // User's normal size vs what they bought
+  normalSize  String   // "34C"
+  boughtSize  String   // "36D"
+
+  // Fit rating
+  fitRating   Int      // 1-5 (1=too small, 3=perfect, 5=too large)
+  fitComment  String?  @db.Text
+
+  // Verified purchase
+  isVerified  Boolean  @default(false)
+  orderId     Int?
+
+  createdAt   DateTime @default(now())
+
+  @@index([brandId])
+  @@index([fitRating])
+  @@index([isVerified])
+  @@map("brand_fit_feedback")
+}
+
+// Add to Brand model:
+// fitFeedback BrandFitFeedback[]
+
+// ============================================
+// USER PREFERENCE UPDATE
+// ============================================
+
+model UserPreferenceV2 {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique
+
+  // SIZE DISPLAY PREFERENCE (independent of location)
+  preferredSizeStandard String @default("US") // US, UK, EU, FR, AU, JP
+  preferredLengthUnit   String @default("in") // in, cm
+  preferredWeightUnit   String @default("lb") // lb, kg
+
+  // SHIPPING & PAYMENT (based on actual location)
+  shippingCountry String?  // "VN", "US", "UK"
+  preferredCurrency String @default("USD") // USD, VND, GBP, EUR
+
+  // Saved measurements
+  preferredSizes  Json?    // { "BRA": "34C", "PANTY": "M" }
+  bodyMeasurements Json?   // { "underBust": 30, "bust": 37, "waist": 28, "hip": 38 }
+
+  // Shopping behavior
+  colorAffinities Json?
+  styleAffinities Json?
+  avgOrderValue   Float    @default(0)
+  priceRange      Json?
+  categoryWeights Json?
+
+  lastUpdated     DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_preferences_v2")
+}
+
+// ============================================
+// CUP PROGRESSION REFERENCE (Static data)
+// ============================================
+
+model CupProgressionMap {
+  id          String   @id @default(cuid())
+
+  regionCode  String   // "US", "UK", "EU"
+  cupVolume   Int      // 1-20
+  cupLetter   String   // "A", "DD", "E", "FF"
+
+  // Additional metadata
+  isStandard  Boolean  @default(true) // Some brands have custom progressions
+  notes       String?
+
+  createdAt   DateTime @default(now())
+
+  @@unique([regionCode, cupVolume])
+  @@index([regionCode, cupLetter])
+  @@map("cup_progression_maps")
+}
+
+// ============================================
+// SIZE SYSTEM AUDIT LOG
+// ============================================
+
+model SizeSystemAuditLog {
+  id          String   @id @default(cuid())
+
+  userId      Int
+  action      String   // CREATE, UPDATE, DELETE, BULK_IMPORT
+  entityType  String   // REGION, SIZE_STANDARD, REGIONAL_SIZE, CONVERSION, BRAND
+  entityId    String
+
+  oldValue    Json?
+  newValue    Json?
+
+  ipAddress   String?
+  userAgent   String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("size_system_audit_logs")
+}
