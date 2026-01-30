@@ -197,6 +197,24 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     ? [...new Set(product.variants.filter(v => v.colorName === selectedColor).map(v => v.size))]
     : [];
 
+   // Kiểm tra xem có phải là freesize không (không cần hiển thị sister size cho freesize)
+   const isFreeSize = (size: string, allSizes: string[]) => {
+     const lowerSize = size.toLowerCase();
+     // Nếu size chứa "free" hoặc chỉ có 1 size và không phải là size bra/panty thông thường
+     if (lowerSize.includes('free') || lowerSize.includes('one size')) {
+       return true;
+     }
+     // Nếu chỉ có 1 size và không match pattern bra size (như 32A, 34B, 75C, etc.)
+     if (allSizes.length === 1) {
+       const braPattern = /^\d{2}[a-zA-Z]+$/; // 34C, 75D
+       const pantyPattern = /^(XS|S|M|L|XL|XXL|XXXL)$/i;
+       if (!braPattern.test(size) && !pantyPattern.test(size)) {
+         return true;
+       }
+     }
+     return false;
+   };
+ 
   // Kiểm tra size có còn hàng không
   const isSizeAvailable = (size: string) => {
     const variant = product?.variants.find(
@@ -484,7 +502,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           )}
 
           {/* Size System V2: Sister Size Alert - shows when selected size is out of stock */}
-          {product && selectedSize && selectedColor && (
+           {product && selectedSize && selectedColor && !isFreeSize(selectedSize, sizes) && (
             <SisterSizeAlert
               productId={product.id}
               requestedSize={selectedSize}

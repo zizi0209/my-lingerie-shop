@@ -14,10 +14,60 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { Redis } from 'ioredis';
+ import Redis from 'ioredis';
 
 const prisma = new PrismaClient();
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+ 
+ // Redis with fallback - don't crash if Redis is unavailable
+ let redis: Redis | null = null;
+ let redisAvailable = false;
+ 
+ try {
+   redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+     maxRetriesPerRequest: 3,
+     retryDelayOnFailover: 100,
+     enableReadyCheck: false,
+     lazyConnect: true,
+   });
+   
+   redis.on('error', (err) => {
+     console.warn('[SisterSizing] Redis connection error, caching disabled:', err.message);
+     redisAvailable = false;
+   });
+   
+   redis.on('connect', () => {
+     console.log('[SisterSizing] Redis connected');
+     redisAvailable = true;
+   });
+   
+   // Try to connect
+   redis.connect().catch(() => {
+     redisAvailable = false;
+   });
+ } catch (err) {
+   console.warn('[SisterSizing] Redis initialization failed, caching disabled');
+   redis = null;
+   redisAvailable = false;
+ }
+ 
+ // Helper functions for safe Redis operations
+ async function safeRedisGet(key: string): Promise<string | null> {
+   if (!redis || !redisAvailable) return null;
+   try {
+     return await redis.get(key);
+   } catch {
+     return null;
+   }
+ }
+ 
+ async function safeRedisSetex(key: string, ttl: number, value: string): Promise<void> {
+   if (!redis || !redisAvailable) return;
+   try {
+     await redis.setex(key, ttl, value);
+   } catch {
+     // Ignore cache write errors
+   }
+ }
 
 // ============================================
 // TYPE DEFINITIONS
@@ -73,7 +123,7 @@ export class SisterSizingService {
 
     // Check cache first
     const cacheKey = `sister-sizes:${universalCode}`;
-    const cached = await redis.get(cacheKey);
+     const cached = await safeRedisGet(cacheKey);
     if (cached) {
       return JSON.parse(cached);
     }
@@ -131,7 +181,7 @@ export class SisterSizingService {
     };
 
     // Cache for 1 hour
-    await redis.setex(cacheKey, 3600, JSON.stringify(result));
+     await safeRedisSetex(cacheKey, 3600, JSON.stringify(result));
 
     return result;
   }
@@ -441,6 +491,9 @@ export class SisterSizingService {
    * Invalidate sister size cache
    */
   async invalidateCache(universalCode?: string): Promise<void> {
+     if (!redis || !redisAvailable) return;
+     
+     try {
     if (universalCode) {
       await redis.del(`sister-sizes:${universalCode}`);
     } else {
@@ -449,6 +502,9 @@ export class SisterSizingService {
         await redis.del(...keys);
       }
     }
+     } catch {
+       // Ignore cache invalidation errors
+     }
   }
 }
 
