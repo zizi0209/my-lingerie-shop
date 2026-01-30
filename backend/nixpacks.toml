@@ -4,9 +4,11 @@ nixPkgs = ["nodejs_20"]
 [variables]
 NODE_VERSION = "20"
 
+[phases.install]
+cmds = ["npm install --legacy-peer-deps"]
+
 [phases.build]
 cmds = [
-  "npm install",
   "npx prisma generate",
   "npm run build"
 ]
