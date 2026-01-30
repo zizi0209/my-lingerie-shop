@@ -36,6 +36,7 @@ import aboutSectionRoutes from './routes/aboutSectionRoutes';
 import aboutStatsRoutes from './routes/aboutStatsRoutes';
 import productPostRoutes from './routes/productPostRoutes';
 import backgroundRemovalRoutes from './routes/backgroundRemovalRoutes';
+import seedRoutes from './routes/seedRoutes';
 // TODO: Re-enable after Railway cache clear
 // import sizeSystemV2Routes from './routes/size-system-v2.routes';
 import { apiLimiter } from './middleware/rateLimiter';
@@ -80,6 +81,7 @@ app.use(cookieParser());
 // Public routes (no rate limit, no auth required)
 app.use('/api/public/config', publicConfigRoutes);
 app.use('/api/about-stats', aboutStatsRoutes);
+app.use('/api/seed', seedRoutes); // Seed endpoints for initial data setup
 
 // Rate limiting for all API routes
 app.use('/api', apiLimiter);
