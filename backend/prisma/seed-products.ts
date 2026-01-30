@@ -297,11 +297,12 @@ async function seedTestUsers() {
   ];
 
   const users = [];
-  for (const u of testUsers) {
-    const user = await prisma.user.upsert({
-      where: { email: u.email },
-      update: { name: u.name, phone: u.phone },
-      create: {
+  for (let i = 0; i < testUsers.length; i++) {
+    const u = testUsers[i];
+    const existing = await prisma.user.findFirst({ where: { email: u.email } });
+
+    const user = existing || await prisma.user.create({
+      data: {
         ...u,
         password: '$2b$10$K8YpSPYAWDMHF8H.QVU4Vu8VnNSW8Q5yQZPJKRJGEKzMHqM7.qGxy', // "password123"
         roleId: userRole.id,

@@ -211,25 +211,33 @@ async function seedVoucherTestData() {
   const userRole = await prisma.role.findFirst({ where: { name: 'USER' } });
   const hashedPassword = await bcrypt.hash('Test@123456', 12);
 
-  const testUser = await prisma.user.upsert({
-    where: { email: 'test@example.com' },
-    update: {
-      pointBalance: 1500,
-      totalSpent: 3500000,
-      memberTier: 'SILVER',
-    },
-    create: {
-      email: 'test@example.com',
-      password: hashedPassword,
-      name: 'Test User',
-      roleId: userRole?.id || null,
-      pointBalance: 1500,
-      totalSpent: 3500000,
-      memberTier: 'SILVER',
-      birthday: new Date('1995-06-15'),
-      isActive: true,
-    },
-  });
+  // Find or create test user
+  let testUser = await prisma.user.findFirst({ where: { email: 'test@example.com' } });
+
+  if (testUser) {
+    testUser = await prisma.user.update({
+      where: { id: testUser.id },
+      data: {
+        pointBalance: 1500,
+        totalSpent: 3500000,
+        memberTier: 'SILVER',
+      },
+    });
+  } else {
+    testUser = await prisma.user.create({
+      data: {
+        email: 'test@example.com',
+        password: hashedPassword,
+        name: 'Test User',
+        roleId: userRole?.id || null,
+        pointBalance: 1500,
+        totalSpent: 3500000,
+        memberTier: 'SILVER',
+        birthday: new Date('1995-06-15'),
+        isActive: true,
+      },
+    });
+  }
 
   console.log(`   ✅ ${testUser.email}`);
   console.log(`      - Điểm: ${testUser.pointBalance}`);
