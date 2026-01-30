@@ -36,10 +36,15 @@ import aboutSectionRoutes from './routes/aboutSectionRoutes';
 import aboutStatsRoutes from './routes/aboutStatsRoutes';
 import productPostRoutes from './routes/productPostRoutes';
 import backgroundRemovalRoutes from './routes/backgroundRemovalRoutes';
+import sizeSystemV2Routes from './routes/size-system-v2.routes';
 import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Trust proxy - Required for Render deployment and rate limiting
+// This allows Express to trust the X-Forwarded-* headers from Render's proxy
+app.set('trust proxy', 1);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -106,6 +111,8 @@ app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/product-posts', productPostRoutes);
 app.use('/api/background-removal', backgroundRemovalRoutes);
 
+// Size System V2 routes
+app.use('/api', sizeSystemV2Routes);
 // Admin routes (protected)
 app.use('/api/admin', adminRoutes);
 
@@ -116,3 +123,6 @@ app.listen(PORT, () => {
 app.get("/", (req, res) => {
   res.send("Hello from Lingerie Shop Backend!");
 });
+
+// Export app for testing
+export default app;
