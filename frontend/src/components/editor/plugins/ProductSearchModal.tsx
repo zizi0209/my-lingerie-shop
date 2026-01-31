@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search, X, ShoppingBag, Tag, ExternalLink } from 'lucide-react';
+import { Search, X, ShoppingBag, Tag } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 
 interface Product {

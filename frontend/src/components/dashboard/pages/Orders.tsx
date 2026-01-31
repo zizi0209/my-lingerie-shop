@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Filter, Eye, Loader2, AlertCircle, X, Package, Truck, 
-  CheckCircle, XCircle, Clock, CreditCard, MapPin, Phone, User, Hash
+  CheckCircle, XCircle, Clock, MapPin, Phone, User, Hash
 } from 'lucide-react';
-import { orderApi, type Order, type OrderStatus, type PaymentStatus, type UpdateOrderData } from '@/lib/orderApi';
+import { orderApi, type Order, type OrderStatus, type PaymentStatus } from '@/lib/orderApi';
 import SearchInput from '../components/SearchInput';
 import Pagination from '../components/Pagination';
 import { useLanguage } from '../components/LanguageContext';

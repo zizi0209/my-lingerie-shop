@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
-  COMMAND_PRIORITY_LOW,
   TextNode,
   $getSelection,
   $isRangeSelection,

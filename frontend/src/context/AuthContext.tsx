@@ -173,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       // Clear session and redirect
-      logout();
+      void logout();
     };
 
     // Listen for custom session-expired event

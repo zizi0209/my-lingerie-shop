@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ShoppingBag, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 import { api } from '@/lib/api';
 import { getSessionId } from '@/lib/tracking';
 

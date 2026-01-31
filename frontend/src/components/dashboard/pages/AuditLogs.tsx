@@ -475,7 +475,7 @@ export default function AuditLogs() {
                         <pre className="p-3 bg-slate-100 dark:bg-slate-900 rounded-lg overflow-x-auto text-xs text-slate-700 dark:text-slate-300 max-h-48">
                           {typeof log.oldValue === 'object' 
                             ? JSON.stringify(log.oldValue, null, 2)
-                            : String(log.oldValue)}
+                            : JSON.stringify(log.oldValue)}
                         </pre>
                       </div>
                     )}
@@ -487,7 +487,7 @@ export default function AuditLogs() {
                         <pre className="p-3 bg-slate-100 dark:bg-slate-900 rounded-lg overflow-x-auto text-xs text-slate-700 dark:text-slate-300 max-h-48">
                           {typeof log.newValue === 'object'
                             ? JSON.stringify(log.newValue, null, 2)
-                            : String(log.newValue)}
+                            : JSON.stringify(log.newValue)}
                         </pre>
                       </div>
                     )}

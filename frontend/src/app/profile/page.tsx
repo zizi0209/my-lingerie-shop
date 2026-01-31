@@ -9,7 +9,6 @@ import {
   ShoppingBag,
   Heart,
   MapPin,
-  Settings,
   LogOut,
   Edit,
   Camera,
@@ -118,7 +117,7 @@ function ProfileContent() {
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
 
   // Points state
-  const [pointsInfo, setPointsInfo] = useState<{
+  const [_pointsInfo, _setPointsInfo] = useState<{
     pointBalance: number;
     memberTier: string;
     totalSpent: number;

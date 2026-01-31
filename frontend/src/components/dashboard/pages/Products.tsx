@@ -701,7 +701,7 @@ const Products: React.FC = () => {
       await productApi.update(aiProduct.id, { description: aiDescription });
       setShowAIModal(false);
       setRefreshTrigger(prev => prev + 1);
-    } catch (err) {
+    } catch {
       setAIError('Không thể lưu mô tả');
     }
   };
@@ -1556,7 +1556,7 @@ const Products: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                              {formData.variants.filter(v => v.size && v.color).map((variant, index) => {
+                              {formData.variants.filter(v => v.size && v.color).map((variant) => {
                                 const actualIndex = formData.variants.findIndex(v => v.size === variant.size && v.color === variant.color);
                                 return (
                                   <tr key={`${variant.size}-${variant.color}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">

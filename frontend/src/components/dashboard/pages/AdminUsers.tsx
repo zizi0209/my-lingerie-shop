@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Plus, Edit2, Trash2, Loader2, AlertCircle, X, 
-  Users, CheckCircle, Shield, Lock, Unlock, UserCheck, UserX, Mail, Phone, Calendar
+  Edit2, Trash2, Loader2, AlertCircle, X, 
+  Users, CheckCircle, Shield, Lock, Unlock, UserCheck, UserX, Mail, Calendar
 } from 'lucide-react';
 import { adminUserApi, type User } from '@/lib/adminApi';
 import { api } from '@/lib/api';

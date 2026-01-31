@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Plus, Edit2, Trash2, Loader2, AlertCircle, X, 
-  Shield, CheckCircle, Users, Key, Check
+  Shield, Users, Key, Check
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useLanguage } from '../components/LanguageContext';

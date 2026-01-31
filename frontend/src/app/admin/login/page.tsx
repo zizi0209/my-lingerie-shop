@@ -31,7 +31,7 @@ export default function AdminLoginPage() {
           setStoreName(data.data?.store_name || 'Admin Panel');
           setStoreLogo(data.data?.store_logo);
         }
-      } catch (err) {
+      } catch {
         // Use defaults
       }
     };

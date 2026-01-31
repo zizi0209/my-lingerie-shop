@@ -160,7 +160,7 @@
  
              return (
                <ProductCardInPost
-                 key={`product-${fragment.content}-${fragment.index}`}
+                 key={`product-${JSON.stringify(fragment.content)}-${fragment.index}`}
                  product={productData.product}
                  displayType={productData.displayType}
                  customNote={productData.customNote}

@@ -15,8 +15,6 @@ import { useTheme } from '../components/ThemeContext';
 import { useLanguage } from '../components/LanguageContext';
 import { adminDashboardApi, type DashboardStats, type AuditLog, type LiveFeedItem } from '@/lib/adminApi';
 import DateRangePicker, { type DateRange } from '../DateRangePicker';
-import GrowthIndicator from '../GrowthIndicator';
-import { dateRangeToPeriod } from '@/lib/dateRangeUtils';
 
 interface ChartDataPoint {
   name: string;
@@ -99,7 +97,7 @@ const getActionConfig = (action: string): {
 
 const DashboardHome: React.FC = () => {
   const { isDark } = useTheme();
-  const { t } = useLanguage();
+  useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -122,9 +120,6 @@ const DashboardHome: React.FC = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        
-        // Convert date range to period using utility function
-        const period = dateRangeToPeriod(dateRange);
         
         // Format dates for API
         const startDate = dateRange.startDate.toISOString();

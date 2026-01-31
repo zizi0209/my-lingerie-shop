@@ -142,7 +142,7 @@ export default function RecommendationSection({
         sessionId: sessionId || 'anonymous',
         userId
       });
-    } catch (error) {
+    } catch {
       // Silent fail for tracking
     }
   };

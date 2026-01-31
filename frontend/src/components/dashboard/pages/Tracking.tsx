@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, LineChart, Line
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import {
   Eye, ShoppingCart, CreditCard, TrendingUp, TrendingDown,
@@ -14,7 +13,6 @@ import {
 import { useTheme } from '../components/ThemeContext';
 import { api } from '@/lib/api';
 import DateRangePicker, { type DateRange } from '../DateRangePicker';
-import GrowthIndicator from '../GrowthIndicator';
 import { dateRangeToPeriod } from '@/lib/dateRangeUtils';
 
 // ============== TYPES ==============
@@ -1017,7 +1015,7 @@ const Tracking: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {recData.sourceStats.slice(0, 4).map((source, idx) => (
+                {recData.sourceStats.slice(0, 4).map((source) => (
                   <div key={source.source} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 text-center">
                     <p className="text-lg font-bold text-slate-900 dark:text-white">{formatNumber(source.views)}</p>
                     <p className="text-xs text-slate-500">{source.label}</p>

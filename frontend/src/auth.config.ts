@@ -77,7 +77,7 @@ export default {
     error: "/login-register",
   },
   callbacks: {
-    async signIn({ user, account, profile, email }) {
+    async signIn({ user, account }) {
       // Social login: Create user in backend database
       if (account?.provider === "google" || account?.provider === "github") {
         try {

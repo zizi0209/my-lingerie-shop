@@ -76,7 +76,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const { isAuthenticated, user } = useAuth();
   
   const [product, setProduct] = useState<Product | null>(null);
-  const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
+  const [_relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingToCart, setAddingToCart] = useState(false);

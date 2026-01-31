@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import MediaLibrary from './MediaLibrary';
 import Image from 'next/image';
 

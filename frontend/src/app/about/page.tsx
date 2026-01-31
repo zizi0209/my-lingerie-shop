@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Sparkles, Leaf, Package, Heart, Shield, Scissors, Loader2 } from "lucide-react";
+import { ArrowRight, Sparkles, Package, Heart, Shield, Scissors, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { sanitizeForPublic } from "@/lib/sanitize";
 import { StatCounter } from "@/components/about/StatCounter";

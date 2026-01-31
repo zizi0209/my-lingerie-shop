@@ -14,7 +14,7 @@ interface ReviewStatsProps {
 }
 
 export default function ReviewStats({ stats }: ReviewStatsProps) {
-  const maxCount = Math.max(...Object.values(stats.distribution), 1);
+  const _maxCount = Math.max(...Object.values(stats.distribution), 1);
   
   const fitTotal = Object.values(stats.fitFeedback).reduce((a, b) => a + b, 0);
   const fitPercentages = {
@@ -94,8 +94,7 @@ export default function ReviewStats({ stats }: ReviewStatsProps) {
               {/* Marker position based on weighted average */}
               {(() => {
                 const weightedPos = 
-                  (fitPercentages.SMALL * 0 + 
-                   fitPercentages.TRUE_TO_SIZE * 50 + 
+                  (fitPercentages.TRUE_TO_SIZE * 50 + 
                    fitPercentages.LARGE * 100) / 100;
                 return (
                   <div

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, Edit2, Trash2, Loader2, AlertCircle, X, CheckCircle,
-  Gift, Star, Coins
+  Gift, Coins
 } from 'lucide-react';
 import { pointRewardApi, type PointReward } from '@/lib/couponApi';
 import { useLanguage } from '../components/LanguageContext';

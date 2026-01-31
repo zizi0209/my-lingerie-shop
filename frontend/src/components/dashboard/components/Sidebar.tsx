@@ -8,7 +8,7 @@ import {
   Users, UserCheck, ShoppingCart, Settings, 
   ShieldCheck, MousePointer2, Home, 
   Tag, Menu, Activity, Store, Palette, Star,
-  Ticket, Megaphone, Gift, Search, Ruler, Info, Link as LinkIcon
+  Ticket, Megaphone, Gift, Search, Ruler, Info
 } from 'lucide-react';
 import { useLanguage } from './LanguageContext';
 import { useStoreConfig } from './StoreConfigContext';

@@ -6,7 +6,7 @@ import {
   Globe, Bell, Palette, Phone, Mail, MapPin, 
   Image as ImageIcon, Upload, X, Store, Facebook, Instagram,
   ShoppingCart, CreditCard, Zap, Settings as SettingsIcon,
-  TrendingUp, Package, DollarSign, Shield
+  TrendingUp, Package, Shield
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useLanguage } from '../components/LanguageContext';

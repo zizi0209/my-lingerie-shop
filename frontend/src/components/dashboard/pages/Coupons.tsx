@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, Edit2, Trash2, Loader2, AlertCircle, X, CheckCircle,
-  Ticket, Percent, Tag, Calendar, Users, TrendingUp, Copy, Eye
+  Ticket, Percent, Tag, TrendingUp, Copy
 } from 'lucide-react';
 import { couponApi, campaignApi, type Coupon, type Campaign } from '@/lib/couponApi';
 import SearchInput from '../components/SearchInput';

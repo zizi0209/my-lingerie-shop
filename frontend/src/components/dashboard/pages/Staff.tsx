@@ -3,8 +3,8 @@
  import React, { useState, useEffect, useCallback } from 'react';
  import { 
    Plus, Edit2, Trash2, Loader2, AlertCircle, X, 
-   Users, Shield, Lock, Unlock, UserCheck, UserX, Mail, Phone, Calendar,
-   Eye, Activity, CheckCircle
+  Users, Shield, Lock, UserCheck, UserX, Mail, Phone, Calendar,
+  Activity, CheckCircle
  } from 'lucide-react';
  import { adminUserApi, type User } from '@/lib/adminApi';
  import { api } from '@/lib/api';
@@ -463,11 +463,9 @@ import { useAuth } from '@/context/AuthContext';
         ? `/admin/users/${promotionData.existingUser.id}/restore`
         : `/admin/users/${promotionData.existingUser.id}/promote-role`;
 
-      await api.patch(endpoint, {
-        ...(promotionData.isRestore
+      await api.patch(endpoint, (promotionData.isRestore
           ? { roleId: promotionData.requestedRoleId }  // restore endpoint
-          : { newRoleId: promotionData.requestedRoleId })  // promote endpoint
-      });
+          : { newRoleId: promotionData.requestedRoleId }));
 
       setSuccessMessage(
          language === 'vi'

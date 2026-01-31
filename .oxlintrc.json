@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "rules": {
+    "no-floating-promises": "off",
+    "no-unused-vars": "warn",
+    "unbound-method": "off"
+  },
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    ".next",
+    "**/*.test.tsx",
+    "**/*.test.ts"
+  ]
+}

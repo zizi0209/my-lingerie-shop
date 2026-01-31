@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Plus, Edit2, Trash2, Loader2, AlertCircle, X, 
-  FileText, CheckCircle, Eye, EyeOff, Calendar, User, Upload, Image as ImageIcon
+  FileText, CheckCircle, Eye, EyeOff, User, Upload, Image as ImageIcon
 } from 'lucide-react';
 import { postApi, postCategoryApi, type Post, type PostCategory, type CreatePostData, type UpdatePostData } from '@/lib/postApi';
 import { api } from '@/lib/api';
@@ -349,7 +349,7 @@ const Posts: React.FC = () => {
   };
 
   // Format date
-  const formatDate = (date: Date | string | null) => {
+  const _formatDate = (date: Date | string | null) => {
     if (!date) return '-';
     return new Date(date).toLocaleDateString('vi-VN', {
       day: '2-digit',

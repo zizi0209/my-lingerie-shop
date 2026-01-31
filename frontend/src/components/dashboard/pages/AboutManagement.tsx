@@ -10,7 +10,6 @@ import { useLanguage } from '../components/LanguageContext';
 import dynamic from 'next/dynamic';
 
 import { sanitizeForPreview } from '@/lib/sanitize';
-import Image from 'next/image';
 import { ImageUploadField } from './ImageUploadField';
 
 const LexicalEditor = dynamic(() => import('@/components/editor/LexicalEditor'), {
@@ -146,7 +145,7 @@ const AboutManagement: React.FC = () => {
   };
 
   // Helper để update metadata safely
-  const updateMetadata = (metadataUpdates: Record<string, unknown>) => {
+  const _updateMetadata = (metadataUpdates: Record<string, unknown>) => {
     setEditingSection(prev => {
       if (!prev) return prev;
       return {
@@ -477,7 +476,7 @@ const AboutManagement: React.FC = () => {
                         const needsTitle = ['hero', 'story', 'craftsmanship', 'values', 'team', 'socialproof', 'cta'].includes(key);
                         const needsSubtitle = ['hero', 'story', 'craftsmanship', 'values', 'team', 'socialproof', 'cta'].includes(key);
                         const needsContent = ['hero', 'story', 'craftsmanship', 'team', 'cta'].includes(key);
-                        const needsImage = ['hero', 'story'].includes(key);
+                        const _needsImage = ['hero', 'story'].includes(key);
 
                         return (
                           <>

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Mail, ArrowLeft, CheckCircle, Eye, EyeOff } from "lucide-react";
 
 export default function ForgetPasswordPage() {
@@ -43,7 +42,7 @@ export default function ForgetPasswordPage() {
       } else {
         setMessage(data.error || "Có lỗi xảy ra. Vui lòng thử lại.");
       }
-    } catch (error) {
+    } catch {
       setIsLoading(false);
       setMessage("Không thể kết nối đến server. Vui lòng thử lại.");
     }
@@ -76,7 +75,7 @@ export default function ForgetPasswordPage() {
       } else {
         setMessage(data.error || "Mã OTP không hợp lệ");
       }
-    } catch (error) {
+    } catch {
       setIsLoading(false);
       setMessage("Không thể kết nối đến server. Vui lòng thử lại.");
     }
@@ -119,7 +118,7 @@ export default function ForgetPasswordPage() {
       } else {
         setMessage(data.error || "Có lỗi xảy ra. Vui lòng thử lại.");
       }
-    } catch (error) {
+    } catch {
       setIsLoading(false);
       setMessage("Không thể kết nối đến server. Vui lòng thử lại.");
     }

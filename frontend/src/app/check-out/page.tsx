@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Truck, Shield, CreditCard, ShoppingBag, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -11,7 +10,6 @@ import { userVoucherApi } from "@/lib/couponApi";
 import VoucherSelector from "@/components/checkout/VoucherSelector";
 
 export default function CheckoutPage() {
-  const router = useRouter();
   const { cart, loading: cartLoading, subtotal, clearCart } = useCart();
   const { user, isAuthenticated } = useAuth();
   

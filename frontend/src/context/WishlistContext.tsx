@@ -73,7 +73,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       if (data.success) {
         setItems(data.data);
       }
-    } catch (err) {
+    } catch {
       // Silent fail - không log error
       setItems([]);
     } finally {

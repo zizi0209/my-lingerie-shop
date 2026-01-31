@@ -16,7 +16,6 @@ import {
   Tag,
   ArrowLeft,
   Percent,
-  ShoppingBag,
 } from "lucide-react";
 import { userVoucherApi, type UserCoupon, type PointInfo, type PointReward } from "@/lib/couponApi";
 

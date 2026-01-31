@@ -52,7 +52,7 @@ export default function RegionSwitcher({
     setIsOpen(false);
   };
 
-  const currentPref = REGION_PREFERENCES[currentRegion];
+  const _currentPref = REGION_PREFERENCES[currentRegion];
 
   return (
     <div className={`relative inline-block ${className}`} ref={dropdownRef}>

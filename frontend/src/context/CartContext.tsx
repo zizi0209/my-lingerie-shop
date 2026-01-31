@@ -133,7 +133,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [baseUrl, isAuthenticated, user?.id]);
 
   useEffect(() => {
-    fetchCart();
+    void fetchCart();
   }, [fetchCart]);
 
   const addToCart = async (productId: number, variantId?: number, quantity = 1): Promise<boolean> => {

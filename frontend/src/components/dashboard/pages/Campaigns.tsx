@@ -6,7 +6,6 @@ import {
   Megaphone, Calendar, Ticket
 } from 'lucide-react';
 import { campaignApi, type Campaign } from '@/lib/couponApi';
-import SearchInput from '../components/SearchInput';
 import { useLanguage } from '../components/LanguageContext';
 
 interface CampaignFormData {

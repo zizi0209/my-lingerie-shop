@@ -21,7 +21,7 @@
    displayType: 'inline-card' | 'sidebar' | 'end-collection';
    customNote?: string;
    className?: string;
-   onRemove?: (productId: number) => void;
+  onRemove?: (productId: number) => void;
  }
  
  export default function ProductCardInPost({
@@ -29,7 +29,7 @@
    displayType,
    customNote,
    className = '',
-   onRemove,
+  onRemove: _onRemove,
  }: ProductCardInPostProps) {
    const [imageLoading, setImageLoading] = useState(true);
  

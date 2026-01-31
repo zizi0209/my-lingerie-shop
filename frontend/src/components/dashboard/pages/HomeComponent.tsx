@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Move, Settings, Eye, EyeOff, Plus, Trash2, Save, 
+  Settings, Eye, EyeOff, Plus, Trash2, Save, 
   Loader2, AlertCircle, CheckCircle, GripVertical,
   Image as ImageIcon, Type, ShoppingBag, Sparkles, Star, Mail,
-  Layout, Layers, ChevronDown, ChevronUp, X, Upload
+  Layout, Layers, X, Upload
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { compressImage, formatFileSize, validateImageFile } from '@/lib/imageUtils';
@@ -762,9 +762,9 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, onSave, onClose,
   const [content, setContent] = useState<Record<string, unknown>>(getDefaultContent());
   const [saving, setSaving] = useState(false);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setSaving(true);
-    await onSave(content);
+    onSave(content);
     setSaving(false);
   };
 

@@ -215,7 +215,7 @@ export default function SizeRecommender({
   const [result, setResult] = useState<RecommendResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingProfile, _setLoadingProfile] = useState(false);
 
   // Load saved measurements from localStorage (temporary until backend migration)
   useEffect(() => {
