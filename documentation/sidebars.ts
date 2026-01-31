@@ -9,7 +9,6 @@ const sidebars: SidebarsConfig = {
       items: [
         'user-guide/intro',
         'user-guide/quick-start',
-        'user-guide/getting-started/introduction',
         'user-guide/getting-started/screenshots',
       ],
     },
@@ -52,7 +51,6 @@ const sidebars: SidebarsConfig = {
       label: 'Testing',
       items: [
         'developer-guide/testing/overview',
-        'developer-guide/testing/qa-guide',
       ],
     },
     {
