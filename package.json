@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "docs:dev": "cd documentation && npm start",
+    "docs:build": "cd documentation && npm run build",
+    "docs:serve": "cd documentation && npm run serve",
     "typecheck": "npm run typecheck:backend && npm run typecheck:frontend",
     "typecheck:backend": "cd backend && npm run typecheck",
     "typecheck:frontend": "cd frontend && npm run typecheck",
