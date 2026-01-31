@@ -819,3 +819,40 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
 [data-dashboard-theme=light] .dark\:bg-purple-900\/30 {
   background-color: #faf5ff !important;
 }
+
+/* ============================================
+   Home Component Page Fixes for Light Mode
+   Section list hover + Input text color
+   ============================================ */
+
+/* Section list hover - super light */
+[data-dashboard-theme= light] .dark\:hover\:bg-slate-800\/50:hover {
+  background-color: #f8fafc !important;
+}
+
+/* Force all inputs and textareas to have dark text in light mode */
+[data-dashboard-theme=light] input,
+[data-dashboard-theme=light] textarea,
+[data-dashboard-theme=light] select {
+  color: #111827 !important;
+  background-color: #f8fafc !important;
+}
+
+[data-dashboard-theme=light] input::placeholder,
+[data-dashboard-theme=light] textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Input/Textarea with dark bg override */
+[data-dashboard-theme=light] .dark\:bg-slate-800 input,
+[data-dashboard-theme=light] .dark\:bg-slate-800 textarea,
+[data-dashboard-theme=light] input.dark\:bg-slate-800,
+[data-dashboard-theme=light] textarea.dark\:bg-slate-800 {
+  background-color: #f8fafc !important;
+  color: #111827 !important;
+}
+
+/* Force text-slate-100 to be dark in light mode */
+[data-dashboard-theme=light] .dark\:text-slate-100 {
+  color: #1e293b !important;
+}
