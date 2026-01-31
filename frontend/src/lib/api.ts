@@ -19,6 +19,8 @@ class ApiService {
   private baseUrl: string;
   private isRefreshing = false;
   private refreshPromise: Promise<boolean> | null = null;
+  private lastSessionExpiredEvent = 0;
+  private sessionExpiredDebounceMs = 1000; // Chỉ dispatch 1 event trong 1 giây
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
@@ -116,6 +118,25 @@ class ApiService {
     }
   }
 
+  // Dispatch session-expired event với debounce để tránh duplicate notifications
+  private dispatchSessionExpired(reason: string): void {
+    if (typeof window === 'undefined') return;
+    
+    const now = Date.now();
+    if (now - this.lastSessionExpiredEvent < this.sessionExpiredDebounceMs) {
+      console.log('[ApiService] Session expired event debounced');
+      return;
+    }
+    
+    this.lastSessionExpiredEvent = now;
+    window.dispatchEvent(new CustomEvent('session-expired', {
+      detail: {
+        message: 'SESSION_EXPIRED',
+        reason
+      }
+    }));
+  }
+
   // Request handler với JWT + Auto Refresh
   private async request<T>(
     endpoint: string,
@@ -158,14 +179,7 @@ class ApiService {
         this.removeToken();
 
         // Dispatch custom event for global session expiry handler
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('session-expired', {
-            detail: {
-              message: 'SESSION_EXPIRED',
-              reason: 'Token refresh failed'
-            }
-          }));
-        }
+        this.dispatchSessionExpired('Token refresh failed');
 
         // Throw silent error for auth check (không hiện thông báo cho user)
         const error = new Error('SESSION_EXPIRED');
@@ -180,14 +194,7 @@ class ApiService {
           this.removeToken();
 
           // Dispatch custom event for global session expiry handler
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('session-expired', {
-              detail: {
-                message: 'SESSION_EXPIRED',
-                reason: 'Unauthorized access'
-              }
-            }));
-          }
+          this.dispatchSessionExpired('Unauthorized access');
 
           // Throw silent error for auth check
           const error = new Error('SESSION_EXPIRED');

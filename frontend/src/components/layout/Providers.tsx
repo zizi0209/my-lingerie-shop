@@ -11,7 +11,12 @@ import { Toaster } from "sonner";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider 
+      attribute="class" 
+      defaultTheme="system" 
+      enableSystem
+      storageKey="frontend-theme"
+    >
       <SessionProvider>
         <AuthProvider>
           <CartProvider>

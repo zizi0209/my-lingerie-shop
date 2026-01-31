@@ -4,6 +4,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 type Theme = 'light' | 'dark';
 
+// Sử dụng localStorage key riêng cho dashboard để không ảnh hưởng đến frontend
+const DASHBOARD_THEME_KEY = 'dashboard-theme';
+
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
@@ -11,31 +14,30 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+// Helper to get initial theme from localStorage
+const getInitialTheme = (): Theme => {
+  if (typeof window === 'undefined') return 'light';
+  
+  const saved = localStorage.getItem(DASHBOARD_THEME_KEY);
+  if (saved === 'dark' || saved === 'light') {
+    return saved;
+  }
+  
+  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+  
+  return 'light';
+};
+
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>('light');
-  const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
+  // Chỉ lưu vào localStorage, KHÔNG modify document.documentElement
+  // để tránh conflict với next-themes của frontend
   useEffect(() => {
-    setMounted(true);
-    const saved = localStorage.getItem('theme');
-    if (saved) {
-      setTheme(saved as Theme);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
-    }
-  }, []);
-
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem('theme', theme);
-      
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
-  }, [theme, mounted]);
+    localStorage.setItem(DASHBOARD_THEME_KEY, theme);
+  }, [theme]);
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
