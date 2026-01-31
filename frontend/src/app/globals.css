@@ -612,3 +612,150 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
   border-color: #e2e8f0 !important;
   color: #0f172a !important;
 }
+
+
+/* ============================================
+   Data Tables Light Mode Fixes
+   Override dark mode row backgrounds for tables
+   ============================================ */
+
+/* Table container override */
+[data-dashboard-theme="light"] .dark\:bg-slate-900\/50 {
+  background-color: #ffffff !important;
+}
+
+/* Table rows - make them white/transparent in light mode */
+[data-dashboard-theme="light"] table tbody tr {
+  background-color: #ffffff !important;
+}
+
+[data-dashboard-theme="light"] table tbody tr:hover {
+  background-color: #fef2f2 !important;
+}
+
+/* Table header */
+[data-dashboard-theme="light"] thead.dark\:bg-slate-800\/50,
+[data-dashboard-theme="light"] .dark\:bg-slate-800\/50 {
+  background-color: #f8fafc !important;
+}
+
+/* Table dividers */
+[data-dashboard-theme="light"] .dark\:divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #f1f5f9 !important;
+}
+
+/* ============================================
+   Card Light Mode Fixes
+   For Categories and Colors cards
+   ============================================ */
+
+/* Card backgrounds - white with light border */
+[data-dashboard-theme="light"] .dark\:border-slate-800 {
+  border-color: #e2e8f0 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:hover\:border-rose-500:hover {
+  border-color: #f43f5e !important;
+}
+
+/* Badge/Tag fixes */
+[data-dashboard-theme="light"] .dark\:bg-slate-800 {
+  background-color: #f1f5f9 !important;
+}
+
+[data-dashboard-theme="light"] span.dark\:bg-slate-800 {
+  background-color: #f1f5f9 !important;
+  white-space: nowrap !important;
+}
+
+/* Badge text in light mode */
+[data-dashboard-theme="light"] .dark\:text-slate-400 {
+  color: #64748b !important;
+}
+
+/* Category tag - ensure no text wrapping */
+[data-dashboard-theme="light"] span[class*="rounded-lg"] {
+  white-space: nowrap !important;
+}
+
+/* Color card fix */
+[data-dashboard-theme="light"] .dark\:bg-slate-700 {
+  background-color: #e2e8f0 !important;
+}
+
+/* Inner shadow for color swatches in light mode */
+[data-dashboard-theme="light"] .shadow-inner {
+  box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05) !important;
+}
+
+/* ============================================
+   Gray Color Overrides for Light Mode
+   Some components use gray-* instead of slate-*
+   ============================================ */
+
+/* Card backgrounds using gray colors */
+[data-dashboard-theme="light"] .dark\:bg-gray-800 {
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-gray-700 {
+  background-color: #f9fafb !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-gray-900 {
+  background-color: #ffffff !important;
+}
+
+/* Text colors using gray */
+[data-dashboard-theme="light"] .dark\:text-gray-300 {
+  color: #374151 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-gray-400 {
+  color: #6b7280 !important;
+}
+
+/* Border colors using gray */
+[data-dashboard-theme="light"] .dark\:border-gray-600 {
+  border-color: #d1d5db !important;
+}
+
+[data-dashboard-theme="light"] .dark\:border-gray-700 {
+  border-color: #e5e7eb !important;
+}
+
+/* Hover states for gray */
+[data-dashboard-theme="light"] .dark\:hover\:bg-gray-700:hover {
+  background-color: #f3f4f6 !important;
+}
+
+/* Success/Error backgrounds using gray-based colors */
+[data-dashboard-theme="light"] .dark\:bg-green-900\/20 {
+  background-color: #ecfdf5 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-green-400 {
+  color: #059669 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-red-900\/20 {
+  background-color: #fef2f2 !important;
+}
+
+/* Icon button visibility fix in light mode */
+[data-dashboard-theme="light"] .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+[data-dashboard-theme="light"] .hover\:text-primary:hover {
+  color: var(--primary-500) !important;
+}
+
+[data-dashboard-theme="light"] .hover\:text-red-500:hover {
+  color: #ef4444 !important;
+}
+
+[data-dashboard-theme="light"] .hover\:bg-gray-100:hover {
+  background-color: #f3f4f6 !important;
+}
