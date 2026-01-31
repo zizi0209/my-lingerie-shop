@@ -1,21 +1,16 @@
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 
 const sidebars: SidebarsConfig = {
-  // User Guide - For end users
+  // User Guide
   userGuideSidebar: [
     {
       type: 'category',
       label: 'Getting Started',
-      items: ['user-guide/intro', 'user-guide/quick-start'],
-    },
-    {
-      type: 'category',
-      label: 'Dashboard Features',
       items: [
-        'user-guide/dashboard/overview',
-        'user-guide/dashboard/products',
-        'user-guide/dashboard/orders',
-        'user-guide/dashboard/customers',
+        'user-guide/intro',
+        'user-guide/quick-start',
+        'user-guide/getting-started/introduction',
+        'user-guide/getting-started/screenshots',
       ],
     },
     {
@@ -23,70 +18,66 @@ const sidebars: SidebarsConfig = {
       label: 'Size System',
       items: [
         'user-guide/size-system/overview',
-        'user-guide/size-system/recommendations',
-        'user-guide/size-system/sister-sizing',
       ],
     },
   ],
 
-  // Developer Guide - For developers
+  // Developer Guide
   developerGuideSidebar: [
     {
       type: 'category',
       label: 'Getting Started',
-      items: ['developer-guide/intro', 'developer-guide/setup'],
+      items: [
+        'developer-guide/intro',
+        'developer-guide/quick-reference',
+        'developer-guide/frontend-integration',
+      ],
     },
     {
       type: 'category',
       label: 'Architecture',
       items: [
         'developer-guide/architecture/overview',
-        'developer-guide/architecture/frontend',
-        'developer-guide/architecture/backend',
-        'developer-guide/architecture/database',
       ],
     },
     {
       type: 'category',
       label: 'Features',
       items: [
-        'developer-guide/features/authentication',
         'developer-guide/features/size-system',
-        'developer-guide/features/sister-sizing',
       ],
     },
     {
       type: 'category',
-      label: 'Testing & Deployment',
+      label: 'Testing',
       items: [
         'developer-guide/testing/overview',
+        'developer-guide/testing/qa-guide',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Deployment',
+      items: [
         'developer-guide/deployment/railway',
         'developer-guide/deployment/vercel',
       ],
     },
   ],
 
-  // API Reference - For API documentation
+  // API Reference
   apiReferenceSidebar: [
     {
       type: 'category',
-      label: 'Introduction',
-      items: ['api-reference/intro', 'api-reference/authentication'],
-    },
-    {
-      type: 'category',
-      label: 'Endpoints',
+      label: 'API Documentation',
       items: [
-        'api-reference/endpoints/products',
-        'api-reference/endpoints/orders',
-        'api-reference/endpoints/customers',
-        'api-reference/endpoints/size-system',
+        'api-reference/introduction',
+        'api-reference/products',
+        'api-reference/orders',
+        'api-reference/size-system',
+        'api-reference/dashboard',
+        'api-reference/media',
       ],
-    },
-    {
-      type: 'category',
-      label: 'Models',
-      items: ['api-reference/models/product', 'api-reference/models/order'],
     },
   ],
 };
