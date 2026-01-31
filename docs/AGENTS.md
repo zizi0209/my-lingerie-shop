@@ -69,4 +69,8 @@ Sau khi làm xong, cần check lại, đảm bảo không còn lỗi khi deploy:
 
 - bunx tsc --project frontend/tsconfig.json --noEmit
 - bunx tsc --project backend/tsconfig.json --noEmit
+
+* Vấn đề bunx là do cache bị hỏng. Bạn có thể xóa cache bằng:
+  Remove-Item -Recurse -Force $env:LOCALAPPDATA\Temp\bunx-\*
+
   </coding_guidelines>
