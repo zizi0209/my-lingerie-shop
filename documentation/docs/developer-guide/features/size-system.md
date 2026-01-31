@@ -181,5 +181,4 @@
  ## 📚 Learn More
  
  - [User Guide: Size System](../../user-guide/size-system/overview)
- - [API Reference: Size System](../../api-reference/endpoints/size-system)
- - [Complete Implementation](/docs/SIZE_SYSTEM_V2_README.md)
+ - [API Reference: Size System](../../api-reference/size-system)
