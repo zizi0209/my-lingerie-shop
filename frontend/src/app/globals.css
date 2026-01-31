@@ -491,3 +491,124 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
 [data-dashboard-theme="light"] .dark\:ring-slate-700 {
   --tw-ring-color: #e2e8f0 !important;
 }
+
+/* ============================================
+   Additional Dashboard Light Mode Overrides
+   ============================================ */
+
+/* More background overrides */
+[data-dashboard-theme="light"] .dark\:bg-slate-900\/80 {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-slate-600 {
+  background-color: #ffffff !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-slate-700\/50,
+[data-dashboard-theme="light"] .dark\:bg-slate-700\/30 {
+  background-color: #f1f5f9 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-slate-50 {
+  background-color: #f8fafc !important;
+}
+
+/* Color-specific backgrounds for icons/badges */
+[data-dashboard-theme="light"] .dark\:bg-orange-500\/20 {
+  background-color: #fff7ed !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-cyan-500\/20,
+[data-dashboard-theme="light"] .dark\:bg-cyan-500\/10 {
+  background-color: #ecfeff !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-rose-500\/20 {
+  background-color: #fff1f2 !important;
+}
+
+/* Text color overrides */
+[data-dashboard-theme="light"] .dark\:text-orange-400 {
+  color: #ea580c !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-cyan-400 {
+  color: #0891b2 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-rose-400 {
+  color: #e11d48 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-blue-600 {
+  color: #2563eb !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-emerald-600 {
+  color: #059669 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-amber-600 {
+  color: #d97706 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-purple-600 {
+  color: #9333ea !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-red-600 {
+  color: #dc2626 !important;
+}
+
+/* Border color overrides */
+[data-dashboard-theme="light"] .dark\:border-slate-700\/50 {
+  border-color: rgba(226, 232, 240, 0.5) !important;
+}
+
+[data-dashboard-theme="light"] .dark\:border-slate-100 {
+  border-color: #f1f5f9 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:border-slate-50 {
+  border-color: #f8fafc !important;
+}
+
+/* Hover state overrides */
+[data-dashboard-theme="light"] .dark\:hover\:bg-slate-700\/30:hover {
+  background-color: #f1f5f9 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:hover\:bg-slate-600:hover {
+  background-color: #e2e8f0 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:hover\:text-primary-400:hover {
+  color: var(--primary-600) !important;
+}
+
+/* Focus ring overrides */
+[data-dashboard-theme="light"] .dark\:focus\:ring-slate-700:focus {
+  --tw-ring-color: #e2e8f0 !important;
+}
+
+/* Shadow overrides for light mode */
+[data-dashboard-theme="light"] .dark\:shadow-slate-900\/20 {
+  --tw-shadow-color: rgba(15, 23, 42, 0.05) !important;
+}
+
+/* Gradient text support */
+[data-dashboard-theme="light"] .dark\:from-slate-100 {
+  --tw-gradient-from: #f1f5f9 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:to-slate-300 {
+  --tw-gradient-to: #cbd5e1 !important;
+}
+
+/* Chart/recharts tooltip backgrounds */
+[data-dashboard-theme="light"] .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
