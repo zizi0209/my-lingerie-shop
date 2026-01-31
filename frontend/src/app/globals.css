@@ -759,3 +759,63 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
 [data-dashboard-theme="light"] .hover\:bg-gray-100:hover {
   background-color: #f3f4f6 !important;
 }
+/* ============================================
+   Additional Light Mode Fixes
+   Hover states, About page headers, Coupon codes
+   ============================================ */
+
+/* Hover state fix - make hover much lighter */
+[data-dashboard-theme= light] .dark\:hover\:bg-gray-700\/50:hover {
+  background-color: #f9fafb !important;
+}
+
+[data-dashboard-theme=light] tr:hover,
+[data-dashboard-theme=light] .hover\:bg-gray-50:hover {
+  background-color: #f9fafb !important;
+}
+
+/* About page header blocks - force light backgrounds */
+[data-dashboard-theme=light] .dark\:bg-gray-900\/50 {
+  background-color: #f9fafb !important;
+}
+
+/* Green/Red border colors */
+[data-dashboard-theme=light] .dark\:border-green-800 {
+  border-color: #bbf7d0 !important;
+}
+
+[data-dashboard-theme=light] .dark\:border-red-800 {
+  border-color: #fecaca !important;
+}
+
+/* Coupon code text - make dark in light mode */
+[data-dashboard-theme=light] code {
+  background-color: #f3f4f6 !important;
+  color: #1f2937 !important;
+}
+
+[data-dashboard-theme=light] .font-mono {
+  color: #1f2937 !important;
+}
+
+/* Table hover - very light */
+[data-dashboard-theme=light] tbody tr:hover {
+  background-color: #fafafa !important;
+}
+
+/* Blue backgrounds light */
+[data-dashboard-theme=light] .dark\:bg-blue-900\/20,
+[data-dashboard-theme=light] .dark\:bg-blue-900\/30 {
+  background-color: #eff6ff !important;
+}
+
+/* Rose backgrounds light */
+[data-dashboard-theme=light] .dark\:bg-rose-900\/20,
+[data-dashboard-theme=light] .dark\:bg-rose-900\/30 {
+  background-color: #fff1f2 !important;
+}
+
+/* Purple backgrounds light */
+[data-dashboard-theme=light] .dark\:bg-purple-900\/30 {
+  background-color: #faf5ff !important;
+}
