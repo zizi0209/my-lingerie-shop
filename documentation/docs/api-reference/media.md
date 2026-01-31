@@ -485,7 +485,6 @@
  ## Related Documentation
  
  - [Products API](./products) - Product image management
- - [Cloudinary Setup](../developer-guide/setup/cloudinary) - Configuration guide
  - [Frontend Integration](../developer-guide/frontend-integration) - React components
  
  ---
