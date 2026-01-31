@@ -366,7 +366,7 @@ const Categories: React.FC = () => {
             onClick={() => setFilterProductType('ALL')}
             className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
               filterProductType === 'ALL'
-                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                ? 'bg-primary-500 text-white'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
@@ -378,7 +378,7 @@ const Categories: React.FC = () => {
               onClick={() => setFilterProductType(opt.value)}
               className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 filterProductType === opt.value
-                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                  ? 'bg-primary-500 text-white'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >

@@ -10,39 +10,42 @@ const DASHBOARD_THEME_KEY = 'dashboard-theme';
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
+  mounted: boolean;
+  isDark: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-// Helper to get initial theme from localStorage
-const getInitialTheme = (): Theme => {
-  if (typeof window === 'undefined') return 'light';
-  
-  const saved = localStorage.getItem(DASHBOARD_THEME_KEY);
-  if (saved === 'dark' || saved === 'light') {
-    return saved;
-  }
-  
-  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
-  }
-  
-  return 'light';
-};
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  // Always start with 'light' for SSR, then sync with localStorage on client
+  const [theme, setTheme] = useState<Theme>('light');
+  const [mounted, setMounted] = useState(false);
 
-  // Chỉ lưu vào localStorage, KHÔNG modify document.documentElement
-  // để tránh conflict với next-themes của frontend
+  // Read from localStorage after mount to avoid hydration mismatch
   useEffect(() => {
+    const saved = localStorage.getItem(DASHBOARD_THEME_KEY);
+    if (saved === 'dark' || saved === 'light') {
+      setTheme(saved);
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setTheme('dark');
+    }
+    setMounted(true);
+  }, []);
+
+  // Save to localStorage when theme changes (after mount)
+  useEffect(() => {
+    if (!mounted) return;
     localStorage.setItem(DASHBOARD_THEME_KEY, theme);
-  }, [theme]);
+  }, [theme, mounted]);
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
+  // isDark is only true after mount and when theme is dark
+  const isDark = mounted && theme === 'dark';
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, mounted, isDark }}>
       {children}
     </ThemeContext.Provider>
   );

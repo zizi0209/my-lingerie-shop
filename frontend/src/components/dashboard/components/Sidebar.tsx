@@ -16,9 +16,10 @@ import { useStoreConfig } from './StoreConfigContext';
 interface SidebarProps {
   isOpen: boolean;
   toggle: () => void;
+  isDark?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle, isDark = false }) => {
   const pathname = usePathname();
   const { t } = useLanguage();
   const { config, loading } = useStoreConfig();
@@ -74,7 +75,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
 
   return (
     <aside 
-      className={`${isOpen ? 'w-64' : 'w-20'} bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-[width] duration-200 flex flex-col h-full shadow-sm z-50`}
+      className={`${isOpen ? 'w-64' : 'w-20'} transition-[width] duration-200 flex flex-col h-full shadow-sm z-50`}
+      style={{
+        backgroundColor: isDark ? '#0f172a' : '#ffffff',
+        borderRight: `1px solid ${isDark ? '#1e293b' : '#e2e8f0'}`
+      }}
       aria-label="Dashboard Navigation"
     >
       <div className="p-4 md:p-6 flex items-center justify-between mb-2">
@@ -100,7 +105,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
               </div>
             )}
             <div className="flex flex-col">
-              <span className="text-base md:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+              <span 
+                className="text-base md:text-lg font-black tracking-tight"
+                style={{ color: isDark ? '#ffffff' : '#0f172a' }}
+              >
                 {loading ? 'Loading...' : storeName}
               </span>
               <span 
@@ -116,13 +124,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
           onClick={toggle}
           aria-label={isOpen ? "Thu gọn sidebar" : "Mở rộng sidebar"}
           aria-expanded={isOpen}
-          className="p-2 md:p-2.5 rounded-xl dark:bg-slate-800 hover:dark:hover:bg-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-colors bg-primary-50 text-primary-500 hover:bg-primary-100"
+          className="p-2 md:p-2.5 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-colors"
           style={{ 
-            backgroundColor: 'var(--primary-50)',
+            backgroundColor: isDark ? '#1e293b' : 'var(--primary-50)',
             color: 'var(--primary-500)'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-100)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-50)'}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isDark ? '#334155' : 'var(--primary-100)'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isDark ? '#1e293b' : 'var(--primary-50)'}
         >
           <Menu size={18} aria-hidden="true" />
         </button>
@@ -132,33 +140,62 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
         {groups.map((group, gIdx) => (
           <div key={gIdx} className="space-y-1" role="group" aria-label={group.label}>
             {isOpen && (
-              <p className="px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">
+              <p 
+                className="px-3 text-[10px] font-black uppercase tracking-widest mb-2"
+                style={{ color: isDark ? '#64748b' : '#64748b' }}
+              >
                 {group.label}
               </p>
             )}
             {group.items.map((item) => {
               const isActive = pathname === item.path;
+              
+              const getItemStyles = () => {
+                if (isActive) {
+                  return {
+                    backgroundColor: isDark ? 'rgba(var(--primary-500-rgb, 244, 63, 94), 0.2)' : 'rgba(var(--primary-500-rgb, 244, 63, 94), 0.1)',
+                    color: isDark ? 'var(--primary-400)' : 'var(--primary-600)'
+                  };
+                }
+                return {
+                  backgroundColor: 'transparent',
+                  color: isDark ? '#94a3b8' : '#334155'
+                };
+              };
+              
+              const getIconColor = () => {
+                if (isActive) return 'var(--primary-500)';
+                return isDark ? '#64748b' : '#64748b';
+              };
+
               return (
                 <Link
                   key={item.path}
                   href={item.path}
                   aria-label={item.name}
                   aria-current={isActive ? "page" : undefined}
-                  className={`flex items-center p-3 rounded-xl group min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset ${
-                    isActive 
-                      ? 'bg-gray-100 text-gray-900 dark:bg-gray-100 dark:text-black' 
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
+                  className="flex items-center p-3 rounded-xl group min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                  style={getItemStyles()}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.backgroundColor = isDark ? '#1e293b' : '#f1f5f9';
+                      e.currentTarget.style.color = isDark ? '#e2e8f0' : '#0f172a';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    const styles = getItemStyles();
+                    e.currentTarget.style.backgroundColor = styles.backgroundColor;
+                    e.currentTarget.style.color = styles.color;
+                  }}
                 >
                   <item.icon 
                     size={20} 
-                    className={`shrink-0 ${isActive ? 'text-gray-900 dark:text-black' : 'text-slate-400 dark:text-slate-500'}`}
-                    onMouseEnter={(e) => !isActive && (e.currentTarget.style.color = 'var(--primary-500)')}
-                    onMouseLeave={(e) => !isActive && (e.currentTarget.style.color = '')}
+                    className="shrink-0"
+                    style={{ color: getIconColor() }}
                     aria-hidden="true" 
                   />
                   {isOpen && <span className={`ml-3 text-xs md:text-[13px] font-semibold tracking-tight`}>{item.name}</span>}
-                  {isActive && isOpen && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gray-900 dark:bg-black" aria-hidden="true"></div>}
+                  {isActive && isOpen && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-500" aria-hidden="true"></div>}
                 </Link>
               );
             })}

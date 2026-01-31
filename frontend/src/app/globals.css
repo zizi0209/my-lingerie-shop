@@ -364,3 +364,130 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
   position: absolute;
   right: 0;
 }
+
+/* ============================================
+   Dashboard Theme Isolation
+   
+   Override Tailwind dark: variants when dashboard is in light mode.
+   This is needed because next-themes adds class="dark" to <html>,
+   which affects all dark: variants including dashboard components.
+   
+   Dashboard uses data-dashboard-theme attribute to control its own theme.
+   ============================================ */
+
+/* When dashboard is in light mode, reset dark mode colors */
+[data-dashboard-theme="light"] {
+  /* Force light mode color scheme */
+  color-scheme: light;
+}
+
+/* Override common dark mode patterns in dashboard light mode */
+[data-dashboard-theme="light"] .dark\:bg-slate-900 {
+  background-color: #ffffff !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-slate-800 {
+  background-color: #ffffff !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-slate-800\/50 {
+  background-color: #f8fafc !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-slate-700 {
+  background-color: #f1f5f9 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:border-slate-800,
+[data-dashboard-theme="light"] .dark\:border-slate-700 {
+  border-color: #e2e8f0 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-white {
+  color: #0f172a !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-slate-200,
+[data-dashboard-theme="light"] .dark\:text-slate-300 {
+  color: #334155 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-slate-400 {
+  color: #64748b !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Override dark mode backgrounds for cards and containers */
+[data-dashboard-theme="light"] .dark\:bg-primary-500\/20,
+[data-dashboard-theme="light"] .dark\:bg-primary-500\/10,
+[data-dashboard-theme="light"] .dark\:bg-primary-900\/30 {
+  background-color: var(--primary-50) !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-blue-500\/10,
+[data-dashboard-theme="light"] .dark\:bg-blue-500\/20 {
+  background-color: #eff6ff !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-emerald-500\/10,
+[data-dashboard-theme="light"] .dark\:bg-emerald-500\/20 {
+  background-color: #ecfdf5 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-purple-500\/10,
+[data-dashboard-theme="light"] .dark\:bg-purple-500\/20 {
+  background-color: #faf5ff !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-amber-500\/10,
+[data-dashboard-theme="light"] .dark\:bg-amber-500\/20 {
+  background-color: #fffbeb !important;
+}
+
+[data-dashboard-theme="light"] .dark\:bg-red-500\/10,
+[data-dashboard-theme="light"] .dark\:bg-red-500\/20 {
+  background-color: #fef2f2 !important;
+}
+
+/* Override dark mode text colors for status badges */
+[data-dashboard-theme="light"] .dark\:text-primary-400 {
+  color: var(--primary-600) !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-blue-400 {
+  color: #2563eb !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-emerald-400 {
+  color: #059669 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-purple-400 {
+  color: #9333ea !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-amber-400 {
+  color: #d97706 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:text-red-400 {
+  color: #dc2626 !important;
+}
+
+/* Override hover states */
+[data-dashboard-theme="light"] .dark\:hover\:bg-slate-800:hover,
+[data-dashboard-theme="light"] .dark\:hover\:bg-slate-700:hover {
+  background-color: #f1f5f9 !important;
+}
+
+[data-dashboard-theme="light"] .dark\:hover\:text-slate-200:hover {
+  color: #0f172a !important;
+}
+
+/* Override ring colors */
+[data-dashboard-theme="light"] .dark\:ring-slate-700 {
+  --tw-ring-color: #e2e8f0 !important;
+}

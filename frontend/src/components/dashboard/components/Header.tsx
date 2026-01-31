@@ -12,10 +12,11 @@ import type { User as UserType } from '@/lib/adminApi';
 interface HeaderProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  isDark?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = () => {
-  const { theme, toggleTheme } = useTheme();
+const Header: React.FC<HeaderProps> = ({ isDark = false }) => {
+  const { toggleTheme } = useTheme();
   const { language, toggleLanguage, t } = useLanguage();
   const [user, setUser] = useState<UserType | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -52,27 +53,34 @@ const Header: React.FC<HeaderProps> = () => {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 py-3 md:py-4">
+    <header 
+      className="sticky top-0 z-30 backdrop-blur-md px-4 md:px-8 py-3 md:py-4"
+      style={{
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+        borderBottom: `1px solid ${isDark ? '#1e293b' : '#e2e8f0'}`
+      }}
+    >
       <div className="flex items-center justify-between gap-3 md:gap-4">
         <div className="hidden md:flex items-center gap-2 flex-1 max-w-md">
           <SearchInput 
             placeholder={t('common.search')}
             className="flex-1"
+            isDark={isDark}
           />
           <button 
             aria-label="Cài đặt tìm kiếm"
-            className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-slate-500 dark:text-slate-400 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
+            className="p-2 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
             style={{
-              ['--hover-bg' as string]: 'var(--primary-50)',
-              ['--hover-color' as string]: 'var(--primary-500)'
+              backgroundColor: isDark ? 'rgba(30, 41, 59, 0.5)' : '#f8fafc',
+              color: isDark ? '#94a3b8' : '#64748b'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--primary-50)';
+              e.currentTarget.style.backgroundColor = isDark ? 'rgba(var(--primary-500-rgb, 244, 63, 94), 0.2)' : 'var(--primary-50)';
               e.currentTarget.style.color = 'var(--primary-500)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '';
-              e.currentTarget.style.color = '';
+              e.currentTarget.style.backgroundColor = isDark ? 'rgba(30, 41, 59, 0.5)' : '#f8fafc';
+              e.currentTarget.style.color = isDark ? '#94a3b8' : '#64748b';
             }}
           >
             <SettingsIcon size={16} aria-hidden="true" />
@@ -83,14 +91,15 @@ const Header: React.FC<HeaderProps> = () => {
           <button 
             onClick={toggleLanguage}
             aria-label={`Chuyển ngôn ngữ - Hiện tại: ${language === 'vi' ? 'Tiếng Việt' : 'English'}`}
-            className="flex items-center space-x-2 px-3 py-2 text-slate-500 dark:text-slate-400 rounded-xl min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
+            className="flex items-center space-x-2 px-3 py-2 rounded-xl min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
+            style={{ color: isDark ? '#94a3b8' : '#64748b' }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--primary-50)';
+              e.currentTarget.style.backgroundColor = isDark ? 'rgba(var(--primary-500-rgb, 244, 63, 94), 0.2)' : 'var(--primary-50)';
               e.currentTarget.style.color = 'var(--primary-500)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '';
-              e.currentTarget.style.color = '';
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = isDark ? '#94a3b8' : '#64748b';
             }}
           >
             <Languages size={18} aria-hidden="true" />
@@ -99,36 +108,41 @@ const Header: React.FC<HeaderProps> = () => {
           
           <button 
             onClick={toggleTheme}
-            aria-label={theme === 'light' ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'}
-            className="p-2 text-slate-500 dark:text-slate-400 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
+            aria-label={isDark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+            className="p-2 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
+            style={{ color: isDark ? '#94a3b8' : '#64748b' }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--primary-50)';
+              e.currentTarget.style.backgroundColor = isDark ? 'rgba(var(--primary-500-rgb, 244, 63, 94), 0.2)' : 'var(--primary-50)';
               e.currentTarget.style.color = 'var(--primary-500)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '';
-              e.currentTarget.style.color = '';
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = isDark ? '#94a3b8' : '#64748b';
             }}
           >
-            {theme === 'light' ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
+            {isDark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
           </button>
           
           <button 
             aria-label="Thông báo - Có 1 thông báo mới"
-            className="p-2 text-slate-500 dark:text-slate-400 rounded-xl relative min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
+            className="p-2 rounded-xl relative min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
+            style={{ color: isDark ? '#94a3b8' : '#64748b' }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--primary-50)';
+              e.currentTarget.style.backgroundColor = isDark ? 'rgba(var(--primary-500-rgb, 244, 63, 94), 0.2)' : 'var(--primary-50)';
               e.currentTarget.style.color = 'var(--primary-500)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '';
-              e.currentTarget.style.color = '';
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = isDark ? '#94a3b8' : '#64748b';
             }}
           >
             <Bell size={18} aria-hidden="true" />
             <span 
-              className="absolute top-2 right-2 w-2 h-2 rounded-full border-2 border-white dark:border-slate-900" 
-              style={{ backgroundColor: 'var(--primary-500)' }}
+              className="absolute top-2 right-2 w-2 h-2 rounded-full border-2" 
+              style={{ 
+                backgroundColor: 'var(--primary-500)',
+                borderColor: isDark ? '#0f172a' : '#ffffff'
+              }}
               aria-label="Có thông báo mới"
             ></span>
           </button>
@@ -140,7 +154,14 @@ const Header: React.FC<HeaderProps> = () => {
               aria-label="Menu tài khoản"
               aria-expanded={dropdownOpen}
               aria-haspopup="true"
-              className="flex items-center space-x-2 px-3 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+              className="flex items-center space-x-2 px-3 py-2 rounded-xl transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+              style={{ color: isDark ? '#cbd5e1' : '#475569' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = isDark ? '#1e293b' : '#f1f5f9';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
             >
               <div className="w-8 h-8 bg-gradient-to-br from-rose-400 to-purple-500 rounded-full flex items-center justify-center shrink-0" aria-hidden="true">
                 <User size={16} className="text-white" aria-hidden="true" />
@@ -153,19 +174,38 @@ const Header: React.FC<HeaderProps> = () => {
 
             {dropdownOpen && (
               <div 
-                className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 py-2 z-50"
+                className="absolute right-0 mt-2 w-56 rounded-xl shadow-lg py-2 z-50"
+                style={{
+                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                  border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`
+                }}
                 role="menu"
                 aria-label="Menu tài khoản"
               >
-                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-                  <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                <div 
+                  className="px-4 py-3"
+                  style={{ borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}
+                >
+                  <p 
+                    className="text-sm font-medium truncate"
+                    style={{ color: isDark ? '#ffffff' : '#0f172a' }}
+                  >
                     {user?.name || 'Admin User'}
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  <p 
+                    className="text-xs truncate"
+                    style={{ color: isDark ? '#94a3b8' : '#64748b' }}
+                  >
                     {user?.email}
                   </p>
                   {user?.role && (
-                    <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-full">
+                    <span 
+                      className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full"
+                      style={{
+                        backgroundColor: isDark ? 'rgba(244, 63, 94, 0.2)' : '#ffe4e6',
+                        color: isDark ? '#fb7185' : '#e11d48'
+                      }}
+                    >
                       {user.role.name}
                     </span>
                   )}
@@ -175,7 +215,14 @@ const Header: React.FC<HeaderProps> = () => {
                   href="/dashboard/profile"
                   role="menuitem"
                   aria-label="Quản lý hồ sơ"
-                  className="flex items-center space-x-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-inset"
+                  className="flex items-center space-x-3 px-4 py-2.5 text-sm transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-inset"
+                  style={{ color: isDark ? '#cbd5e1' : '#334155' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = isDark ? '#334155' : '#f1f5f9';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
                   onClick={() => setDropdownOpen(false)}
                 >
                   <User size={16} aria-hidden="true" />
@@ -186,7 +233,14 @@ const Header: React.FC<HeaderProps> = () => {
                   onClick={handleLogout}
                   role="menuitem"
                   aria-label="Đăng xuất"
-                  className="w-full flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-inset"
+                  className="w-full flex items-center space-x-3 px-4 py-2.5 text-sm transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-inset"
+                  style={{ color: isDark ? '#f87171' : '#dc2626' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = isDark ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
                 >
                   <LogOut size={16} aria-hidden="true" />
                   <span>{language === 'vi' ? 'Đăng xuất' : 'Logout'}</span>

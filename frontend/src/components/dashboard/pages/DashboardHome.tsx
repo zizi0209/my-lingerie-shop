@@ -98,9 +98,8 @@ const getActionConfig = (action: string): {
 };
 
 const DashboardHome: React.FC = () => {
-  const { theme } = useTheme();
+  const { isDark } = useTheme();
   const { t } = useLanguage();
-  const isDark = theme === 'dark';
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);

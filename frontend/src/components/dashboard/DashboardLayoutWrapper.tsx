@@ -15,17 +15,31 @@ interface DashboardLayoutWrapperProps {
 const DashboardContent: React.FC<DashboardLayoutWrapperProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const primaryColor = usePrimaryColor();
-  const { theme } = useTheme();
+  const { isDark } = useTheme();
 
   return (
     <>
       <ThemeInjector primaryColor={primaryColor} />
-      {/* Apply dashboard theme directly to this container, không ảnh hưởng document */}
-      <div className={`flex h-screen overflow-hidden ${theme === 'dark' ? 'dark bg-slate-950' : 'bg-slate-50'}`}>
-          <Sidebar isOpen={sidebarOpen} toggle={() => setSidebarOpen(!sidebarOpen)} />
+      {/* 
+        Dashboard theme isolation: Use data-theme attribute instead of relying on Tailwind dark: variants
+        which can be affected by next-themes on <html> element.
+        We apply explicit background colors based on theme state.
+      */}
+      <div 
+        data-dashboard-theme={isDark ? 'dark' : 'light'}
+        className="flex h-screen overflow-hidden"
+        style={{ 
+          backgroundColor: isDark ? '#020617' : '#f8fafc',
+          colorScheme: isDark ? 'dark' : 'light'
+        }}
+      >
+          <Sidebar isOpen={sidebarOpen} toggle={() => setSidebarOpen(!sidebarOpen)} isDark={isDark} />
 
-          <div className={`relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden ${theme === 'dark' ? 'bg-slate-900/30' : 'bg-slate-50'}`}>
-            <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+          <div 
+            className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden"
+            style={{ backgroundColor: isDark ? 'rgba(15, 23, 42, 0.3)' : '#f8fafc' }}
+          >
+            <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} isDark={isDark} />
 
             <main className="p-4 md:p-8">{children}</main>
           </div>

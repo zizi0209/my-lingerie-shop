@@ -8,6 +8,7 @@ interface SearchInputProps {
   onSearch?: (value: string) => void;
   className?: string;
   debounceMs?: number;
+  isDark?: boolean;
 }
 
 const SearchInput: React.FC<SearchInputProps> = ({ 
@@ -16,7 +17,8 @@ const SearchInput: React.FC<SearchInputProps> = ({
   onChange,
   onSearch,
   className = '',
-  debounceMs = 500
+  debounceMs = 500,
+  isDark = false
 }) => {
   const [localValue, setLocalValue] = useState(controlledValue || '');
 
@@ -45,25 +47,21 @@ const SearchInput: React.FC<SearchInputProps> = ({
   return (
     <div className={`relative ${className}`}>
       <Search 
-        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" 
+        className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" 
         size={18} 
+        style={{ color: isDark ? '#64748b' : '#94a3b8' }}
       />
       <input 
         type="text" 
         value={localValue}
         onChange={(e) => handleChange(e.target.value)}
         placeholder={placeholder}
-        className="
-          w-full pl-10 pr-4 py-2.5 
-          bg-white dark:bg-slate-800
-          border border-slate-200 dark:border-slate-700
-          rounded-xl 
-          text-sm 
-          text-slate-900 dark:text-slate-200
-          placeholder:text-slate-400 dark:placeholder:text-slate-500
-          outline-none 
-          focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500/50
-        "
+        className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500/50"
+        style={{
+          backgroundColor: isDark ? '#1e293b' : '#ffffff',
+          border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+          color: isDark ? '#e2e8f0' : '#0f172a'
+        }}
       />
     </div>
   );

@@ -255,7 +255,7 @@ const Roles: React.FC = () => {
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-sm font-medium hover:opacity-90 transition"
+          className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition"
         >
           <Plus size={18} />
           {t.addRole}

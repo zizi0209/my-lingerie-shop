@@ -748,9 +748,18 @@ interface SectionEditorProps {
 }
 
 const SectionEditor: React.FC<SectionEditorProps> = ({ section, onSave, onClose, t }) => {
-  const [content, setContent] = useState<Record<string, unknown>>(
-    (section.content as Record<string, unknown>) || {}
-  );
+  // Get default content from template if section content is empty
+  const getDefaultContent = (): Record<string, unknown> => {
+    const existingContent = section.content as Record<string, unknown>;
+    if (existingContent && Object.keys(existingContent).length > 0) {
+      return existingContent;
+    }
+    // Find matching template based on section code prefix
+    const template = sectionTemplates.find(t => section.code.startsWith(t.code));
+    return template?.defaultContent || {};
+  };
+
+  const [content, setContent] = useState<Record<string, unknown>>(getDefaultContent());
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
