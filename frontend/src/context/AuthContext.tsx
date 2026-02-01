@@ -147,6 +147,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clear backend JWT
     api.removeToken();
 
+    // Clear dashboard auth (for admin login)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('dashboardAuthExpiry');
+    }
+
     // Clear state
     setState({
       user: null,

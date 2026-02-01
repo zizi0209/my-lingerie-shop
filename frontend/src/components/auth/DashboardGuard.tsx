@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ReAuthModal } from "./ReAuthModal";
@@ -36,6 +36,8 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
   const [showReAuthModal, setShowReAuthModal] = useState(false);
   const [isDashboardAuth, setIsDashboardAuth] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
+  // Use ref to track if auth check is in progress to prevent duplicate API calls
+  const isCheckingRef = useRef(false);
 
   // Check both NextAuth session AND localStorage token (for admin/login page)
   const localStorageToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
@@ -79,6 +81,17 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
   }, [isDashboardAuth, token]);
 
   const checkDashboardAuth = useCallback(async () => {
+    // Skip if already authenticated
+    if (isDashboardAuth) {
+      setIsChecking(false);
+      return;
+    }
+
+    // Prevent concurrent API calls
+    if (isCheckingRef.current) {
+      return;
+    }
+
     if (!isAuthenticated) {
       setIsChecking(false);
       return;
@@ -88,6 +101,21 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
     if (token) {
       api.setToken(token);
     }
+
+    // Check localStorage first for dashboard auth (cross-site cookie workaround)
+    const dashboardAuthExpiry = localStorage.getItem('dashboardAuthExpiry');
+    if (dashboardAuthExpiry) {
+      const expiry = parseInt(dashboardAuthExpiry, 10);
+      if (Date.now() < expiry) {
+        setIsDashboardAuth(true);
+        setIsChecking(false);
+        return;
+      }
+      // Expired - remove it
+      localStorage.removeItem('dashboardAuthExpiry');
+    }
+
+    isCheckingRef.current = true;
 
     try {
       const response = await api.get<DashboardAuthResponse>(
@@ -102,6 +130,9 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
         }
 
         if (response.data.isDashboardAuthenticated) {
+          // Save to localStorage as fallback
+          const expiryTime = Date.now() + (4 * 60 * 60 * 1000);
+          localStorage.setItem('dashboardAuthExpiry', expiryTime.toString());
           setIsDashboardAuth(true);
         } else {
           setShowReAuthModal(true);
@@ -119,13 +150,17 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
       }
     } finally {
       setIsChecking(false);
+      isCheckingRef.current = false;
     }
-  }, [isAuthenticated, token, router]);
+  }, [isAuthenticated, token, router, isDashboardAuth]);
 
   useEffect(() => {
     if (!authLoading) {
       // Kiểm tra đăng nhập
       if (!isAuthenticated) {
+        // Clear dashboard auth on logout
+        localStorage.removeItem('dashboardAuthExpiry');
+        setIsDashboardAuth(false);
         router.replace("/admin/login");
         return;
       }
@@ -143,6 +178,9 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
 
   const handleReAuthSuccess = () => {
     setShowReAuthModal(false);
+    // Save to localStorage as fallback for cross-site cookie issues
+    const expiryTime = Date.now() + (4 * 60 * 60 * 1000); // 4 hours
+    localStorage.setItem('dashboardAuthExpiry', expiryTime.toString());
     setIsDashboardAuth(true);
   };
 

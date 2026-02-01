@@ -44,6 +44,7 @@ class ApiService {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('tokenExpiresAt');
+      localStorage.removeItem('dashboardAuthExpiry');
     }
   }
 
