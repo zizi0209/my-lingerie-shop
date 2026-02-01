@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useId, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -8,7 +8,7 @@ import {
   Users, UserCheck, ShoppingCart, Settings, 
   ShieldCheck, MousePointer2, Home, 
   Tag, Menu, Activity, Store, Palette, Star,
-  Ticket, Megaphone, Gift, Search, Ruler, Info
+  Ticket, Megaphone, Gift, Search, Ruler, Info, ChevronDown
 } from 'lucide-react';
 import { useLanguage } from './LanguageContext';
 import { useStoreConfig } from './StoreConfigContext';
@@ -23,6 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle, isDark = false }) => 
   const pathname = usePathname();
   const { t } = useLanguage();
   const { config, loading } = useStoreConfig();
+  const sidebarId = useId();
   
   // Use config values but NEVER fallback to hardcoded colors!
   // CSS variables from SSR are already in :root
@@ -38,26 +39,38 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle, isDark = false }) => 
       ]
     },
     {
-      label: t('nav.inventory'),
+      label: t('nav.inventory') || 'Sản phẩm & Kho',
       items: [
         { name: t('nav.products'), path: '/dashboard/products', icon: ShoppingBag },
         { name: t('nav.categories'), path: '/dashboard/categories', icon: Layers },
         { name: t('nav.colors'), path: '/dashboard/colors', icon: Palette },
-        { name: t('nav.orders'), path: '/dashboard/orders', icon: ShoppingCart },
-        { name: t('nav.reviews'), path: '/dashboard/reviews', icon: Star },
-        { name: t('nav.cartTracker'), path: '/dashboard/cart-tracking', icon: MousePointer2 },
+        { name: t('nav.sizeCharts') || 'Bảng size', path: '/dashboard/settings/size-charts', icon: Ruler },
       ]
     },
     {
-      label: t('nav.marketing'),
+      label: 'Bán hàng',
+      items: [
+        { name: t('nav.orders'), path: '/dashboard/orders', icon: ShoppingCart },
+        { name: t('nav.customers'), path: '/dashboard/customers', icon: UserCheck },
+        { name: t('nav.cartTracker'), path: '/dashboard/cart-tracking', icon: MousePointer2 },
+        { name: t('nav.reviews'), path: '/dashboard/reviews', icon: Star },
+      ]
+    },
+    {
+      label: t('nav.marketing') || 'Tiếp thị',
+      items: [
+        { name: t('nav.coupons'), path: '/dashboard/coupons', icon: Ticket },
+        { name: t('nav.campaigns'), path: '/dashboard/campaigns', icon: Megaphone },
+        { name: t('nav.rewards'), path: '/dashboard/rewards', icon: Gift },
+      ]
+    },
+    {
+      label: 'Nội dung & Giao diện',
       items: [
         { name: t('nav.blogPosts'), path: '/dashboard/posts', icon: FileText },
         { name: t('nav.postTags'), path: '/dashboard/post-categories', icon: Tag },
         { name: t('nav.homeLayout'), path: '/dashboard/home-component', icon: Home },
         { name: t('nav.aboutPage'), path: '/dashboard/about', icon: Info },
-        { name: t('nav.coupons'), path: '/dashboard/coupons', icon: Ticket },
-        { name: t('nav.campaigns'), path: '/dashboard/campaigns', icon: Megaphone },
-        { name: t('nav.rewards'), path: '/dashboard/rewards', icon: Gift },
         { name: t('nav.search') || 'Tìm kiếm', path: '/dashboard/search', icon: Search },
       ]
     },
@@ -65,13 +78,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle, isDark = false }) => 
       label: t('nav.system'),
       items: [
         { name: t('nav.staffUsers'), path: '/dashboard/staff', icon: Users },
-        { name: t('nav.customers'), path: '/dashboard/customers', icon: UserCheck },
         { name: t('nav.roles'), path: '/dashboard/roles', icon: ShieldCheck },
-        { name: t('nav.sizeCharts') || 'Bảng size', path: '/dashboard/settings/size-charts', icon: Ruler },
         { name: t('nav.settings'), path: '/dashboard/settings', icon: Settings },
       ]
     }
   ];
+
+  const [openGroupIndex, setOpenGroupIndex] = useState<number | null>(0);
 
   return (
     <aside 
@@ -138,16 +151,52 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle, isDark = false }) => 
 
       <nav className="flex-1 overflow-y-auto px-3 md:px-4 space-y-4 md:space-y-6 pb-8 scrollbar-thin" aria-label="Main navigation">
         {groups.map((group, gIdx) => (
-          <div key={gIdx} className="space-y-1" role="group" aria-label={group.label}>
-            {isOpen && (
-              <p 
-                className="px-3 text-[10px] font-black uppercase tracking-widest mb-2"
-                style={{ color: isDark ? '#64748b' : '#64748b' }}
-              >
-                {group.label}
-              </p>
-            )}
-            {group.items.map((item) => {
+          <div
+            key={gIdx}
+            className={`space-y-1 ${openGroupIndex === gIdx ? 'showMenu' : ''}`}
+            role="group"
+            aria-label={group.label}
+          >
+            <button
+              type="button"
+              onClick={() => setOpenGroupIndex((prev) => (prev === gIdx ? null : gIdx))}
+              aria-expanded={openGroupIndex === gIdx}
+              aria-controls={`${sidebarId}-submenu-${gIdx}`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset ${
+                isOpen ? '' : 'justify-center'
+              }`}
+              style={{
+                color: isDark ? '#64748b' : '#64748b',
+                backgroundColor: 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = isDark ? '#1e293b' : '#f1f5f9';
+                e.currentTarget.style.color = isDark ? '#e2e8f0' : '#0f172a';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = isDark ? '#64748b' : '#64748b';
+              }}
+            >
+              {isOpen && (
+                <span className="text-[10px] font-black uppercase tracking-widest">
+                  {group.label}
+                </span>
+              )}
+              {isOpen && (
+                <ChevronDown
+                  size={16}
+                  aria-hidden="true"
+                  className={`shrink-0 transition-transform ${openGroupIndex === gIdx ? 'rotate-180' : ''}`}
+                />
+              )}
+            </button>
+
+            <ul
+              id={`${sidebarId}-submenu-${gIdx}`}
+              className={`sub-menu ${openGroupIndex === gIdx ? 'block' : 'hidden'} space-y-1`}
+            >
+              {group.items.map((item) => {
               const isActive = pathname === item.path;
               
               const getItemStyles = () => {
@@ -169,36 +218,44 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle, isDark = false }) => 
               };
 
               return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  aria-label={item.name}
-                  aria-current={isActive ? "page" : undefined}
-                  className="flex items-center p-3 rounded-xl group min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset"
-                  style={getItemStyles()}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = isDark ? '#1e293b' : '#f1f5f9';
-                      e.currentTarget.style.color = isDark ? '#e2e8f0' : '#0f172a';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    const styles = getItemStyles();
-                    e.currentTarget.style.backgroundColor = styles.backgroundColor;
-                    e.currentTarget.style.color = styles.color;
-                  }}
-                >
-                  <item.icon 
-                    size={20} 
-                    className="shrink-0"
-                    style={{ color: getIconColor() }}
-                    aria-hidden="true" 
-                  />
-                  {isOpen && <span className={`ml-3 text-xs md:text-[13px] font-semibold tracking-tight`}>{item.name}</span>}
-                  {isActive && isOpen && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-500" aria-hidden="true"></div>}
-                </Link>
+                <li key={item.path} className="nav-item">
+                  <Link
+                    href={item.path}
+                    aria-label={item.name}
+                    aria-current={isActive ? 'page' : undefined}
+                    className="flex items-center p-3 rounded-xl group min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                    style={getItemStyles()}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.backgroundColor = isDark ? '#1e293b' : '#f1f5f9';
+                        e.currentTarget.style.color = isDark ? '#e2e8f0' : '#0f172a';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      const styles = getItemStyles();
+                      e.currentTarget.style.backgroundColor = styles.backgroundColor;
+                      e.currentTarget.style.color = styles.color;
+                    }}
+                  >
+                    <item.icon
+                      size={20}
+                      className="shrink-0"
+                      style={{ color: getIconColor() }}
+                      aria-hidden="true"
+                    />
+                    {isOpen && (
+                      <span className="ml-3 text-xs md:text-[13px] font-semibold tracking-tight">
+                        {item.name}
+                      </span>
+                    )}
+                    {isActive && isOpen && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-500" aria-hidden="true"></div>
+                    )}
+                  </Link>
+                </li>
               );
             })}
+            </ul>
           </div>
         ))}
       </nav>

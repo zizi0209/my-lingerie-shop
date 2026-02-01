@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Dashboard sidebar accordion helpers */
+.sub-menu {
+  display: none;
+}
+
+.showMenu > .sub-menu {
+  display: block;
+}
+
 :root {
   /* IntiMate-inspired Luxury color palette */
   --background: #ffffff;
