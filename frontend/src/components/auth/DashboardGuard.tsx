@@ -20,17 +20,41 @@ interface DashboardGuardProps {
 
 const ADMIN_ROLES = ["ADMIN", "SUPER_ADMIN"];
 
-function isAdminRole(roleName: string | null | undefined): boolean {
+function isAdminRole(user: { role?: { name: string } | null; roleName?: string } | null | undefined): boolean {
+  if (!user) return false;
+  
+  // Check role.name first (from AuthContext user)
+  const roleName = user.role?.name || (user as { roleName?: string }).roleName;
   if (!roleName) return false;
+  
   return ADMIN_ROLES.includes(roleName.toUpperCase());
 }
 
 export function DashboardGuard({ children }: DashboardGuardProps) {
   const router = useRouter();
-  const { user, token, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user: authUser, token: authToken, isAuthenticated: authContextAuthenticated, isLoading: authLoading } = useAuth();
   const [showReAuthModal, setShowReAuthModal] = useState(false);
   const [isDashboardAuth, setIsDashboardAuth] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
+
+  // Check both NextAuth session AND localStorage token (for admin/login page)
+  const localStorageToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const isAuthenticated = authContextAuthenticated || !!localStorageToken;
+  const token = authToken || localStorageToken;
+  
+  // Get user from AuthContext or decode from token and normalize structure
+  const getUserFromLocalStorage = useCallback(() => {
+    if (!localStorageToken) return null;
+    const decoded = api.getUserFromToken();
+    if (!decoded) return null;
+    // Normalize to match AuthContext user structure
+    return {
+      ...decoded,
+      role: decoded.roleName ? { name: decoded.roleName } : null,
+    };
+  }, [localStorageToken]);
+  
+  const user = authUser || getUserFromLocalStorage();
 
   // Refresh dashboard auth every 30 minutes to keep session alive
   useEffect(() => {
@@ -102,12 +126,12 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
     if (!authLoading) {
       // Kiểm tra đăng nhập
       if (!isAuthenticated) {
-        router.replace("/login-register");
+        router.replace("/admin/login");
         return;
       }
 
       // Kiểm tra quyền admin phía client trước
-      if (!isAdminRole(user?.role?.name)) {
+      if (!isAdminRole(user)) {
         router.replace("/");
         return;
       }
@@ -146,7 +170,7 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
   }
 
   // Chưa đăng nhập hoặc không phải admin
-  if (!isAuthenticated || !isAdminRole(user?.role?.name)) {
+  if (!isAuthenticated || !isAdminRole(user)) {
     return null;
   }
 
