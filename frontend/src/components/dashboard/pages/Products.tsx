@@ -1,9 +1,23 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Plus, Edit2, Trash2, Wand2, Filter, Loader2, AlertCircle, X, 
-  Image as ImageIcon, CheckCircle, Eye, EyeOff, Star, Package, Upload
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useDropzone } from 'react-dropzone';
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Wand2,
+  Filter,
+  Loader2,
+  AlertCircle,
+  X,
+  Image as ImageIcon,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Star,
+  Package,
+  Upload,
 } from 'lucide-react';
 import { productApi, type Product, type ProductImage, type CreateProductData, type UpdateProductData } from '@/lib/productApi';
 import { categoryApi, type Category } from '@/lib/categoryApi';
@@ -578,6 +592,49 @@ const Products: React.FC = () => {
     setUploadingImages([]);
   };
 
+
+  // Handle drag & drop files
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+
+    setIsCompressing(true);
+    setFormError(null);
+
+    try {
+      const compressedList: CompressedImage[] = [];
+
+      for (let i = 0; i < acceptedFiles.length; i++) {
+        const file = acceptedFiles[i];
+        setUploadProgress(`${t.compressing} (${i + 1}/${acceptedFiles.length})`);
+
+        const validation = validateImageFile(file);
+        if (!validation.valid) {
+          setFormError(`${file.name}: ${validation.error}`);
+          continue;
+        }
+
+        const compressed = await compressImage(file);
+        compressedList.push(compressed);
+      }
+
+      setUploadingImages(prev => [...prev, ...compressedList]);
+      setUploadProgress('');
+    } catch (err) {
+      console.error('Compression error:', err);
+      setFormError('Lỗi khi nén ảnh');
+    } finally {
+      setIsCompressing(false);
+    }
+  }, [t.compressing]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+    },
+    multiple: true,
+    disabled: isCompressing
+  });
   // Upload images to server (Cloudinary)
   const handleUploadImages = async () => {
     if (!editingProduct || uploadingImages.length === 0) return;
@@ -1225,11 +1282,15 @@ const Products: React.FC = () => {
                         )}
                       </div>
 
-                      <div 
-                        className="border-2 border-dashed border-emerald-300 dark:border-emerald-500/40 rounded-xl p-6 text-center hover:border-emerald-400 dark:hover:border-emerald-500/60 transition-colors cursor-pointer"
-                        onClick={() => fileInputRef.current?.click()}
+                      <div
+                        {...getRootProps()}
+                        className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
+                          isDragActive
+                            ? 'border-emerald-400 dark:border-emerald-500/70 bg-emerald-50/60 dark:bg-emerald-500/10'
+                            : 'border-emerald-300 dark:border-emerald-500/40 hover:border-emerald-400 dark:hover:border-emerald-500/60'
+                        }`}
                       >
-                        <input ref={fileInputRef} type="file" multiple accept={ACCEPTED_IMAGE_TYPES} onChange={handleFileSelect} className="hidden" />
+                        <input {...getInputProps()} />
                         {isCompressing ? (
                           <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400">
                             <Loader2 size={20} className="animate-spin" />
@@ -1238,7 +1299,7 @@ const Products: React.FC = () => {
                         ) : (
                           <div className="text-emerald-600 dark:text-emerald-400">
                             <Upload size={32} className="mx-auto mb-2 opacity-50" />
-                            <p className="text-sm font-medium">{t.selectFiles}</p>
+                            <p className="text-sm font-medium">{isDragActive ? (language === 'vi' ? 'Thả ảnh vào đây...' : 'Drop files here...') : t.selectFiles}</p>
                             <p className="text-xs opacity-70 mt-1">JPG, PNG, GIF, WebP (max 10MB)</p>
                           </div>
                         )}
