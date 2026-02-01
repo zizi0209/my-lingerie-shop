@@ -47,15 +47,38 @@ const COLORS = [
   { name: 'Navy', slug: 'navy' },
 ];
 
-// Ảnh placeholder hoạt động tốt từ picsum.photos
-// Dùng seed để mỗi product có ảnh khác nhau nhưng consistent
-function getProductImages(productId: number, count: number): string[] {
+/**
+ * Get local product images from /public/images/seed/
+ * Fallback to picsum.photos nếu không có ảnh local
+ */
+function getProductImages(
+  productType: ProductType,
+  productIndex: number,
+  count: number
+): string[] {
   const images: string[] = [];
-  for (let i = 0; i < count; i++) {
-    // Picsum photos với seed = productId + i để có ảnh khác nhau
-    const seed = productId * 10 + i;
-    images.push(`https://picsum.photos/seed/${seed}/800/1000`);
+  const categoryFolder = productType.toLowerCase();
+  
+  // Cố gắng load ảnh local từ /public/images/seed/{category}/
+  // Naming convention: {category}-1.webp, {category}-2.webp, ...
+  const USE_LOCAL_IMAGES = process.env.USE_LOCAL_SEED_IMAGES !== 'false';
+  
+  if (USE_LOCAL_IMAGES) {
+    // Rotate qua các ảnh available (giả sử có 8 ảnh mỗi category)
+    const MAX_IMAGES_PER_CATEGORY = 8;
+    
+    for (let i = 0; i < count; i++) {
+      const imageIndex = ((productIndex - 1) * count + i) % MAX_IMAGES_PER_CATEGORY + 1;
+      images.push(`/images/seed/${categoryFolder}/${categoryFolder}-${imageIndex}.webp`);
+    }
+  } else {
+    // Fallback to picsum.photos
+    for (let i = 0; i < count; i++) {
+      const seed = productIndex * 10 + i;
+      images.push(`https://picsum.photos/seed/${seed}/800/1000`);
+    }
   }
+  
   return images;
 }
 
@@ -218,7 +241,7 @@ async function seedProducts(categories: Awaited<ReturnType<typeof seedCategories
 
       // Tạo images (3-4 ảnh mỗi sản phẩm)
       const imageCount = faker.number.int({ min: 3, max: 4 });
-      const imageUrls = getProductImages(productCounter, imageCount);
+      const imageUrls = getProductImages(category.productType, productCounter, imageCount);
       
       await prisma.productImage.createMany({
         data: imageUrls.map(url => ({
