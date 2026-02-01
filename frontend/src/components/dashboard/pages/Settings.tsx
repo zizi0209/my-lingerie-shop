@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
 import { 
   Save, Loader2, AlertCircle, CheckCircle, 
   Globe, Bell, Palette, Phone, Mail, MapPin, 
@@ -286,6 +287,34 @@ const Settings: React.FC = () => {
     }
   };
 
+  const onDropLogo = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles?.[0];
+    if (!file) return;
+
+    setIsCompressing(true);
+    try {
+      const compressed = await compressImage(file);
+      setUploadingLogo(compressed);
+    } catch (err) {
+      console.error('Compression error:', err);
+    } finally {
+      setIsCompressing(false);
+    }
+  }, []);
+
+  const {
+    getRootProps: getLogoRootProps,
+    getInputProps: getLogoInputProps,
+    isDragActive: isLogoDragActive,
+  } = useDropzone({
+    onDrop: onDropLogo,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+    },
+    multiple: false,
+    disabled: isCompressing,
+  });
+
   // Remove background from logo
   const handleRemoveLogoBackground = async () => {
     if (!uploadingLogo) return;
@@ -426,6 +455,34 @@ const Settings: React.FC = () => {
     }
   };
 
+  const onDropOgImage = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles?.[0];
+    if (!file) return;
+
+    setIsCompressingOgImage(true);
+    try {
+      const compressed = await compressImage(file);
+      setUploadingOgImage(compressed);
+    } catch (err) {
+      console.error('Compression error:', err);
+    } finally {
+      setIsCompressingOgImage(false);
+    }
+  }, []);
+
+  const {
+    getRootProps: getOgImageRootProps,
+    getInputProps: getOgImageInputProps,
+    isDragActive: isOgImageDragActive,
+  } = useDropzone({
+    onDrop: onDropOgImage,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+    },
+    multiple: false,
+    disabled: isCompressingOgImage,
+  });
+
   // Upload OG Image to server
   const uploadOgImage = async (): Promise<string | null> => {
     if (!uploadingOgImage) return config.og_image || null;
@@ -540,7 +597,12 @@ const Settings: React.FC = () => {
                   <div className="flex items-start gap-4">
                     {/* Preview box with checkerboard pattern for transparency */}
                     <div 
-                      className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 overflow-hidden flex items-center justify-center relative"
+                      {...getLogoRootProps()}
+                      className={`w-24 h-24 rounded-2xl border-2 border-dashed overflow-hidden flex items-center justify-center relative transition-colors cursor-pointer ${
+                        isLogoDragActive
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                          : 'border-slate-300 dark:border-slate-700'
+                      }`}
                       style={{
                         background: (uploadingLogo || config.store_logo) 
                           ? 'repeating-conic-gradient(#f1f5f9 0% 25%, #e2e8f0 0% 50%) 50% / 16px 16px'
@@ -550,6 +612,7 @@ const Settings: React.FC = () => {
                           : 'rgb(248 250 252 / 1)'
                       }}
                     >
+                      <input {...getLogoInputProps()} />
                       {(uploadingLogo || config.store_logo) ? (
                         <img 
                           src={uploadingLogo?.preview || config.store_logo} 
@@ -559,6 +622,14 @@ const Settings: React.FC = () => {
                         />
                       ) : (
                         <ImageIcon size={32} className="text-slate-300 dark:text-slate-600" />
+                      )}
+
+                      {isLogoDragActive && (
+                        <div className="absolute inset-0 z-20 flex items-center justify-center">
+                          <span className="px-2 py-1 rounded-md bg-white/90 dark:bg-slate-900/80 text-[10px] font-black text-primary-700 dark:text-primary-300 uppercase tracking-widest">
+                            {language === 'vi' ? 'Thả logo vào đây...' : 'Drop logo here...'}
+                          </span>
+                        </div>
                       )}
                     </div>
                     <div className="space-y-2">
@@ -1163,7 +1234,15 @@ const Settings: React.FC = () => {
                   <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.ogImage}</label>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{t.ogImageHelp}</p>
                   <div className="flex items-start gap-4">
-                    <div className="w-48 h-24 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 overflow-hidden flex items-center justify-center bg-slate-50 dark:bg-slate-800">
+                    <div
+                      {...getOgImageRootProps()}
+                      className={`w-48 h-24 rounded-2xl border-2 border-dashed overflow-hidden flex items-center justify-center relative transition-colors cursor-pointer ${
+                        isOgImageDragActive
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                          : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800'
+                      }`}
+                    >
+                      <input {...getOgImageInputProps()} />
                       {(uploadingOgImage || config.og_image) ? (
                         <img 
                           src={uploadingOgImage?.preview || config.og_image} 
@@ -1172,6 +1251,14 @@ const Settings: React.FC = () => {
                         />
                       ) : (
                         <ImageIcon size={32} className="text-slate-300 dark:text-slate-600" />
+                      )}
+
+                      {isOgImageDragActive && (
+                        <div className="absolute inset-0 z-20 flex items-center justify-center">
+                          <span className="px-2 py-1 rounded-md bg-white/90 dark:bg-slate-900/80 text-[10px] font-black text-primary-700 dark:text-primary-300 uppercase tracking-widest">
+                            {language === 'vi' ? 'Thả ảnh vào đây...' : 'Drop image here...'}
+                          </span>
+                        </div>
                       )}
                     </div>
                     <div className="space-y-2">
