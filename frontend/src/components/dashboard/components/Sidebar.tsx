@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -29,8 +29,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle, isDark = false }) => 
   // CSS variables from SSR are already in :root
   const storeName = config.store_name || 'Admin Panel';
   const storeLogo = config.store_logo;
-  
-  const groups = [
+
+  const groups = useMemo(
+    () => [
     {
       label: t('nav.dashboard'),
       items: [
@@ -82,9 +83,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle, isDark = false }) => 
         { name: t('nav.settings'), path: '/dashboard/settings', icon: Settings },
       ]
     }
-  ];
+    ],
+    [t]
+  );
 
-  const [openGroupIndex, setOpenGroupIndex] = useState<number | null>(0);
+  const [openGroupIndex, setOpenGroupIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    const activeGroupIndex = groups.findIndex((g) => g.items.some((i) => i.path === pathname));
+    setOpenGroupIndex(activeGroupIndex >= 0 ? activeGroupIndex : 0);
+  }, [groups, pathname]);
 
   return (
     <aside 
