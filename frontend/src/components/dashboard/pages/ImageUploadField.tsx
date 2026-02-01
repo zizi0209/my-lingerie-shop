@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, Link as LinkIcon, Loader2, X } from 'lucide-react';
 import Image from 'next/image';
@@ -76,6 +76,10 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
     maxFiles: 1,
     multiple: false
   });
+
+  useEffect(() => {
+    // Don't auto-switch mode, let user control it
+  }, [value, uploadingImage]);
 
   const handleImageUpload = async () => {
     if (!uploadingImage) return;
@@ -170,7 +174,8 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
       {/* Upload Mode */}
       {mode === 'upload' ? (
         <div className="space-y-2">
-          {/* File Input */}
+          {/* File Input - Always show when in upload mode */}
+          {!uploadingImage && (
           <div
             {...getRootProps()}
             className={`border-2 border-dashed rounded-lg p-6 text-center transition cursor-pointer ${
@@ -185,6 +190,7 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
               {isDragActive ? t.dragActive : t.chooseFile}
             </p>
           </div>
+          )}
 
           {/* Uploading Preview */}
           {uploadingImage && (
