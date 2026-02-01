@@ -17,6 +17,14 @@ const DashboardContent: React.FC<DashboardLayoutWrapperProps> = ({ children }) =
   const primaryColor = usePrimaryColor();
   const { isDark } = useTheme();
 
+  // Ensure Tailwind `dark:` variants work inside the dashboard.
+  // Dashboard previously isolated theme via data attribute + inline styles,
+  // but many dashboard pages rely on Tailwind `dark:*` classes.
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.classList.toggle('dark', isDark);
+  }, [isDark]);
+
   return (
     <>
       <ThemeInjector primaryColor={primaryColor} />
