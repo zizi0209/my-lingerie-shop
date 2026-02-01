@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useDropzone } from 'react-dropzone';
 import { 
   Plus, Edit2, Trash2, Loader2, AlertCircle, X, 
   FileText, CheckCircle, Eye, EyeOff, User, Upload, Image as ImageIcon
@@ -65,9 +66,35 @@ const Posts: React.FC = () => {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // Image upload states
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingImage, setUploadingImage] = useState<CompressedImage | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles?.[0];
+    if (!file) return;
+
+    setIsCompressing(true);
+    setFormError(null);
+
+    try {
+      const compressed = await compressImage(file);
+      setUploadingImage(compressed);
+    } catch (err) {
+      console.error('Compression error:', err);
+      setFormError('Không thể nén ảnh');
+    } finally {
+      setIsCompressing(false);
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+    },
+    multiple: false,
+    disabled: isCompressing,
+  });
 
   // Current user (for authorId)
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -208,24 +235,6 @@ const Posts: React.FC = () => {
     setFormError(null);
     setSuccessMessage(null);
     setShowModal(true);
-  };
-
-  // Handle file select
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsCompressing(true);
-    try {
-      const compressed = await compressImage(file);
-      setUploadingImage(compressed);
-    } catch (err) {
-      console.error('Compression error:', err);
-      setFormError('Không thể nén ảnh');
-    } finally {
-      setIsCompressing(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
   };
 
   // Upload thumbnail
@@ -651,17 +660,15 @@ const Posts: React.FC = () => {
                     )}
 
                     {!uploadingImage && !formData.thumbnail && (
-                      <div 
-                        className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-6 text-center hover:border-rose-400 transition-colors cursor-pointer"
-                        onClick={() => fileInputRef.current?.click()}
+                      <div
+                        {...getRootProps()}
+                        className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
+                          isDragActive
+                            ? 'border-rose-400 dark:border-rose-500/70 bg-rose-50/60 dark:bg-rose-500/10'
+                            : 'border-slate-300 dark:border-slate-700 hover:border-rose-400 dark:hover:border-rose-500'
+                        }`}
                       >
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept={ACCEPTED_IMAGE_TYPES}
-                          onChange={handleFileSelect}
-                          className="hidden"
-                        />
+                        <input {...getInputProps()} />
                         {isCompressing ? (
                           <div className="flex items-center justify-center gap-2 text-slate-500">
                             <Loader2 size={20} className="animate-spin" />
@@ -670,7 +677,9 @@ const Posts: React.FC = () => {
                         ) : (
                           <div className="text-slate-500">
                             <Upload size={24} className="mx-auto mb-2 opacity-50" />
-                            <p className="text-sm font-medium">{t.selectFile}</p>
+                            <p className="text-sm font-medium">
+                              {isDragActive ? (language === 'vi' ? 'Thả ảnh vào đây...' : 'Drop image here...') : t.selectFile}
+                            </p>
                           </div>
                         )}
                       </div>
