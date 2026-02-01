@@ -1,16 +1,17 @@
 'use client';
+'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
 import { Upload, Link as LinkIcon, Loader2, X } from 'lucide-react';
 import Image from 'next/image';
 import { api } from '@/lib/api';
 import { 
-  compressImage, 
+  compressImage,
   validateImageFile, 
   formatFileSize,
   type CompressedImage 
 } from '@/lib/imageUtils';
-
 interface ImageUploadFieldProps {
   value: string;
   onChange: (url: string) => void;
@@ -38,11 +39,12 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
     upload: language === 'vi' ? 'Tải lên' : 'Upload',
     currentImage: language === 'vi' ? 'Ảnh hiện tại' : 'Current Image',
     preview: language === 'vi' ? 'Xem trước' : 'Preview',
-    chooseFile: language === 'vi' ? 'Chọn file' : 'Choose file',
+    chooseFile: language === 'vi' ? 'Kéo thả ảnh vào đây hoặc click để chọn' : 'Drag & drop image here or click to select',
+    dragActive: language === 'vi' ? 'Thả ảnh vào đây...' : 'Drop the image here...',
     compressionInfo: language === 'vi' ? 'Giảm' : 'Reduced',
   };
 
-  const handleImageSelect = async (file: File) => {
+  const handleImageSelect = useCallback(async (file: File) => {
     if (!file) return;
 
     const validation = validateImageFile(file);
@@ -59,7 +61,22 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
       console.error('Image compression error:', err);
       setError(language === 'vi' ? 'Lỗi khi nén ảnh' : 'Image compression error');
     }
-  };
+  }, [language]);
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      handleImageSelect(acceptedFiles[0]);
+    }
+  }, [handleImageSelect]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+    },
+    maxFiles: 1,
+    multiple: false
+  });
 
   const handleImageUpload = async () => {
     if (!uploadingImage) return;
@@ -155,22 +172,19 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
       {mode === 'upload' ? (
         <div className="space-y-2">
           {/* File Input */}
-          <div className="relative">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleImageSelect(file);
-              }}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-            />
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center bg-gray-50 dark:bg-gray-900/50 hover:border-primary-400 dark:hover:border-primary-600 transition cursor-pointer">
-              <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                {t.chooseFile}
-              </p>
-            </div>
+          <div
+            {...getRootProps()}
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition cursor-pointer ${
+              isDragActive
+                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50 hover:border-primary-400 dark:hover:border-primary-600'
+            }`}
+          >
+            <input {...getInputProps()} />
+            <Upload className={`w-8 h-8 mx-auto mb-2 ${isDragActive ? 'text-primary-500' : 'text-gray-400'}`} />
+            <p className={`text-xs ${isDragActive ? 'text-primary-600 dark:text-primary-400' : 'text-gray-600 dark:text-gray-400'}`}>
+              {isDragActive ? t.dragActive : t.chooseFile}
+            </p>
           </div>
 
           {/* Uploading Preview */}
