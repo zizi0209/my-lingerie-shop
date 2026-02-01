@@ -326,8 +326,18 @@ const Settings: React.FC = () => {
       formData.append('folder', 'settings/no-bg');
       formData.append('model', 'medium'); // 'small' or 'medium'
       formData.append('format', 'webp'); // ✅ Output WebP format
+      formData.append('tolerance', '50'); // Higher tolerance for better white background removal
 
-      const response = await api.uploadFile<{ success: boolean; data: { url: string; processedUrl: string; format: string } }>(
+      const response = await api.uploadFile<{ 
+        success: boolean; 
+        data: { 
+          url: string; 
+          processedUrl: string; 
+          format: string;
+          originalUrl?: string;
+          method?: string;
+        } 
+      }>(
         '/background-removal/remove',
         formData
       );
@@ -343,10 +353,15 @@ const Settings: React.FC = () => {
         
         // Show success message with format info
         console.log(`✅ Background removed successfully (${response.data.format || 'webp'})`);
+      } else {
+        throw new Error('Không nhận được URL ảnh đã xử lý từ server');
       }
     } catch (err) {
       console.error('Background removal error:', err);
-      setError(language === 'vi' ? 'Không thể xóa nền ảnh' : 'Failed to remove background');
+      const errorMessage = err instanceof Error ? err.message : 'Không thể xóa nền ảnh';
+      setError(errorMessage);
+      // Auto-hide error after 5 seconds
+      setTimeout(() => setError(null), 5000);
     } finally {
       setIsRemovingBackground(false);
     }

@@ -10,11 +10,20 @@ function checkAdmin(req: Request, res: Response, next: NextFunction) {
   const roleName = req.user?.roleName?.toUpperCase();
   
   if (roleName !== 'ADMIN' && roleName !== 'SUPER_ADMIN') {
+    console.error('❌ Admin access denied:', {
+      userId: req.user?.id,
+      roleName: req.user?.roleName,
+      requiredRoles: ['ADMIN', 'SUPER_ADMIN'],
+    });
     return res.status(403).json({
       error: 'Chỉ admin mới có quyền truy cập!'
     });
   }
   
+  console.log('✅ Admin access granted:', {
+    userId: req.user?.id,
+    roleName: req.user?.roleName,
+  });
   next();
 }
 

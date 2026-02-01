@@ -88,7 +88,7 @@ export async function removeImageBackgroundAdvanced(
   }
 ): Promise<Buffer> {
   try {
-    const tolerance = options?.tolerance || 10;
+    const tolerance = options?.tolerance || 30; // Increased default for better white background removal
 
     // Convert to raw pixel data
     const { data, info } = await sharp(imageBuffer)
@@ -100,6 +100,8 @@ export async function removeImageBackgroundAdvanced(
     const width = info.width;
     const height = info.height;
     const channels = info.channels;
+
+    console.log(`🎨 Processing image: ${width}x${height}, ${channels} channels, tolerance: ${tolerance}`);
 
     // Sample corner pixels to detect background color
     const corners = [
@@ -121,24 +123,47 @@ export async function removeImageBackgroundAdvanced(
     avgG /= corners.length;
     avgB /= corners.length;
 
+    console.log(`🎨 Detected background color: RGB(${Math.round(avgR)}, ${Math.round(avgG)}, ${Math.round(avgB)})`);
+
+    // Check if background is white/light (common case)
+    const isWhiteBackground = avgR > 200 && avgG > 200 && avgB > 200;
+    
+    let removedPixels = 0;
+
     // Remove pixels similar to background color
     for (let i = 0; i < pixels.length; i += channels) {
       const r = pixels[i];
       const g = pixels[i + 1];
       const b = pixels[i + 2];
 
-      // Calculate color distance
-      const distance = Math.sqrt(
-        Math.pow(r - avgR, 2) +
-        Math.pow(g - avgG, 2) +
-        Math.pow(b - avgB, 2)
-      );
+      let shouldRemove = false;
 
-      // If color is similar to background, make it transparent
-      if (distance <= tolerance * 2.55) {
-        pixels[i + 3] = 0; // Set alpha to 0
+      if (isWhiteBackground) {
+        // For white backgrounds: remove pixels that are very light
+        const brightness = (r + g + b) / 3;
+        const whiteTolerance = 255 - (tolerance * 2.55);
+        if (brightness >= whiteTolerance) {
+          shouldRemove = true;
+        }
+      } else {
+        // For colored backgrounds: use color distance
+        const distance = Math.sqrt(
+          Math.pow(r - avgR, 2) +
+          Math.pow(g - avgG, 2) +
+          Math.pow(b - avgB, 2)
+        );
+        if (distance <= tolerance * 2.55) {
+          shouldRemove = true;
+        }
+      }
+
+      if (shouldRemove) {
+        pixels[i + 3] = 0; // Set alpha to 0 (transparent)
+        removedPixels++;
       }
     }
+
+    console.log(`✅ Removed ${removedPixels} background pixels (${((removedPixels / (width * height)) * 100).toFixed(1)}% of image)`);
 
     // Convert back to PNG
     const result = await sharp(pixels, {
@@ -148,7 +173,7 @@ export async function removeImageBackgroundAdvanced(
         channels: channels,
       },
     })
-      .png({ quality: 90, compressionLevel: 9 })
+      .png({ compressionLevel: 9 }) // PNG doesn't have quality option, only compressionLevel
       .toBuffer();
 
     return result;

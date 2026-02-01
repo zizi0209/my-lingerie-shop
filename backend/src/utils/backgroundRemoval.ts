@@ -38,9 +38,18 @@ export async function removeImageBackground(
   }
 ): Promise<Buffer> {
   try {
-    const method = options?.method || (isAIAvailable ? 'ai' : 'advanced');
+    // Force 'advanced' method for now to avoid AI model issues
+    const method = options?.method || 'advanced';
     const outputFormat = options?.output?.format || 'webp'; // ✅ Default to WebP
     const outputQuality = options?.output?.quality || 0.9;
+
+    console.log(`🔧 Background removal config:`, {
+      requestedMethod: options?.method,
+      actualMethod: method,
+      isAIAvailable,
+      outputFormat,
+      outputQuality,
+    });
 
     // Method 1: AI-based (best quality, requires @imgly/background-removal-node)
     if (method === 'ai' && isAIAvailable && removeBackground) {

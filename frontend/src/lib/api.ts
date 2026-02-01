@@ -353,8 +353,37 @@ class ApiService {
       }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        let errorData: any = {};
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          errorData = await response.json().catch(() => ({}));
+        } else {
+          // Non-JSON response, try to get text
+          const text = await response.text().catch(() => '');
+          errorData = { rawError: text };
+        }
+        
+        console.error('Upload failed - Status:', response.status, response.statusText, {
+          status: response.status,
+          statusText: response.statusText,
+          contentType,
+          errorData,
+          url,
+        });
+        
+        // Build detailed error message
+        let errorMessage = errorData.error || `HTTP ${response.status}`;
+        if (errorData.details) {
+          errorMessage += ` - ${errorData.details}`;
+        }
+        if (errorData.step) {
+          errorMessage += ` (step: ${errorData.step})`;
+        }
+        if (errorData.rawError) {
+          errorMessage = errorData.rawError;
+        }
+        throw new Error(errorMessage);
       }
 
       return await response.json();
