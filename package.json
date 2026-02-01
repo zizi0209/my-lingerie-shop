@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "seed:images": "node convert-seed-images.js",
+    "seed:images:dry": "node convert-seed-images.js --dry-run",
     "docs:dev": "cd documentation && npm start",
     "docs:build": "cd documentation && npm run build",
     "docs:serve": "cd documentation && npm run serve",
@@ -32,6 +34,7 @@
     "@playwright/test": "^1.57.0",
     "@types/node": "^25.0.3",
     "oxlint": "^1.42.0",
-    "oxlint-tsgolint": "^0.11.4"
+    "oxlint-tsgolint": "^0.11.4",
+    "sharp": "^0.34.5"
   }
 }
