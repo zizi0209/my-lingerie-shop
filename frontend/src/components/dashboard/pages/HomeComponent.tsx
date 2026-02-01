@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
 import { 
   Settings, Eye, EyeOff, Plus, Trash2, Save, 
   Loader2, AlertCircle, CheckCircle, GripVertical,
@@ -514,10 +515,7 @@ const ImageField: React.FC<ImageFieldProps> = ({ value, onChange, label }) => {
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const uploadFile = useCallback(async (file: File) => {
     const validation = validateImageFile(file);
     if (!validation.valid) {
       alert(validation.error);
@@ -528,7 +526,6 @@ const ImageField: React.FC<ImageFieldProps> = ({ value, onChange, label }) => {
       setUploading(true);
       setUploadProgress('Đang nén ảnh...');
 
-      // Compress to WebP
       const compressed = await compressImage(file, {
         maxSizeMB: 1,
         maxWidthOrHeight: 1920,
@@ -536,14 +533,18 @@ const ImageField: React.FC<ImageFieldProps> = ({ value, onChange, label }) => {
         quality: 0.85,
       });
 
-      setUploadProgress(`Đã nén: ${formatFileSize(compressed.originalSize)} → ${formatFileSize(compressed.compressedSize)} (-${compressed.reduction.toFixed(0)}%)`);
+      setUploadProgress(
+        `Đã nén: ${formatFileSize(compressed.originalSize)} → ${formatFileSize(compressed.compressedSize)} (-${compressed.reduction.toFixed(0)}%)`
+      );
 
-      // Upload to server
       const formData = new FormData();
       formData.append('file', compressed.file);
 
-      const response = await api.uploadFile<{ success: boolean; data: { url: string } }>('/media/upload', formData);
-      
+      const response = await api.uploadFile<{ success: boolean; data: { url: string } }>(
+        '/media/upload',
+        formData
+      );
+
       if (response.success && response.data?.url) {
         onChange(response.data.url);
         setUploadProgress('Upload thành công!');
@@ -554,8 +555,29 @@ const ImageField: React.FC<ImageFieldProps> = ({ value, onChange, label }) => {
       setUploadProgress('Lỗi upload');
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  }, [onChange]);
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles?.[0];
+    if (!file) return;
+    void uploadFile(file);
+  }, [uploadFile]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+    },
+    multiple: false,
+    disabled: uploading,
+  });
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -595,15 +617,25 @@ const ImageField: React.FC<ImageFieldProps> = ({ value, onChange, label }) => {
           onChange={handleFileSelect}
           className="hidden"
         />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+        <div
+          {...getRootProps()}
+          className={`flex-1 rounded-lg border-2 border-dashed px-4 py-2 transition-colors cursor-pointer ${
+            isDragActive
+              ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+              : 'border-slate-200 dark:border-slate-700 hover:border-primary-400 dark:hover:border-primary-600'
+          } ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
-          {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-          {uploading ? 'Đang upload...' : 'Upload ảnh'}
-        </button>
+          <input {...getInputProps()} />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center gap-2 text-slate-700 dark:text-slate-300 text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+            {uploading ? 'Đang upload...' : isDragActive ? 'Thả ảnh vào đây...' : 'Kéo thả hoặc click để upload'}
+          </button>
+        </div>
         {uploadProgress && (
           <span className="text-xs text-slate-500 dark:text-slate-400">{uploadProgress}</span>
         )}
