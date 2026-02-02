@@ -113,11 +113,12 @@ export const strictLimiter = rateLimit({
 
 /**
  * Rate limiter for file uploads
- * Max 10 uploads per hour per IP
+ * Max 10 uploads per hour per IP (1000 in dev/test)
  */
 export const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
+  max: isDevOrTest ? 1000 : 10,
+  skip: skipInTest,
   message: {
     error: 'Quá nhiều file uploads. Vui lòng thử lại sau 1 giờ.'
   },

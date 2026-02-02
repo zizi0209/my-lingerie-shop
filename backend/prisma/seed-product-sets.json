@@ -1,0 +1,622 @@
+[
+  {
+    "groupSlug": "day-ao-nguc",
+    "styleCode": "DAN001",
+    "productType": "ACCESSORY",
+    "categorySlug": "phu-kien",
+    "name": "day-ao-nguc",
+    "descriptionHtml": null,
+    "price": 100000,
+    "salePrice": null,
+    "isFeatured": false,
+    "isVisible": true,
+    "colors": [
+      {
+        "colorSlug": null,
+        "isDefault": true,
+        "images": [
+          "/images/seed_images/day-ao-nguc/DAN001/DAN001-1.webp",
+          "/images/seed_images/day-ao-nguc/DAN001/DAN001-2.webp",
+          "/images/seed_images/day-ao-nguc/DAN001/DAN001-3.webp",
+          "/images/seed_images/day-ao-nguc/DAN001/DAN001-4.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "groupSlug": "mieng-che-dau-nguc",
+    "styleCode": "CN001",
+    "productType": "ACCESSORY",
+    "categorySlug": "phu-kien",
+    "name": "mieng-che-dau-nguc",
+    "descriptionHtml": null,
+    "price": 100000,
+    "salePrice": null,
+    "isFeatured": false,
+    "isVisible": true,
+    "colors": [
+      {
+        "colorSlug": "den",
+        "isDefault": true,
+        "images": [
+          "/images/seed_images/mieng-che-dau-nguc/CN001/den/CN001-den-1.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/den/CN001-den-2.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/den/CN001-den-3.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/den/CN001-den-4.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/den/CN001-den-5.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "nude",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/mieng-che-dau-nguc/CN001/nude/CN001-nude-1.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/nude/CN001-nude-2.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/nude/CN001-nude-3.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/nude/CN001-nude-4.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/nude/CN001-nude-5.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/nude/CN001-nude-6.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/nude/CN001-nude-7.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/nude/CN001-nude-8.webp",
+          "/images/seed_images/mieng-che-dau-nguc/CN001/nude/CN001-nude-9.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "groupSlug": "trang-tri",
+    "styleCode": "TT001",
+    "productType": "ACCESSORY",
+    "categorySlug": "phu-kien",
+    "name": "trang-tri",
+    "descriptionHtml": null,
+    "price": 100000,
+    "salePrice": null,
+    "isFeatured": false,
+    "isVisible": true,
+    "colors": [
+      {
+        "colorSlug": null,
+        "isDefault": true,
+        "images": [
+          "/images/seed_images/trang-tri/TT001/TT001-1.webp",
+          "/images/seed_images/trang-tri/TT001/TT001-2.webp",
+          "/images/seed_images/trang-tri/TT001/TT001-3.webp",
+          "/images/seed_images/trang-tri/TT001/TT001-4.webp",
+          "/images/seed_images/trang-tri/TT001/TT001-5.webp",
+          "/images/seed_images/trang-tri/TT001/TT001-6.webp",
+          "/images/seed_images/trang-tri/TT001/TT001-7.webp",
+          "/images/seed_images/trang-tri/TT001/TT001-8.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "groupSlug": "ao-nguc",
+    "styleCode": "AN001",
+    "productType": "BRA",
+    "categorySlug": "ao-lot",
+    "name": "ao-nguc",
+    "descriptionHtml": null,
+    "price": 100000,
+    "salePrice": null,
+    "isFeatured": false,
+    "isVisible": true,
+    "colors": [
+      {
+        "colorSlug": "be",
+        "isDefault": true,
+        "images": [
+          "/images/seed_images/ao-nguc/AN001/be/AN001-be-1.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "nude",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/ao-nguc/AN001/nude/AN001-nude-1.webp",
+          "/images/seed_images/ao-nguc/AN001/nude/AN001-nude-2.webp",
+          "/images/seed_images/ao-nguc/AN001/nude/AN001-nude-3.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "trang",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/ao-nguc/AN001/trang/AN001-trang-1.webp",
+          "/images/seed_images/ao-nguc/AN001/trang/AN001-trang-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "groupSlug": "ao-nguc",
+    "styleCode": "AN002",
+    "productType": "BRA",
+    "categorySlug": "ao-lot",
+    "name": "ao-nguc",
+    "descriptionHtml": null,
+    "price": 100000,
+    "salePrice": null,
+    "isFeatured": false,
+    "isVisible": true,
+    "colors": [
+      {
+        "colorSlug": "be",
+        "isDefault": true,
+        "images": [
+          "/images/seed_images/ao-nguc/AN002/be/AN002-be-1.webp",
+          "/images/seed_images/ao-nguc/AN002/be/AN002-be-2.webp",
+          "/images/seed_images/ao-nguc/AN002/be/AN002-be-3.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "cam",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/ao-nguc/AN002/cam/AN002-cam-1.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "den",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/ao-nguc/AN002/den/AN002-den-1.webp",
+          "/images/seed_images/ao-nguc/AN002/den/AN002-den-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "ruou-vang",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/ao-nguc/AN002/ruou-vang/AN002-ruou-vang-1.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "trang",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/ao-nguc/AN002/trang/AN002-trang-1.webp",
+          "/images/seed_images/ao-nguc/AN002/trang/AN002-trang-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "groupSlug": "quan-lot",
+    "styleCode": "QL001",
+    "productType": "PANTY",
+    "categorySlug": "quan-lot",
+    "name": "quan-lot",
+    "descriptionHtml": null,
+    "price": 100000,
+    "salePrice": null,
+    "isFeatured": false,
+    "isVisible": true,
+    "colors": [
+      {
+        "colorSlug": "be",
+        "isDefault": true,
+        "images": [
+          "/images/seed_images/quan-lot/QL001/be/QL001-be-1.webp",
+          "/images/seed_images/quan-lot/QL001/be/QL001-be-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "den",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/quan-lot/QL001/den/QL001-den-1.webp",
+          "/images/seed_images/quan-lot/QL001/den/QL001-den-2.webp",
+          "/images/seed_images/quan-lot/QL001/den/QL001-den-3.webp",
+          "/images/seed_images/quan-lot/QL001/den/QL001-den-4.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "do",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/quan-lot/QL001/do/QL001-do-1.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "trang",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/quan-lot/QL001/trang/QL001-trang-1.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "xam",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/quan-lot/QL001/xam/QL001-xam-1.webp",
+          "/images/seed_images/quan-lot/QL001/xam/QL001-xam-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "groupSlug": "quan-lot",
+    "styleCode": "QL002",
+    "productType": "PANTY",
+    "categorySlug": "quan-lot",
+    "name": "quan-lot",
+    "descriptionHtml": null,
+    "price": 100000,
+    "salePrice": null,
+    "isFeatured": false,
+    "isVisible": true,
+    "colors": [
+      {
+        "colorSlug": "den",
+        "isDefault": true,
+        "images": [
+          "/images/seed_images/quan-lot/QL002/den/QL002-den-1.webp",
+          "/images/seed_images/quan-lot/QL002/den/QL002-den-2.webp",
+          "/images/seed_images/quan-lot/QL002/den/QL002-den-3.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "nau",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/quan-lot/QL002/nau/QL002-nau-1.webp",
+          "/images/seed_images/quan-lot/QL002/nau/QL002-nau-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "groupSlug": "set-do-lot",
+    "styleCode": "SDL001",
+    "productType": "SET",
+    "categorySlug": "bo-do-lot",
+    "name": "set-do-lot",
+    "descriptionHtml": null,
+    "price": 100000,
+    "salePrice": null,
+    "isFeatured": false,
+    "isVisible": true,
+    "colors": [
+      {
+        "colorSlug": "den",
+        "isDefault": true,
+        "images": [
+          "/images/seed_images/set-do-lot/SDL001/den/SDL001-den-1.webp",
+          "/images/seed_images/set-do-lot/SDL001/den/SDL001-den-2.webp",
+          "/images/seed_images/set-do-lot/SDL001/den/SDL001-den-3.webp",
+          "/images/seed_images/set-do-lot/SDL001/den/SDL001-den-4.webp",
+          "/images/seed_images/set-do-lot/SDL001/den/SDL001-den-5.webp",
+          "/images/seed_images/set-do-lot/SDL001/den/SDL001-den-6.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "do",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/set-do-lot/SDL001/do/SDL001-do-1.webp",
+          "/images/seed_images/set-do-lot/SDL001/do/SDL001-do-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "nude",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/set-do-lot/SDL001/nude/SDL001-nude-1.webp",
+          "/images/seed_images/set-do-lot/SDL001/nude/SDL001-nude-2.webp",
+          "/images/seed_images/set-do-lot/SDL001/nude/SDL001-nude-3.webp",
+          "/images/seed_images/set-do-lot/SDL001/nude/SDL001-nude-4.webp",
+          "/images/seed_images/set-do-lot/SDL001/nude/SDL001-nude-5.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "trang",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/set-do-lot/SDL001/trang/SDL001-trang-1.webp",
+          "/images/seed_images/set-do-lot/SDL001/trang/SDL001-trang-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "groupSlug": "do-dinh-hinh",
+    "styleCode": "DDH001",
+    "productType": "SHAPEWEAR",
+    "categorySlug": "do-gen",
+    "name": "do-dinh-hinh",
+    "descriptionHtml": null,
+    "price": 100000,
+    "salePrice": null,
+    "isFeatured": false,
+    "isVisible": true,
+    "colors": [
+      {
+        "colorSlug": "be",
+        "isDefault": true,
+        "images": [
+          "/images/seed_images/do-dinh-hinh/DDH001/be/DDH001-be-1.webp",
+          "/images/seed_images/do-dinh-hinh/DDH001/be/DDH001-be-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "den",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/do-dinh-hinh/DDH001/den/DDH001-den-1.webp",
+          "/images/seed_images/do-dinh-hinh/DDH001/den/DDH001-den-2.webp",
+          "/images/seed_images/do-dinh-hinh/DDH001/den/DDH001-den-3.webp",
+          "/images/seed_images/do-dinh-hinh/DDH001/den/DDH001-den-4.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "nau",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/do-dinh-hinh/DDH001/nau/DDH001-nau-1.webp",
+          "/images/seed_images/do-dinh-hinh/DDH001/nau/DDH001-nau-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "xam",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/do-dinh-hinh/DDH001/xam/DDH001-xam-1.webp",
+          "/images/seed_images/do-dinh-hinh/DDH001/xam/DDH001-xam-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "groupSlug": "do-ngu",
+    "styleCode": "DN001",
+    "productType": "SLEEPWEAR",
+    "categorySlug": "do-ngu",
+    "name": "do-ngu",
+    "descriptionHtml": null,
+    "price": 100000,
+    "salePrice": null,
+    "isFeatured": false,
+    "isVisible": true,
+    "colors": [
+      {
+        "colorSlug": "be",
+        "isDefault": true,
+        "images": [
+          "/images/seed_images/do-ngu/DN001/be/DN001-be-1.webp",
+          "/images/seed_images/do-ngu/DN001/be/DN001-be-2.webp",
+          "/images/seed_images/do-ngu/DN001/be/DN001-be-3.webp",
+          "/images/seed_images/do-ngu/DN001/be/DN001-be-4.webp",
+          "/images/seed_images/do-ngu/DN001/be/DN001-be-5.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "den",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/do-ngu/DN001/den/DN001-den-1.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "navy",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/do-ngu/DN001/navy/DN001-navy-1.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "trang",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/do-ngu/DN001/trang/DN001-trang-1.webp",
+          "/images/seed_images/do-ngu/DN001/trang/DN001-trang-2.webp",
+          "/images/seed_images/do-ngu/DN001/trang/DN001-trang-3.webp",
+          "/images/seed_images/do-ngu/DN001/trang/DN001-trang-4.webp",
+          "/images/seed_images/do-ngu/DN001/trang/DN001-trang-5.webp",
+          "/images/seed_images/do-ngu/DN001/trang/DN001-trang-6.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "colorSlug": "xam",
+        "isDefault": false,
+        "images": [
+          "/images/seed_images/do-ngu/DN001/xam/DN001-xam-1.webp",
+          "/images/seed_images/do-ngu/DN001/xam/DN001-xam-2.webp"
+        ],
+        "sizes": [
+          {
+            "size": "Free Size",
+            "stock": 10
+          }
+        ]
+      }
+    ]
+  }
+]

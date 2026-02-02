@@ -7,6 +7,8 @@
 
 import { PrismaClient, ProductType } from '@prisma/client';
 import { faker } from '@faker-js/faker/locale/vi';
+import fs from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -19,6 +21,36 @@ const CONFIG = {
   productsPerCategory: 5, // 5 sản phẩm mỗi danh mục = 30 sản phẩm
   variantsPerProduct: 3,  // 3 màu x 3 sizes = ~9 variants
 };
+
+type SeedProductSetColor = {
+  colorSlug: string;
+  isDefault?: boolean;
+  order?: number;
+  images: string[];
+  sizes: { size: string; stock?: number; price?: number | null; salePrice?: number | null }[];
+};
+
+type SeedProductSet = {
+  groupSlug: string;
+  styleCode: string;
+  productType: ProductType;
+  categorySlug: string;
+  name: string;
+  descriptionHtml?: string | null;
+  price: number;
+  salePrice?: number | null;
+  isFeatured?: boolean;
+  isVisible?: boolean;
+  colors: SeedProductSetColor[];
+};
+
+function loadSeedProductSets(): SeedProductSet[] {
+  const seedFile = path.join(__dirname, 'seed-product-sets.json');
+  if (!fs.existsSync(seedFile)) return [];
+  const raw = fs.readFileSync(seedFile, 'utf-8');
+  const parsed = JSON.parse(raw) as SeedProductSet[];
+  return Array.isArray(parsed) ? parsed : [];
+}
 
 // ============ DATA ============
 
@@ -257,6 +289,85 @@ async function seedProducts(categories: Awaited<ReturnType<typeof seedCategories
   console.log(`  📎 Loaded ${COLORS.length} colors from database`);
 
   const allProducts = [];
+
+  // Manual “product sets” seeding: 1 product with many colors, images per color
+  const seedSets = loadSeedProductSets();
+  if (seedSets.length > 0) {
+    console.log(`\n  🎨 Seeding ${seedSets.length} product set(s) from seed-product-sets.json...`);
+    for (const set of seedSets) {
+      const category = categories.find((c) => c.slug === set.categorySlug);
+      if (!category) {
+        console.log(`  ⚠️  Skip set ${set.styleCode}: categorySlug not found: ${set.categorySlug}`);
+        continue;
+      }
+
+      const productSlug = generateSlug(set.groupSlug, set.styleCode.toLowerCase());
+      const product = await prisma.product.create({
+        data: {
+          name: set.name,
+          slug: productSlug,
+          description: set.descriptionHtml ?? null,
+          price: set.price,
+          salePrice: set.salePrice ?? null,
+          categoryId: category.id,
+          productType: set.productType,
+          isFeatured: set.isFeatured ?? false,
+          isVisible: set.isVisible ?? true,
+        },
+      });
+
+      // Create colors/images/variants
+      const colorsSorted = [...set.colors].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      for (let idx = 0; idx < colorsSorted.length; idx++) {
+        const c = colorsSorted[idx];
+        const color = COLORS.find((cc) => cc.slug === c.colorSlug);
+        if (!color) {
+          console.log(`  ⚠️  Skip color ${c.colorSlug} for set ${set.styleCode}: color slug not found in DB`);
+          continue;
+        }
+
+        await prisma.productColor.create({
+          data: {
+            productId: product.id,
+            colorId: color.id,
+            isDefault: c.isDefault ?? idx === 0,
+            order: c.order ?? idx,
+          },
+        });
+
+        // Images: use provided; if missing then fallback to local rotation/picsum
+        const imageUrls = (c.images && c.images.length > 0)
+          ? c.images
+          : getProductImages(set.productType, product.id * 10 + idx, 2);
+
+        await prisma.productImage.createMany({
+          data: imageUrls.map((url) => ({
+            productId: product.id,
+            colorId: color.id,
+            url,
+          })),
+        });
+
+        for (const s of c.sizes) {
+          const sku = `${set.productType.substring(0, 3)}-${set.styleCode}-${color.slug.toUpperCase()}-${s.size.replace(' ', '')}`;
+          await prisma.productVariant.create({
+            data: {
+              productId: product.id,
+              sku,
+              size: s.size,
+              colorId: color.id,
+              stock: s.stock ?? 10,
+              price: s.price ?? set.price,
+              salePrice: s.salePrice ?? (set.salePrice ?? null),
+            },
+          });
+        }
+      }
+
+      allProducts.push(product);
+      console.log(`    ✅ [SET] ${set.name} (${set.styleCode}) - ${set.colors.length} màu`);
+    }
+  }
   let productCounter = 1;
 
   for (const category of categories) {

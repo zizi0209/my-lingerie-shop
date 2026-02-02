@@ -837,7 +837,7 @@ const AboutManagement: React.FC = () => {
                               <div key={index} className="flex items-center gap-2">
                                 <input
                                   type="text"
-                                  value={partner.name}
+                                  value={partner.name ?? ''}
                                   onChange={(e) => handleUpdatePartner(index, 'name', e.target.value)}
                                   placeholder="Tên thương hiệu (Elle, Đẹp, VnExpress...)"
                                   className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
