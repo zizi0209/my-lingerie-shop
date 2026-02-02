@@ -340,14 +340,18 @@ export default function ContactPage() {
             )}
           </div>
 
-          {/* Store Image */}
-          <div className="mt-8 rounded-lg overflow-hidden">
-            <Image
-              src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop"
-              alt="Lingerie Store"
-              width={800}
-              height={400}
-              className="w-full object-cover"
+          {/* Google Maps */}
+          <div className="mt-8 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3919.4452390677857!2d106.70142731531957!3d10.776552292319675!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31752f38f9ed887b%3A0x14aded5703768989!2zMTIzIE5ndXnhu4VuIEh14buHLCBC4bq_biBOZ2jDqSwgUXXhuq1uIDEsIFRow6BuaCBwaOG7kSBI4buTIENow60gTWluaA!5e0!3m2!1svi!2s!4v1700000000000!5m2!1svi!2s"
+              width="100%"
+              height="400"
+              style={{ border: 0 }}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Vị trí cửa hàng Lingerie Shop"
+              className="w-full"
             />
           </div>
         </div>
