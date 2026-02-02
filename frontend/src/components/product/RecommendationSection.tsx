@@ -276,7 +276,7 @@ export default function RecommendationSection({
               {/* Colors preview */}
               {product.colors.length > 0 && (
                 <div className="absolute bottom-2 left-2 flex gap-1">
-                  {product.colors.slice(0, 4).map((color, i) => (
+                  {product.colors.filter(Boolean).slice(0, 4).map((color, i) => (
                     <div
                       key={i}
                       className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
@@ -366,6 +366,7 @@ function getColorHex(colorName: string): string {
     'kem': '#fef3c7',
   };
   
+  if (!colorName) return '#9ca3af';
   const normalized = colorName.toLowerCase().trim();
   return colorMap[normalized] || '#9ca3af';
 }

@@ -44,7 +44,7 @@ describe('Size System API v2', () => {
           size: '34C',
           baseSize: '34C',
           baseSizeUIC: 'UIC_BRA_BAND86_CUPVOL6',
-          colorName: 'Black',
+          colorId: 1,
           stock: 0, // Out of stock
           productId: testProductId,
         },
@@ -55,7 +55,7 @@ describe('Size System API v2', () => {
           size: '32D',
           baseSize: '32D',
           baseSizeUIC: 'UIC_BRA_BAND81_CUPVOL6',
-          colorName: 'Black',
+          colorId: 1,
           stock: 5, // In stock
           productId: testProductId,
         },
@@ -66,7 +66,7 @@ describe('Size System API v2', () => {
           size: '36B',
           baseSize: '36B',
           baseSizeUIC: 'UIC_BRA_BAND91_CUPVOL6',
-          colorName: 'Black',
+          colorId: 1,
           stock: 3, // In stock
           productId: testProductId,
         },

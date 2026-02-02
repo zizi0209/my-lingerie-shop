@@ -2051,7 +2051,8 @@ router.get('/low-stock', async (req, res) => {
             name: true,
             images: { take: 1, select: { url: true } }
           }
-        }
+        },
+        color: { select: { name: true } }
       },
       orderBy: { stock: 'asc' },
       take: Number(limit)
@@ -2062,7 +2063,7 @@ router.get('/low-stock', async (req, res) => {
       productId: v.product.id,
       name: v.product.name,
       size: v.size,
-      color: v.colorName,
+      color: v.color?.name || '',
       stock: v.stock,
       image: v.product.images[0]?.url
     }));

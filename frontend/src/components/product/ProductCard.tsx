@@ -2,10 +2,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ShoppingBag, Heart, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
+
+interface ColorGroup {
+  colorId: number;
+  colorName: string;
+  hexCode: string;
+  slug: string;
+  isDefault: boolean;
+  images: { id: number; url: string }[];
+  sizes: { variantId: number; size: string; stock: number }[];
+  totalStock: number;
+}
 
 interface Product {
   id: string | number;
@@ -17,6 +28,7 @@ interface Product {
   category: string;
   isNew?: boolean;
   isSale?: boolean;
+  colorGroups?: ColorGroup[];
 }
 
 interface ProductCardProps {
@@ -30,6 +42,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   
   const [isHovered, setIsHovered] = useState(false);
   const [togglingWishlist, setTogglingWishlist] = useState(false);
+  const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
   
   const productId = typeof product.id === 'string' ? parseInt(product.id, 10) : product.id;
   const isLiked = isInWishlist(productId);
@@ -40,6 +53,24 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   // Ưu tiên slug, fallback sang id
   const productUrl = `/san-pham/${product.slug || product.id}`;
+
+  // Get current color and image based on selection
+  const { currentImage, availableColors } = useMemo(() => {
+    const colors = product.colorGroups || [];
+    
+    if (colors.length === 0) {
+      return { currentImage: product.image, availableColors: [] };
+    }
+
+    // Find selected or default color
+    const selectedColor = selectedColorId 
+      ? colors.find(c => c.colorId === selectedColorId)
+      : colors.find(c => c.isDefault) || colors[0];
+
+    const image = selectedColor?.images[0]?.url || product.image;
+
+    return { currentImage: image, availableColors: colors };
+  }, [product.colorGroups, product.image, selectedColorId]);
 
   return (
     <article
@@ -55,7 +86,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           aria-label={`Xem chi tiết ${product.name}`}
         >
           <Image
-            src={product.image}
+            src={currentImage}
             alt={product.name}
             fill
             className={`object-cover transition-transform duration-700 ${isHovered ? 'scale-105' : 'scale-100'}`}
@@ -134,6 +165,51 @@ export default function ProductCard({ product }: ProductCardProps) {
             {product.name}
           </h3>
         </Link>
+
+        {/* Color Swatches */}
+        {availableColors.length > 1 && (
+          <div className="flex items-center justify-center gap-1.5 py-1">
+            {availableColors.map((color) => {
+              const isSelected = selectedColorId === color.colorId || 
+                (!selectedColorId && color.isDefault);
+              const isOutOfStock = color.totalStock === 0;
+              
+              return (
+                <button
+                  key={color.colorId}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelectedColorId(color.colorId);
+                  }}
+                  className={`
+                    relative w-5 h-5 rounded-full transition-all duration-200
+                    ${isSelected 
+                      ? 'ring-2 ring-offset-2 ring-gray-900 dark:ring-white' 
+                      : 'hover:scale-110'
+                    }
+                    ${isOutOfStock ? 'opacity-40' : ''}
+                  `}
+                  style={{ backgroundColor: color.hexCode }}
+                  title={`${color.colorName}${isOutOfStock ? ' (Hết hàng)' : ''}`}
+                  aria-label={`Chọn màu ${color.colorName}`}
+                >
+                  {/* White border for light colors */}
+                  {color.hexCode.toLowerCase() === '#ffffff' && (
+                    <span className="absolute inset-0 rounded-full border border-gray-300" />
+                  )}
+                  {/* Out of stock indicator */}
+                  {isOutOfStock && (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <span className="w-full h-0.5 bg-gray-500 rotate-45 absolute" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="flex items-center justify-center gap-2 flex-wrap">
           <span className="text-[14px] font-medium text-gray-900 dark:text-white opacity-70 italic">
             {product.price.toLocaleString('vi-VN')}₫

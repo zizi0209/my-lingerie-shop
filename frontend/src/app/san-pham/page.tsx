@@ -16,6 +16,16 @@ interface Product {
   isNew?: boolean;
   isSale?: boolean;
   slug?: string;
+  colorGroups?: {
+    colorId: number;
+    colorName: string;
+    hexCode: string;
+    slug: string;
+    isDefault: boolean;
+    images: { id: number; url: string }[];
+    sizes: { variantId: number; size: string; stock: number }[];
+    totalStock: number;
+  }[];
 }
 
 interface Category {
@@ -215,20 +225,32 @@ export default function ProductsPage() {
           price: number;
           salePrice?: number;
           compareAtPrice?: number;
-          images?: { url: string }[];
+          image?: string;
+          images?: { id: number; url: string; colorId?: number }[];
           category?: { name: string };
           slug?: string;
           createdAt?: string;
+          colorGroups?: {
+            colorId: number;
+            colorName: string;
+            hexCode: string;
+            slug: string;
+            isDefault: boolean;
+            images: { id: number; url: string }[];
+            sizes: { variantId: number; size: string; stock: number }[];
+            totalStock: number;
+          }[];
         }) => ({
           id: p.id.toString(),
           name: p.name,
           price: p.salePrice || p.price,
           originalPrice: p.salePrice ? p.price : (p.compareAtPrice || undefined),
-          image: p.images?.[0]?.url || "https://via.placeholder.com/400x600",
+          image: p.image || p.images?.[0]?.url || "https://via.placeholder.com/400x600",
           category: p.category?.name || "Chưa phân loại",
           isNew: p.createdAt ? isNewProduct(p.createdAt) : false,
           isSale: p.salePrice ? p.salePrice < p.price : (p.compareAtPrice ? p.compareAtPrice > p.price : false),
           slug: p.slug,
+          colorGroups: p.colorGroups,
         }));
 
         if (reset) {

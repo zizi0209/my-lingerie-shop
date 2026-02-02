@@ -251,7 +251,11 @@ export class SisterSizingService {
 
       if (sisterDownVariants.length > 0) {
         const totalStock = sisterDownVariants.reduce((sum, v) => sum + v.stock, 0);
-        const availableColors = sisterDownVariants.map((v) => v.colorName);
+        const availableColors: string[] = [];
+        for (const v of sisterDownVariants) {
+          const color = await prisma.color.findUnique({ where: { id: v.colorId } });
+          if (color) availableColors.push(color.name);
+        }
 
         alternatives.push({
           size: sisters.sisterDown.displaySize,
@@ -279,7 +283,11 @@ export class SisterSizingService {
 
       if (sisterUpVariants.length > 0) {
         const totalStock = sisterUpVariants.reduce((sum, v) => sum + v.stock, 0);
-        const availableColors = sisterUpVariants.map((v) => v.colorName);
+        const availableColors: string[] = [];
+        for (const v of sisterUpVariants) {
+          const color = await prisma.color.findUnique({ where: { id: v.colorId } });
+          if (color) availableColors.push(color.name);
+        }
 
         alternatives.push({
           size: sisters.sisterUp.displaySize,

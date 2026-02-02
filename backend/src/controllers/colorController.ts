@@ -2,35 +2,31 @@ import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 
 /**
- * Màu sắc giờ được lưu trong Attribute system (type = COLOR)
- * Các API này proxy sang Attribute để giữ backward compatibility
+ * Màu sắc được lưu trong bảng Color (Master Data)
+ * Dùng cho Color Swatches trên Product Card
  */
 
-// Get all colors (public) - từ Attribute type=COLOR
+// Get all colors (public)
 export const getAllColors = async (req: Request, res: Response) => {
   try {
-    const colorAttribute = await prisma.attribute.findFirst({
-      where: { type: 'COLOR' },
-      include: {
-        values: {
-          orderBy: { order: 'asc' },
+    const colors = await prisma.color.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        hexCode: true,
+        order: true,
+        isActive: true,
+        _count: {
+          select: {
+            variants: true,
+            products: true,
+          },
         },
       },
     });
-
-    if (!colorAttribute) {
-      return res.json({ success: true, data: [] });
-    }
-
-    // Map to legacy format
-    const colors = colorAttribute.values.map(v => ({
-      id: v.id,
-      name: v.value,
-      hexCode: (v.meta as { hexCode?: string } | null)?.hexCode || '#000000',
-      isActive: true,
-      order: v.order,
-      _count: { variants: 0 }, // TODO: count variants if needed
-    }));
 
     res.json({
       success: true,
@@ -47,8 +43,8 @@ export const getColorsWithProducts = async (req: Request, res: Response) => {
   try {
     const { categoryId } = req.query;
 
-    // Get unique color names from product variants
-    const variantsWithColors = await prisma.productVariant.findMany({
+    // Get colors that have products in the category
+    const productColors = await prisma.productColor.findMany({
       where: {
         product: {
           isVisible: true,
@@ -57,31 +53,23 @@ export const getColorsWithProducts = async (req: Request, res: Response) => {
         },
       },
       select: {
-        colorName: true,
-      },
-      distinct: ['colorName'],
-    });
-
-    const colorNames = variantsWithColors.map(v => v.colorName);
-
-    // Get color attribute values that match variant color names
-    const colorAttribute = await prisma.attribute.findFirst({
-      where: { type: 'COLOR' },
-      include: {
-        values: {
-          where: {
-            value: { in: colorNames },
+        color: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            hexCode: true,
+            order: true,
           },
-          orderBy: { order: 'asc' },
         },
       },
+      distinct: ['colorId'],
     });
 
-    const colors = colorAttribute?.values.map(v => ({
-      id: v.id,
-      name: v.value,
-      hexCode: (v.meta as { hexCode?: string } | null)?.hexCode || '#000000',
-    })) || [];
+    // Get unique colors sorted by order
+    const colors = productColors
+      .map(pc => pc.color)
+      .sort((a, b) => a.order - b.order);
 
     res.json({
       success: true,
@@ -98,25 +86,27 @@ export const getColorById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const attributeValue = await prisma.attributeValue.findUnique({
+    const color = await prisma.color.findUnique({
       where: { id: Number(id) },
-      include: {
-        attribute: true,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        hexCode: true,
+        order: true,
+        isActive: true,
+        _count: {
+          select: {
+            variants: true,
+            products: true,
+          },
+        },
       },
     });
 
-    if (!attributeValue || attributeValue.attribute.type !== 'COLOR') {
+    if (!color) {
       return res.status(404).json({ error: 'Không tìm thấy màu sắc!' });
     }
-
-    const color = {
-      id: attributeValue.id,
-      name: attributeValue.value,
-      hexCode: (attributeValue.meta as { hexCode?: string } | null)?.hexCode || '#000000',
-      isActive: true,
-      order: attributeValue.order,
-      _count: { variants: 0 },
-    };
 
     res.json({
       success: true,
@@ -128,7 +118,7 @@ export const getColorById = async (req: Request, res: Response) => {
   }
 };
 
-// Create new color (admin only) - Tạo AttributeValue trong Attribute type=COLOR
+// Create new color (admin only)
 export const createColor = async (req: Request, res: Response) => {
   try {
     const { name, hexCode, order = 0 } = req.body;
@@ -143,23 +133,6 @@ export const createColor = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Mã màu không hợp lệ! Vui lòng sử dụng định dạng #RRGGBB' });
     }
 
-    // Find or create COLOR attribute
-    let colorAttribute = await prisma.attribute.findFirst({
-      where: { type: 'COLOR' },
-    });
-
-    if (!colorAttribute) {
-      colorAttribute = await prisma.attribute.create({
-        data: {
-          name: 'Màu sắc',
-          slug: 'mau-sac',
-          type: 'COLOR',
-          isFilterable: true,
-          order: 0,
-        },
-      });
-    }
-
     // Generate slug from name
     const slug = name
       .toLowerCase()
@@ -169,36 +142,25 @@ export const createColor = async (req: Request, res: Response) => {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
 
-    // Check if value already exists
-    const existingValue = await prisma.attributeValue.findFirst({
+    // Check if name or slug already exists
+    const existingColor = await prisma.color.findFirst({
       where: {
-        attributeId: colorAttribute.id,
-        value: name,
+        OR: [{ name }, { slug }],
       },
     });
 
-    if (existingValue) {
+    if (existingColor) {
       return res.status(400).json({ error: 'Tên màu đã tồn tại!' });
     }
 
-    const attributeValue = await prisma.attributeValue.create({
+    const color = await prisma.color.create({
       data: {
-        attributeId: colorAttribute.id,
-        value: name,
+        name,
         slug,
-        meta: { hexCode: hexCode.toUpperCase() },
+        hexCode: hexCode.toUpperCase(),
         order: Number(order),
       },
     });
-
-    // Map to legacy format
-    const color = {
-      id: attributeValue.id,
-      name: attributeValue.value,
-      hexCode: hexCode.toUpperCase(),
-      isActive: true,
-      order: attributeValue.order,
-    };
 
     res.status(201).json({
       success: true,
@@ -210,28 +172,24 @@ export const createColor = async (req: Request, res: Response) => {
   }
 };
 
-// Update color (admin only) - Cập nhật AttributeValue
+// Update color (admin only)
 export const updateColor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, hexCode, order } = req.body;
+    const { name, hexCode, order, isActive } = req.body;
 
-    const existingValue = await prisma.attributeValue.findUnique({
+    const existingColor = await prisma.color.findUnique({
       where: { id: Number(id) },
-      include: { attribute: true },
     });
 
-    if (!existingValue || existingValue.attribute.type !== 'COLOR') {
+    if (!existingColor) {
       return res.status(404).json({ error: 'Không tìm thấy màu sắc!' });
     }
 
-    // If name is being updated, check if it's already in use
-    if (name && name !== existingValue.value) {
-      const nameExists = await prisma.attributeValue.findFirst({
-        where: {
-          attributeId: existingValue.attributeId,
-          value: name,
-        },
+    // If name is being updated, check for duplicates
+    if (name && name !== existingColor.name) {
+      const nameExists = await prisma.color.findFirst({
+        where: { name, id: { not: Number(id) } },
       });
 
       if (nameExists) {
@@ -248,16 +206,16 @@ export const updateColor = async (req: Request, res: Response) => {
     }
 
     // Build update data
-    const currentMeta = (existingValue.meta as { hexCode?: string } | null) || {};
     const updateData: {
-      value?: string;
+      name?: string;
       slug?: string;
-      meta?: { hexCode: string };
+      hexCode?: string;
       order?: number;
+      isActive?: boolean;
     } = {};
     
     if (name !== undefined) {
-      updateData.value = name;
+      updateData.name = name;
       updateData.slug = name
         .toLowerCase()
         .normalize('NFD')
@@ -266,24 +224,14 @@ export const updateColor = async (req: Request, res: Response) => {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
     }
-    if (hexCode !== undefined) {
-      updateData.meta = { ...currentMeta, hexCode: hexCode.toUpperCase() };
-    }
+    if (hexCode !== undefined) updateData.hexCode = hexCode.toUpperCase();
     if (order !== undefined) updateData.order = Number(order);
+    if (isActive !== undefined) updateData.isActive = isActive;
 
-    const attributeValue = await prisma.attributeValue.update({
+    const color = await prisma.color.update({
       where: { id: Number(id) },
       data: updateData,
     });
-
-    // Map to legacy format
-    const color = {
-      id: attributeValue.id,
-      name: attributeValue.value,
-      hexCode: (attributeValue.meta as { hexCode?: string } | null)?.hexCode || '#000000',
-      isActive: true,
-      order: attributeValue.order,
-    };
 
     res.json({
       success: true,
@@ -295,37 +243,33 @@ export const updateColor = async (req: Request, res: Response) => {
   }
 };
 
-// Delete color (admin only) - Xóa AttributeValue
+// Delete color (admin only)
 export const deleteColor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const attributeValue = await prisma.attributeValue.findUnique({
+    const color = await prisma.color.findUnique({
       where: { id: Number(id) },
-      include: {
-        attribute: true,
+      select: {
+        id: true,
+        name: true,
         _count: {
-          select: { products: true },
+          select: { variants: true, products: true },
         },
       },
     });
 
-    if (!attributeValue || attributeValue.attribute.type !== 'COLOR') {
+    if (!color) {
       return res.status(404).json({ error: 'Không tìm thấy màu sắc!' });
     }
 
-    // Check if color is being used in variants
-    const variantCount = await prisma.productVariant.count({
-      where: { colorName: attributeValue.value },
-    });
-
-    if (variantCount > 0) {
+    if (color._count.variants > 0 || color._count.products > 0) {
       return res.status(400).json({
-        error: `Không thể xóa màu sắc vì đang được sử dụng bởi ${variantCount} biến thể sản phẩm!`,
+        error: `Không thể xóa màu sắc vì đang được sử dụng bởi ${color._count.variants} biến thể và ${color._count.products} sản phẩm!`,
       });
     }
 
-    await prisma.attributeValue.delete({
+    await prisma.color.delete({
       where: { id: Number(id) },
     });
 
@@ -339,7 +283,7 @@ export const deleteColor = async (req: Request, res: Response) => {
   }
 };
 
-// Reorder colors (admin only) - Cập nhật order của AttributeValue
+// Reorder colors (admin only)
 export const reorderColors = async (req: Request, res: Response) => {
   try {
     const { orders } = req.body; // Array of { id, order }
@@ -348,10 +292,10 @@ export const reorderColors = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Dữ liệu không hợp lệ!' });
     }
 
-    // Update all attribute values in a transaction
+    // Update all colors in a transaction
     await prisma.$transaction(
       orders.map(({ id, order }: { id: number; order: number }) =>
-        prisma.attributeValue.update({
+        prisma.color.update({
           where: { id },
           data: { order },
         })

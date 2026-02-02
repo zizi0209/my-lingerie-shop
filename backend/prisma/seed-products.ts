@@ -1,6 +1,8 @@
 /**
  * Seed Products với dữ liệu đa dạng và ảnh hiển thị được
  * Chạy: npx ts-node prisma/seed-products.ts
+ * 
+ * UPDATED: Sử dụng bảng Color mới với colorGroups cho Color Swatches
  */
 
 import { PrismaClient, ProductType } from '@prisma/client';
@@ -38,14 +40,8 @@ const SIZES: Record<ProductType, string[]> = {
   ACCESSORY: ['Free Size'],
 };
 
-const COLORS = [
-  { name: 'Đen', slug: 'den' },
-  { name: 'Trắng', slug: 'trang' },
-  { name: 'Hồng', slug: 'hong' },
-  { name: 'Nude', slug: 'nude' },
-  { name: 'Đỏ đô', slug: 'do-do' },
-  { name: 'Navy', slug: 'navy' },
-];
+// Colors sẽ được load từ database
+let COLORS: { id: number; name: string; slug: string; hexCode: string }[] = [];
 
 /**
  * Get local product images from /public/images/seed/
@@ -207,6 +203,25 @@ async function seedCategories() {
 async function seedProducts(categories: Awaited<ReturnType<typeof seedCategories>>) {
   console.log('\n📦 Seeding products...');
   
+  // Load colors from database
+  COLORS = await prisma.color.findMany({
+    where: { isActive: true },
+    orderBy: { order: 'asc' },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      hexCode: true,
+    },
+  });
+
+  if (COLORS.length === 0) {
+    console.log('  ⚠️ No colors found. Please run migration first to seed colors.');
+    return [];
+  }
+
+  console.log(`  📎 Loaded ${COLORS.length} colors from database`);
+
   const allProducts = [];
   let productCounter = 1;
 
@@ -239,18 +254,7 @@ async function seedProducts(categories: Awaited<ReturnType<typeof seedCategories
         },
       });
 
-      // Tạo images (3-4 ảnh mỗi sản phẩm)
-      const imageCount = faker.number.int({ min: 3, max: 4 });
-      const imageUrls = getProductImages(category.productType, productCounter, imageCount);
-      
-      await prisma.productImage.createMany({
-        data: imageUrls.map(url => ({
-          productId: product.id,
-          url,
-        })),
-      });
-
-      // Tạo variants
+      // Chọn màu cho sản phẩm
       const productColors = faker.helpers.arrayElements(COLORS, { min: 2, max: 4 });
       const availableSizes = SIZES[category.productType];
       const productSizes = faker.helpers.arrayElements(availableSizes, { 
@@ -258,7 +262,32 @@ async function seedProducts(categories: Awaited<ReturnType<typeof seedCategories
         max: Math.min(4, availableSizes.length) 
       });
 
-      for (const color of productColors) {
+      // Tạo ProductColor relationships
+      for (let colorIndex = 0; colorIndex < productColors.length; colorIndex++) {
+        const color = productColors[colorIndex];
+        
+        await prisma.productColor.create({
+          data: {
+            productId: product.id,
+            colorId: color.id,
+            isDefault: colorIndex === 0, // Màu đầu tiên là default
+            order: colorIndex,
+          },
+        });
+
+        // Tạo images cho mỗi màu (2-3 ảnh mỗi màu)
+        const imageCount = faker.number.int({ min: 2, max: 3 });
+        const imageUrls = getProductImages(category.productType, productCounter * 10 + colorIndex, imageCount);
+        
+        await prisma.productImage.createMany({
+          data: imageUrls.map(url => ({
+            productId: product.id,
+            colorId: color.id, // Link image to color
+            url,
+          })),
+        });
+
+        // Tạo variants cho mỗi màu x size
         for (const size of productSizes) {
           const sku = `${category.productType.substring(0, 3)}-${productCounter.toString().padStart(3, '0')}-${color.slug.toUpperCase()}-${size.replace(' ', '')}`;
           
@@ -267,7 +296,7 @@ async function seedProducts(categories: Awaited<ReturnType<typeof seedCategories
               productId: product.id,
               sku,
               size,
-              colorName: color.name,
+              colorId: color.id, // Link variant to color
               stock: faker.number.int({ min: 5, max: 30 }),
               price: price + faker.number.int({ min: 0, max: 20000 }),
               salePrice: salePrice ? salePrice + faker.number.int({ min: 0, max: 10000 }) : null,

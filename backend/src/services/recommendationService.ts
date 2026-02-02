@@ -35,11 +35,11 @@ interface UserPreferenceData {
 async function formatProductCard(product: Prisma.ProductGetPayload<{
   include: {
     images: { take: 1 };
-    variants: true;
+    variants: { include: { color: true } };
     category: { select: { name: true } };
   };
 }>): Promise<ProductCard> {
-  const colors = [...new Set(product.variants.map(v => v.colorName))];
+  const colors = [...new Set(product.variants.map(v => v.color?.name).filter(Boolean))] as string[];
   const hasStock = product.variants.some(v => v.stock > 0);
   
   return {
@@ -78,7 +78,7 @@ export async function getSimilarProducts(
   const sourceProduct = await prisma.product.findUnique({
     where: { id: productId },
     include: {
-      variants: true,
+      variants: { include: { color: true } },
       category: true,
       attributes: { include: { attributeValue: true } }
     }
@@ -88,7 +88,7 @@ export async function getSimilarProducts(
     return { products: [], algorithm: 'content-based' };
   }
 
-  const sourceColors = [...new Set(sourceProduct.variants.map(v => v.colorName))];
+  const sourceColors = [...new Set(sourceProduct.variants.map(v => v.color?.name).filter(Boolean))] as string[];
   const sourcePriceRange = getPriceRange(sourceProduct.salePrice || sourceProduct.price);
 
   // Get user preferences for size-aware filtering
@@ -121,7 +121,7 @@ export async function getSimilarProducts(
     },
     include: {
       images: { take: 1 },
-      variants: true,
+      variants: { include: { color: true } },
       category: { select: { name: true } },
       attributes: { include: { attributeValue: true } }
     },
@@ -134,7 +134,7 @@ export async function getSimilarProducts(
   for (const candidate of candidates) {
     let score = 0;
     const reasons: string[] = [];
-    const candidateColors = [...new Set(candidate.variants.map(v => v.colorName))];
+    const candidateColors = [...new Set(candidate.variants.map(v => v.color?.name).filter(Boolean))] as string[];
     const candidatePriceRange = getPriceRange(candidate.salePrice || candidate.price);
 
     // Same category: +0.30
@@ -254,7 +254,7 @@ export async function getRecentlyViewed(
     },
     include: {
       images: { take: 1 },
-      variants: true,
+      variants: { include: { color: true } },
       category: { select: { name: true } }
     }
   });
@@ -328,7 +328,7 @@ export async function getTrendingProducts(
     },
     include: {
       images: { take: 1 },
-      variants: true,
+      variants: { include: { color: true } },
       category: { select: { name: true } }
     }
   });
@@ -410,7 +410,7 @@ export async function getBoughtTogether(
     },
     include: {
       images: { take: 1 },
-      variants: true,
+      variants: { include: { color: true } },
       category: { select: { name: true } }
     }
   });
@@ -512,7 +512,7 @@ export async function getPersonalizedRecommendations(
     },
     include: {
       images: { take: 1 },
-      variants: true,
+      variants: { include: { color: true } },
       category: { select: { name: true } }
     },
     take: 100
@@ -523,7 +523,7 @@ export async function getPersonalizedRecommendations(
 
   for (const candidate of candidates) {
     let score = 0;
-    const candidateColors = [...new Set(candidate.variants.map(v => v.colorName))];
+    const candidateColors = [...new Set(candidate.variants.map(v => v.color?.name).filter(Boolean))] as string[];
 
     // Category weight
     const catWeight = categoryWeights[candidate.categoryId.toString()] || 0;
@@ -630,7 +630,12 @@ export async function updateUserPreference(userId: number): Promise<void> {
       product: {
         select: {
           categoryId: true,
-          variants: { select: { colorName: true } }
+          variants: { 
+            select: { 
+              colorId: true,
+              color: { select: { name: true } }
+            } 
+          }
         }
       }
     },
@@ -679,7 +684,10 @@ export async function updateUserPreference(userId: number): Promise<void> {
   for (const view of views) {
     if (view.product?.variants) {
       for (const v of view.product.variants) {
-        colorCounts[v.colorName] = (colorCounts[v.colorName] || 0) + 0.3;
+        const colorName = v.color?.name;
+        if (colorName) {
+          colorCounts[colorName] = (colorCounts[colorName] || 0) + 0.3;
+        }
       }
     }
   }
@@ -792,7 +800,7 @@ export async function getNewArrivals(
     },
     include: {
       images: { take: 1 },
-      variants: true,
+      variants: { include: { color: true } },
       category: { select: { name: true } }
     },
     orderBy: { createdAt: 'desc' },
@@ -836,7 +844,7 @@ export async function getBestSellers(
     },
     include: {
       images: { take: 1 },
-      variants: true,
+      variants: { include: { color: true } },
       category: { select: { name: true } }
     }
   });

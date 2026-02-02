@@ -3,6 +3,59 @@ import { prisma } from '../lib/prisma';
 import { generateUniqueProductSlug } from '../utils/slugify';
 import { Prisma } from '@prisma/client';
 
+// Helper function to group product data by colors
+interface ColorGroup {
+  colorId: number;
+  colorName: string;
+  hexCode: string;
+  slug: string;
+  isDefault: boolean;
+  images: { id: number; url: string }[];
+  sizes: { variantId: number; size: string; stock: number; price?: number | null; salePrice?: number | null }[];
+  totalStock: number;
+}
+
+function groupProductByColors(product: {
+  productColors?: { colorId: number; isDefault: boolean; order: number; color: { id: number; name: string; hexCode: string; slug: string } }[];
+  images?: { id: number; url: string; colorId: number | null }[];
+  variants?: { id: number; colorId: number; size: string; stock: number; price: number | null; salePrice: number | null }[];
+}): ColorGroup[] {
+  if (!product.productColors || product.productColors.length === 0) {
+    return [];
+  }
+
+  const colorGroups: ColorGroup[] = product.productColors
+    .sort((a, b) => a.order - b.order)
+    .map(pc => {
+      const colorImages = (product.images || [])
+        .filter(img => img.colorId === pc.colorId || img.colorId === null)
+        .map(img => ({ id: img.id, url: img.url }));
+
+      const colorVariants = (product.variants || [])
+        .filter(v => v.colorId === pc.colorId)
+        .map(v => ({
+          variantId: v.id,
+          size: v.size,
+          stock: v.stock,
+          price: v.price,
+          salePrice: v.salePrice,
+        }));
+
+      return {
+        colorId: pc.color.id,
+        colorName: pc.color.name,
+        hexCode: pc.color.hexCode,
+        slug: pc.color.slug,
+        isDefault: pc.isDefault,
+        images: colorImages,
+        sizes: colorVariants,
+        totalStock: colorVariants.reduce((sum, v) => sum + v.stock, 0),
+      };
+    });
+
+  return colorGroups;
+}
+
 // Get all products
 export const getAllProducts = async (req: Request, res: Response) => {
   try {
@@ -108,11 +161,11 @@ export const getAllProducts = async (req: Request, res: Response) => {
     if (colors && typeof colors === 'string') {
       const colorList = colors.split(',').map(c => c.trim()).filter(Boolean);
       if (colorList.length > 0) {
-        (where as any).variants = {
-          ...(where as any).variants,
+        (where as any).productColors = {
           some: {
-            ...(where as any).variants?.some,
-            colorName: { in: colorList },
+            color: {
+              name: { in: colorList },
+            },
           },
         };
       }
@@ -161,17 +214,36 @@ export const getAllProducts = async (req: Request, res: Response) => {
             },
           },
           images: {
-            take: 1,
             select: {
+              id: true,
               url: true,
+              colorId: true,
+            },
+          },
+          productColors: {
+            orderBy: { order: 'asc' },
+            select: {
+              colorId: true,
+              isDefault: true,
+              order: true,
+              color: {
+                select: {
+                  id: true,
+                  name: true,
+                  hexCode: true,
+                  slug: true,
+                },
+              },
             },
           },
           variants: {
             select: {
               id: true,
               size: true,
-              colorName: true,
+              colorId: true,
               stock: true,
+              price: true,
+              salePrice: true,
             },
           },
         },
@@ -180,10 +252,34 @@ export const getAllProducts = async (req: Request, res: Response) => {
     ]);
 
     // Add effectivePrice for frontend convenience
-    const responseProducts = products.map(p => ({
-      ...p,
-      effectivePrice: p.salePrice ?? p.price,
-    }));
+    const responseProducts = products.map(p => {
+      const colorGroups = groupProductByColors(p);
+      const defaultColor = colorGroups.find(cg => cg.isDefault) || colorGroups[0];
+      
+      return {
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        description: p.description,
+        price: p.price,
+        salePrice: p.salePrice,
+        effectivePrice: p.salePrice ?? p.price,
+        categoryId: p.categoryId,
+        isFeatured: p.isFeatured,
+        isVisible: p.isVisible,
+        ratingAverage: p.ratingAverage,
+        reviewCount: p.reviewCount,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        category: p.category,
+        // Default image for listing (first image of default color)
+        image: defaultColor?.images[0]?.url || p.images[0]?.url || null,
+        images: p.images,
+        colorGroups,
+        // For backward compatibility
+        variants: p.variants,
+      };
+    });
 
     res.json({
       success: true,
@@ -216,8 +312,40 @@ export const getProductById = async (req: Request, res: Response) => {
             slug: true,
           },
         },
-        images: true,
-        variants: true,
+        images: {
+          select: {
+            id: true,
+            url: true,
+            colorId: true,
+          },
+        },
+        productColors: {
+          orderBy: { order: 'asc' },
+          select: {
+            colorId: true,
+            isDefault: true,
+            order: true,
+            color: {
+              select: {
+                id: true,
+                name: true,
+                hexCode: true,
+                slug: true,
+              },
+            },
+          },
+        },
+        variants: {
+          select: {
+            id: true,
+            sku: true,
+            size: true,
+            colorId: true,
+            stock: true,
+            price: true,
+            salePrice: true,
+          },
+        },
       },
     });
 
@@ -225,9 +353,16 @@ export const getProductById = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Không tìm thấy sản phẩm!' });
     }
 
+    const colorGroups = groupProductByColors(product);
+    const defaultColor = colorGroups.find(cg => cg.isDefault) || colorGroups[0];
+
     res.json({
       success: true,
-      data: product,
+      data: {
+        ...product,
+        colorGroups,
+        defaultImage: defaultColor?.images[0]?.url || product.images[0]?.url || null,
+      },
     });
   } catch (error) {
     console.error('Get product by ID error:', error);
@@ -250,8 +385,40 @@ export const getProductBySlug = async (req: Request, res: Response) => {
             slug: true,
           },
         },
-        images: true,
-        variants: true,
+        images: {
+          select: {
+            id: true,
+            url: true,
+            colorId: true,
+          },
+        },
+        productColors: {
+          orderBy: { order: 'asc' },
+          select: {
+            colorId: true,
+            isDefault: true,
+            order: true,
+            color: {
+              select: {
+                id: true,
+                name: true,
+                hexCode: true,
+                slug: true,
+              },
+            },
+          },
+        },
+        variants: {
+          select: {
+            id: true,
+            sku: true,
+            size: true,
+            colorId: true,
+            stock: true,
+            price: true,
+            salePrice: true,
+          },
+        },
       },
     });
 
@@ -259,13 +426,18 @@ export const getProductBySlug = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Không tìm thấy sản phẩm!' });
     }
 
-    // Trả về cả ratingAverage và reviewCount
+    const colorGroups = groupProductByColors(product);
+    const defaultColor = colorGroups.find(cg => cg.isDefault) || colorGroups[0];
+
     res.json({
       success: true,
       data: {
         ...product,
         ratingAverage: product.ratingAverage,
         reviewCount: product.reviewCount,
+        colorGroups,
+        // Default image
+        defaultImage: defaultColor?.images[0]?.url || product.images[0]?.url || null,
       },
     });
   } catch (error) {
@@ -343,10 +515,10 @@ export const createProduct = async (req: Request, res: Response) => {
           : undefined,
         variants: variants
           ? {
-              create: variants.map((v: { sku?: string; size: string; color?: string; colorName?: string; stock?: number; price?: number; salePrice?: number }, index: number) => ({
-                sku: v.sku || `${slug}-${v.size}-${v.colorName || v.color}-${Date.now()}-${index}`.toUpperCase().replace(/\s+/g, '-'),
+              create: variants.map((v: { sku?: string; size: string; colorId?: number; color?: string; colorName?: string; stock?: number; price?: number; salePrice?: number }, index: number) => ({
+                sku: v.sku || `${slug}-${v.size}-${v.colorId || 'default'}-${Date.now()}-${index}`.toUpperCase().replace(/\s+/g, '-'),
                 size: v.size,
-                colorName: v.colorName || v.color || '',
+                colorId: v.colorId || 1,
                 stock: v.stock || 0,
                 price: v.price || null,
                 salePrice: v.salePrice || null,
@@ -744,10 +916,10 @@ export const addProductVariants = async (req: Request, res: Response) => {
 
     // Add variants
     const createdVariants = await prisma.productVariant.createMany({
-      data: variants.map((v: { sku?: string; size: string; color?: string; colorName?: string; stock?: number; price?: number; salePrice?: number }) => ({
-        sku: v.sku || `${product.slug}-${v.size}-${v.colorName || v.color}`.toUpperCase(),
+      data: variants.map((v: { sku?: string; size: string; colorId?: number; color?: string; colorName?: string; stock?: number; price?: number; salePrice?: number }) => ({
+        sku: v.sku || `${product.slug}-${v.size}-${v.colorId || 'default'}`.toUpperCase(),
         size: v.size,
-        colorName: v.colorName || v.color || '',
+        colorId: v.colorId || 1,
         stock: v.stock || 0,
         price: v.price || null,
         salePrice: v.salePrice || null,
@@ -781,7 +953,7 @@ export const addProductVariants = async (req: Request, res: Response) => {
 export const updateProductVariant = async (req: Request, res: Response) => {
   try {
     const { variantId } = req.params;
-    const { size, color, colorName, stock } = req.body;
+    const { size, colorId, stock } = req.body;
 
     // Check if variant exists
     const existingVariant = await prisma.productVariant.findUnique({
@@ -793,9 +965,9 @@ export const updateProductVariant = async (req: Request, res: Response) => {
     }
 
     // Prepare update data
-    const updateData: { size?: string; colorName?: string; stock?: number } = {};
+    const updateData: { size?: string; colorId?: number; stock?: number } = {};
     if (size) updateData.size = size;
-    if (colorName || color) updateData.colorName = colorName || color;
+    if (colorId) updateData.colorId = Number(colorId);
     if (stock !== undefined) updateData.stock = Number(stock);
 
     // Update variant

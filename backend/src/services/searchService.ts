@@ -28,7 +28,7 @@ interface ProductResult {
   createdAt: Date;
   category: { id: number; name: string; slug: string };
   images: { url: string }[];
-  variants: { colorName: string; size: string; stock: number }[];
+  variants: { colorId: number; size: string; stock: number; color?: { name: string } | null }[];
   score?: number;
 }
 
@@ -155,14 +155,21 @@ async function buildDynamicFilters(
   // Get colors and sizes from variants
   const variants = await prisma.productVariant.findMany({
     where: { productId: { in: productIds }, stock: { gt: 0 } },
-    select: { colorName: true, size: true },
+    select: { 
+      colorId: true, 
+      size: true,
+      color: { select: { name: true } }
+    },
   });
 
   const colorCounts = new Map<string, number>();
   const sizeCounts = new Map<string, number>();
 
   variants.forEach((v) => {
-    colorCounts.set(v.colorName, (colorCounts.get(v.colorName) || 0) + 1);
+    const colorName = v.color?.name || '';
+    if (colorName) {
+      colorCounts.set(colorName, (colorCounts.get(colorName) || 0) + 1);
+    }
     sizeCounts.set(v.size, (sizeCounts.get(v.size) || 0) + 1);
   });
 
@@ -327,7 +334,7 @@ export async function smartSearch(
     baseWhere = {
       ...baseWhere,
       variants: {
-        some: { colorName: { in: colors } },
+        some: { color: { name: { in: colors } } },
       },
     };
   }
@@ -394,7 +401,12 @@ export async function smartSearch(
         },
         variants: {
           where: { stock: { gt: 0 } },
-          select: { colorName: true, size: true, stock: true },
+          select: { 
+            colorId: true, 
+            size: true, 
+            stock: true,
+            color: { select: { name: true } }
+          },
         },
       },
     }),

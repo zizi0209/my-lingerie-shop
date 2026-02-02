@@ -12,50 +12,48 @@ export const getFilters = async (req: Request, res: Response) => {
     const { categoryId } = req.query;
     const categoryFilter = categoryId ? { categoryId: Number(categoryId) } : {};
 
-    // 1. Lấy danh sách màu sắc từ Attribute (type = COLOR)
-    const colorAttribute = await prisma.attribute.findFirst({
-      where: { 
-        type: 'COLOR',
-        isFilterable: true,
-      },
-      include: {
-        values: {
-          orderBy: { order: 'asc' },
-        },
-      },
-    });
-
-    // Nếu có categoryId, chỉ lấy màu có sản phẩm trong danh mục đó
+    // 1. Lấy danh sách màu sắc từ bảng Color (có sản phẩm)
     let colorOptions: { id: number; name: string; hexCode: string | null; count: number }[] = [];
     
-    if (colorAttribute) {
-      // Lấy variant colors trong category (nếu có)
-      const variantColors = await prisma.productVariant.findMany({
-        where: {
-          product: {
-            isVisible: true,
-            deletedAt: null,
-            ...categoryFilter,
+    // Lấy colors có sản phẩm trong category (nếu có)
+    const productColors = await prisma.productColor.findMany({
+      where: {
+        product: {
+          isVisible: true,
+          deletedAt: null,
+          ...categoryFilter,
+        },
+      },
+      select: {
+        colorId: true,
+        color: {
+          select: {
+            id: true,
+            name: true,
+            hexCode: true,
+            order: true,
           },
         },
-        select: {
-          colorName: true,
-        },
-        distinct: ['colorName'],
-      });
+      },
+      distinct: ['colorId'],
+    });
 
-      const activeColorNames = variantColors.map(v => v.colorName);
+    // Map to unique colors
+    const colorMap = new Map<number, { id: number; name: string; hexCode: string; order: number }>();
+    productColors.forEach(pc => {
+      if (!colorMap.has(pc.colorId)) {
+        colorMap.set(pc.colorId, pc.color);
+      }
+    });
 
-      // Filter AttributeValue chỉ lấy màu có sản phẩm
-      colorOptions = colorAttribute.values
-        .filter(v => activeColorNames.includes(v.value))
-        .map(v => ({
-          id: v.id,
-          name: v.value,
-          hexCode: (v.meta as { hexCode?: string } | null)?.hexCode || null,
-          count: 0, // Có thể tính count nếu cần
-        }));
-    }
+    colorOptions = Array.from(colorMap.values())
+      .sort((a, b) => a.order - b.order)
+      .map(c => ({
+        id: c.id,
+        name: c.name,
+        hexCode: c.hexCode,
+        count: 0,
+      }));
 
     // 2. Lấy danh sách size từ ProductVariant
     const variantSizes = await prisma.productVariant.findMany({

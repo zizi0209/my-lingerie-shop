@@ -8,29 +8,29 @@ datasource db {
 }
 
 model User {
-  id                  Int            @id @default(autoincrement())
+  id                  Int                  @id @default(autoincrement())
   email               String
   password            String?
   name                String?
   phone               String?
   avatar              String?
   roleId              Int?
-  isActive            Boolean        @default(true)
+  isActive            Boolean              @default(true)
   lastLogin           DateTime?
   emailVerified       DateTime?
   image               String?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
   deletedAt           DateTime?
-  failedLoginAttempts Int            @default(0)
+  failedLoginAttempts Int                  @default(0)
   lastLoginAt         DateTime?
   lockedUntil         DateTime?
   passwordChangedAt   DateTime?
-  tokenVersion        Int            @default(0)
+  tokenVersion        Int                  @default(0)
   birthday            DateTime?
-  memberTier          String         @default("BRONZE")
-  pointBalance        Int            @default(0)
-  totalSpent          Float          @default(0)
+  memberTier          String               @default("BRONZE")
+  pointBalance        Int                  @default(0)
+  totalSpent          Float                @default(0)
   cart                Cart?
   orders              Order[]
   pointHistory        PointHistory[]
@@ -39,7 +39,7 @@ model User {
   postBookmarks       PostBookmark[]
   refreshTokens       RefreshToken[]
   reviews             Review[]
-  role                Role?          @relation(fields: [roleId], references: [id])
+  role                Role?                @relation(fields: [roleId], references: [id])
   userCoupons         UserCoupon[]
   wishlistItems       WishlistItem[]
   auditLogs           AuditLog[]
@@ -47,12 +47,12 @@ model User {
   accounts            Account[]
   sessions            Session[]
   passwordSetupTokens PasswordSetupToken[]
+  // Note: Partial unique index for email (active users only) is created via raw SQL migration
+  // See migration: add_partial_unique_index_for_email
 
   @@index([email])
   @@index([roleId])
   @@index([memberTier])
-  // Note: Partial unique index for email (active users only) is created via raw SQL migration
-  // See migration: add_partial_unique_index_for_email
 }
 
 model Role {
@@ -115,7 +115,7 @@ model Product {
   price           Float
   salePrice       Float?
   categoryId      Int
-  brandId         String?                 // Size System V2: Brand relationship
+  brandId         String? // Size System V2: Brand relationship
   isFeatured      Boolean                 @default(false)
   isVisible       Boolean                 @default(true)
   createdAt       DateTime                @default(now())
@@ -136,6 +136,7 @@ model Product {
   reviews         Review[]
   wishlistItems   WishlistItem[]
   relatedPosts    ProductOnPost[]
+  productColors   ProductColor[]
 
   @@index([categoryId])
   @@index([brandId])
@@ -149,30 +150,36 @@ model ProductImage {
   id        Int      @id @default(autoincrement())
   url       String
   productId Int
+  colorId   Int?
   createdAt DateTime @default(now())
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color     Color?   @relation(fields: [colorId], references: [id])
+
+  @@index([productId])
+  @@index([colorId])
 }
 
 model ProductVariant {
-  id          Int          @id @default(autoincrement())
-  sku         String       @unique
-  size        String
-  colorName   String
-  stock       Int          @default(0)
-  price       Float?
-  salePrice   Float?
-  productId   Int
-  baseSize    String?      // Size System V2: Display size (e.g., "34C")
-  baseSizeUIC String?      // Size System V2: Universal Internal Code
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  cartItems   CartItem[]
-  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id           Int           @id @default(autoincrement())
+  sku          String        @unique
+  size         String
+  colorId      Int
+  stock        Int           @default(0)
+  price        Float?
+  salePrice    Float?
+  productId    Int
+  baseSize     String? // Size System V2: Display size (e.g., "34C")
+  baseSizeUIC  String? // Size System V2: Universal Internal Code
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  cartItems    CartItem[]
+  product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color        Color         @relation(fields: [colorId], references: [id])
   regionalSize RegionalSize? @relation(fields: [baseSizeUIC], references: [universalCode], name: "VariantBaseSize") // Size System V2
 
-  @@unique([productId, size, colorName])
-  @@unique([productId, size, colorName], map: "ProductVariant_productId_size_color_key")
+  @@unique([productId, size, colorId])
   @@index([productId])
+  @@index([colorId])
   @@index([baseSizeUIC]) // Size System V2
 }
 
@@ -243,7 +250,7 @@ model AboutSection {
   subtitle   String?
   content    String?  @db.Text
   imageUrl   String?
-  metadata   Json?    // Cho data bổ sung (values array, gallery...)
+  metadata   Json? // Cho data bổ sung (values array, gallery...)
   order      Int      @default(0)
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
@@ -335,25 +342,25 @@ model PostCategory {
 }
 
 model Post {
-  id          Int            @id @default(autoincrement())
-  title       String
-  slug        String         @unique
-  content     String
-  excerpt     String?
-  thumbnail   String?
-  authorId    Int
-  categoryId  Int
-  isPublished Boolean        @default(false)
-  publishedAt DateTime?
-  views       Int            @default(0)
-  likeCount   Int            @default(0)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  deletedAt   DateTime?
-  author      User           @relation(fields: [authorId], references: [id])
-  category    PostCategory   @relation(fields: [categoryId], references: [id])
-  likes       PostLike[]
-  bookmarks   PostBookmark[]
+  id              Int             @id @default(autoincrement())
+  title           String
+  slug            String          @unique
+  content         String
+  excerpt         String?
+  thumbnail       String?
+  authorId        Int
+  categoryId      Int
+  isPublished     Boolean         @default(false)
+  publishedAt     DateTime?
+  views           Int             @default(0)
+  likeCount       Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  author          User            @relation(fields: [authorId], references: [id])
+  category        PostCategory    @relation(fields: [categoryId], references: [id])
+  likes           PostLike[]
+  bookmarks       PostBookmark[]
   relatedProducts ProductOnPost[]
 
   @@index([categoryId])
@@ -390,27 +397,25 @@ model PostBookmark {
 
 // Product-Post Many-to-Many Relationship for Content-Commerce Integration
 model ProductOnPost {
-  id           Int      @id @default(autoincrement())
-  postId       Int
-  productId    Int
-  position     Int?     // Position in post content (for inline display)
-  displayType  String   @default("inline-card") // "inline-card" | "sidebar" | "end-collection"
-  customNote   String?  // Custom note from admin (e.g., "Perfect for date night")
-  isAutoRecommended Boolean @default(false) // Auto-generated recommendation vs manual link
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  post         Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
+  id                Int      @id @default(autoincrement())
+  postId            Int
+  productId         Int
+  position          Int? // Position in post content (for inline display)
+  displayType       String   @default("inline-card") // "inline-card" | "sidebar" | "end-collection"
+  customNote        String? // Custom note from admin (e.g., "Perfect for date night")
+  isAutoRecommended Boolean  @default(false) // Auto-generated recommendation vs manual link
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  post    Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
   @@unique([postId, productId])
   @@index([postId])
   @@index([productId])
   @@index([displayType])
   @@index([isAutoRecommended])
 }
-
-
 
 model Cart {
   id                 Int        @id @default(autoincrement())
@@ -420,12 +425,12 @@ model Cart {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
   // Voucher stacking: tách riêng mã giảm giá và mã ship
-  discountCouponId   Int?       // Mã giảm giá (DISCOUNT category)
+  discountCouponId   Int? // Mã giảm giá (DISCOUNT category)
   discountCouponCode String?
-  shippingCouponId   Int?       // Mã freeship/giảm ship (SHIPPING category)
+  shippingCouponId   Int? // Mã freeship/giảm ship (SHIPPING category)
   shippingCouponCode String?
   usePoints          Int        @default(0) // Số điểm muốn sử dụng
-  lastAbandonedAt    DateTime?  // Lần cuối bị đánh dấu abandoned
+  lastAbandonedAt    DateTime? // Lần cuối bị đánh dấu abandoned
   recoveredCount     Int        @default(0) // Số lần phục hồi từ abandoned
   discountCoupon     Coupon?    @relation("DiscountCoupon", fields: [discountCouponId], references: [id])
   shippingCoupon     Coupon?    @relation("ShippingCoupon", fields: [shippingCouponId], references: [id])
@@ -475,8 +480,8 @@ model ProductView {
   productId Int
   userId    Int?
   sessionId String
-  source    String?  // 'direct', 'search', 'recommendation', 'category', 'homepage'
-  sourceId  String?  // ID của recommendation/search nếu có
+  source    String? // 'direct', 'search', 'recommendation', 'category', 'homepage'
+  sourceId  String? // ID của recommendation/search nếu có
   createdAt DateTime @default(now())
   product   Product  @relation(fields: [productId], references: [id])
 
@@ -487,17 +492,17 @@ model ProductView {
 
 // Tracking clicks trên recommendation section
 model RecommendationClick {
-  id              Int      @id @default(autoincrement())
+  id              Int       @id @default(autoincrement())
   userId          Int?
   sessionId       String
-  productId       Int      // Sản phẩm được gợi ý (clicked)
-  sourceProductId Int?     // Sản phẩm đang xem khi thấy gợi ý
-  algorithm       String   // 'similar', 'trending', 'recently_viewed', 'bought_together'
-  position        Int      // Vị trí trong danh sách gợi ý (0-indexed)
-  sectionType     String   // 'product_detail', 'cart', 'homepage', 'category'
-  purchased       Boolean  @default(false)
+  productId       Int // Sản phẩm được gợi ý (clicked)
+  sourceProductId Int? // Sản phẩm đang xem khi thấy gợi ý
+  algorithm       String // 'similar', 'trending', 'recently_viewed', 'bought_together'
+  position        Int // Vị trí trong danh sách gợi ý (0-indexed)
+  sectionType     String // 'product_detail', 'cart', 'homepage', 'category'
+  purchased       Boolean   @default(false)
   purchasedAt     DateTime?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   @@index([productId, createdAt])
   @@index([sourceProductId])
@@ -664,7 +669,7 @@ model Coupon {
   name            String
   description     String?
   category        String        @default("DISCOUNT") // DISCOUNT | SHIPPING
-  discountType    String        // PERCENTAGE | FIXED_AMOUNT | FREE_SHIPPING
+  discountType    String // PERCENTAGE | FIXED_AMOUNT | FREE_SHIPPING
   discountValue   Float
   maxDiscount     Float?
   minOrderValue   Float?
@@ -856,43 +861,79 @@ enum ProductType {
   ACCESSORY
 }
 
+// Color Master Data - for product color swatches
+model Color {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  slug      String   @unique
+  hexCode   String
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  variants ProductVariant[]
+  images   ProductImage[]
+  products ProductColor[]
+
+  @@index([slug])
+  @@index([isActive, order])
+}
+
+// Product-Color relationship (which colors are available for a product)
+model ProductColor {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  colorId   Int
+  isDefault Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color   Color   @relation(fields: [colorId], references: [id])
+
+  @@unique([productId, colorId])
+  @@index([productId])
+  @@index([colorId])
+}
+
 // User Preference cho Recommendation System
 model UserPreference {
   id              Int      @id @default(autoincrement())
   userId          Int      @unique
-  preferredSizes  Json?    // { "BRA": ["34B", "36B"], "PANTY": ["S", "M"] }
-  colorAffinities Json?    // { "Đen": 0.8, "Đỏ": 0.6 }
-  styleAffinities Json?    // { "sexy": 0.7, "casual": 0.5 }
+  preferredSizes  Json? // { "BRA": ["34B", "36B"], "PANTY": ["S", "M"] }
+  colorAffinities Json? // { "Đen": 0.8, "Đỏ": 0.6 }
+  styleAffinities Json? // { "sexy": 0.7, "casual": 0.5 }
   avgOrderValue   Float    @default(0)
-  priceRange      Json?    // { "min": 150000, "max": 500000 }
-  categoryWeights Json?    // { "1": 0.8, "2": 0.3 }
+  priceRange      Json? // { "min": 150000, "max": 500000 }
+  categoryWeights Json? // { "1": 0.8, "2": 0.3 }
   lastUpdated     DateTime @default(now())
   createdAt       DateTime @default(now())
-  
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
 model NewsletterSubscriber {
-  id                    Int       @id @default(autoincrement())
-  email                 String    @unique
-  isActive              Boolean   @default(true)
-  subscribedAt          DateTime  @default(now())
-  unsubscribedAt        DateTime?
-  source                String    @default("website")
-  
+  id             Int       @id @default(autoincrement())
+  email          String    @unique
+  isActive       Boolean   @default(true)
+  subscribedAt   DateTime  @default(now())
+  unsubscribedAt DateTime?
+  source         String    @default("website")
+
   // Double opt-in verification
   isVerified            Boolean   @default(false)
   verificationToken     String?   @unique
   verificationExpiresAt DateTime?
   verifiedAt            DateTime?
-  
+
   // Welcome coupon (unique per subscriber)
-  welcomeCouponCode     String?   @unique
-  welcomeCouponUsedAt   DateTime?
-  welcomeCouponOrderId  Int?
-  
+  welcomeCouponCode    String?   @unique
+  welcomeCouponUsedAt  DateTime?
+  welcomeCouponOrderId Int?
+
   @@index([email])
   @@index([isActive])
   @@index([verificationToken])
@@ -901,13 +942,13 @@ model NewsletterSubscriber {
 
 // Track phone numbers that used welcome coupon (prevent multi-account abuse)
 model WelcomeCouponUsage {
-  id        Int      @id @default(autoincrement())
-  phone     String   @unique
-  email     String
+  id         Int      @id @default(autoincrement())
+  phone      String   @unique
+  email      String
   couponCode String
-  orderId   Int
-  usedAt    DateTime @default(now())
-  
+  orderId    Int
+  usedAt     DateTime @default(now())
+
   @@index([phone])
   @@index([email])
 }
@@ -959,12 +1000,12 @@ model VerificationToken {
 // ============================================
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   email     String
-  token     String   @unique
+  token     String    @unique
   otp       String?
   expires   DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   usedAt    DateTime?
 
   @@index([email])
@@ -1004,8 +1045,8 @@ model PasswordSetupToken {
 model Region {
   id            String         @id @default(cuid())
   code          String         @unique // "US", "UK", "EU", "FR", "AU", "JP", "VN"
-  name          String         // "United States"
-  currency      String         // "USD", "GBP", "EUR"
+  name          String // "United States"
+  currency      String // "USD", "GBP", "EUR"
   isActive      Boolean        @default(true)
   priority      Int            @default(0)
   sizeStandards SizeStandard[]
@@ -1022,12 +1063,12 @@ model SizeStandard {
   code            String           @unique // "US_BRA", "UK_BRA"
   region          Region           @relation(fields: [regionId], references: [id])
   regionId        String
-  category        String           // "BRA", "PANTY", "SET", "SLEEPWEAR", "SHAPEWEAR"
-  name            String           // "US Bra Size Standard"
+  category        String // "BRA", "PANTY", "SET", "SLEEPWEAR", "SHAPEWEAR"
+  name            String // "US Bra Size Standard"
   description     String?
   lengthUnit      String           @default("in") // "in", "cm"
   weightUnit      String           @default("lb") // "lb", "kg"
-  cupProgression  Json             // Cup progression array
+  cupProgression  Json // Cup progression array
   chartVersion    String           @default("1.0")
   chartUrl        String?
   sizes           RegionalSize[]
@@ -1048,14 +1089,14 @@ model RegionalSize {
   regionId          String
   standard          SizeStandard     @relation(fields: [standardId], references: [id])
   standardId        String
-  displaySize       String           // "34C" (US), "75C" (EU)
+  displaySize       String // "34C" (US), "75C" (EU)
   sortOrder         Int
-  bandSize          Int              // Normalized to cm (86cm)
-  cupVolume         Int              // 1-20 (standardized)
-  cupLetter         String           // "C", "DD", "E"
-  measurements      Json             // Complete measurements
-  sisterSizeDownUIC String?          // UIC of sister down
-  sisterSizeUpUIC   String?          // UIC of sister up
+  bandSize          Int // Normalized to cm (86cm)
+  cupVolume         Int // 1-20 (standardized)
+  cupLetter         String // "C", "DD", "E"
+  measurements      Json // Complete measurements
+  sisterSizeDownUIC String? // UIC of sister down
+  sisterSizeUpUIC   String? // UIC of sister up
   productVariants   ProductVariant[] @relation("VariantBaseSize")
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
@@ -1071,16 +1112,16 @@ model SizeConversion {
   id             String       @id @default(cuid())
   fromStandard   SizeStandard @relation(fields: [fromStandardId], references: [id], name: "FromStandard")
   fromStandardId String
-  fromSize       String       // "34C"
-  fromBand       Int          // 34
-  fromCupLetter  String       // "C" (US)
-  fromCupVolume  Int          // 6
+  fromSize       String // "34C"
+  fromBand       Int // 34
+  fromCupLetter  String // "C" (US)
+  fromCupVolume  Int // 6
   toStandard     SizeStandard @relation(fields: [toStandardId], references: [id], name: "ToStandard")
   toStandardId   String
-  toSize         String       // "75C" (EU)
-  toBand         Int          // 75
-  toCupLetter    String       // "C" (EU)
-  toCupVolume    Int          // 6
+  toSize         String // "75C" (EU)
+  toBand         Int // 75
+  toCupLetter    String // "C" (EU)
+  toCupVolume    Int // 6
   confidence     Float        @default(1.0)
   notes          String?
   createdAt      DateTime     @default(now())
@@ -1093,21 +1134,21 @@ model SizeConversion {
 }
 
 model Brand {
-  id            String             @id @default(cuid())
-  name          String             @unique
-  slug          String             @unique
-  description   String?
-  logoUrl       String?
-  fitType       String             @default("TRUE_TO_SIZE") // TRUE_TO_SIZE | RUNS_SMALL | RUNS_LARGE
-  bandAdjustment Int               @default(0) // -2, -1, 0, +1, +2
-  cupAdjustment Int                @default(0) // -1, 0, +1
-  fitNotes      String?            @db.Text
-  fitConfidence Float              @default(0.5) // 0-1
-  products      Product[]
-  fitFeedback   BrandFitFeedback[]
-  isActive      Boolean            @default(true)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id             String             @id @default(cuid())
+  name           String             @unique
+  slug           String             @unique
+  description    String?
+  logoUrl        String?
+  fitType        String             @default("TRUE_TO_SIZE") // TRUE_TO_SIZE | RUNS_SMALL | RUNS_LARGE
+  bandAdjustment Int                @default(0) // -2, -1, 0, +1, +2
+  cupAdjustment  Int                @default(0) // -1, 0, +1
+  fitNotes       String?            @db.Text
+  fitConfidence  Float              @default(0.5) // 0-1
+  products       Product[]
+  fitFeedback    BrandFitFeedback[]
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@index([slug])
   @@index([fitType])
@@ -1118,16 +1159,16 @@ model SisterSizeRecommendation {
   id                 String    @id @default(cuid())
   productId          Int
   variantId          Int?
-  requestedSize      String    // "34C"
-  requestedUIC       String    // "UIC_BRA_BAND86_CUPVOL6"
-  recommendedSize    String    // "32D" or "36B"
-  recommendedUIC     String    // "UIC_BRA_BAND81_CUPVOL7"
-  recommendationType String    // "SISTER_DOWN" | "SISTER_UP"
+  requestedSize      String // "34C"
+  requestedUIC       String // "UIC_BRA_BAND86_CUPVOL6"
+  recommendedSize    String // "32D" or "36B"
+  recommendedUIC     String // "UIC_BRA_BAND81_CUPVOL7"
+  recommendationType String // "SISTER_DOWN" | "SISTER_UP"
   accepted           Boolean?
   acceptedAt         DateTime?
   userId             Int?
   sessionId          String
-  regionCode         String    // Size display region
+  regionCode         String // Size display region
   createdAt          DateTime  @default(now())
 
   @@index([productId, requestedSize])
@@ -1143,9 +1184,9 @@ model BrandFitFeedback {
   brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
   productId  Int
   userId     Int?
-  normalSize String   // "34C"
-  boughtSize String   // "36D"
-  fitRating  Int      // 1-5 (1=too small, 3=perfect, 5=too large)
+  normalSize String // "34C"
+  boughtSize String // "36D"
+  fitRating  Int // 1-5 (1=too small, 3=perfect, 5=too large)
   fitComment String?  @db.Text
   isVerified Boolean  @default(false)
   orderId    Int?
@@ -1159,9 +1200,9 @@ model BrandFitFeedback {
 
 model CupProgressionMap {
   id         String   @id @default(cuid())
-  regionCode String   // "US", "UK", "EU"
-  cupVolume  Int      // 1-20
-  cupLetter  String   // "A", "DD", "E", "FF"
+  regionCode String // "US", "UK", "EU"
+  cupVolume  Int // 1-20
+  cupLetter  String // "A", "DD", "E", "FF"
   isStandard Boolean  @default(true)
   notes      String?
   createdAt  DateTime @default(now())

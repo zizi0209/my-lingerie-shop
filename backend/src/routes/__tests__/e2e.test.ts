@@ -56,7 +56,7 @@ describe('E2E: Size System User Journeys', () => {
           size: size.size,
           baseSize: size.size,
           baseSizeUIC: size.uic,
-          colorName: 'Black',
+          colorId: 1,
           stock: size.stock,
           productId: product.id,
         },
