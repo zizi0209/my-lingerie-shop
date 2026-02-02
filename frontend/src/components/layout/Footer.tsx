@@ -88,9 +88,12 @@ export default function Footer() {
               </h3>
             )}
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed italic font-light max-w-[240px]">
-            {store_description || "Nghệ thuật quyến rũ từ sự thấu hiểu cơ thể."}
-          </p>
+          <div 
+            className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed italic font-light max-w-[240px] [&_p]:mb-0"
+            dangerouslySetInnerHTML={{ 
+              __html: store_description || "Nghệ thuật quyến rũ từ sự thấu hiểu cơ thể." 
+            }}
+          />
           
           {/* Social Links */}
           <div className="flex gap-3 pt-2">
