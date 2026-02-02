@@ -26,16 +26,28 @@ import { sanitizeForPublic } from "@/lib/sanitize";
 interface ProductImage {
   id: number;
   url: string;
+  colorId: number | null;
 }
 
 interface ProductVariant {
   id: number;
   sku: string;
   size: string;
-  colorName: string;
+  colorId: number;
   stock: number;
   price: number | null;
   salePrice: number | null;
+}
+
+interface ColorGroup {
+  colorId: number;
+  colorName: string;
+  hexCode: string;
+  slug: string;
+  isDefault: boolean;
+  images: { id: number; url: string }[];
+  sizes: { variantId: number; size: string; stock: number; price?: number | null; salePrice?: number | null }[];
+  totalStock: number;
 }
 
 interface Category {
@@ -56,6 +68,7 @@ interface Product {
   category: Category;
   images: ProductImage[];
   variants: ProductVariant[];
+  colorGroups?: ColorGroup[];
   ratingAverage: number;
   reviewCount: number;
 }
@@ -84,7 +97,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState("");
-  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
@@ -131,26 +144,28 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
         setProduct(data.data);
 
-        // Set default color from variants
-        if (data.data.variants?.length > 0) {
-          const colors = [...new Set(data.data.variants.map((v: ProductVariant) => v.colorName))];
-          if (colors.length > 0) {
-            const firstColor = colors[0] as string;
-            setSelectedColor(firstColor);
-            
-            // Auto-select size nếu chỉ có 1 size hoặc là "Free Size"
-            const sizesForColor = [...new Set(
-              data.data.variants
-                .filter((v: ProductVariant) => v.colorName === firstColor)
-                .map((v: ProductVariant) => v.size)
-            )];
-            
-            if (sizesForColor.length === 1) {
-              setSelectedSize(sizesForColor[0] as string);
-            } else if (sizesForColor.some((s) => String(s).toLowerCase().includes('free'))) {
-              const freeSize = sizesForColor.find((s) => String(s).toLowerCase().includes('free'));
-              if (freeSize) setSelectedSize(freeSize as string);
-            }
+        // Set default color from colorGroups
+        const colorGroups = data.data.colorGroups as ColorGroup[] | undefined;
+        if (colorGroups && colorGroups.length > 0) {
+          const defaultColor = colorGroups.find(cg => cg.isDefault) || colorGroups[0];
+          setSelectedColorId(defaultColor.colorId);
+          
+          // Auto-select size if only 1 size or "Free Size"
+          const sizesForColor = defaultColor.sizes.map(s => s.size);
+          if (sizesForColor.length === 1) {
+            setSelectedSize(sizesForColor[0]);
+          } else if (sizesForColor.some(s => s.toLowerCase().includes('free'))) {
+            const freeSize = sizesForColor.find(s => s.toLowerCase().includes('free'));
+            if (freeSize) setSelectedSize(freeSize);
+          }
+        } else if (data.data.variants?.length > 0) {
+          // Fallback for single-color products (no colorGroups)
+          const sizes = [...new Set(data.data.variants.map((v: ProductVariant) => v.size))];
+          if (sizes.length === 1) {
+            setSelectedSize(sizes[0] as string);
+          } else if (sizes.some((s) => String(s).toLowerCase().includes('free'))) {
+            const freeSize = sizes.find((s) => String(s).toLowerCase().includes('free'));
+            if (freeSize) setSelectedSize(freeSize as string);
           }
         }
 
@@ -188,14 +203,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     }
   }, [product?.id, sessionId, user?.id]);
 
-  // Tính các màu và size từ variants
-  const colors = product?.variants
-    ? [...new Set(product.variants.map(v => v.colorName))].filter(Boolean)
-    : [];
+  // Get color groups and selected color
+  const colorGroups = product?.colorGroups || [];
+  const selectedColorGroup = colorGroups.find(cg => cg.colorId === selectedColorId) || colorGroups[0];
 
-  const sizes = product?.variants
-    ? [...new Set(product.variants.filter(v => v.colorName === selectedColor).map(v => v.size))]
-    : [];
+  // Get sizes for selected color
+  const sizes = selectedColorGroup
+    ? selectedColorGroup.sizes.map(s => s.size)
+    : product?.variants
+      ? [...new Set(product.variants.map(v => v.size))]
+      : [];
 
    // Kiểm tra xem có phải là freesize không (không cần hiển thị sister size cho freesize)
    const isFreeSize = (size: string, allSizes: string[]) => {
@@ -217,16 +234,31 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
  
   // Kiểm tra size có còn hàng không
   const isSizeAvailable = (size: string) => {
-    const variant = product?.variants.find(
-      v => v.colorName === selectedColor && v.size === size
-    );
+    if (selectedColorGroup) {
+      const sizeInfo = selectedColorGroup.sizes.find(s => s.size === size);
+      return sizeInfo && sizeInfo.stock > 0;
+    }
+    // Fallback for single-color products
+    const variant = product?.variants.find(v => v.size === size);
     return variant && variant.stock > 0;
   };
 
   // Lấy stock của variant được chọn
-  const selectedVariant = product?.variants.find(
-    v => v.colorName === selectedColor && v.size === selectedSize
-  );
+  const selectedVariant = (() => {
+    if (selectedColorGroup && selectedSize) {
+      const sizeInfo = selectedColorGroup.sizes.find(s => s.size === selectedSize);
+      if (sizeInfo) {
+        return {
+          id: sizeInfo.variantId,
+          stock: sizeInfo.stock,
+          price: sizeInfo.price,
+          salePrice: sizeInfo.salePrice,
+        };
+      }
+    }
+    // Fallback
+    return product?.variants.find(v => v.size === selectedSize);
+  })();
 
   const handleAddToCart = async () => {
     if (!product) return;
@@ -305,9 +337,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     );
   }
 
-  const productImages = product.images.length > 0
-    ? product.images.map(img => img.url)
-    : ["https://via.placeholder.com/600x800"];
+  // Get images for selected color, or all images if no color selected
+  const productImages = (() => {
+    if (selectedColorGroup && selectedColorGroup.images.length > 0) {
+      return selectedColorGroup.images.map(img => img.url);
+    }
+    // Fallback: show images with colorId = null or all images
+    const generalImages = product.images.filter(img => img.colorId === null);
+    if (generalImages.length > 0) {
+      return generalImages.map(img => img.url);
+    }
+    return product.images.length > 0
+      ? product.images.map(img => img.url)
+      : ["https://via.placeholder.com/600x800"];
+  })();
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -431,36 +474,40 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           </div>
 
           {/* Color Selection */}
-          {colors.length > 0 && (
+          {colorGroups.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium mb-3 text-gray-900 dark:text-white">Màu sắc: {selectedColor}</h3>
-              <div className="flex gap-2">
-                {colors.map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => {
-                      setSelectedColor(color);
-                      // Auto-select size nếu chỉ có 1 size cho màu này
-                      const sizesForColor = [...new Set(
-                        product?.variants
-                          .filter(v => v.colorName === color)
-                          .map(v => v.size)
-                      )];
-                      if (sizesForColor.length === 1) {
-                        setSelectedSize(sizesForColor[0]);
-                      } else {
-                        setSelectedSize("");
-                      }
-                    }}
-                    className={`px-4 py-2 border rounded transition-all ${
-                      selectedColor === color
-                        ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black"
-                        : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white"
-                    }`}
-                  >
-                    {color}
-                  </button>
-                ))}
+              <h3 className="text-sm font-medium mb-3 text-gray-900 dark:text-white">Màu sắc: {selectedColorGroup?.colorName}</h3>
+              <div className="flex flex-wrap gap-2">
+                {colorGroups.map((colorGroup) => {
+                  const isSelected = selectedColorId === colorGroup.colorId;
+                  return (
+                    <button
+                      key={colorGroup.colorId}
+                      onClick={() => {
+                        setSelectedColorId(colorGroup.colorId);
+                        const sizesForColor = colorGroup.sizes.map((s) => s.size);
+                        if (sizesForColor.length === 1) {
+                          setSelectedSize(sizesForColor[0]);
+                        } else {
+                          setSelectedSize("");
+                        }
+                      }}
+                      className={`relative px-4 py-2 border rounded transition-all flex items-center gap-2 ${
+                        isSelected
+                          ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black"
+                          : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white"
+                      }`}
+                      aria-pressed={isSelected}
+                    >
+                      <span
+                        className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-600"
+                        style={{ backgroundColor: colorGroup.hexCode }}
+                        aria-hidden
+                      />
+                      {colorGroup.colorName}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -502,7 +549,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           )}
 
           {/* Size System V2: Sister Size Alert - shows when selected size is out of stock */}
-           {product && selectedSize && selectedColor && !isFreeSize(selectedSize, sizes) && (
+           {product && selectedSize && selectedColorId && !isFreeSize(selectedSize, sizes) && (
             <SisterSizeAlert
               productId={product.id}
               requestedSize={selectedSize}
