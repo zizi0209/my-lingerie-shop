@@ -4,7 +4,7 @@
  * Tests for brand-specific size adjustments
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import { Redis } from 'ioredis';
 import { brandFitService } from '../brand-fit.service';

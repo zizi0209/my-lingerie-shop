@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { afterEach } from 'vitest';
 import AdminUsers from './AdminUsers';
 import * as adminApi from '@/lib/adminApi';
 import { LanguageProvider } from '../components/LanguageContext';
@@ -54,6 +55,10 @@ describe('AdminUsers Component', () => {
     });
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   it('should render users list', async () => {
     render(
       <LanguageProvider>
@@ -67,8 +72,8 @@ describe('AdminUsers Component', () => {
     });
   });
 
-  it('should display loading state initially', () => {
-    render(
+  it('should display loading state initially', async () => {
+    const { unmount } = render(
       <LanguageProvider>
         <AdminUsers />
       </LanguageProvider>
@@ -77,6 +82,13 @@ describe('AdminUsers Component', () => {
     // If initial loading UI is present, it should render without crashing.
     // (Implementation may resolve data quickly, so we avoid brittle assertions here.)
     expect(true).toBe(true);
+
+    // Wait for any pending state updates to complete before unmounting
+    await waitFor(() => {
+      expect(adminApi.adminUserApi.list).toHaveBeenCalled();
+    });
+
+    unmount();
   });
 
   it('should filter by role', async () => {

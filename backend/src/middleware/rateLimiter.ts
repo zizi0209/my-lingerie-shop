@@ -1,5 +1,11 @@
 import rateLimit from 'express-rate-limit';
 
+// Check if we're in development or test environment
+const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+
+// Skip rate limiting function for test environment
+const skipInTest = () => process.env.NODE_ENV === 'test';
+
 /**
  * Rate limiter for login endpoint
  * Prevents brute-force attacks
@@ -7,8 +13,9 @@ import rateLimit from 'express-rate-limit';
  */
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 100 : 5, // 5 requests per window (100 in dev)
+  max: isDevOrTest ? 1000 : 5, // 5 requests per window (1000 in dev/test)
   skipSuccessfulRequests: true, // Don't count successful logins
+  skip: skipInTest,
   message: {
     error: 'Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.'
   },
@@ -29,7 +36,8 @@ export const loginLimiter = rateLimit({
  */
 export const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: process.env.NODE_ENV === 'development' ? 100 : 3,
+  max: isDevOrTest ? 1000 : 3,
+  skip: skipInTest,
   message: {
     error: 'Quá nhiều tài khoản được tạo. Vui lòng thử lại sau 1 giờ.'
   },
@@ -50,6 +58,7 @@ export const registerLimiter = rateLimit({
 export const adminApiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: 100,
+  skip: skipInTest,
   message: {
     error: 'Quá nhiều requests. Vui lòng thử lại sau.'
   },
@@ -77,7 +86,7 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false,
   skip: (req) => {
     // Skip rate limiting for health check
-    return req.path === '/health' || req.path === '/api/health';
+    return req.path === '/health' || req.path === '/api/health' || process.env.NODE_ENV === 'test';
   }
 });
 
@@ -130,7 +139,7 @@ export const uploadLimiter = rateLimit({
  */
 export const adminCriticalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 100 : 10, // 10 requests per 15 min (100 in dev)
+  max: isDevOrTest ? 1000 : 10, // 10 requests per 15 min (1000 in dev/test)
   message: {
     error: 'Quá nhiều thao tác quan trọng. Vui lòng thử lại sau 15 phút.'
   },

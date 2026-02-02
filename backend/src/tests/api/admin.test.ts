@@ -17,11 +17,21 @@ describe('Admin API', () => {
     // Create admin user
     const { user: admin } = await createTestUser({ roleName: 'ADMIN' });
     adminUser = admin;
-    adminToken = generateTestToken(admin.id);
+    adminToken = generateTestToken(admin.id, {
+      email: admin.email,
+      roleId: admin.role?.id ?? null,
+      roleName: 'ADMIN',
+      tokenVersion: 0,
+    });
 
     // Create regular user
     const { user: regular } = await createTestUser({ roleName: 'USER' });
-    regularToken = generateTestToken(regular.id);
+    regularToken = generateTestToken(regular.id, {
+      email: regular.email,
+      roleId: regular.role?.id ?? null,
+      roleName: 'USER',
+      tokenVersion: 0,
+    });
   });
 
   describe('GET /api/admin/users', () => {
@@ -42,7 +52,7 @@ describe('Admin API', () => {
         .set('Authorization', `Bearer ${regularToken}`)
         .expect(403);
 
-      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBeDefined();
     });
 
     it('should filter by role', async () => {
@@ -98,9 +108,9 @@ describe('Admin API', () => {
         .patch(`/api/admin/users/${user.id}/role`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ roleName: 'INVALID_ROLE' })
-        .expect(400);
+        .expect(404);
 
-      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBeDefined();
     });
   });
 

@@ -4,12 +4,11 @@
  * Complete user journeys for Size System V2
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../tests/setup';
+import { createTestCategory, seedTestSizes } from '../../tests/helpers';
 import app from '../../server';
-
-const prisma = new PrismaClient();
 
 describe('E2E: Size System User Journeys', () => {
   let testData: {
@@ -17,16 +16,25 @@ describe('E2E: Size System User Journeys', () => {
     brandId: string;
     userId: number;
   };
+  let testCategory: Awaited<ReturnType<typeof createTestCategory>>;
 
   beforeAll(async () => {
+    // Seed test sizes and create test category
+    await seedTestSizes();
+    const uniqueSuffix = Date.now();
+    testCategory = await createTestCategory({ 
+      name: `Test E2E Category ${uniqueSuffix}`, 
+      slug: `test-e2e-category-${uniqueSuffix}` 
+    });
+
     // Setup complete test environment
     const product = await prisma.product.create({
       data: {
-        name: 'Luxury Bra E2E',
-        slug: 'luxury-bra-e2e',
+        name: `Luxury Bra E2E ${uniqueSuffix}`,
+        slug: `luxury-bra-e2e-${uniqueSuffix}`,
         description: 'Test product for E2E',
         price: 59.99,
-        categoryId: 1,
+        categoryId: testCategory.id,
       },
     });
 
@@ -44,7 +52,7 @@ describe('E2E: Size System User Journeys', () => {
     for (const size of sizes) {
       await prisma.productVariant.create({
         data: {
-          sku: `E2E-BRA-${size.size}-BLACK`,
+          sku: `E2E-BRA-${size.size}-BLACK-${uniqueSuffix}`,
           size: size.size,
           baseSize: size.size,
           baseSizeUIC: size.uic,
@@ -57,8 +65,8 @@ describe('E2E: Size System User Journeys', () => {
 
     const brand = await prisma.brand.create({
       data: {
-        name: 'Agent Provocateur E2E',
-        slug: 'ap-e2e',
+        name: `Agent Provocateur E2E ${uniqueSuffix}`,
+        slug: `ap-e2e-${uniqueSuffix}`,
         fitType: 'RUNS_SMALL',
         bandAdjustment: 1,
         cupAdjustment: 1,
@@ -68,7 +76,7 @@ describe('E2E: Size System User Journeys', () => {
 
     const user = await prisma.user.create({
       data: {
-        email: 'test-e2e@example.com',
+        email: `test-e2e-${uniqueSuffix}@example.com`,
         name: 'Test User',
       },
     });
@@ -88,7 +96,7 @@ describe('E2E: Size System User Journeys', () => {
     await prisma.product.delete({ where: { id: testData.productId } });
     await prisma.brand.delete({ where: { id: testData.brandId } });
     await prisma.user.delete({ where: { id: testData.userId } });
-    await prisma.$disconnect();
+    await prisma.category.delete({ where: { id: testCategory.id } });
   });
 
   // ============================================

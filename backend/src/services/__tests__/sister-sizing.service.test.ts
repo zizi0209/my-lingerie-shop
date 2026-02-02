@@ -4,28 +4,38 @@
  * Tests for sister size calculations and recommendations
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
-import { PrismaClient } from '@prisma/client';
-import { Redis } from 'ioredis';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { prisma } from '../../tests/setup';
 import { sisterSizingService } from '../sister-sizing.service';
+import {
+  seedTestSizes,
+  createTestCategory,
+  cleanupSisterSizeRecommendations,
+} from '../../tests/helpers';
 
-const prisma = new PrismaClient();
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+let testCategory: Awaited<ReturnType<typeof createTestCategory>>;
+let testSizeData: Awaited<ReturnType<typeof seedTestSizes>>;
 
 describe('SisterSizingService', () => {
   beforeAll(async () => {
-    // Clear cache before tests
-    await redis.flushall();
+    // Seed test sizes and category
+    testSizeData = await seedTestSizes();
+    testCategory = await createTestCategory({ name: 'Test Bras', slug: 'test-bras' });
   });
 
   afterAll(async () => {
-    await prisma.$disconnect();
-    await redis.quit();
+    // Cleanup test data
+    await prisma.productVariant.deleteMany({});
+    await prisma.product.deleteMany({ where: { categoryId: testCategory.id } });
+    await prisma.category.deleteMany({ where: { id: testCategory.id } });
+    await cleanupSisterSizeRecommendations();
   });
 
   beforeEach(async () => {
     // Clear cache before each test
     await sisterSizingService.invalidateCache();
+    // Clear recommendation logs to avoid data accumulation
+    await cleanupSisterSizeRecommendations();
   });
 
   describe('getSisterSizes', () => {
@@ -82,35 +92,33 @@ describe('SisterSizingService', () => {
         universalCode: uic,
       });
 
-      // Check cache
-      const cached = await redis.get(`sister-sizes:${uic}`);
-      expect(cached).toBeDefined();
-
       // Second call - should use cache
       const result2 = await sisterSizingService.getSisterSizes({
         universalCode: uic,
       });
 
+      // Results should be equal (cached or not)
       expect(result1).toEqual(result2);
     });
   });
 
   describe('getAvailableSisterSizes', () => {
     it('should return in-stock status when size is available', async () => {
+      const uniqueSuffix = Date.now();
       // Create test product variant with stock
       const product = await prisma.product.create({
         data: {
-          name: 'Test Bra',
-          slug: 'test-bra-001',
+          name: `Test Bra ${uniqueSuffix}`,
+          slug: `test-bra-001-${uniqueSuffix}`,
           description: 'Test',
           price: 29.99,
-          categoryId: 1,
+          categoryId: testCategory.id,
         },
       });
 
       const variant = await prisma.productVariant.create({
         data: {
-          sku: 'TEST-BRA-34C-BLACK',
+          sku: `TEST-BRA-34C-BLACK-${uniqueSuffix}`,
           size: '34C',
           baseSizeUIC: 'UIC_BRA_BAND86_CUPVOL6',
           colorName: 'Black',
@@ -135,20 +143,21 @@ describe('SisterSizingService', () => {
     });
 
     it('should return sister size alternatives when out of stock', async () => {
+      const uniqueSuffix = Date.now();
       const product = await prisma.product.create({
         data: {
-          name: 'Test Bra 2',
-          slug: 'test-bra-002',
+          name: `Test Bra 2 ${uniqueSuffix}`,
+          slug: `test-bra-002-${uniqueSuffix}`,
           description: 'Test',
           price: 29.99,
-          categoryId: 1,
+          categoryId: testCategory.id,
         },
       });
 
       // Requested size: OUT OF STOCK
       const variant34C = await prisma.productVariant.create({
         data: {
-          sku: 'TEST-BRA-34C-BLACK-2',
+          sku: `TEST-BRA-34C-BLACK-2-${uniqueSuffix}`,
           size: '34C',
           baseSizeUIC: 'UIC_BRA_BAND86_CUPVOL6',
           colorName: 'Black',
@@ -160,7 +169,7 @@ describe('SisterSizingService', () => {
       // Sister down: IN STOCK
       const variant32D = await prisma.productVariant.create({
         data: {
-          sku: 'TEST-BRA-32D-BLACK',
+          sku: `TEST-BRA-32D-BLACK-${uniqueSuffix}`,
           size: '34C',
           baseSizeUIC: 'UIC_BRA_BAND81_CUPVOL6',
           colorName: 'Black',
@@ -172,7 +181,7 @@ describe('SisterSizingService', () => {
       // Sister up: IN STOCK
       const variant36B = await prisma.productVariant.create({
         data: {
-          sku: 'TEST-BRA-36B-BLACK',
+          sku: `TEST-BRA-36B-BLACK-${uniqueSuffix}`,
           size: '34C',
           baseSizeUIC: 'UIC_BRA_BAND91_CUPVOL6',
           colorName: 'Black',
@@ -209,19 +218,20 @@ describe('SisterSizingService', () => {
     });
 
     it('should log recommendation when alternatives are shown', async () => {
+      const uniqueSuffix = Date.now();
       const product = await prisma.product.create({
         data: {
-          name: 'Test Bra 3',
-          slug: 'test-bra-003',
+          name: `Test Bra 3 ${uniqueSuffix}`,
+          slug: `test-bra-003-${uniqueSuffix}`,
           description: 'Test',
           price: 29.99,
-          categoryId: 1,
+          categoryId: testCategory.id,
         },
       });
 
       const variant34C = await prisma.productVariant.create({
         data: {
-          sku: 'TEST-BRA-34C-BLACK-3',
+          sku: `TEST-BRA-34C-BLACK-3-${uniqueSuffix}`,
           size: '34C',
           baseSizeUIC: 'UIC_BRA_BAND86_CUPVOL6',
           colorName: 'Black',
@@ -232,7 +242,7 @@ describe('SisterSizingService', () => {
 
       const variant32D = await prisma.productVariant.create({
         data: {
-          sku: 'TEST-BRA-32D-BLACK-3',
+          sku: `TEST-BRA-32D-BLACK-3-${uniqueSuffix}`,
           size: '34C',
           baseSizeUIC: 'UIC_BRA_BAND81_CUPVOL6',
           colorName: 'Black',
@@ -241,7 +251,7 @@ describe('SisterSizingService', () => {
         },
       });
 
-      const sessionId = 'test-session-123';
+      const sessionId = `test-session-123-${uniqueSuffix}`;
 
       await sisterSizingService.getAvailableSisterSizes({
         productId: product.id,

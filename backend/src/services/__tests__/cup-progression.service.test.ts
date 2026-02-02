@@ -5,7 +5,7 @@
  * CRITICAL: Ensures mapping tables are used, NOT math!
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Redis } from 'ioredis';
 import {
   cupProgressionService,

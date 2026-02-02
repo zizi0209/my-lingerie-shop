@@ -1,6 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { beforeAll, afterAll, afterEach } from 'vitest';
 
+// Set NODE_ENV to test for all test runs
+process.env.NODE_ENV = 'test';
+
 // Test database
 export const prisma = new PrismaClient({
   datasources: {

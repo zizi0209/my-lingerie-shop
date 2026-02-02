@@ -4,26 +4,34 @@
  * Tests for all API endpoints
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../tests/setup';
+import { createTestCategory, seedTestSizes } from '../../tests/helpers';
 import app from '../../server'; // Your Express app
-
-const prisma = new PrismaClient();
 
 describe('Size System API v2', () => {
   let testProductId: number;
   let testBrandId: string;
+  let testCategory: Awaited<ReturnType<typeof createTestCategory>>;
 
   beforeAll(async () => {
+    // Seed test sizes and create test category
+    await seedTestSizes();
+    const uniqueSuffix = Date.now();
+    testCategory = await createTestCategory({ 
+      name: `Test API Category ${uniqueSuffix}`, 
+      slug: `test-api-category-${uniqueSuffix}` 
+    });
+
     // Create test product
     const product = await prisma.product.create({
       data: {
-        name: 'Test Bra API',
-        slug: 'test-bra-api',
+        name: `Test Bra API ${uniqueSuffix}`,
+        slug: `test-bra-api-${uniqueSuffix}`,
         description: 'Test',
         price: 29.99,
-        categoryId: 1,
+        categoryId: testCategory.id,
       },
     });
     testProductId = product.id;
@@ -32,7 +40,7 @@ describe('Size System API v2', () => {
     await Promise.all([
       prisma.productVariant.create({
         data: {
-          sku: 'TEST-API-34C-BLACK',
+          sku: `TEST-API-34C-BLACK-${uniqueSuffix}`,
           size: '34C',
           baseSize: '34C',
           baseSizeUIC: 'UIC_BRA_BAND86_CUPVOL6',
@@ -43,7 +51,7 @@ describe('Size System API v2', () => {
       }),
       prisma.productVariant.create({
         data: {
-          sku: 'TEST-API-32D-BLACK',
+          sku: `TEST-API-32D-BLACK-${uniqueSuffix}`,
           size: '32D',
           baseSize: '32D',
           baseSizeUIC: 'UIC_BRA_BAND81_CUPVOL6',
@@ -54,7 +62,7 @@ describe('Size System API v2', () => {
       }),
       prisma.productVariant.create({
         data: {
-          sku: 'TEST-API-36B-BLACK',
+          sku: `TEST-API-36B-BLACK-${uniqueSuffix}`,
           size: '36B',
           baseSize: '36B',
           baseSizeUIC: 'UIC_BRA_BAND91_CUPVOL6',
@@ -68,8 +76,8 @@ describe('Size System API v2', () => {
     // Create test brand
     const brand = await prisma.brand.create({
       data: {
-        name: 'Test API Brand',
-        slug: 'test-api-brand',
+        name: `Test API Brand ${uniqueSuffix}`,
+        slug: `test-api-brand-${uniqueSuffix}`,
         fitType: 'RUNS_SMALL',
         bandAdjustment: 1,
         cupAdjustment: 1,
@@ -86,7 +94,7 @@ describe('Size System API v2', () => {
     });
     await prisma.product.delete({ where: { id: testProductId } });
     await prisma.brand.delete({ where: { id: testBrandId } });
-    await prisma.$disconnect();
+    await prisma.category.delete({ where: { id: testCategory.id } });
   });
 
   // ============================================

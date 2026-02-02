@@ -60,9 +60,160 @@ export async function createTestUser(overrides: Partial<{
   return { user, password };
 }
 
-// Generate JWT token for testing
-export function generateTestToken(userId: number): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '1h' });
+ // ============================================
+ // SIZE SYSTEM HELPERS
+ // ============================================
+
+ // Create test region
+ export async function createTestRegion(overrides: Partial<{
+   id: string;
+   code: string;
+   name: string;
+   currency: string;
+ }> = {}) {
+   const id = overrides.id || `region_${Date.now()}`;
+   const code = overrides.code || 'US';
+   
+   // Check if region already exists
+   let region = await prisma.region.findUnique({ where: { id } });
+   if (!region) {
+     try {
+       region = await prisma.region.create({
+         data: {
+           id,
+           code,
+           name: overrides.name || 'United States',
+           currency: overrides.currency || 'USD',
+         },
+       });
+     } catch {
+       region = await prisma.region.findUnique({ where: { id } });
+     }
+   }
+   return region!;
+ }
+
+ // Create test size standard
+ export async function createTestSizeStandard(regionId: string, overrides: Partial<{
+   id: string;
+   code: string;
+   category: string;
+   name: string;
+ }> = {}) {
+   const id = overrides.id || `std_${Date.now()}`;
+   const code = overrides.code || 'US';
+   const category = overrides.category || 'BRA';
+   
+   let standard = await prisma.sizeStandard.findUnique({ where: { id } });
+   if (!standard) {
+     try {
+       standard = await prisma.sizeStandard.create({
+         data: {
+           id,
+           code,
+           regionId,
+           category,
+           name: overrides.name || 'US Bra Size Standard',
+           cupProgression: ['A', 'B', 'C', 'D', 'DD', 'DDD', 'G', 'H', 'I', 'J', 'K'],
+         },
+       });
+     } catch {
+       standard = await prisma.sizeStandard.findUnique({ where: { id } });
+     }
+   }
+   return standard!;
+ }
+
+ // Create test regional size
+ export async function createTestRegionalSize(params: {
+   regionId: string;
+   standardId: string;
+   universalCode: string;
+   displaySize: string;
+   bandSize: number;
+   cupVolume: number;
+   cupLetter: string;
+   sortOrder?: number;
+ }) {
+   let size = await prisma.regionalSize.findUnique({ 
+     where: { universalCode: params.universalCode } 
+   });
+   
+   if (!size) {
+     try {
+       size = await prisma.regionalSize.create({
+         data: {
+           universalCode: params.universalCode,
+           regionId: params.regionId,
+           standardId: params.standardId,
+           displaySize: params.displaySize,
+           bandSize: params.bandSize,
+           cupVolume: params.cupVolume,
+           cupLetter: params.cupLetter,
+           sortOrder: params.sortOrder || 0,
+           measurements: {},
+         },
+       });
+     } catch {
+       size = await prisma.regionalSize.findUnique({ 
+         where: { universalCode: params.universalCode } 
+       });
+     }
+   }
+   return size!;
+ }
+
+ // Seed common bra sizes for testing
+ export async function seedTestSizes() {
+   const region = await createTestRegion({ id: 'region_us', code: 'US' });
+   const standard = await createTestSizeStandard(region.id, { 
+     id: 'std_us_bra', 
+     code: 'US', 
+     category: 'BRA' 
+   });
+
+   // Sister size family for 34C (volume 6):
+   // 32D (band 81, vol 6) <- 34C (band 86, vol 6) -> 36B (band 91, vol 6)
+   const sizes = [
+     { universalCode: 'UIC_BRA_BAND81_CUPVOL6', displaySize: '32D', bandSize: 81, cupVolume: 6, cupLetter: 'D' },
+     { universalCode: 'UIC_BRA_BAND86_CUPVOL6', displaySize: '34C', bandSize: 86, cupVolume: 6, cupLetter: 'C' },
+     { universalCode: 'UIC_BRA_BAND91_CUPVOL6', displaySize: '36B', bandSize: 91, cupVolume: 6, cupLetter: 'B' },
+     { universalCode: 'UIC_BRA_BAND96_CUPVOL6', displaySize: '38A', bandSize: 96, cupVolume: 6, cupLetter: 'A' },
+   ];
+
+   const createdSizes = [];
+   for (const sizeData of sizes) {
+     const size = await createTestRegionalSize({
+       regionId: region.id,
+       standardId: standard.id,
+       ...sizeData,
+     });
+     createdSizes.push(size);
+   }
+
+   return { region, standard, sizes: createdSizes };
+ }
+
+ // Cleanup sister size recommendations
+ export async function cleanupSisterSizeRecommendations() {
+   await prisma.sisterSizeRecommendation.deleteMany({});
+ }
+
+// Generate JWT token for testing with full payload matching requireAuth expectations
+export function generateTestToken(userId: number, options: {
+  email?: string;
+  roleId?: number | null;
+  roleName?: string;
+  tokenVersion?: number;
+} = {}): string {
+  const payload = {
+    userId,
+    email: options.email || `test-${userId}@example.com`,
+    roleId: options.roleId ?? null,
+    roleName: options.roleName,
+    tokenVersion: options.tokenVersion ?? 0,
+  };
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
 }
 
 // Create test category
