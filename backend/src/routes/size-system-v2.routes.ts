@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { sisterSizingService } from '../services/sister-sizing.service';
 import { brandFitService } from '../services/brand-fit.service';
 import { cupProgressionService } from '../services/cup-progression.service';
+import { requireAdmin } from '../middleware/requireAdmin';
 
 const router = Router();
 
@@ -562,9 +563,8 @@ router.get(
  *
  * Seed cup progression data (admin only)
  */
-router.post('/sizes/seed-cup-progression', async (req: Request, res: Response) => {
+router.post('/sizes/seed-cup-progression', requireAdmin, async (req: Request, res: Response) => {
   try {
-    // TODO: Add admin authentication middleware
     const count = await cupProgressionService.seedCupProgressionMap();
 
     res.json({

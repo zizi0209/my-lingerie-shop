@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from '../../lib/prisma';
 import { updateProductRatingStats } from '../../controllers/reviewController';
+import { sendReviewReplyNotification } from '../../services/emailService';
 
 const router = express.Router();
 
@@ -224,8 +225,17 @@ router.put('/:id/reply', async (req, res) => {
       }
     });
 
-    // TODO: Gửi email thông báo cho khách hàng
-    // await sendReviewReplyNotification(updatedReview.user.email, updatedReview);
+    // Gửi email thông báo cho khách hàng (non-blocking)
+    if (updatedReview.user?.email) {
+      sendReviewReplyNotification(updatedReview.user.email, {
+        customerName: updatedReview.user.name,
+        productName: updatedReview.product.name,
+        productSlug: updatedReview.product.slug,
+        rating: updatedReview.rating,
+        reviewContent: updatedReview.content,
+        replyContent: reply.trim(),
+      }).catch(err => console.error('Email notification failed:', err));
+    }
 
     res.json({
       success: true,

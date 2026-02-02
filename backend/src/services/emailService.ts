@@ -581,3 +581,97 @@ export const sendSuperAdminCreationAlert = async (
 
 // Re-export admin password setup email
 export { sendAdminPasswordSetupEmail } from './adminPasswordSetupEmail';
+
+/**
+ * Gửi email thông báo khi admin trả lời đánh giá của khách hàng
+ */
+export const sendReviewReplyNotification = async (
+  customerEmail: string,
+  data: {
+    customerName: string | null;
+    productName: string;
+    productSlug: string;
+    rating: number;
+    reviewContent: string;
+    replyContent: string;
+  }
+) => {
+  const fromEmail = process.env.CONTACT_EMAIL_FROM || 'onboarding@resend.dev';
+  const storeName = process.env.STORE_NAME || 'Lingerie Shop';
+  const storeUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const productUrl = `${storeUrl}/san-pham/${data.productSlug}`;
+  
+  const displayName = data.customerName || 'Quý khách';
+  const stars = '★'.repeat(data.rating) + '☆'.repeat(5 - data.rating);
+
+  try {
+    const result = await resend.emails.send({
+      from: fromEmail,
+      to: customerEmail,
+      subject: `${storeName} đã phản hồi đánh giá của bạn`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #fff;">
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%); padding: 40px 20px; text-align: center;">
+            <h1 style="color: #fff; margin: 0; font-size: 28px;">${storeName}</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Cảm ơn bạn đã đánh giá sản phẩm</p>
+          </div>
+          
+          <!-- Content -->
+          <div style="padding: 40px 30px;">
+            <h2 style="color: #333; margin-top: 0;">Xin chào ${displayName}!</h2>
+            
+            <p style="color: #555; line-height: 1.8;">
+              Chúng tôi đã nhận được đánh giá của bạn về sản phẩm 
+              <strong>${data.productName}</strong> và muốn gửi lời cảm ơn chân thành.
+            </p>
+            
+            <!-- Original Review -->
+            <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #e91e63;">
+              <p style="margin: 0 0 10px 0; color: #e91e63; font-weight: bold;">Đánh giá của bạn:</p>
+              <p style="margin: 0 0 10px 0; color: #ffc107; font-size: 20px; letter-spacing: 2px;">${stars}</p>
+              <p style="margin: 0; color: #555; font-style: italic; line-height: 1.6;">"${data.reviewContent}"</p>
+            </div>
+            
+            <!-- Shop Reply -->
+            <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4caf50;">
+              <p style="margin: 0 0 10px 0; color: #2e7d32; font-weight: bold;">💬 Phản hồi từ ${storeName}:</p>
+              <p style="margin: 0; color: #333; line-height: 1.8;">${data.replyContent}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${productUrl}" 
+                 style="display: inline-block; background: #e91e63; color: #fff; padding: 16px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px;">
+                XEM SẢN PHẨM
+              </a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+            
+            <p style="color: #555; line-height: 1.8;">
+              Đánh giá của bạn giúp chúng tôi cải thiện sản phẩm và dịch vụ. 
+              Cảm ơn bạn đã đồng hành cùng ${storeName}! 💕
+            </p>
+            
+            <p style="margin-bottom: 5px;">Trân trọng,</p>
+            <p style="margin-top: 0; color: #e91e63; font-weight: bold;">${storeName} Team</p>
+          </div>
+          
+          <!-- Footer -->
+          <div style="background: #f5f5f5; padding: 20px 30px; text-align: center; border-top: 1px solid #eee;">
+            <p style="color: #888; font-size: 12px; margin: 0;">
+              Bạn nhận được email này vì đã đánh giá sản phẩm tại ${storeName}.
+            </p>
+          </div>
+        </div>
+      `,
+    });
+
+    console.log('✅ Review reply notification sent to:', customerEmail);
+    return result;
+  } catch (error) {
+    console.error('❌ Failed to send review reply notification:', error);
+    // Don't throw - email failure shouldn't break the reply flow
+    return null;
+  }
+};
