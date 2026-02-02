@@ -179,6 +179,40 @@ function generateSlug(name: string, suffix: string): string {
 
 // ============ SEED FUNCTIONS ============
 
+async function cleanupOldProducts() {
+  console.log('🧹 Cleaning up old seeded products...');
+  
+  // Delete in correct order to respect foreign keys
+  // 1. Delete order items first
+  await prisma.orderItem.deleteMany({});
+  console.log('  🗑️ Deleted order items');
+  
+  // 2. Delete orders
+  await prisma.order.deleteMany({});
+  console.log('  🗑️ Deleted orders');
+
+  // 3. Delete reviews
+  await prisma.review.deleteMany({});
+  console.log('  🗑️ Deleted reviews');
+
+  // 4. Delete analytics data
+  await prisma.productView.deleteMany({});
+  await prisma.wishlistItem.deleteMany({});
+  await prisma.cartItem.deleteMany({});
+  await prisma.productOnPost.deleteMany({});
+  console.log('  🗑️ Deleted product views, wishlist, cart items');
+
+  // 5. Delete product-related data
+  await prisma.productColor.deleteMany({});
+  await prisma.productImage.deleteMany({});
+  await prisma.productVariant.deleteMany({});
+  console.log('  🗑️ Deleted product colors, images, variants');
+
+  // 6. Delete products
+  const deleteResult = await prisma.product.deleteMany({});
+  console.log(`  🗑️ Deleted ${deleteResult.count} products`);
+}
+
 async function seedCategories() {
   console.log('📁 Seeding categories...');
   
@@ -254,59 +288,97 @@ async function seedProducts(categories: Awaited<ReturnType<typeof seedCategories
         },
       });
 
-      // Chọn màu cho sản phẩm
-      const productColors = faker.helpers.arrayElements(COLORS, { min: 2, max: 4 });
+      // Decide: single-color (30%) vs multi-color (70%)
+      const isSingleColor = faker.datatype.boolean(0.3);
       const availableSizes = SIZES[category.productType];
       const productSizes = faker.helpers.arrayElements(availableSizes, { 
         min: Math.min(3, availableSizes.length), 
         max: Math.min(4, availableSizes.length) 
       });
 
-      // Tạo ProductColor relationships
-      for (let colorIndex = 0; colorIndex < productColors.length; colorIndex++) {
-        const color = productColors[colorIndex];
-        
-        await prisma.productColor.create({
-          data: {
-            productId: product.id,
-            colorId: color.id,
-            isDefault: colorIndex === 0, // Màu đầu tiên là default
-            order: colorIndex,
-          },
-        });
+      if (isSingleColor) {
+        // CASE 2: Single-color product - no ProductColor, images with colorId = null
+        const imageCount = faker.number.int({ min: 2, max: 4 });
+        const imageUrls = getProductImages(category.productType, productCounter, imageCount);
 
-        // Tạo images cho mỗi màu (2-3 ảnh mỗi màu)
-        const imageCount = faker.number.int({ min: 2, max: 3 });
-        const imageUrls = getProductImages(category.productType, productCounter * 10 + colorIndex, imageCount);
-        
         await prisma.productImage.createMany({
           data: imageUrls.map(url => ({
             productId: product.id,
-            colorId: color.id, // Link image to color
+            colorId: null, // General images - no specific color
             url,
           })),
         });
 
-        // Tạo variants cho mỗi màu x size
+        // Single default color for variants (required by schema)
+        const defaultColor = COLORS[0];
         for (const size of productSizes) {
-          const sku = `${category.productType.substring(0, 3)}-${productCounter.toString().padStart(3, '0')}-${color.slug.toUpperCase()}-${size.replace(' ', '')}`;
-          
+          const sku = `${category.productType.substring(0, 3)}-${productCounter.toString().padStart(3, '0')}-DEFAULT-${size.replace(' ', '')}`;
+
           await prisma.productVariant.create({
             data: {
               productId: product.id,
               sku,
               size,
-              colorId: color.id, // Link variant to color
+              colorId: defaultColor.id,
               stock: faker.number.int({ min: 5, max: 30 }),
               price: price + faker.number.int({ min: 0, max: 20000 }),
               salePrice: salePrice ? salePrice + faker.number.int({ min: 0, max: 10000 }) : null,
             },
           });
         }
+
+        allProducts.push(product);
+        console.log(`    ✅ ${name} (đơn màu, ${productSizes.length} size)`);
+      } else {
+        // CASE 1: Multi-color product
+        const productColors = faker.helpers.arrayElements(COLORS, { min: 2, max: 4 });
+
+        for (let colorIndex = 0; colorIndex < productColors.length; colorIndex++) {
+          const color = productColors[colorIndex];
+
+          await prisma.productColor.create({
+            data: {
+              productId: product.id,
+              colorId: color.id,
+              isDefault: colorIndex === 0,
+              order: colorIndex,
+            },
+          });
+
+          // Images specific to this color
+          const imageCount = faker.number.int({ min: 2, max: 3 });
+          const imageUrls = getProductImages(category.productType, productCounter * 10 + colorIndex, imageCount);
+
+          await prisma.productImage.createMany({
+            data: imageUrls.map(url => ({
+              productId: product.id,
+              colorId: color.id, // Link image to specific color
+              url,
+            })),
+          });
+
+          // Variants for each color x size
+          for (const size of productSizes) {
+            const sku = `${category.productType.substring(0, 3)}-${productCounter.toString().padStart(3, '0')}-${color.slug.toUpperCase()}-${size.replace(' ', '')}`;
+
+            await prisma.productVariant.create({
+              data: {
+                productId: product.id,
+                sku,
+                size,
+                colorId: color.id,
+                stock: faker.number.int({ min: 5, max: 30 }),
+                price: price + faker.number.int({ min: 0, max: 20000 }),
+                salePrice: salePrice ? salePrice + faker.number.int({ min: 0, max: 10000 }) : null,
+              },
+            });
+          }
+        }
+
+        allProducts.push(product);
+        console.log(`    ✅ ${name} (${productColors.length} màu × ${productSizes.length} size)`);
       }
 
-      allProducts.push(product);
-      console.log(`    ✅ ${name} (${productColors.length} màu × ${productSizes.length} size)`);
       productCounter++;
     }
   }
@@ -491,6 +563,9 @@ async function main() {
   console.log('='.repeat(50));
 
   const startTime = Date.now();
+
+  // Cleanup old products first
+  await cleanupOldProducts();
 
   // Seed categories
   const categories = await seedCategories();
