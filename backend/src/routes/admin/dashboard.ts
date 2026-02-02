@@ -554,19 +554,62 @@ router.get('/live-feed', async (req, res) => {
  */
 router.get('/carts', async (req, res) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20)); // Max 100
+    const { status } = req.query;
+    const skip = (page - 1) * limit;
 
     // Define abandoned threshold (1 hour without updates)
     const abandonedThreshold = new Date(Date.now() - 60 * 60 * 1000);
 
-    // First, get GLOBAL stats from ALL carts (not just current page)
-    const allCartsForStats = await prisma.cart.findMany({
+    // Calculate global stats using COUNT queries instead of fetching all carts
+    const [
+      cartsWithItems,
+      globalAbandonedCarts,
+      globalRecoveredCarts,
+      globalActiveCarts
+    ] = await Promise.all([
+      // Total carts with items
+      prisma.cart.count({
+        where: { items: { some: {} } },
+      }),
+      // Abandoned carts (>1h without activity, has items)
+      prisma.cart.count({
+        where: {
+          updatedAt: { lt: abandonedThreshold },
+          items: { some: {} },
+        },
+      }),
+      // Recovered carts (active, was abandoned before)
+      prisma.cart.count({
+        where: {
+          updatedAt: { gte: abandonedThreshold },
+          items: { some: {} },
+          OR: [
+            { lastAbandonedAt: { not: null } },
+            { recoveredCount: { gt: 0 } },
+          ],
+        },
+      }),
+      // Active carts (never abandoned)
+      prisma.cart.count({
+        where: {
+          updatedAt: { gte: abandonedThreshold },
+          items: { some: {} },
+          lastAbandonedAt: null,
+          recoveredCount: 0,
+        },
+      }),
+    ]);
+
+    // Get abandoned cart value (only for abandoned carts, limited sample for estimation)
+    const abandonedCartsForValue = await prisma.cart.findMany({
+      where: {
+        updatedAt: { lt: abandonedThreshold },
+        items: { some: {} },
+      },
+      take: 100, // Sample for estimation
       select: {
-        id: true,
-        updatedAt: true,
-        lastAbandonedAt: true,
-        recoveredCount: true,
         items: {
           select: {
             quantity: true,
@@ -577,38 +620,19 @@ router.get('/carts', async (req, res) => {
       },
     });
 
-    // Calculate global stats (only carts with items)
-    let globalActiveCarts = 0;        // Giỏ hàng hoạt động (chưa từng bị bỏ rơi)
-    let globalAbandonedCarts = 0;     // Giỏ hàng bỏ rơi (hiện tại)
-    let globalAbandonedValue = 0;
-    let globalRecoveredCarts = 0;     // Giỏ hàng đã phục hồi (từng bỏ rơi, nay hoạt động lại)
-    let cartsWithItems = 0;
-
-    allCartsForStats.forEach((cart) => {
-      // Bỏ qua cart trống - không tính vào stats
-      if (cart.items.length === 0) return;
-
-      cartsWithItems++;
-      const cartValue = cart.items.reduce((sum, item) => {
+    // Calculate abandoned value from sample and extrapolate
+    let sampleAbandonedValue = 0;
+    abandonedCartsForValue.forEach((cart) => {
+      sampleAbandonedValue += cart.items.reduce((sum, item) => {
         const price = item.variant?.price || item.product.salePrice || item.product.price;
         return sum + price * item.quantity;
       }, 0);
-
-      const isCurrentlyAbandoned = cart.updatedAt < abandonedThreshold;
-      const wasEverAbandoned = cart.lastAbandonedAt !== null || cart.recoveredCount > 0;
-
-      if (isCurrentlyAbandoned) {
-        // Hiện tại đang bị bỏ rơi
-        globalAbandonedCarts++;
-        globalAbandonedValue += cartValue;
-      } else if (wasEverAbandoned) {
-        // Từng bị bỏ rơi nhưng đã quay lại → Recovered
-        globalRecoveredCarts++;
-      } else {
-        // Chưa từng bị bỏ rơi → Active mới
-        globalActiveCarts++;
-      }
     });
+    
+    // Extrapolate if we have more abandoned carts than sampled
+    const globalAbandonedValue = abandonedCartsForValue.length > 0
+      ? Math.round(sampleAbandonedValue * (globalAbandonedCarts / abandonedCartsForValue.length))
+      : 0;
 
     // Build where clause for filtering by status
     let statusWhere: Prisma.CartWhereInput = {};
@@ -649,7 +673,7 @@ router.get('/carts', async (req, res) => {
       prisma.cart.findMany({
         where: statusWhere,
         skip,
-        take: Number(limit),
+        take: limit,
         orderBy: { updatedAt: 'desc' },
         include: {
           user: {
@@ -730,10 +754,10 @@ router.get('/carts', async (req, res) => {
         recoveredCarts: globalRecoveredCarts,
       },
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page,
+        limit,
         total,
-        pages: Math.ceil(total / Number(limit)),
+        pages: Math.ceil(total / limit),
       },
     });
   } catch (error) {

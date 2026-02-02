@@ -740,18 +740,22 @@ router.get('/traffic-by-hour', async (req, res) => {
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     }
 
-    const pageViews = await prisma.pageView.findMany({
-      where: { createdAt: { gte: startDate } },
-      select: { createdAt: true }
-    });
+    // Use raw query for efficient hour grouping at DB level
+    // This avoids fetching potentially millions of rows
+    const hourlyStats = await prisma.$queryRaw<Array<{ hour: number; count: bigint }>>`
+      SELECT EXTRACT(HOUR FROM "createdAt") as hour, COUNT(*) as count
+      FROM "PageView"
+      WHERE "createdAt" >= ${startDate}
+      GROUP BY EXTRACT(HOUR FROM "createdAt")
+      ORDER BY hour
+    `;
 
     // Group by hour
     const hourlyData: Record<number, number> = {};
     for (let i = 0; i < 24; i++) hourlyData[i] = 0;
 
-    pageViews.forEach(pv => {
-      const hour = new Date(pv.createdAt).getHours();
-      hourlyData[hour]++;
+    hourlyStats.forEach(row => {
+      hourlyData[Number(row.hour)] = Number(row.count);
     });
 
     const trafficByHour = Object.entries(hourlyData).map(([hour, count]) => ({
@@ -1512,14 +1516,16 @@ router.get('/co-viewed-products', async (req, res) => {
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     }
 
-    // Get all product views grouped by session
+    // Get product views grouped by session with a reasonable limit
+    // to avoid bandwidth explosion on high-traffic sites
     const productViews = await prisma.productView.findMany({
       where: { createdAt: { gte: startDate } },
       select: {
         sessionId: true,
         productId: true
       },
-      orderBy: { sessionId: 'asc' }
+      orderBy: { createdAt: 'desc' },
+      take: 50000, // Limit to recent 50k views for analysis
     });
 
     // Group by session

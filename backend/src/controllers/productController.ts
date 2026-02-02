@@ -1,62 +1,117 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { generateUniqueProductSlug } from '../utils/slugify';
+import { Prisma } from '@prisma/client';
 
 // Get all products
 export const getAllProducts = async (req: Request, res: Response) => {
   try {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20)); // Max 100
     const {
-      page = 1,
-      limit = 20,
       categoryId,
       isFeatured,
       minPrice,
       maxPrice,
       search,
-      colors, // comma-separated color names
-      sizes,  // comma-separated sizes
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
+      colors,
+      sizes,
+      sortBy,
+      sortOrder,
     } = req.query;
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const skip = (page - 1) * limit;
+
+    // Determine sort field and order
+    type SortField = 'createdAt' | 'price' | 'name';
+    const validSortFields: SortField[] = ['createdAt', 'price', 'name'];
+    const sortField: SortField = validSortFields.includes(sortBy as SortField)
+      ? (sortBy as SortField)
+      : 'createdAt';
+    const order: 'asc' | 'desc' = sortOrder === 'asc' ? 'asc' : 'desc';
 
     // Build where clause
-    const where: {
-      isVisible: boolean;
-      categoryId?: number;
-      isFeatured?: boolean;
-      OR?: { name?: { contains: string; mode: 'insensitive' }; description?: { contains: string; mode: 'insensitive' } }[];
-      variants?: { some: { colorName?: { in: string[] }; size?: { in: string[] } } };
-    } = { isVisible: true };
+    const where: Prisma.ProductWhereInput = { isVisible: true };
 
     if (categoryId) {
-      where.categoryId = Number(categoryId);
+      (where as any).categoryId = Number(categoryId);
     }
 
     if (isFeatured !== undefined) {
-      where.isFeatured = isFeatured === 'true';
+      (where as any).isFeatured = isFeatured === 'true';
     }
 
-    // Price filter will be applied after fetching using effective price (salePrice ?? price)
-    const minPriceFilter = minPrice ? Number(minPrice) : null;
-    const maxPriceFilter = maxPrice ? Number(maxPrice) : null;
+    // Price filter - apply at DB level using OR condition for salePrice/price
+    if (minPrice || maxPrice) {
+      const minP = minPrice ? Number(minPrice) : undefined;
+      const maxP = maxPrice ? Number(maxPrice) : undefined;
+
+      // Filter where (salePrice >= min AND salePrice <= max) OR (salePrice IS NULL AND price >= min AND price <= max)
+      const priceConditions: Prisma.ProductWhereInput[] = [];
+
+      if (minP !== undefined && maxP !== undefined) {
+        priceConditions.push({
+          salePrice: { gte: minP, lte: maxP },
+        });
+        priceConditions.push({
+          salePrice: null,
+          price: { gte: minP, lte: maxP },
+        });
+      } else if (minP !== undefined) {
+        priceConditions.push({
+          salePrice: { gte: minP },
+        });
+        priceConditions.push({
+          salePrice: null,
+          price: { gte: minP },
+        });
+      } else if (maxP !== undefined) {
+        priceConditions.push({
+          salePrice: { lte: maxP },
+        });
+        priceConditions.push({
+          salePrice: null,
+          price: { lte: maxP },
+        });
+      }
+
+      if (priceConditions.length > 0) {
+        (where as any).OR = [...((where as any).OR || []), ...priceConditions];
+        // Wrap existing conditions if OR already exists
+        if ((where as any).OR && (where as any).OR.length > 0) {
+          const existingConditions = { ...where };
+          delete (existingConditions as any).OR;
+          (where as any).AND = [existingConditions, { OR: priceConditions }];
+          delete (where as any).OR;
+          delete (where as any).isVisible;
+          delete (where as any).categoryId;
+          delete (where as any).isFeatured;
+        }
+      }
+    }
 
     if (search) {
-      where.OR = [
-        { name: { contains: String(search), mode: 'insensitive' } },
-        { description: { contains: String(search), mode: 'insensitive' } },
-      ];
+      const searchCondition = {
+        OR: [
+          { name: { contains: String(search), mode: 'insensitive' as const } },
+          { description: { contains: String(search), mode: 'insensitive' as const } },
+        ],
+      };
+      if ((where as any).AND) {
+        (where as any).AND.push(searchCondition);
+      } else {
+        (where as any).AND = [searchCondition];
+      }
     }
 
     // Filter by colors (from variant)
     if (colors && typeof colors === 'string') {
       const colorList = colors.split(',').map(c => c.trim()).filter(Boolean);
       if (colorList.length > 0) {
-        where.variants = {
-          ...where.variants,
+        (where as any).variants = {
+          ...(where as any).variants,
           some: {
-            ...where.variants?.some,
+            ...(where as any).variants?.some,
             colorName: { in: colorList },
           },
         };
@@ -67,96 +122,77 @@ export const getAllProducts = async (req: Request, res: Response) => {
     if (sizes && typeof sizes === 'string') {
       const sizeList = sizes.split(',').map(s => s.trim()).filter(Boolean);
       if (sizeList.length > 0) {
-        where.variants = {
-          ...where.variants,
+        (where as any).variants = {
+          ...(where as any).variants,
           some: {
-            ...where.variants?.some,
+            ...(where as any).variants?.some,
             size: { in: sizeList },
           },
         };
       }
     }
 
-    // Build orderBy based on sortBy and sortOrder
-    type SortField = 'createdAt' | 'price' | 'name';
-    const validSortFields: SortField[] = ['createdAt', 'price', 'name'];
-    const sortField: SortField = validSortFields.includes(sortBy as SortField) 
-      ? (sortBy as SortField) 
-      : 'createdAt';
-    const order: 'asc' | 'desc' = sortOrder === 'asc' ? 'asc' : 'desc';
+    // Execute queries in parallel
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [sortField]: order },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          price: true,
+          salePrice: true,
+          categoryId: true,
+          isFeatured: true,
+          isVisible: true,
+          ratingAverage: true,
+          reviewCount: true,
+          createdAt: true,
+          updatedAt: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+          images: {
+            take: 1,
+            select: {
+              url: true,
+            },
+          },
+          variants: {
+            select: {
+              id: true,
+              size: true,
+              colorName: true,
+              stock: true,
+            },
+          },
+        },
+      }),
+      prisma.product.count({ where }),
+    ]);
 
-    // Fetch all products matching base filters (without price filter)
-    const allProducts = await prisma.product.findMany({
-      where,
-      orderBy: sortField === 'price' 
-        ? undefined // Will sort manually by effective price
-        : { [sortField]: order },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        images: {
-          take: 1,
-          select: {
-            url: true,
-          },
-        },
-        variants: {
-          select: {
-            id: true,
-            size: true,
-            colorName: true,
-            stock: true,
-          },
-        },
-      },
-    });
-
-    // Filter by effective price (salePrice ?? price) and sort if needed
-    let filteredProducts = allProducts.map(p => ({
+    // Add effectivePrice for frontend convenience
+    const responseProducts = products.map(p => ({
       ...p,
       effectivePrice: p.salePrice ?? p.price,
-    }));
-
-    // Apply price filter based on effective price
-    if (minPriceFilter !== null) {
-      filteredProducts = filteredProducts.filter(p => p.effectivePrice >= minPriceFilter);
-    }
-    if (maxPriceFilter !== null) {
-      filteredProducts = filteredProducts.filter(p => p.effectivePrice <= maxPriceFilter);
-    }
-
-    // Sort by effective price if sortField is price
-    if (sortField === 'price') {
-      filteredProducts.sort((a, b) => 
-        order === 'asc' 
-          ? a.effectivePrice - b.effectivePrice 
-          : b.effectivePrice - a.effectivePrice
-      );
-    }
-
-    // Paginate
-    const total = filteredProducts.length;
-    const paginatedProducts = filteredProducts.slice(skip, skip + Number(limit));
-
-    // Remove effectivePrice from response (optional, keep it for frontend convenience)
-    const responseProducts = paginatedProducts.map(({ effectivePrice, ...rest }) => ({
-      ...rest,
-      effectivePrice, // Include for frontend to use
     }));
 
     res.json({
       success: true,
       data: responseProducts,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page,
+        limit,
         total,
-        totalPages: Math.ceil(total / Number(limit)),
+        totalPages: Math.ceil(total / limit),
       },
     });
   } catch (error) {

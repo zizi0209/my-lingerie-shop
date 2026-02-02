@@ -10,6 +10,7 @@ dotenv.config();
 import authRoutes from './routes/authRoutes';
 import mediaRoutes from './routes/mediaRoutes';
 import userRoutes from './routes/userRoutes';
+import { startCleanupCron } from './cron/cleanup.cron';
 import categoryRoutes from './routes/categoryRoutes';
 import colorRoutes from './routes/colorRoutes';
 import productRoutes from './routes/productRoutes';
@@ -118,6 +119,11 @@ app.use('/api', sizeSystemV2Routes);
 
 // Admin routes (protected)
 app.use('/api/admin', adminRoutes);
+
+// Start cleanup cron jobs
+if (process.env.ENABLE_CLEANUP_CRON !== 'false') {
+  startCleanupCron();
+}
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

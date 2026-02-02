@@ -11,6 +11,7 @@ import reviewsRoutes from './reviews';
 import searchRoutes from './search';
 import sizeTemplatesRoutes from './sizeTemplates';
 import analyticsRoutes from './analytics';
+import cleanupRoutes from '../cleanupRoutes';
 
 const router = express.Router();
 
@@ -27,5 +28,6 @@ router.use('/reviews', reviewsRoutes);
 router.use('/search', searchRoutes);
 router.use('/size-templates', sizeTemplatesRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/cleanup', cleanupRoutes);
 
 export default router;

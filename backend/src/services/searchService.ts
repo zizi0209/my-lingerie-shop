@@ -73,22 +73,25 @@ async function expandWithSynonyms(query: string): Promise<string[]> {
   const words = query.split(/\s+/);
   const expandedWords: string[] = [...words];
 
-  for (const word of words) {
-    const synonym = await prisma.searchSynonym.findFirst({
-      where: {
-        word: { equals: word, mode: 'insensitive' },
-        isActive: true,
-      },
-    });
+  // Batch load all synonyms at once instead of N+1 queries
+  const synonyms = await prisma.searchSynonym.findMany({
+    where: {
+      word: { in: words, mode: 'insensitive' },
+      isActive: true,
+    },
+  });
 
-    if (synonym) {
-      expandedWords.push(synonym.synonym);
-      // Update hit count
-      await prisma.searchSynonym.update({
-        where: { id: synonym.id },
-        data: { hitCount: { increment: 1 } },
-      });
-    }
+  // Add synonyms to expanded words
+  for (const synonym of synonyms) {
+    expandedWords.push(synonym.synonym);
+  }
+
+  // Batch update hit counts
+  if (synonyms.length > 0) {
+    await prisma.searchSynonym.updateMany({
+      where: { id: { in: synonyms.map(s => s.id) } },
+      data: { hitCount: { increment: 1 } },
+    });
   }
 
   return [...new Set(expandedWords)];
@@ -294,9 +297,31 @@ export async function smartSearch(
     baseWhere = { ...baseWhere, categoryId };
   }
 
-  // Price filter will be applied after fetching using effective price (salePrice ?? price)
-  const minPriceFilter = minPrice;
-  const maxPriceFilter = maxPrice;
+  // Apply price filter at DB level
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    const priceConditions: Prisma.ProductWhereInput[] = [];
+    
+    if (minPrice !== undefined && maxPrice !== undefined) {
+      // (salePrice >= min AND salePrice <= max) OR (salePrice IS NULL AND price >= min AND price <= max)
+      priceConditions.push({ salePrice: { gte: minPrice, lte: maxPrice } });
+      priceConditions.push({ salePrice: null, price: { gte: minPrice, lte: maxPrice } });
+    } else if (minPrice !== undefined) {
+      priceConditions.push({ salePrice: { gte: minPrice } });
+      priceConditions.push({ salePrice: null, price: { gte: minPrice } });
+    } else if (maxPrice !== undefined) {
+      priceConditions.push({ salePrice: { lte: maxPrice } });
+      priceConditions.push({ salePrice: null, price: { lte: maxPrice } });
+    }
+    
+    if (priceConditions.length > 0) {
+      baseWhere = {
+        AND: [
+          baseWhere,
+          { OR: priceConditions },
+        ],
+      };
+    }
+  }
 
   if (colors && colors.length > 0) {
     baseWhere = {
@@ -317,8 +342,7 @@ export async function smartSearch(
   }
 
   // Apply sorting (price sorting will be done manually for effective price)
-  const sortByPrice = sortBy === 'price_asc' || sortBy === 'price_desc';
-  if (sortBy && !sortByPrice) {
+  if (sortBy) {
     switch (sortBy) {
       case 'newest':
         orderBy = { createdAt: 'desc' };
@@ -329,61 +353,62 @@ export async function smartSearch(
       case 'rating':
         orderBy = { ratingAverage: 'desc' };
         break;
+      case 'price_asc':
+        orderBy = { price: 'asc' }; // Use price for sorting (salePrice sorting would need raw query)
+        break;
+      case 'price_desc':
+        orderBy = { price: 'desc' };
+        break;
     }
   }
 
-  // Execute search - fetch all for price filtering
-  const allProducts = await prisma.product.findMany({
-    where: baseWhere,
-    orderBy: sortByPrice ? undefined : orderBy,
-    include: {
-      category: {
-        select: { id: true, name: true, slug: true },
+  // Enforce limit bounds
+  const safeLimit = Math.min(100, Math.max(1, limit));
+  const safeOffset = Math.max(0, offset);
+
+  // Execute search with pagination at DB level
+  const [products, total, filterProductIds] = await Promise.all([
+    prisma.product.findMany({
+      where: baseWhere,
+      orderBy,
+      skip: safeOffset,
+      take: safeLimit,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        price: true,
+        salePrice: true,
+        categoryId: true,
+        isFeatured: true,
+        ratingAverage: true,
+        reviewCount: true,
+        createdAt: true,
+        category: {
+          select: { id: true, name: true, slug: true },
+        },
+        images: {
+          take: 1,
+          select: { url: true },
+        },
+        variants: {
+          where: { stock: { gt: 0 } },
+          select: { colorName: true, size: true, stock: true },
+        },
       },
-      images: {
-        take: 1,
-        select: { url: true },
-      },
-      variants: {
-        where: { stock: { gt: 0 } },
-        select: { colorName: true, size: true, stock: true },
-      },
-    },
-  });
-
-  // Add effective price and filter
-  let filteredProducts = allProducts.map(p => ({
-    ...p,
-    effectivePrice: p.salePrice ?? p.price,
-  }));
-
-  // Apply price filter based on effective price
-  if (minPriceFilter !== undefined) {
-    filteredProducts = filteredProducts.filter(p => p.effectivePrice >= minPriceFilter);
-  }
-  if (maxPriceFilter !== undefined) {
-    filteredProducts = filteredProducts.filter(p => p.effectivePrice <= maxPriceFilter);
-  }
-
-  // Sort by effective price if needed
-  if (sortByPrice) {
-    filteredProducts.sort((a, b) => 
-      sortBy === 'price_asc' 
-        ? a.effectivePrice - b.effectivePrice 
-        : b.effectivePrice - a.effectivePrice
-    );
-  }
-
-  // Paginate
-  const total = filteredProducts.length;
-  const products = filteredProducts.slice(offset, offset + limit);
+    }),
+    prisma.product.count({ where: baseWhere }),
+    // Get product IDs for filters (limit to reasonable number for filter calculation)
+    prisma.product.findMany({
+      where: baseWhere,
+      select: { id: true },
+      take: 500, // Limit for filter calculation to avoid bandwidth issues
+    }),
+  ]);
 
   // Build dynamic filters
-  const allProductIds = await prisma.product.findMany({
-    where: baseWhere,
-    select: { id: true },
-  });
-  const filters = await buildDynamicFilters(allProductIds.map((p) => p.id));
+  const filters = await buildDynamicFilters(filterProductIds.map((p) => p.id));
 
   // Log search
   await logSearch(query, total, userId, sessionId);

@@ -325,17 +325,19 @@ export const createOrder = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Mã đơn hàng đã tồn tại!' });
     }
 
-    // Validate products exist and have enough stock (if using variants)
-    for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId },
+    // Batch validate products exist (avoid N+1)
+    const productIds = items.map((item: { productId: number }) => item.productId);
+    const existingProducts = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true },
+    });
+    const existingProductIds = new Set(existingProducts.map(p => p.id));
+    
+    const missingProductIds = productIds.filter((id: number) => !existingProductIds.has(id));
+    if (missingProductIds.length > 0) {
+      return res.status(404).json({
+        error: `Không tìm thấy sản phẩm với ID: ${missingProductIds.join(', ')}`,
       });
-
-      if (!product) {
-        return res.status(404).json({
-          error: `Không tìm thấy sản phẩm với ID: ${item.productId}`,
-        });
-      }
     }
 
     // Validate and process coupon if provided

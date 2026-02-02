@@ -247,31 +247,47 @@ export class CupProgressionService {
    * Seed cup progression map to database
    */
   async seedCupProgressionMap(): Promise<number> {
-    let count = 0;
-
+    // Build batch data to avoid N+1 queries
+    const upsertData: Array<{
+      regionCode: string;
+      cupVolume: number;
+      cupLetter: string;
+    }> = [];
+    
     for (const [regionCode, progression] of Object.entries(CUP_PROGRESSIONS)) {
       for (let i = 0; i < progression.length; i++) {
-        await prisma.cupProgressionMap.upsert({
-          where: {
-            regionCode_cupVolume: {
-              regionCode,
-              cupVolume: i + 1,
-            },
-          },
-          create: {
+        upsertData.push({
             regionCode,
             cupVolume: i + 1,
             cupLetter: progression[i],
-            isStandard: true,
-          },
-          update: {
-            cupLetter: progression[i],
-          },
         });
-        count++;
       }
     }
 
+    // Use transaction with batched upserts
+    await prisma.$transaction(
+      upsertData.map(data =>
+        prisma.cupProgressionMap.upsert({
+          where: {
+            regionCode_cupVolume: {
+              regionCode: data.regionCode,
+              cupVolume: data.cupVolume,
+            },
+          },
+          create: {
+            regionCode: data.regionCode,
+            cupVolume: data.cupVolume,
+            cupLetter: data.cupLetter,
+            isStandard: true,
+          },
+          update: {
+            cupLetter: data.cupLetter,
+          },
+        })
+      )
+    );
+
+    const count = upsertData.length;
     console.log(`Seeded ${count} cup progression entries`);
     return count;
   }
