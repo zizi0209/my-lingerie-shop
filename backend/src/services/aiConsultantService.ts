@@ -4,8 +4,11 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
 const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
+
+const GEMINI_MODELS = ['gemini-2.0-flash-exp', 'gemini-1.5-flash'];
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -31,6 +34,10 @@ interface ChatResponse {
     price: number;
     imageUrl?: string;
   }>;
+}
+
+interface GroqResponse {
+  choices: Array<{ message: { content: string } }>;
 }
 
 const SYSTEM_PROMPT = `Bạn là Linh - tư vấn viên thời trang nội y chuyên nghiệp.
@@ -59,6 +66,8 @@ Hãy trả lời câu hỏi của khách hàng một cách chuyên nghiệp và 
 
 export class AIConsultantService {
   private conversationCache: Map<string, ChatMessage[]> = new Map();
+  private currentModelIndex: number = 0;
+  private groqFallbackActive: boolean = false;
 
   async getProductContext(productSlug?: string): Promise<string> {
     try {
@@ -67,11 +76,7 @@ export class AIConsultantService {
           where: { slug: productSlug },
           include: {
             category: true,
-            variants: {
-              include: {
-                color: true,
-              },
-            },
+            variants: { include: { color: true } },
           },
         });
 
@@ -92,12 +97,7 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
         where: { isVisible: true },
         take: 5,
         orderBy: { createdAt: 'desc' },
-        select: {
-          name: true,
-          price: true,
-          salePrice: true,
-          slug: true,
-        },
+        select: { name: true, price: true, salePrice: true, slug: true },
       });
 
       if (featuredProducts.length > 0) {
@@ -113,15 +113,7 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
     }
   }
 
-  async chat(
-    sessionId: string,
-    userMessage: string,
-    context?: ChatContext
-  ): Promise<ChatResponse> {
-    if (!genAI) {
-      throw new Error('Gemini API key is not configured');
-    }
-
+  async chat(sessionId: string, userMessage: string, context?: ChatContext): Promise<ChatResponse> {
     let history = this.conversationCache.get(sessionId) || [];
 
     if (context?.conversationHistory) {
@@ -138,52 +130,134 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
       }
     }
 
-    const systemPromptWithContext = SYSTEM_PROMPT
-      .replace('{productContext}', productContext + userContextStr);
+    const systemPromptWithContext = SYSTEM_PROMPT.replace('{productContext}', productContext + userContextStr);
+
+    let aiMessage: string;
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-      const conversationParts = history.map(msg => ({
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.content }],
-      }));
-
-      const chat = model.startChat({
-        history: conversationParts as any,
-        generationConfig: {
-          maxOutputTokens: 500,
-          temperature: 0.7,
-        },
-      });
-
-      const fullPrompt = history.length === 0 
-        ? `${systemPromptWithContext}\n\nKhách hàng: ${userMessage}`
-        : userMessage;
-
-      const result = await chat.sendMessage(fullPrompt);
-      const response = result.response;
-      const aiMessage = response.text();
-
-      history.push({ role: 'user', content: userMessage });
-      history.push({ role: 'assistant', content: aiMessage });
-
-      if (history.length > 20) {
-        history = history.slice(-20);
+      if (this.groqFallbackActive && GROQ_API_KEY) {
+        aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history);
+      } else if (genAI) {
+        aiMessage = await this.callGemini(systemPromptWithContext, userMessage, history);
+      } else if (GROQ_API_KEY) {
+        aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history);
+      } else {
+        throw new Error('No AI API key configured (GEMINI_API_KEY or GROQ_API_KEY)');
       }
-
-      this.conversationCache.set(sessionId, history);
-
-      const suggestedProducts = await this.searchRelatedProducts(userMessage);
-
-      return {
-        message: aiMessage,
-        suggestedProducts: suggestedProducts.length > 0 ? suggestedProducts : undefined,
-      };
     } catch (error) {
-      console.error('Error calling Gemini API:', error);
-      throw new Error('Không thể kết nối với AI. Vui lòng thử lại sau.');
+      console.error('Primary AI call failed:', error);
+      
+      if (!this.groqFallbackActive && GROQ_API_KEY) {
+        console.log('Switching to Groq fallback...');
+        this.groqFallbackActive = true;
+        try {
+          aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history);
+        } catch (groqError) {
+          console.error('Groq fallback also failed:', groqError);
+          throw new Error('Không thể kết nối với AI. Vui lòng thử lại sau.');
+        }
+      } else {
+        throw new Error('Không thể kết nối với AI. Vui lòng thử lại sau.');
+      }
     }
+
+    history.push({ role: 'user', content: userMessage });
+    history.push({ role: 'assistant', content: aiMessage });
+
+    if (history.length > 20) {
+      history = history.slice(-20);
+    }
+
+    this.conversationCache.set(sessionId, history);
+
+    const suggestedProducts = await this.searchRelatedProducts(userMessage);
+
+    return {
+      message: aiMessage,
+      suggestedProducts: suggestedProducts.length > 0 ? suggestedProducts : undefined,
+    };
+  }
+
+  private async callGemini(systemPrompt: string, userMessage: string, history: ChatMessage[]): Promise<string> {
+    if (!genAI) throw new Error('Gemini not configured');
+
+    let lastError: Error | null = null;
+    
+    for (let i = this.currentModelIndex; i < GEMINI_MODELS.length; i++) {
+      try {
+        const modelName = GEMINI_MODELS[i];
+        console.log(`Trying Gemini model: ${modelName}`);
+        
+        const model = genAI.getGenerativeModel({ model: modelName });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const conversationParts: any[] = history.map(msg => ({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }],
+        }));
+
+        const chat = model.startChat({
+          history: conversationParts,
+          generationConfig: {
+            maxOutputTokens: 500,
+            temperature: 0.7,
+          },
+        });
+
+        const fullPrompt = history.length === 0 
+          ? `${systemPrompt}\n\nKhách hàng: ${userMessage}`
+          : userMessage;
+
+        const result = await chat.sendMessage(fullPrompt);
+        const response = result.response;
+        
+        this.currentModelIndex = i;
+        return response.text();
+      } catch (error) {
+        console.error(`Gemini ${GEMINI_MODELS[i]} failed:`, error);
+        lastError = error as Error;
+      }
+    }
+
+    throw lastError || new Error('All Gemini models failed');
+  }
+
+  private async callGroq(systemPrompt: string, userMessage: string, history: ChatMessage[]): Promise<string> {
+    if (!GROQ_API_KEY) throw new Error('Groq not configured');
+
+    console.log('Using Groq API (llama-3.1-8b-instant)');
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...history.map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content,
+      })),
+      { role: 'user', content: userMessage },
+    ];
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages,
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Groq API error:', errorData);
+      throw new Error(`Groq API error: ${response.status}`);
+    }
+
+    const data = (await response.json()) as GroqResponse;
+    return data.choices[0]?.message?.content || 'Xin lỗi, tôi không thể trả lời lúc này.';
   }
 
   private async searchRelatedProducts(query: string): Promise<Array<{
@@ -209,11 +283,7 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
           })),
         },
         take: 3,
-        include: {
-          images: {
-            take: 1,
-          },
-        },
+        include: { images: { take: 1 } },
       });
 
       return products.map(p => ({
