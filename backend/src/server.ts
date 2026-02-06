@@ -41,6 +41,7 @@ import seedRoutes from './routes/seedRoutes';
 import sizeSystemV2Routes from './routes/size-system-v2.routes';
 import virtualTryOnRoutes from './routes/virtualTryOnRoutes';
 import { apiLimiter } from './middleware/rateLimiter';
+import aiConsultantRoutes from './routes/aiConsultantRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -115,6 +116,7 @@ app.use('/api/product-posts', productPostRoutes);
 app.use('/api/background-removal', backgroundRemovalRoutes);
 app.use('/api/virtual-tryon', virtualTryOnRoutes);
 
+app.use('/api/ai-consultant', aiConsultantRoutes);
 // Size System V2 routes
 app.use('/api', sizeSystemV2Routes);
 

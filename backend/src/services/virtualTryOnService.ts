@@ -1,28 +1,22 @@
-// Using global fetch (Node.js 18+)
- // HuggingFace Spaces configuration
+// Virtual Try-On Service using HuggingFace Spaces
+ 
  const SPACES = [
    {
-     id: 'Zheng-Chong/CatVTON',
-     name: 'CatVTON',
-     endpoint: 'https://zheng-chong-catvton.hf.space/api/predict',
-     type: 'catvton',
+     id: 'yisol/IDM-VTON',
+     name: 'IDM-VTON',
+     type: 'idm',
    },
    {
      id: 'levihsu/OOTDiffusion',
      name: 'OOTDiffusion',
-     endpoint: 'https://levihsu-ootdiffusion.hf.space/api/predict',
      type: 'ootd',
-   },
-   {
-     id: 'yisol/IDM-VTON',
-     name: 'IDM-VTON',
-     endpoint: 'https://yisol-idm-vton.hf.space/api/predict',
-     type: 'idm',
    },
  ];
  
- const MAX_RETRIES = 2;
- const TIMEOUT_MS = 300000; // 5 minutes
+ const MAX_RETRIES = 1;
+ const TIMEOUT_MS = 120000; // 2 minutes per request
+ const POLL_INTERVAL = 3000; // 3 seconds
+ const MAX_POLL_ATTEMPTS = 40; // 2 minutes max polling
  
  interface TryOnResult {
    success: boolean;
@@ -56,121 +50,36 @@
        signal: controller.signal as AbortSignal,
      });
      clearTimeout(id);
-     return response as unknown as Response;
+     return response;
    } catch (error) {
      clearTimeout(id);
      throw error;
    }
  }
  
- async function trySpaceCatVTON(
+ async function tryIDMVTON(
    personImageBase64: string,
    garmentImageBase64: string
  ): Promise<string> {
-   const endpoint = 'https://zheng-chong-catvton.hf.space/call/submit';
+   const spaceUrl = 'https://yisol-idm-vton.hf.space';
    
-   // CatVTON API format
+   console.log('[IDM-VTON] Starting request...');
+   
+   // IDM-VTON API format
    const payload = {
      data: [
-       personImageBase64,  // person_image
-       garmentImageBase64, // garment_image
-       'upper_body',       // cloth_type
-       30,                 // num_inference_steps
-       2.5,                // guidance_scale
-       42,                 // seed
+       { background: personImageBase64, layers: [], composite: null },
+       garmentImageBase64,
+       'clothing item',
+       true,  // auto mask
+       true,  // auto crop
+       30,    // denoise steps
+       42,    // seed
      ],
    };
  
    const response = await fetchWithTimeout(
-     endpoint,
-     {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify(payload),
-     },
-     TIMEOUT_MS
-   );
- 
-   if (!response.ok) {
-     throw new Error(`CatVTON API error: ${response.status}`);
-   }
- 
-   const result = await response.json() as { event_id?: string };
-   
-   if (!result.event_id) {
-     throw new Error('No event_id returned');
-   }
- 
-   // Poll for result
-   const resultUrl = `https://zheng-chong-catvton.hf.space/call/${result.event_id}`;
-   let attempts = 0;
-   const maxAttempts = 60; // 5 minutes with 5s intervals
- 
-   while (attempts < maxAttempts) {
-     await sleep(5000);
-     attempts++;
- 
-     const pollResponse = await fetch(resultUrl);
-     const pollText = await pollResponse.text();
-     
-     // Parse SSE format
-     if (pollText.includes('event: complete')) {
-       const dataMatch = pollText.match(/data: (.+)/);
-       if (dataMatch) {
-         const data = JSON.parse(dataMatch[1]);
-         if (data && data[0]) {
-           return data[0].url || data[0];
-         }
-       }
-     }
-     
-     if (pollText.includes('event: error')) {
-       throw new Error('Processing failed');
-     }
-   }
- 
-   throw new Error('Timeout waiting for result');
- }
- 
- async function trySpaceGradio(
-   spaceUrl: string,
-   personImageBase64: string,
-   garmentImageBase64: string,
-   spaceType: string
- ): Promise<string> {
-   // Generic Gradio Space API call
-   const endpoint = `${spaceUrl}/call/tryon`;
-   
-   let payload;
-   
-   if (spaceType === 'idm') {
-     // IDM-VTON format
-     payload = {
-       data: [
-         { background: personImageBase64, layers: [], composite: null },
-         garmentImageBase64,
-         'clothing item',
-         true,  // auto mask
-         true,  // auto crop
-         30,    // denoise steps
-         42,    // seed
-       ],
-     };
-   } else {
-     // OOTDiffusion format
-     payload = {
-       data: [
-         personImageBase64,
-         garmentImageBase64,
-         'upper',
-         20,
-         2.0,
-       ],
-     };
-   }
- 
-   const response = await fetchWithTimeout(
-     endpoint,
+     `${spaceUrl}/call/tryon`,
      {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
@@ -181,40 +90,138 @@
  
    if (!response.ok) {
      const text = await response.text();
-     throw new Error(`API error: ${response.status} - ${text}`);
+     console.log('[IDM-VTON] API error:', response.status, text);
+     throw new Error(`API error: ${response.status}`);
    }
  
    const result = await response.json() as { event_id?: string };
+   console.log('[IDM-VTON] Got event_id:', result.event_id);
    
    if (!result.event_id) {
      throw new Error('No event_id returned');
    }
  
    // Poll for result
-   const resultUrl = `${spaceUrl}/call/${result.event_id}`;
+   const resultUrl = `${spaceUrl}/call/tryon/${result.event_id}`;
    let attempts = 0;
-   const maxAttempts = 60;
  
-   while (attempts < maxAttempts) {
-     await sleep(5000);
+   while (attempts < MAX_POLL_ATTEMPTS) {
+     await sleep(POLL_INTERVAL);
      attempts++;
- 
-     const pollResponse = await fetch(resultUrl);
-     const pollText = await pollResponse.text();
      
-     if (pollText.includes('event: complete')) {
-       const dataMatch = pollText.match(/data: (.+)/);
-       if (dataMatch) {
-         const data = JSON.parse(dataMatch[1]);
-         if (data && data[0]) {
-           return typeof data[0] === 'string' ? data[0] : data[0].url || data[0].path;
+     console.log(`[IDM-VTON] Polling attempt ${attempts}/${MAX_POLL_ATTEMPTS}...`);
+ 
+     try {
+       const pollResponse = await fetchWithTimeout(resultUrl, { method: 'GET' }, 30000);
+       const pollText = await pollResponse.text();
+       
+       if (pollText.includes('event: complete')) {
+         const dataMatch = pollText.match(/data: (.+)/);
+         if (dataMatch) {
+           const data = JSON.parse(dataMatch[1]);
+           console.log('[IDM-VTON] Got result:', typeof data[0]);
+           if (data && data[0]) {
+             const result = typeof data[0] === 'string' ? data[0] : data[0].url || data[0].path;
+             return result;
+           }
          }
        }
+       
+       if (pollText.includes('event: error')) {
+         console.log('[IDM-VTON] Error event:', pollText);
+         throw new Error('Processing failed on server');
+       }
+       
+       if (pollText.includes('event: heartbeat')) {
+         console.log('[IDM-VTON] Heartbeat received, still processing...');
+       }
+     } catch (pollError) {
+       console.log('[IDM-VTON] Poll error:', pollError);
+       // Continue polling on timeout
      }
+   }
+ 
+   throw new Error('Timeout waiting for result');
+ }
+ 
+ async function tryOOTDiffusion(
+   personImageBase64: string,
+   garmentImageBase64: string
+ ): Promise<string> {
+   const spaceUrl = 'https://levihsu-ootdiffusion.hf.space';
+   
+   console.log('[OOTDiffusion] Starting request...');
+   
+   const payload = {
+     data: [
+       personImageBase64,
+       garmentImageBase64,
+       'Upper-body',
+       1,    // n_samples
+       20,   // n_steps
+       2.0,  // guidance_scale
+       42,   // seed
+     ],
+   };
+ 
+   const response = await fetchWithTimeout(
+     `${spaceUrl}/call/process_dc`,
+     {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify(payload),
+     },
+     TIMEOUT_MS
+   );
+ 
+   if (!response.ok) {
+     const text = await response.text();
+     console.log('[OOTDiffusion] API error:', response.status, text);
+     throw new Error(`API error: ${response.status}`);
+   }
+ 
+   const result = await response.json() as { event_id?: string };
+   console.log('[OOTDiffusion] Got event_id:', result.event_id);
+   
+   if (!result.event_id) {
+     throw new Error('No event_id returned');
+   }
+ 
+   const resultUrl = `${spaceUrl}/call/process_dc/${result.event_id}`;
+   let attempts = 0;
+ 
+   while (attempts < MAX_POLL_ATTEMPTS) {
+     await sleep(POLL_INTERVAL);
+     attempts++;
      
-     if (pollText.includes('event: error')) {
-       const errorMatch = pollText.match(/data: (.+)/);
-       throw new Error(errorMatch ? errorMatch[1] : 'Processing failed');
+     console.log(`[OOTDiffusion] Polling attempt ${attempts}/${MAX_POLL_ATTEMPTS}...`);
+ 
+     try {
+       const pollResponse = await fetchWithTimeout(resultUrl, { method: 'GET' }, 30000);
+       const pollText = await pollResponse.text();
+       
+       if (pollText.includes('event: complete')) {
+         const dataMatch = pollText.match(/data: (.+)/);
+         if (dataMatch) {
+           const data = JSON.parse(dataMatch[1]);
+           console.log('[OOTDiffusion] Got result');
+           if (data && data[0]) {
+             // OOTDiffusion returns gallery format
+             const gallery = data[0];
+             if (Array.isArray(gallery) && gallery[0]) {
+               return gallery[0].image?.url || gallery[0].url || gallery[0];
+             }
+             return typeof gallery === 'string' ? gallery : gallery.url || gallery.path;
+           }
+         }
+       }
+       
+       if (pollText.includes('event: error')) {
+         console.log('[OOTDiffusion] Error event:', pollText);
+         throw new Error('Processing failed on server');
+       }
+     } catch (pollError) {
+       console.log('[OOTDiffusion] Poll error:', pollError);
      }
    }
  
@@ -228,47 +235,56 @@
    const startTime = Date.now();
    const errors: string[] = [];
  
-   // Try each space in order
-   for (const space of SPACES) {
-     console.log(`Trying Virtual Try-On with ${space.name}...`);
-     
-     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-       try {
-         let resultImage: string;
+   console.log('=== Starting Virtual Try-On processing ===');
+   console.log('Person image size:', Math.round(personImageBase64.length / 1024), 'KB');
+   console.log('Garment image size:', Math.round(garmentImageBase64.length / 1024), 'KB');
  
-         if (space.type === 'catvton') {
-           resultImage = await trySpaceCatVTON(personImageBase64, garmentImageBase64);
-         } else {
-           const spaceUrl = `https://${space.id.toLowerCase().replace('/', '-')}.hf.space`;
-           resultImage = await trySpaceGradio(
-             spaceUrl,
-             personImageBase64,
-             garmentImageBase64,
-             space.type
-           );
-         }
- 
-         return {
-           success: true,
-           resultImage,
-           provider: space.name,
-           processingTime: Date.now() - startTime,
-         };
-       } catch (error) {
-         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-         console.warn(`${space.name} attempt ${attempt + 1} failed:`, errorMsg);
-         errors.push(`${space.name}: ${errorMsg}`);
-         
-         if (attempt < MAX_RETRIES - 1) {
-           await sleep(2000);
-         }
-       }
+   // Try IDM-VTON first
+   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+     try {
+       console.log(`\n[IDM-VTON] Attempt ${attempt + 1}/${MAX_RETRIES + 1}`);
+       const resultImage = await tryIDMVTON(personImageBase64, garmentImageBase64);
+       
+       console.log('=== Success with IDM-VTON ===');
+       return {
+         success: true,
+         resultImage,
+         provider: 'IDM-VTON',
+         processingTime: Date.now() - startTime,
+       };
+     } catch (error) {
+       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+       console.log(`[IDM-VTON] Failed: ${errorMsg}`);
+       errors.push(`IDM-VTON: ${errorMsg}`);
      }
    }
  
+   // Try OOTDiffusion as fallback
+   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+     try {
+       console.log(`\n[OOTDiffusion] Attempt ${attempt + 1}/${MAX_RETRIES + 1}`);
+       const resultImage = await tryOOTDiffusion(personImageBase64, garmentImageBase64);
+       
+       console.log('=== Success with OOTDiffusion ===');
+       return {
+         success: true,
+         resultImage,
+         provider: 'OOTDiffusion',
+         processingTime: Date.now() - startTime,
+       };
+     } catch (error) {
+       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+       console.log(`[OOTDiffusion] Failed: ${errorMsg}`);
+       errors.push(`OOTDiffusion: ${errorMsg}`);
+     }
+   }
+ 
+   console.log('=== All providers failed ===');
+   console.log('Errors:', errors);
+ 
    return {
      success: false,
-     error: `All providers failed. Errors: ${errors.join('; ')}`,
+     error: `Tất cả hệ thống AI đang bận hoặc không khả dụng. Chi tiết: ${errors.join('; ')}`,
      processingTime: Date.now() - startTime,
    };
  }
@@ -299,3 +315,4 @@
  
    return results;
  }
+ 
