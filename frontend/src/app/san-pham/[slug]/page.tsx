@@ -10,6 +10,7 @@ import ReviewList from "@/components/product/ReviewList";
 import SizeGuideModal from "@/components/product/SizeGuideModal";
 import RecommendationSection from "@/components/product/RecommendationSection";
 import RelatedPosts from "@/components/product/RelatedPosts";
+import { VirtualTryOnButton, VirtualTryOnModal } from "@/components/virtual-tryon";
 // Size System V2 Components
 import SisterSizeAlert from "@/components/product/SisterSizeAlert";
 import BrandFitNotice from "@/components/product/BrandFitNotice";
@@ -102,6 +103,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const [activeTab, setActiveTab] = useState("description");
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
+  const [tryOnModalOpen, setTryOnModalOpen] = useState(false);
   // Size System V2 state
   const [regionCode, setRegionCode] = useState<RegionCode>('US');
 
@@ -644,6 +646,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             </button>
           </div>
 
+          {/* Virtual Try-On Button */}
+          <div className="mt-4">
+            <VirtualTryOnButton onClick={() => setTryOnModalOpen(true)} />
+          </div>
+
           {/* Features */}
           <div className="space-y-3 py-6 border-y border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
@@ -748,6 +755,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         productId={product?.id}
         selectedSize={selectedSize}
       />
+
+      {/* Virtual Try-On Modal */}
+      {product && (
+        <VirtualTryOnModal
+          isOpen={tryOnModalOpen}
+          onClose={() => setTryOnModalOpen(false)}
+          product={{
+            id: String(product.id),
+            name: product.name,
+            imageUrl: productImages[selectedImage] || productImages[0],
+          }}
+          onAddToCart={handleAddToCart}
+        />
+      )}
     </div>
   );
 }

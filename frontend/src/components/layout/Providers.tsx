@@ -8,6 +8,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { Toaster } from "sonner";
+import { VirtualTryOnProvider } from "@/context/VirtualTryOnContext";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -22,8 +23,10 @@ export function Providers({ children }: { children: ReactNode }) {
           <CartProvider>
             <WishlistProvider>
               <LanguageProvider>
-                {children}
-                <Toaster position="top-right" expand={false} richColors />
+                <VirtualTryOnProvider>
+                  {children}
+                  <Toaster position="top-right" expand={false} richColors />
+                </VirtualTryOnProvider>
               </LanguageProvider>
             </WishlistProvider>
           </CartProvider>

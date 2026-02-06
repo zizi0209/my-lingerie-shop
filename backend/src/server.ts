@@ -39,6 +39,7 @@ import productPostRoutes from './routes/productPostRoutes';
 import backgroundRemovalRoutes from './routes/backgroundRemovalRoutes';
 import seedRoutes from './routes/seedRoutes';
 import sizeSystemV2Routes from './routes/size-system-v2.routes';
+import virtualTryOnRoutes from './routes/virtualTryOnRoutes';
 import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
@@ -74,10 +75,9 @@ app.use(
 );
 
 // Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-
+ app.use(express.json({ limit: '50mb' }));
+ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+ app.use(cookieParser());
 // Public routes (no rate limit, no auth required)
 app.use('/api/public/config', publicConfigRoutes);
 app.use('/api/about-stats', aboutStatsRoutes);
@@ -113,6 +113,7 @@ app.use('/api/size-templates', sizeTemplateRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/product-posts', productPostRoutes);
 app.use('/api/background-removal', backgroundRemovalRoutes);
+app.use('/api/virtual-tryon', virtualTryOnRoutes);
 
 // Size System V2 routes
 app.use('/api', sizeSystemV2Routes);

@@ -1,0 +1,90 @@
+'use client';
+ 
+ import { Loader2, Lightbulb } from 'lucide-react';
+ import { TryOnQueueInfo } from '@/types/virtual-tryon';
+ 
+ interface ProcessingViewProps {
+   progress: number;
+   queueInfo: TryOnQueueInfo | null;
+   personImage: string | null;
+   onContinueShopping?: () => void;
+   onCancel?: () => void;
+ }
+ 
+ export function ProcessingView({
+   progress,
+   queueInfo,
+   personImage,
+   onContinueShopping,
+   onCancel,
+ }: ProcessingViewProps) {
+   const estimatedMinutes = queueInfo?.estimatedTime
+     ? Math.ceil(queueInfo.estimatedTime / 60)
+     : Math.ceil((100 - progress) / 10);
+ 
+   return (
+     <div className="space-y-4 sm:space-y-6">
+       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+         <div>
+           <p className="text-sm text-gray-500 mb-2">Ảnh đã upload</p>
+           {personImage && (
+             <img
+               src={personImage}
+               alt="Your photo"
+               className="w-full h-40 sm:h-48 object-contain rounded-lg bg-gray-100"
+             />
+           )}
+         </div>
+         <div>
+           <p className="text-sm text-gray-500 mb-2">Đang xử lý</p>
+           <div className="w-full h-40 sm:h-48 flex flex-col items-center justify-center bg-gray-100 rounded-lg">
+             <Loader2 className="w-10 sm:w-12 h-10 sm:h-12 text-pink-500 animate-spin mb-3 sm:mb-4" />
+             {queueInfo && (
+               <p className="text-sm text-gray-600 mb-2">
+                 Vị trí hàng đợi: {queueInfo.position} / {queueInfo.total}
+               </p>
+             )}
+             <div className="w-24 sm:w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+               <div
+                 className="h-full bg-pink-500 transition-all duration-300"
+                 style={{ width: `${progress}%` }}
+               />
+             </div>
+             <p className="text-xs sm:text-sm text-gray-500 mt-2">~{estimatedMinutes} phút</p>
+           </div>
+         </div>
+       </div>
+ 
+       <div className="p-2 sm:p-3 bg-yellow-50 rounded-lg">
+         <div className="flex gap-2">
+           <Lightbulb className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-600 flex-shrink-0" />
+           <p className="text-xs sm:text-sm text-yellow-700">
+             <strong>Mẹo:</strong> Bạn có thể đóng modal và tiếp tục xem sản phẩm khác.
+           </p>
+         </div>
+       </div>
+ 
+       <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
+         {onContinueShopping && (
+           <button
+             type="button"
+             onClick={onContinueShopping}
+             className="flex-1 py-2.5 sm:py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+           >
+             Tiếp tục shopping
+           </button>
+         )}
+         {onCancel && (
+           <button
+             type="button"
+             onClick={onCancel}
+             className="py-2.5 sm:py-2 px-4 text-red-600 hover:bg-red-50 rounded-lg text-sm"
+           >
+             Hủy xử lý
+           </button>
+         )}
+       </div>
+     </div>
+   );
+ }
+ 

@@ -16,6 +16,7 @@
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
     "@google/generative-ai": "^0.24.1",
+    "@gradio/client": "^2.0.4",
     "@lexical/html": "^0.39.0",
     "@lexical/link": "^0.39.0",
     "@lexical/list": "^0.39.0",
@@ -36,6 +37,7 @@
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "react-dropzone": "^14.4.0",
+    "react-webcam": "^7.2.0",
     "recharts": "^2.15.4",
     "sonner": "^2.0.7"
   },
