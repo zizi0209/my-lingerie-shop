@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
- import { processVirtualTryOn, checkSpacesStatus } from '../services/virtualTryOnService';
+ import { processVirtualTryOn, checkSpacesStatus, resetProviderHealth, getProviderHealthStats } from '../services/virtualTryOnService';
  
  export async function tryOn(req: Request, res: Response) {
    try {
@@ -62,6 +62,40 @@ import { Request, Response } from 'express';
      });
    }
  }
+
+export async function resetHealth(_req: Request, res: Response) {
+  try {
+    resetProviderHealth();
+    
+    return res.json({
+      success: true,
+      message: 'All provider health stats have been reset',
+    });
+  } catch (error) {
+    console.error('Reset health error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to reset health stats',
+    });
+  }
+}
+
+export async function getHealthStats(_req: Request, res: Response) {
+  try {
+    const stats = getProviderHealthStats();
+    
+    return res.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    console.error('Health stats error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to get health stats',
+    });
+  }
+}
  
  export async function getStatus(_req: Request, res: Response) {
    try {

@@ -1,6 +1,7 @@
 'use client';
  
- import { Loader2, Lightbulb } from 'lucide-react';
+ import { useState, useEffect } from 'react';
+ import { Loader2, Lightbulb, Clock } from 'lucide-react';
  import { TryOnQueueInfo } from '@/types/virtual-tryon';
  
  interface ProcessingViewProps {
@@ -18,9 +19,30 @@
    onContinueShopping,
    onCancel,
  }: ProcessingViewProps) {
-   const estimatedMinutes = queueInfo?.estimatedTime
-     ? Math.ceil(queueInfo.estimatedTime / 60)
-     : Math.ceil((100 - progress) / 10);
+  const [elapsedTime, setElapsedTime] = useState(0);
+
+  // Track elapsed time
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsedTime(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Format elapsed time as mm:ss
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Estimate remaining time based on progress
+  const getEstimatedRemaining = () => {
+    if (progress <= 30) return '1-3 phút';
+    if (progress <= 80) return '30 giây - 2 phút';
+    if (progress < 100) return 'Sắp xong...';
+    return 'Hoàn thành!';
+  };
  
    return (
      <div className="space-y-4 sm:space-y-6">
@@ -50,7 +72,15 @@
                  style={{ width: `${progress}%` }}
                />
              </div>
-             <p className="text-xs sm:text-sm text-gray-500 mt-2">~{estimatedMinutes} phút</p>
+            <div className="text-center mt-2 space-y-1">
+              <p className="text-xs sm:text-sm text-gray-600 flex items-center justify-center gap-1">
+                <Clock className="w-3 h-3" />
+                Đã chờ: {formatTime(elapsedTime)}
+              </p>
+              <p className="text-xs text-gray-400">
+                Ước tính còn: {getEstimatedRemaining()}
+              </p>
+            </div>
            </div>
          </div>
        </div>
