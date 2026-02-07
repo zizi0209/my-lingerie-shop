@@ -7,8 +7,15 @@
  * - Round-robin load balancing across multiple HF providers
  * - Health tracking with automatic failover
  * - Weighted distribution based on success rate
+ * - Parallel batch attempts for faster response
+ * - Smart circuit breaker with quick recovery
+ * - Pre-flight health checks to skip unavailable providers
  */
 import { processGeminiTryOn, isGeminiAvailable } from './geminiVirtualTryOnService';
+
+// Configuration constants
+const PARALLEL_BATCH_SIZE = 2; // Try 2 providers in parallel for stability
+const QUICK_HEALTH_CHECK_TIMEOUT = 3000; // 3 seconds for quick health check
 
 // imgbb API for temporary image hosting (HuggingFace Spaces require URLs)
 const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '';
@@ -196,8 +203,9 @@ export function resetProviderHealth(): void {
 }
 
  const TIMEOUT_MS = 120000; // 2 minutes per request
- const POLL_INTERVAL = 3000; // 3 seconds
- const MAX_POLL_ATTEMPTS = 40; // 2 minutes max polling
+const POLL_INTERVAL = 2000; // 2 seconds (reduced from 3)
+const MAX_POLL_ATTEMPTS = 60; // 2 minutes max polling
+const INITIAL_POLL_DELAY = 1000; // Start polling after 1 second
  
  interface TryOnResult {
    success: boolean;
@@ -214,19 +222,56 @@ export function resetProviderHealth(): void {
  }
  
 // Constants for health-based routing
-const MAX_CONSECUTIVE_FAILURES = 3; // Disable provider after 3 consecutive failures
-const RECOVERY_TIME = 300000; // 5 minutes before retrying failed provider
+const MAX_CONSECUTIVE_FAILURES = 2; // Disable provider after 2 consecutive failures (faster failover)
+const RECOVERY_TIME = 30000; // 30 seconds before retrying failed provider
+
+/**
+ * Quick health check - verify if a Space is responding
+ * Returns true if Space appears to be available
+ */
+async function quickHealthCheck(providerUrl: string): Promise<boolean> {
+  try {
+    const response = await fetchWithTimeout(
+      providerUrl,
+      { method: 'HEAD' },
+      QUICK_HEALTH_CHECK_TIMEOUT
+    );
+    return response.ok || response.status === 405; // 405 is ok for HEAD on some Spaces
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Get providers in round-robin order starting from current index
  */
 function getProvidersInOrder(): ProviderConfig[] {
   const result: ProviderConfig[] = [];
+  const now = Date.now();
+  
   for (let i = 0; i < PROVIDERS.length; i++) {
     const index = (currentProviderIndex + i) % PROVIDERS.length;
-    result.push(PROVIDERS[index]);
+    const provider = PROVIDERS[index];
+    const health = providerHealth.get(provider.name);
+    
+    // Skip providers that are still in cooling period
+    if (health && health.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+      const timeSinceFailure = now - health.lastFailure;
+      if (timeSinceFailure < RECOVERY_TIME) {
+        continue; // Skip this provider
+      }
+    }
+    
+    result.push(provider);
   }
   currentProviderIndex = (currentProviderIndex + 1) % PROVIDERS.length;
+  
+  // If all providers are cooling down, include them anyway (last resort)
+  if (result.length === 0) {
+    console.log('[Round-Robin] All providers cooling down, trying anyway...');
+    return [...PROVIDERS];
+  }
+  
   return result;
 }
 
@@ -291,12 +336,26 @@ async function pollForResult(
   providerName: string
 ): Promise<string> {
   let attempts = 0;
+  let consecutiveHeartbeats = 0;
+
+  // Wait a bit before starting to poll
+  await sleep(INITIAL_POLL_DELAY);
 
   while (attempts < MAX_POLL_ATTEMPTS) {
-    await sleep(POLL_INTERVAL);
     attempts++;
     
-    console.log(`[${providerName}] Polling attempt ${attempts}/${MAX_POLL_ATTEMPTS}...`);
+    // Adaptive polling: faster at start, slower after many heartbeats
+    const adaptiveInterval = consecutiveHeartbeats > 5 
+      ? Math.min(POLL_INTERVAL * 2, 5000) 
+      : POLL_INTERVAL;
+    
+    if (attempts > 1) {
+      await sleep(adaptiveInterval);
+    }
+    
+    if (attempts % 10 === 0) {
+      console.log(`[${providerName}] Polling attempt ${attempts}/${MAX_POLL_ATTEMPTS}...`);
+    }
 
     try {
       const pollResponse = await fetchWithTimeout(resultUrl, { method: 'GET' }, 30000);
@@ -340,12 +399,16 @@ async function pollForResult(
       
       if (pollText.includes('event: heartbeat')) {
         console.log(`[${providerName}] Heartbeat received, still processing...`);
+        consecutiveHeartbeats++;
       }
     } catch (pollError) {
       if (pollError instanceof Error && pollError.message === 'Processing failed on server') {
         throw pollError;
       }
-      console.log(`[${providerName}] Poll error:`, pollError);
+      // Don't log every poll error, just continue
+      if (attempts % 5 === 0) {
+        console.log(`[${providerName}] Poll error (attempt ${attempts}):`, pollError);
+      }
     }
   }
 
@@ -838,43 +901,79 @@ export async function processVirtualTryOn(
   const orderedProviders = getProvidersInOrder();
   console.log(`[Round-Robin] Provider order: ${orderedProviders.map(p => p.name).join(' → ')}`);
 
-  // Try each provider in order
-  for (const provider of orderedProviders) {
-    const health = providerHealth.get(provider.name);
+  // Try providers in parallel batches for faster response
+  for (let batchStart = 0; batchStart < orderedProviders.length; batchStart += PARALLEL_BATCH_SIZE) {
+    const batch = orderedProviders.slice(batchStart, batchStart + PARALLEL_BATCH_SIZE);
+    console.log(`\n[Batch ${Math.floor(batchStart / PARALLEL_BATCH_SIZE) + 1}] Trying: ${batch.map(p => p.name).join(', ')}`);
     
-    // Skip if provider has too many consecutive failures (unless in recovery)
-    if (health && health.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-      const timeSinceLastFailure = Date.now() - health.lastFailure;
-      if (timeSinceLastFailure < RECOVERY_TIME) {
-        console.log(`\n[${provider.name}] Skipping - cooling down`);
-        errors.push(`${provider.name}: cooling down`);
-        continue;
-      }
+    // Quick health check on batch providers
+    const healthChecks = await Promise.all(
+      batch.map(async (provider) => {
+        const isHealthy = await quickHealthCheck(provider.url);
+        if (!isHealthy) {
+          console.log(`[${provider.name}] Health check failed - skipping`);
+          errors.push(`${provider.name}: health check failed`);
+        }
+        return { provider, isHealthy };
+      })
+    );
+    
+    const healthyProviders = healthChecks.filter(h => h.isHealthy).map(h => h.provider);
+    
+    if (healthyProviders.length === 0) {
+      console.log('[Batch] No healthy providers in batch, moving to next...');
+      continue;
     }
-
-    const providerStartTime = Date.now();
     
-    try {
-      console.log(`\n[${provider.name}] Trying...`);
-      const resultImage = await tryProvider(provider, personImageBase64, garmentImageBase64);
+    // Try healthy providers in parallel
+    const attempts = healthyProviders.map(async (provider) => {
+      const providerStartTime = Date.now();
       
-      const responseTime = Date.now() - providerStartTime;
-      updateProviderHealth(provider.name, true, responseTime);
+      try {
+        console.log(`[${provider.name}] Trying...`);
+        const resultImage = await tryProvider(provider, personImageBase64, garmentImageBase64);
+        
+        const responseTime = Date.now() - providerStartTime;
+        updateProviderHealth(provider.name, true, responseTime);
+        
+        return {
+          success: true as const,
+          resultImage,
+          provider: provider.name,
+          responseTime,
+        };
+      } catch (error) {
+        const responseTime = Date.now() - providerStartTime;
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        
+        updateProviderHealth(provider.name, false, responseTime);
+        console.log(`[${provider.name}] Failed: ${errorMsg}`);
+        
+        return {
+          success: false as const,
+          provider: provider.name,
+          error: errorMsg,
+        };
+      }
+    });
+    
+    // Wait for first success or all failures
+    const results = await Promise.allSettled(attempts);
+    
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value.success) {
+        console.log(`=== Success with ${result.value.provider} (${result.value.responseTime}ms) ===`);
+        return {
+          success: true,
+          resultImage: result.value.resultImage,
+          provider: result.value.provider,
+          processingTime: Date.now() - startTime,
+        };
+      }
       
-      console.log(`=== Success with ${provider.name} (${responseTime}ms) ===`);
-      return {
-        success: true,
-        resultImage,
-        provider: provider.name,
-        processingTime: Date.now() - startTime,
-      };
-    } catch (error) {
-      const responseTime = Date.now() - providerStartTime;
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      
-      updateProviderHealth(provider.name, false, responseTime);
-      console.log(`[${provider.name}] Failed: ${errorMsg}`);
-      errors.push(`${provider.name}: ${errorMsg}`);
+      if (result.status === 'fulfilled' && !result.value.success) {
+        errors.push(`${result.value.provider}: ${result.value.error}`);
+      }
     }
   }
 
