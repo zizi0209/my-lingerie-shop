@@ -1,17 +1,96 @@
 /**
- * Virtual Try-On Service using HuggingFace Spaces
+ * Virtual Try-On Service
  * 
  * Features:
- * - Round-robin load balancing across multiple providers
+ * - Primary: HuggingFace Spaces (FASHN VTON 1.5 + other providers)
+ * - Fallback: Google Gemini API when all HF Spaces fail
+ * - Round-robin load balancing across multiple HF providers
  * - Health tracking with automatic failover
  * - Weighted distribution based on success rate
  */
+import { processGeminiTryOn, isGeminiAvailable } from './geminiVirtualTryOnService';
+
+// imgbb API for temporary image hosting (HuggingFace Spaces require URLs)
+const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '';
+
+/**
+ * Upload image to imgbb and get URL
+ * Images auto-expire after 10 minutes
+ */
+async function uploadToImgbb(base64Image: string): Promise<string> {
+  if (!IMGBB_API_KEY) {
+    throw new Error('IMGBB_API_KEY not configured');
+  }
+
+  // Remove data URL prefix if present
+  let imageData = base64Image;
+  if (base64Image.startsWith('data:')) {
+    imageData = base64Image.split(',')[1];
+  }
+
+  const formData = new URLSearchParams();
+  formData.append('key', IMGBB_API_KEY);
+  formData.append('image', imageData);
+  formData.append('expiration', '600'); // 10 minutes
+
+  const response = await fetch('https://api.imgbb.com/1/upload', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.log('[imgbb] Upload failed:', response.status, text);
+    throw new Error(`imgbb upload failed: ${response.status}`);
+  }
+
+  const result = await response.json() as { 
+    success: boolean; 
+    data?: { url: string };
+    error?: { message: string };
+  };
+
+  if (!result.success || !result.data?.url) {
+    throw new Error(result.error?.message || 'imgbb upload failed');
+  }
+
+  console.log('[imgbb] Uploaded:', result.data.url);
+  return result.data.url;
+}
+
+/**
+ * Check if imgbb is configured
+ */
+function isImgbbConfigured(): boolean {
+  return IMGBB_API_KEY.length > 0;
+}
+
+/**
+ * Ensure image has proper data URL format for Gradio API
+ */
+function ensureDataUrl(base64: string): string {
+  if (base64.startsWith('data:')) {
+    return base64;
+  }
+  // Detect image type from base64 header
+  if (base64.startsWith('/9j/')) {
+    return `data:image/jpeg;base64,${base64}`;
+  }
+  if (base64.startsWith('iVBOR')) {
+    return `data:image/png;base64,${base64}`;
+  }
+  if (base64.startsWith('UklGR')) {
+    return `data:image/webp;base64,${base64}`;
+  }
+  // Default to jpeg
+  return `data:image/jpeg;base64,${base64}`;
+}
 
 interface ProviderConfig {
   name: string;
   url: string;
   endpoint: string;
-  type: 'idm' | 'ootd' | 'outfitanyone' | 'kolors';
+  type: 'idm' | 'ootd' | 'outfitanyone' | 'kolors' | 'stableviton' | 'vtond';
   enabled: boolean;
 }
 
@@ -25,6 +104,15 @@ interface ProviderHealth {
 }
 
 const PROVIDERS: ProviderConfig[] = [
+  // FASHN VTON 1.5 - Priority provider (Apache-2.0, high quality)
+  // Note: HuggingFace Space URL uses dashes, not dots for version
+  {
+    name: 'FASHN-VTON-1.5',
+    url: 'https://fashn-ai-fashn-vton-1-5.hf.space',
+    endpoint: '/gradio_api/call/try_on',
+    type: 'idm', // Similar API format to IDM-VTON
+    enabled: true,
+  },
   {
     name: 'IDM-VTON',
     url: 'https://yisol-idm-vton.hf.space',
@@ -51,6 +139,22 @@ const PROVIDERS: ProviderConfig[] = [
     url: 'https://kwai-kolors-kolors-virtual-try-on.hf.space',
     endpoint: '/call/tryon',
     type: 'kolors',
+    enabled: true,
+  },
+  // NEW: StableVITON - High quality, uses Stable Diffusion
+  {
+    name: 'StableVITON',
+    url: 'https://rlawjdghek-stableviton.hf.space',
+    endpoint: '/call/process',
+    type: 'stableviton',
+    enabled: true,
+  },
+  // NEW: VTON-D (Texelmoda) - Multi-modal diffusion
+  {
+    name: 'VTON-D',
+    url: 'https://texelmoda-virtual-try-on-diffusion-vton-d.hf.space',
+    endpoint: '/call/tryon',
+    type: 'vtond',
     enabled: true,
   },
 ];
@@ -91,7 +195,6 @@ export function resetProviderHealth(): void {
   console.log('[Health] All provider health stats reset');
 }
 
- const MAX_RETRIES = 1;
  const TIMEOUT_MS = 120000; // 2 minutes per request
  const POLL_INTERVAL = 3000; // 3 seconds
  const MAX_POLL_ATTEMPTS = 40; // 2 minutes max polling
@@ -111,50 +214,8 @@ export function resetProviderHealth(): void {
  }
  
 // Constants for health-based routing
-const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
 const MAX_CONSECUTIVE_FAILURES = 3; // Disable provider after 3 consecutive failures
 const RECOVERY_TIME = 300000; // 5 minutes before retrying failed provider
-
-/**
- * Get next provider using weighted round-robin
- * Considers health status and recent performance
- */
-function getNextProvider(): ProviderConfig | null {
-  const now = Date.now();
-  const enabledProviders = PROVIDERS.filter(p => {
-    if (!p.enabled) return false;
-    
-    const health = providerHealth.get(p.name);
-    if (!health) return true;
-    
-    // Skip if too many consecutive failures (unless enough time has passed)
-    if (health.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-      const timeSinceLastFailure = now - health.lastFailure;
-      if (timeSinceLastFailure < RECOVERY_TIME) {
-        console.log(`[Round-Robin] Skipping ${p.name} - cooling down (${Math.round((RECOVERY_TIME - timeSinceLastFailure) / 1000)}s left)`);
-        return false;
-      }
-      // Reset consecutive failures after recovery time
-      health.consecutiveFailures = 0;
-    }
-    
-    return true;
-  });
-
-  if (enabledProviders.length === 0) {
-    console.log('[Round-Robin] No healthy providers available, trying all...');
-    // Reset all providers if none are healthy
-    PROVIDERS.forEach(p => {
-      const health = providerHealth.get(p.name);
-      if (health) health.consecutiveFailures = 0;
-    });
-    return PROVIDERS[currentProviderIndex % PROVIDERS.length];
-  }
-
-  // Round-robin through enabled providers
-  currentProviderIndex = (currentProviderIndex + 1) % enabledProviders.length;
-  return enabledProviders[currentProviderIndex];
-}
 
 /**
  * Get providers in round-robin order starting from current index
@@ -262,7 +323,18 @@ async function pollForResult(
       }
       
       if (pollText.includes('event: error')) {
-        console.log(`[${providerName}] Error event:`, pollText);
+        // Parse error data for more details
+        const errorDataMatch = pollText.match(/data: (.+)/);
+        let errorDetail = 'Unknown error';
+        if (errorDataMatch) {
+          try {
+            const errorData = JSON.parse(errorDataMatch[1]);
+            errorDetail = errorData?.error || errorData?.message || JSON.stringify(errorData);
+          } catch {
+            errorDetail = errorDataMatch[1];
+          }
+        }
+        console.log(`[${providerName}] Error event:`, errorDetail);
         throw new Error('Processing failed on server');
       }
       
@@ -288,11 +360,31 @@ async function pollForResult(
    
    console.log('[IDM-VTON] Starting request...');
    
+   // Upload images to imgbb to get URLs (HuggingFace Spaces require URLs)
+   let personUrl: string;
+   let garmentUrl: string;
+   
+   if (isImgbbConfigured()) {
+     console.log('[IDM-VTON] Uploading images to imgbb...');
+     [personUrl, garmentUrl] = await Promise.all([
+       uploadToImgbb(personImageBase64),
+       uploadToImgbb(garmentImageBase64),
+     ]);
+   } else {
+     // Fallback to data URL (may not work with all Spaces)
+     personUrl = ensureDataUrl(personImageBase64);
+     garmentUrl = ensureDataUrl(garmentImageBase64);
+   }
+   
    // IDM-VTON API format
    const payload = {
      data: [
-       { background: personImageBase64, layers: [], composite: null },
-       garmentImageBase64,
+       { 
+         background: { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } }, 
+         layers: [], 
+         composite: null 
+       },
+       { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
        'clothing item',
        true,  // auto mask
        true,  // auto crop
@@ -328,6 +420,74 @@ async function pollForResult(
   return pollForResult(resultUrl, 'IDM-VTON');
  }
  
+/**
+ * FASHN VTON 1.5 - Primary provider
+ * Apache-2.0 licensed, high quality fashion-specific model
+ */
+async function tryFASHNVTON(
+  personImageBase64: string,
+  garmentImageBase64: string
+): Promise<string> {
+  const spaceUrl = 'https://fashn-ai-fashn-vton-1-5.hf.space';
+  
+  console.log('[FASHN-VTON-1.5] Starting request...');
+  
+  // Upload images to imgbb to get URLs
+  let personUrl: string;
+  let garmentUrl: string;
+  
+  if (isImgbbConfigured()) {
+    console.log('[FASHN-VTON-1.5] Uploading images to imgbb...');
+    [personUrl, garmentUrl] = await Promise.all([
+      uploadToImgbb(personImageBase64),
+      uploadToImgbb(garmentImageBase64),
+    ]);
+  } else {
+    personUrl = ensureDataUrl(personImageBase64);
+    garmentUrl = ensureDataUrl(garmentImageBase64);
+  }
+  
+  // FASHN VTON 1.5 API format
+  const payload = {
+    data: [
+      { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } },
+      { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
+      'tops',
+      'flat-lay',
+      50,
+      1.5,
+      42,
+      true,
+    ],
+  };
+
+  const response = await fetchWithTimeout(
+    `${spaceUrl}/gradio_api/call/try_on`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    TIMEOUT_MS
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.log('[FASHN-VTON-1.5] API error:', response.status, text);
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  const result = await response.json() as { event_id?: string };
+  console.log('[FASHN-VTON-1.5] Got event_id:', result.event_id);
+  
+  if (!result.event_id) {
+    throw new Error('No event_id returned');
+  }
+
+  const resultUrl = `${spaceUrl}/gradio_api/call/try_on/${result.event_id}`;
+  return pollForResult(resultUrl, 'FASHN-VTON-1.5');
+}
+
  async function tryOOTDiffusion(
    personImageBase64: string,
    garmentImageBase64: string
@@ -336,10 +496,25 @@ async function pollForResult(
    
    console.log('[OOTDiffusion] Starting request...');
    
+   // Upload images to imgbb to get URLs
+   let personUrl: string;
+   let garmentUrl: string;
+   
+   if (isImgbbConfigured()) {
+     console.log('[OOTDiffusion] Uploading images to imgbb...');
+     [personUrl, garmentUrl] = await Promise.all([
+       uploadToImgbb(personImageBase64),
+       uploadToImgbb(garmentImageBase64),
+     ]);
+   } else {
+     personUrl = ensureDataUrl(personImageBase64);
+     garmentUrl = ensureDataUrl(garmentImageBase64);
+   }
+   
    const payload = {
      data: [
-       personImageBase64,
-       garmentImageBase64,
+       { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } },
+       { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
        'Upper-body',
        1,    // n_samples
        20,   // n_steps
@@ -383,12 +558,21 @@ async function tryOutfitAnyone(
 
   console.log('[OutfitAnyone] Starting request...');
   
+  // Upload garment image to imgbb
+  let garmentUrl: string;
+  
+  if (isImgbbConfigured()) {
+    console.log('[OutfitAnyone] Uploading garment to imgbb...');
+    garmentUrl = await uploadToImgbb(garmentImageBase64);
+  } else {
+    garmentUrl = ensureDataUrl(garmentImageBase64);
+  }
+  
   // OutfitAnyone uses pre-set models, only accepts garment uploads
-  // We'll use their default model and upload the garment
   const payload = {
     data: [
       0,  // model index (first pre-set model)
-      garmentImageBase64,  // top garment
+      { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },  // top garment
       null,  // lower garment (optional)
     ],
   };
@@ -428,10 +612,25 @@ async function tryKwaiKolors(
 
   console.log('[Kolors-VTON] Starting request...');
   
+  // Upload images to imgbb to get URLs
+  let personUrl: string;
+  let garmentUrl: string;
+  
+  if (isImgbbConfigured()) {
+    console.log('[Kolors-VTON] Uploading images to imgbb...');
+    [personUrl, garmentUrl] = await Promise.all([
+      uploadToImgbb(personImageBase64),
+      uploadToImgbb(garmentImageBase64),
+    ]);
+  } else {
+    personUrl = ensureDataUrl(personImageBase64);
+    garmentUrl = ensureDataUrl(garmentImageBase64);
+  }
+  
   const payload = {
     data: [
-      personImageBase64,
-      garmentImageBase64,
+      { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } },
+      { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
     ],
   };
 
@@ -463,6 +662,126 @@ async function tryKwaiKolors(
 }
 
 /**
+ * StableVITON - High quality using Stable Diffusion
+ */
+async function tryStableVITON(
+  personImageBase64: string,
+  garmentImageBase64: string
+): Promise<string> {
+  const spaceUrl = 'https://rlawjdghek-stableviton.hf.space';
+
+  console.log('[StableVITON] Starting request...');
+  
+  // Upload images to imgbb to get URLs
+  let personUrl: string;
+  let garmentUrl: string;
+  
+  if (isImgbbConfigured()) {
+    console.log('[StableVITON] Uploading images to imgbb...');
+    [personUrl, garmentUrl] = await Promise.all([
+      uploadToImgbb(personImageBase64),
+      uploadToImgbb(garmentImageBase64),
+    ]);
+  } else {
+    personUrl = ensureDataUrl(personImageBase64);
+    garmentUrl = ensureDataUrl(garmentImageBase64);
+  }
+  
+  const payload = {
+    data: [
+      { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } },
+      { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
+    ],
+  };
+
+  const response = await fetchWithTimeout(
+    `${spaceUrl}/call/process`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    TIMEOUT_MS
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.log('[StableVITON] API error:', response.status, text);
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  const result = await response.json() as { event_id?: string };
+  console.log('[StableVITON] Got event_id:', result.event_id);
+  
+  if (!result.event_id) {
+    throw new Error('No event_id returned');
+  }
+
+  const resultUrl = `${spaceUrl}/call/process/${result.event_id}`;
+  return pollForResult(resultUrl, 'StableVITON');
+}
+
+/**
+ * VTON-D (Texelmoda) - Multi-modal diffusion virtual try-on
+ */
+async function tryVTOND(
+  personImageBase64: string,
+  garmentImageBase64: string
+): Promise<string> {
+  const spaceUrl = 'https://texelmoda-virtual-try-on-diffusion-vton-d.hf.space';
+
+  console.log('[VTON-D] Starting request...');
+  
+  // Upload images to imgbb to get URLs
+  let personUrl: string;
+  let garmentUrl: string;
+  
+  if (isImgbbConfigured()) {
+    console.log('[VTON-D] Uploading images to imgbb...');
+    [personUrl, garmentUrl] = await Promise.all([
+      uploadToImgbb(personImageBase64),
+      uploadToImgbb(garmentImageBase64),
+    ]);
+  } else {
+    personUrl = ensureDataUrl(personImageBase64);
+    garmentUrl = ensureDataUrl(garmentImageBase64);
+  }
+  
+  const payload = {
+    data: [
+      { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } },
+      { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
+    ],
+  };
+
+  const response = await fetchWithTimeout(
+    `${spaceUrl}/call/tryon`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    TIMEOUT_MS
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.log('[VTON-D] API error:', response.status, text);
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  const result = await response.json() as { event_id?: string };
+  console.log('[VTON-D] Got event_id:', result.event_id);
+  
+  if (!result.event_id) {
+    throw new Error('No event_id returned');
+  }
+
+  const resultUrl = `${spaceUrl}/call/tryon/${result.event_id}`;
+  return pollForResult(resultUrl, 'VTON-D');
+}
+
+/**
  * Try a specific provider
  */
 async function tryProvider(
@@ -472,6 +791,9 @@ async function tryProvider(
 ): Promise<string> {
   switch (provider.type) {
     case 'idm':
+      if (provider.name === 'FASHN-VTON-1.5') {
+        return tryFASHNVTON(personImageBase64, garmentImageBase64);
+      }
       return tryIDMVTON(personImageBase64, garmentImageBase64);
     case 'ootd':
       return tryOOTDiffusion(personImageBase64, garmentImageBase64);
@@ -479,17 +801,21 @@ async function tryProvider(
       return tryOutfitAnyone(personImageBase64, garmentImageBase64);
     case 'kolors':
       return tryKwaiKolors(personImageBase64, garmentImageBase64);
+    case 'stableviton':
+      return tryStableVITON(personImageBase64, garmentImageBase64);
+    case 'vtond':
+      return tryVTOND(personImageBase64, garmentImageBase64);
     default:
       throw new Error(`Unknown provider type: ${provider.type}`);
   }
 }
 
 /**
- * Process Virtual Try-On with Round-Robin Load Balancing
+ * Process Virtual Try-On
  * 
  * Strategy:
- * 1. Get providers in round-robin order
- * 2. Try each provider once (no retries on same provider)
+ * 1. Primary: Try HuggingFace Spaces in round-robin order
+ * 2. Fallback: Use Gemini API when all providers fail
  * 3. Track health and skip unhealthy providers
  * 4. Return first successful result
  */
@@ -500,9 +826,13 @@ export async function processVirtualTryOn(
   const startTime = Date.now();
   const errors: string[] = [];
 
-  console.log('=== Starting Virtual Try-On processing (Round-Robin) ===');
+  console.log('=== Starting Virtual Try-On ===');
+  console.log(`[Config] Gemini fallback: ${isGeminiAvailable() ? 'AVAILABLE' : 'NOT CONFIGURED'}`);
   console.log('Person image size:', Math.round(personImageBase64.length / 1024), 'KB');
   console.log('Garment image size:', Math.round(garmentImageBase64.length / 1024), 'KB');
+
+  // PRIORITY 1: Try HuggingFace Spaces
+  console.log('\n=== Trying HuggingFace Spaces ===');
 
   // Get providers in round-robin order
   const orderedProviders = getProvidersInOrder();
@@ -548,12 +878,38 @@ export async function processVirtualTryOn(
     }
   }
 
-  console.log('=== All providers failed ===');
+  console.log('=== All HuggingFace providers failed ===');
   console.log('Errors:', errors);
 
+  // FALLBACK: Try Gemini API
+  if (isGeminiAvailable()) {
+    console.log('\n=== Trying Gemini API fallback ===');
+    
+    try {
+      const geminiResult = await processGeminiTryOn(personImageBase64, garmentImageBase64);
+      
+      if (geminiResult.success && geminiResult.resultImage) {
+        console.log('=== Gemini fallback SUCCESS ===');
+        return {
+          success: true,
+          resultImage: geminiResult.resultImage,
+          provider: 'Gemini (Fallback)',
+          processingTime: Date.now() - startTime,
+        };
+      }
+      
+      errors.push(`Gemini: ${geminiResult.error || 'Unknown error'}`);
+    } catch (geminiError) {
+      const errorMsg = geminiError instanceof Error ? geminiError.message : 'Unknown error';
+      console.error('[Gemini] Fallback failed:', errorMsg);
+      errors.push(`Gemini: ${errorMsg}`);
+    }
+  }
+
+  console.log('=== All providers (HF + Gemini) failed ===');
   return {
     success: false,
-    error: `Tất cả hệ thống AI đang bận hoặc không khả dụng. Chi tiết: ${errors.join('; ')}`,
+    error: `Tất cả hệ thống AI đang bận. Chi tiết: ${errors.join('; ')}`,
     processingTime: Date.now() - startTime,
   };
 }

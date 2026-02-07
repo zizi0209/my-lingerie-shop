@@ -80,3 +80,5 @@ prisma.config.d.ts.map
 prisma.config.js.map
 
 .kiro
+
+AGENTS.md

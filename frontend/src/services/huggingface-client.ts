@@ -1,11 +1,19 @@
+ /**
+  * HuggingFace Client (Legacy)
+  * 
+  * NOTE: This client is DEPRECATED for virtual try-on.
+  * Use virtual-tryon-api.ts instead which calls the backend API.
+  * Backend handles provider management and Gemini fallback.
+  * 
+  * This file is kept for backward compatibility only.
+  */
  import { Client } from '@gradio/client';
  import {
    TryOnRequest,
    TryOnResult,
    TryOnQueueInfo,
    HuggingFaceSpaceConfig,
-   DEFAULT_SPACE_CONFIG,
-   FALLBACK_SPACES,
+   VIRTUAL_TRYON_CONFIG,
  } from '@/types/virtual-tryon';
  
  type ProgressCallback = (progress: number, queueInfo: TryOnQueueInfo | null) => void;
@@ -55,11 +63,28 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+ // Default space configuration (legacy - use backend instead)
+ const DEFAULT_SPACE_CONFIG: HuggingFaceSpaceConfig = {
+   spaceId: 'fashn-ai/fashn-vton-1-5', // Updated to FASHN VTON 1.5 (use dash not dot)
+   timeout: VIRTUAL_TRYON_CONFIG.timeout,
+ };
+ 
+ // Fallback spaces (legacy - backend handles fallback now)
+ const FALLBACK_SPACES: HuggingFaceSpaceConfig[] = [
+   { spaceId: 'yisol/IDM-VTON' },
+   { spaceId: 'levihsu/OOTDiffusion' },
+ ];
+ 
+ /**
+  * @deprecated Use virtual-tryon-api.ts processVirtualTryOn instead
+  * This function calls HuggingFace directly, bypassing backend health tracking
+  */
  export async function processVirtualTryOn(
    request: TryOnRequest,
    onProgress?: ProgressCallback,
    spaceConfig: HuggingFaceSpaceConfig = DEFAULT_SPACE_CONFIG
  ): Promise<TryOnResult> {
+   console.warn('[Deprecated] Using direct HuggingFace client. Consider using virtual-tryon-api.ts instead.');
    const spaces = [spaceConfig, ...FALLBACK_SPACES];
    let lastError: Error | null = null;
  
@@ -152,9 +177,13 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
    };
  }
  
+ /**
+  * @deprecated Use backend API /virtual-tryon/status instead
+  */
  export async function checkSpaceStatus(
    spaceId: string = DEFAULT_SPACE_CONFIG.spaceId
  ): Promise<{ available: boolean; queueSize?: number }> {
+   console.warn('[Deprecated] Using direct space status check. Consider using backend API.');
    try {
     const client = await Client.connect(spaceId);
      const info = await client.view_api();

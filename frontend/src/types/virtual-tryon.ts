@@ -37,12 +37,28 @@
    timeout?: number;
  }
  
- export const DEFAULT_SPACE_CONFIG: HuggingFaceSpaceConfig = {
-   spaceId: 'yisol/IDM-VTON',
-   timeout: 600000, // 10 minutes
- };
- 
- export const FALLBACK_SPACES: HuggingFaceSpaceConfig[] = [
-   { spaceId: 'zhengchong/CatVTON' },
-   { spaceId: 'texelmoda/vton-d' },
- ];
+ /**
+  * Provider configuration managed by backend
+  * 
+  * Current providers (in priority order):
+  * 1. FASHN-VTON-1.5 (Primary - Apache 2.0, high quality)
+  * 2. IDM-VTON
+  * 3. OOTDiffusion
+  * 4. OutfitAnyone
+  * 5. Kolors-VTON
+  * 6. Gemini API (Fallback)
+  * 
+  * See: backend/src/services/virtualTryOnService.ts
+  */
+ export const VIRTUAL_TRYON_CONFIG = {
+   timeout: 120000, // 2 minutes per provider
+   maxRetries: 1,
+   providers: [
+     'FASHN-VTON-1.5',
+     'IDM-VTON',
+     'OOTDiffusion',
+     'OutfitAnyone',
+     'Kolors-VTON',
+     'Gemini (Fallback)',
+   ],
+ } as const;

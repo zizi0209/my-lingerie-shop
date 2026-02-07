@@ -1,5 +1,7 @@
  export { VirtualTryOnButton } from './VirtualTryOnButton';
  export { VirtualTryOnModal } from './VirtualTryOnModal';
+ export { VirtualTryOnWrapper } from './VirtualTryOnWrapper';
+ export { VirtualTryOnErrorBoundary } from './VirtualTryOnErrorBoundary';
  export { PhotoUploader } from './PhotoUploader';
  export { ConsentCheckbox } from './ConsentCheckbox';
  export { ProcessingView } from './ProcessingView';
