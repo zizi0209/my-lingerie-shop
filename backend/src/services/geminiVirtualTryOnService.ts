@@ -258,7 +258,7 @@ OUTPUT: Generate ONLY the final try-on image. No text, no explanation, just the 
      return {
        success: false,
        provider: 'gemini',
-       error: 'Đã vượt quá giới hạn API Gemini. Vui lòng thử lại sau.',
+      error: 'Đã vượt quá giới hạn API Gemini (500 ảnh/ngày). Đang chuyển sang HuggingFace...',
        processingTime: Date.now() - startTime,
      };
    }
