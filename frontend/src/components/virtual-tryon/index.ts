@@ -7,3 +7,4 @@
  export { ProcessingView } from './ProcessingView';
  export { ResultView } from './ResultView';
  export { TryOnNotification } from './TryOnNotification';
+ export { PoseGuide, PoseGuideTips } from './PoseGuide';

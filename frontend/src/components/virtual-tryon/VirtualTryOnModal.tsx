@@ -1,12 +1,14 @@
 'use client';
  
- import { useState, useCallback, useEffect } from 'react';
+  import { useState, useCallback, useEffect, useMemo } from 'react';
  import { X, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
  import { PhotoUploader } from './PhotoUploader';
  import { ConsentCheckbox } from './ConsentCheckbox';
  import { ProcessingView } from './ProcessingView';
  import { ResultView } from './ResultView';
+  import { PoseGuide, PoseGuideTips } from './PoseGuide';
  import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
+  import type { PoseValidationResult } from '@/services/pose-detection';
  
  interface Product {
    id: string;
@@ -24,15 +26,28 @@
  export function VirtualTryOnModal({ isOpen, onClose, product, onAddToCart }: VirtualTryOnModalProps) {
    const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
    const [consent, setConsent] = useState(false);
+    const [poseValidation, setPoseValidation] = useState<PoseValidationResult | null>(null);
    const { status, progress, queueInfo, result, error, startTryOn, reset, isLoading, isCompleted } =
      useVirtualTryOn();
  
+    // Check if pose is valid enough to proceed
+    const canProceed = useMemo(() => {
+      if (!selectedPhoto || !consent) return false;
+      // Allow if no validation yet (still loading) or if valid/warning
+      if (!poseValidation) return true;
+      return poseValidation.valid || poseValidation.score >= 50;
+    }, [selectedPhoto, consent, poseValidation]);
+ 
+    const handlePoseValidation = useCallback((result: PoseValidationResult) => {
+      setPoseValidation(result);
+    }, []);
+ 
    const handleStartTryOn = useCallback(async () => {
-     if (!selectedPhoto || !consent) return;
+      if (!canProceed) return;
  
      try {
        await startTryOn({
-         personImage: selectedPhoto,
+          personImage: selectedPhoto!,
          garmentImageUrl: product.imageUrl,
          productId: product.id,
          productName: product.name,
@@ -40,10 +55,11 @@
      } catch {
        // Error is handled in state
      }
-   }, [selectedPhoto, consent, startTryOn, product]);
+    }, [canProceed, selectedPhoto, startTryOn, product]);
  
    const handleTryAgain = useCallback(() => {
      setSelectedPhoto(null);
+      setPoseValidation(null);
      reset();
    }, [reset]);
  
@@ -127,12 +143,47 @@
              <>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
                  <div>
-                   <h3 className="text-sm font-medium text-gray-700 mb-2 sm:mb-3">Ảnh của bạn</h3>
-                   <PhotoUploader
-                     onPhotoSelected={setSelectedPhoto}
-                     selectedPhoto={selectedPhoto}
-                     onClear={() => setSelectedPhoto(null)}
-                   />
+                   <h3 className="text-sm font-medium text-gray-700 mb-2 sm:mb-3">
+                     Ảnh của bạn
+                   </h3>
+                   
+                   {/* Show PhotoUploader when no photo selected */}
+                   {!selectedPhoto && (
+                     <>
+                       <PhotoUploader
+                         onPhotoSelected={setSelectedPhoto}
+                         selectedPhoto={selectedPhoto}
+                         onClear={() => {
+                           setSelectedPhoto(null);
+                           setPoseValidation(null);
+                         }}
+                       />
+                       <div className="mt-3">
+                         <PoseGuideTips />
+                       </div>
+                     </>
+                   )}
+                   
+                   {/* Show PoseGuide when photo is selected */}
+                   {selectedPhoto && (
+                     <div className="space-y-3">
+                       <PoseGuide
+                         imageFile={selectedPhoto}
+                         onValidationComplete={handlePoseValidation}
+                         showOverlay={true}
+                       />
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setSelectedPhoto(null);
+                           setPoseValidation(null);
+                         }}
+                         className="w-full py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                       >
+                         Chọn ảnh khác
+                       </button>
+                     </div>
+                   )}
                  </div>
                  <div className="hidden md:block">
                    <h3 className="text-sm font-medium text-gray-700 mb-2 sm:mb-3">Sản phẩm</h3>
@@ -169,10 +220,16 @@
                  <button
                    type="button"
                    onClick={handleStartTryOn}
-                   disabled={!selectedPhoto || !consent}
-                   className="flex-1 py-2.5 sm:py-2 px-6 bg-pink-500 text-white rounded-lg hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base font-medium"
+                   disabled={!canProceed}
+                   className={`flex-1 py-2.5 sm:py-2 px-6 text-white rounded-lg text-sm sm:text-base font-medium transition-colors ${
+                     canProceed
+                       ? 'bg-pink-500 hover:bg-pink-600'
+                       : 'bg-gray-300 cursor-not-allowed'
+                   }`}
                  >
-                   ✨ Thử đồ ngay
+                   {poseValidation && !poseValidation.valid && poseValidation.score < 50
+                     ? '⚠️ Cần điều chỉnh tư thế'
+                     : '✨ Thử đồ ngay'}
                  </button>
                </div>
              </>
