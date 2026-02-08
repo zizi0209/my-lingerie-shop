@@ -877,8 +877,8 @@ async function tryProvider(
  * Process Virtual Try-On
  * 
  * Strategy:
- * 1. Primary: Try HuggingFace Spaces in round-robin order
- * 2. Fallback: Use Gemini API when all providers fail
+ * 1. Primary: Google Gemini API (fast, stable, 500 free/day)
+ * 2. Fallback: HuggingFace Spaces when Gemini fails/rate-limited
  * 3. Track health and skip unhealthy providers
  * 4. Return first successful result
  */
@@ -890,12 +890,49 @@ export async function processVirtualTryOn(
   const errors: string[] = [];
 
   console.log('=== Starting Virtual Try-On ===');
-  console.log(`[Config] Gemini fallback: ${isGeminiAvailable() ? 'AVAILABLE' : 'NOT CONFIGURED'}`);
+  console.log(`[Config] Gemini primary: ${isGeminiAvailable() ? 'AVAILABLE' : 'NOT CONFIGURED'}`);
   console.log('Person image size:', Math.round(personImageBase64.length / 1024), 'KB');
   console.log('Garment image size:', Math.round(garmentImageBase64.length / 1024), 'KB');
 
-  // PRIORITY 1: Try HuggingFace Spaces
-  console.log('\n=== Trying HuggingFace Spaces ===');
+  // PRIORITY 1: Try Gemini API (fast, stable, free tier 500/day)
+  if (isGeminiAvailable()) {
+    console.log('\n=== Trying Gemini API (Primary) ===');
+    
+    try {
+      const geminiResult = await processGeminiTryOn(personImageBase64, garmentImageBase64);
+      
+      if (geminiResult.success && geminiResult.resultImage) {
+        console.log(`=== Gemini SUCCESS (${geminiResult.processingTime}ms) ===`);
+        return {
+          success: true,
+          resultImage: geminiResult.resultImage,
+          provider: 'Gemini',
+          processingTime: Date.now() - startTime,
+        };
+      }
+      
+      // Log Gemini error but continue to fallback
+      const geminiError = geminiResult.error || 'Unknown error';
+      console.log(`[Gemini] Failed: ${geminiError}`);
+      errors.push(`Gemini: ${geminiError}`);
+      
+      // If rate limited or safety blocked, still try HF as fallback
+      if (geminiError.includes('RATE_LIMIT') || geminiError.includes('quota')) {
+        console.log('[Gemini] Rate limited, falling back to HuggingFace...');
+      } else if (geminiError.includes('SAFETY') || geminiError.includes('an toàn')) {
+        console.log('[Gemini] Content blocked by safety filter, trying HuggingFace...');
+      }
+    } catch (geminiError) {
+      const errorMsg = geminiError instanceof Error ? geminiError.message : 'Unknown error';
+      console.error('[Gemini] Error:', errorMsg);
+      errors.push(`Gemini: ${errorMsg}`);
+    }
+  } else {
+    console.log('[Gemini] Not configured, skipping to HuggingFace...');
+  }
+
+  // PRIORITY 2: Fallback to HuggingFace Spaces
+  console.log('\n=== Trying HuggingFace Spaces (Fallback) ===');
 
   // Get providers in round-robin order
   const orderedProviders = getProvidersInOrder();
@@ -980,32 +1017,7 @@ export async function processVirtualTryOn(
   console.log('=== All HuggingFace providers failed ===');
   console.log('Errors:', errors);
 
-  // FALLBACK: Try Gemini API
-  if (isGeminiAvailable()) {
-    console.log('\n=== Trying Gemini API fallback ===');
-    
-    try {
-      const geminiResult = await processGeminiTryOn(personImageBase64, garmentImageBase64);
-      
-      if (geminiResult.success && geminiResult.resultImage) {
-        console.log('=== Gemini fallback SUCCESS ===');
-        return {
-          success: true,
-          resultImage: geminiResult.resultImage,
-          provider: 'Gemini (Fallback)',
-          processingTime: Date.now() - startTime,
-        };
-      }
-      
-      errors.push(`Gemini: ${geminiResult.error || 'Unknown error'}`);
-    } catch (geminiError) {
-      const errorMsg = geminiError instanceof Error ? geminiError.message : 'Unknown error';
-      console.error('[Gemini] Fallback failed:', errorMsg);
-      errors.push(`Gemini: ${errorMsg}`);
-    }
-  }
-
-  console.log('=== All providers (HF + Gemini) failed ===');
+  console.log('=== All providers (Gemini + HF) failed ===');
   return {
     success: false,
     error: `Tất cả hệ thống AI đang bận. Chi tiết: ${errors.join('; ')}`,
