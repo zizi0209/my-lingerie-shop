@@ -1,7 +1,7 @@
 'use client';
  
 import { useState, useCallback, useEffect, useMemo } from 'react';
- import { X, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
+ import { X, AlertTriangle, RefreshCw, ArrowLeft, Sparkles, Shield, ImageIcon } from 'lucide-react';
  import { PhotoUploader } from './PhotoUploader';
  import { ConsentCheckbox } from './ConsentCheckbox';
  import { ProcessingView } from './ProcessingView';
@@ -194,88 +194,101 @@ import type { ProductType } from '@/services/clothing-overlay';
 
           {status === 'idle' && selectedMode === 'ai' && (
              <>
-              {/* Back button */}
-              <button
-                type="button"
-                onClick={handleBackToModeSelect}
-                className="mb-4 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-              >
-                ← Quay lại chọn phương thức
-              </button>
+              {/* Header with back button */}
+              <div className="flex items-center gap-3 mb-6">
+                <button
+                  type="button"
+                  onClick={handleBackToModeSelect}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Quay lại"
+                >
+                  <ArrowLeft className="w-5 h-5 text-gray-600" />
+                </button>
+                <div>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-600" />
+                    Tạo ảnh thử đồ bằng AI
+                  </h3>
+                  <p className="text-sm text-gray-500">Upload ảnh toàn thân để AI tạo ảnh bạn mặc sản phẩm</p>
+                </div>
+              </div>
 
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
-                 <div>
-                   <h3 className="text-sm font-medium text-gray-700 mb-2 sm:mb-3">
-                     Ảnh của bạn
-                   </h3>
-                   
-                   {/* Show PhotoUploader when no photo selected */}
-                   {!selectedPhoto && (
-                     <>
-                       <PhotoUploader
-                         onPhotoSelected={setSelectedPhoto}
-                         selectedPhoto={selectedPhoto}
-                         onClear={() => {
-                           setSelectedPhoto(null);
-                           setPoseValidation(null);
-                         }}
-                       />
-                       <div className="mt-3">
-                         <PoseGuideTips />
-                       </div>
-                     </>
-                   )}
-                   
-                   {/* Show PoseGuide when photo is selected */}
-                   {selectedPhoto && (
-                     <div className="space-y-3">
-                       <PoseGuide
-                         imageFile={selectedPhoto}
-                         onValidationComplete={handlePoseValidation}
-                         showOverlay={true}
-                       />
-                       <button
-                         type="button"
-                         onClick={() => {
-                           setSelectedPhoto(null);
-                           setPoseValidation(null);
-                         }}
-                         className="w-full py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
-                       >
-                         Chọn ảnh khác
-                       </button>
-                     </div>
-                   )}
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+                {/* Left: Photo upload/preview - takes 3 cols */}
+                <div className="lg:col-span-3">
+                  {!selectedPhoto ? (
+                    <div className="space-y-4">
+                      <PhotoUploader
+                        onPhotoSelected={setSelectedPhoto}
+                        selectedPhoto={selectedPhoto}
+                        onClear={() => {
+                          setSelectedPhoto(null);
+                          setPoseValidation(null);
+                        }}
+                      />
+                      <PoseGuideTips />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <PoseGuide
+                        imageFile={selectedPhoto}
+                        onValidationComplete={handlePoseValidation}
+                        showOverlay={true}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPhoto(null);
+                          setPoseValidation(null);
+                        }}
+                        className="w-full py-2.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Chọn ảnh khác
+                      </button>
+                    </div>
+                  )}
                  </div>
-                 <div className="hidden md:block">
-                   <h3 className="text-sm font-medium text-gray-700 mb-2 sm:mb-3">Sản phẩm</h3>
-                   <img
-                     src={product.imageUrl}
-                     alt={product.name}
-                     className="w-full h-48 sm:h-64 object-contain rounded-lg bg-gray-100"
-                   />
-                   <p className="mt-2 text-center text-gray-600">{product.name}</p>
+
+                {/* Right: Product preview - takes 2 cols */}
+                <div className="lg:col-span-2">
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ImageIcon className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-700">Sản phẩm thử</span>
+                    </div>
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      className="w-full h-44 object-contain rounded-lg bg-white"
+                    />
+                    <p className="mt-3 text-center text-sm font-medium text-gray-800">{product.name}</p>
+                  </div>
+
+                  {/* Info cards */}
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
+                      <Sparkles className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                      <p className="text-xs text-purple-700">Thời gian xử lý: 1-5 phút tùy lượng người dùng</p>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
+                      <Shield className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <p className="text-xs text-green-700">Ảnh được xóa ngay sau khi xử lý xong</p>
+                    </div>
+                  </div>
                  </div>
                </div>
  
-               <div className="p-3 bg-orange-50 rounded-lg mb-4 sm:mb-6">
-                 <div className="flex gap-2">
-                   <Clock className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                   <p className="text-xs sm:text-sm text-orange-700">
-                     <strong>Lưu ý:</strong> Thời gian xử lý 1-5 phút tùy lượng người dùng.
-                   </p>
-                 </div>
-               </div>
+              {/* Consent */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-xl">
+                <ConsentCheckbox checked={consent} onChange={setConsent} />
+              </div>
  
-               <div className="mb-4 sm:mb-6">
-                 <ConsentCheckbox checked={consent} onChange={setConsent} />
-               </div>
- 
-               <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
+              {/* Actions */}
+              <div className="flex flex-col-reverse sm:flex-row gap-3">
                  <button
                    type="button"
                    onClick={onClose}
-                   className="py-2.5 sm:py-2 px-6 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
+                   className="py-2.5 px-6 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
                  >
                    Đóng
                  </button>
@@ -283,15 +296,16 @@ import type { ProductType } from '@/services/clothing-overlay';
                    type="button"
                    onClick={handleStartTryOn}
                    disabled={!canProceed}
-                   className={`flex-1 py-2.5 sm:py-2 px-6 text-white rounded-lg text-sm sm:text-base font-medium transition-colors ${
+                   className={`flex-1 py-2.5 px-6 text-white rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                      canProceed
-                       ? 'bg-pink-500 hover:bg-pink-600'
+                       ? 'bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-200'
                        : 'bg-gray-300 cursor-not-allowed'
                    }`}
                  >
+                   <Sparkles className="w-4 h-4" />
                    {poseValidation && !poseValidation.valid && poseValidation.score < 50
-                     ? '⚠️ Cần điều chỉnh tư thế'
-                     : '✨ Thử đồ ngay'}
+                     ? 'Cần điều chỉnh tư thế'
+                     : 'Tạo ảnh thử đồ'}
                  </button>
                </div>
              </>
