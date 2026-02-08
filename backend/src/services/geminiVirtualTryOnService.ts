@@ -18,11 +18,12 @@
  
  const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
  
-// Models to try in order (updated Feb 2026)
- const GEMINI_MODELS = [
-  'gemini-2.0-flash',          // Latest stable (may be rate limited on free tier)
-  'gemini-1.5-pro',            // Fallback with vision
- ];
+// Models that support image generation (updated Feb 2026)
+// Only these models can generate images as output
+const GEMINI_MODELS = [
+  'gemini-2.5-flash-image',      // Stable - supports image generation
+  'gemini-3-pro-image-preview',  // Preview - latest with image generation
+];
  const TIMEOUT_MS = 60000; // 1 minute timeout
  
  interface GeminiTryOnResult {
