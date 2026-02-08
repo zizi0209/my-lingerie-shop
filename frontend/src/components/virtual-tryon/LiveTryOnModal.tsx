@@ -31,6 +31,8 @@ import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-de
    const canvasRef = useRef<HTMLCanvasElement>(null);
    const animationRef = useRef<number | null>(null);
    const clothingImageRef = useRef<HTMLImageElement | null>(null);
+  const lastProcessTimeRef = useRef<number>(0);
+  const frameCountRef = useRef<number>(0);
  
    const [isLoading, setIsLoading] = useState(true);
    const [error, setError] = useState<string | null>(null);
@@ -97,6 +99,23 @@ import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-de
        return;
      }
  
+    // CRITICAL: Validate video is fully ready with valid dimensions
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh || vw <= 0 || vh <= 0) {
+      animationRef.current = requestAnimationFrame(processFrame);
+      return;
+    }
+
+    // Throttle to ~30fps and skip first few frames to let video stabilize
+    const now = performance.now();
+    frameCountRef.current++;
+    if (frameCountRef.current < 10 || now - lastProcessTimeRef.current < 33) {
+      animationRef.current = requestAnimationFrame(processFrame);
+      return;
+    }
+    lastProcessTimeRef.current = now;
+
      const ctx = canvas.getContext('2d');
      if (!ctx) {
        animationRef.current = requestAnimationFrame(processFrame);
@@ -105,16 +124,27 @@ import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-de
  
      // Set canvas size to match video
      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-       canvas.width = video.videoWidth;
-       canvas.height = video.videoHeight;
+      canvas.width = vw;
+      canvas.height = vh;
      }
  
      // Clear canvas
      ctx.clearRect(0, 0, canvas.width, canvas.height);
  
      // Detect pose
-     const timestamp = performance.now();
-     const landmarks = await detectPoseFromVideo(video, timestamp);
+    let landmarks: Awaited<ReturnType<typeof detectPoseFromVideo>> = null;
+    try {
+      landmarks = await detectPoseFromVideo(video, now);
+    } catch (err) {
+      // Silently skip frame on MediaPipe errors
+      // Silently handle MediaPipe errors (e.g., ROI issues during initialization)
+      // These typically resolve once video is fully ready
+      if (!(err instanceof Error && err.message.includes('ROI'))) {
+        console.warn('[LiveTryOn] Pose detection error:', err);
+      }
+      animationRef.current = requestAnimationFrame(processFrame);
+      return;
+    }
  
      if (landmarks && canOverlay(landmarks, productType)) {
        setIsPoseDetected(true);
@@ -150,6 +180,8 @@ import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-de
    // Start processing when webcam is ready
    const handleWebcamReady = useCallback(() => {
      console.log('[LiveTryOn] Webcam ready, starting frame processing');
+    frameCountRef.current = 0;
+    lastProcessTimeRef.current = 0;
      if (animationRef.current) {
        cancelAnimationFrame(animationRef.current);
      }

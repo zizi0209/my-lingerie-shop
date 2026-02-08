@@ -389,6 +389,11 @@ export async function detectPoseFromVideo(
   video: HTMLVideoElement,
   timestamp: number
 ): Promise<NormalizedLandmark[] | null> {
+  // CRITICAL: Validate video dimensions to prevent MediaPipe ROI error
+  if (!video || video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) {
+    return null;
+  }
+
   const landmarker = await initPoseLandmarkerVideo();
 
   try {
