@@ -1,19 +1,23 @@
 'use client';
  
-  import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
  import { X, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
  import { PhotoUploader } from './PhotoUploader';
  import { ConsentCheckbox } from './ConsentCheckbox';
  import { ProcessingView } from './ProcessingView';
  import { ResultView } from './ResultView';
-  import { PoseGuide, PoseGuideTips } from './PoseGuide';
+import { PoseGuide, PoseGuideTips } from './PoseGuide';
+import { TryOnModeSelector, type TryOnMode } from './TryOnModeSelector';
+import { LiveTryOnModal } from './LiveTryOnModal';
  import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
-  import type { PoseValidationResult } from '@/services/pose-detection';
+import type { PoseValidationResult } from '@/services/pose-detection';
+import type { ProductType } from '@/services/clothing-overlay';
  
  interface Product {
    id: string;
    name: string;
    imageUrl: string;
+  productType?: ProductType;
  }
  
  interface VirtualTryOnModalProps {
@@ -26,28 +30,43 @@
  export function VirtualTryOnModal({ isOpen, onClose, product, onAddToCart }: VirtualTryOnModalProps) {
    const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
    const [consent, setConsent] = useState(false);
-    const [poseValidation, setPoseValidation] = useState<PoseValidationResult | null>(null);
+  const [poseValidation, setPoseValidation] = useState<PoseValidationResult | null>(null);
+  const [selectedMode, setSelectedMode] = useState<TryOnMode | null>(null);
+  const [showLiveTryOn, setShowLiveTryOn] = useState(false);
    const { status, progress, queueInfo, result, error, startTryOn, reset, isLoading, isCompleted } =
      useVirtualTryOn();
  
-    // Check if pose is valid enough to proceed
-    const canProceed = useMemo(() => {
-      if (!selectedPhoto || !consent) return false;
-      // Allow if no validation yet (still loading) or if valid/warning
-      if (!poseValidation) return true;
-      return poseValidation.valid || poseValidation.score >= 50;
-    }, [selectedPhoto, consent, poseValidation]);
+  // Check if pose is valid enough to proceed
+  const canProceed = useMemo(() => {
+    if (!selectedPhoto || !consent) return false;
+    if (!poseValidation) return true;
+    return poseValidation.valid || poseValidation.score >= 50;
+  }, [selectedPhoto, consent, poseValidation]);
  
-    const handlePoseValidation = useCallback((result: PoseValidationResult) => {
-      setPoseValidation(result);
-    }, []);
+  const handlePoseValidation = useCallback((validationResult: PoseValidationResult) => {
+    setPoseValidation(validationResult);
+  }, []);
+
+  const handleSelectMode = useCallback((mode: TryOnMode) => {
+    setSelectedMode(mode);
+    if (mode === 'live') {
+      setShowLiveTryOn(true);
+    }
+  }, []);
+
+  const handleBackToModeSelect = useCallback(() => {
+    setSelectedMode(null);
+    setSelectedPhoto(null);
+    setPoseValidation(null);
+    reset();
+  }, [reset]);
  
    const handleStartTryOn = useCallback(async () => {
-      if (!canProceed) return;
+    if (!canProceed) return;
  
      try {
        await startTryOn({
-          personImage: selectedPhoto!,
+        personImage: selectedPhoto!,
          garmentImageUrl: product.imageUrl,
          productId: product.id,
          productName: product.name,
@@ -55,11 +74,11 @@
      } catch {
        // Error is handled in state
      }
-    }, [canProceed, selectedPhoto, startTryOn, product]);
+  }, [canProceed, selectedPhoto, startTryOn, product]);
  
    const handleTryAgain = useCallback(() => {
      setSelectedPhoto(null);
-      setPoseValidation(null);
+    setPoseValidation(null);
      reset();
    }, [reset]);
  
@@ -81,8 +100,33 @@
      };
    }, [personImagePreview]);
  
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedMode(null);
+      setShowLiveTryOn(false);
+      setSelectedPhoto(null);
+      setPoseValidation(null);
+      setConsent(false);
+    }
+  }, [isOpen]);
+
    if (!isOpen) return null;
  
+  // Show LiveTryOnModal fullscreen
+  if (showLiveTryOn) {
+    return (
+      <LiveTryOnModal
+        isOpen={showLiveTryOn}
+        onClose={() => {
+          setShowLiveTryOn(false);
+          setSelectedMode(null);
+        }}
+        product={product}
+      />
+    );
+  }
+
    return (
      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
        <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full sm:max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto sm:m-4">
@@ -139,8 +183,26 @@
              />
            )}
  
-           {status === 'idle' && (
+          {status === 'idle' && !selectedMode && (
+            <>
+              <TryOnModeSelector
+                onSelectMode={handleSelectMode}
+                productName={product.name}
+              />
+            </>
+          )}
+
+          {status === 'idle' && selectedMode === 'ai' && (
              <>
+              {/* Back button */}
+              <button
+                type="button"
+                onClick={handleBackToModeSelect}
+                className="mb-4 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+              >
+                ← Quay lại chọn phương thức
+              </button>
+
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
                  <div>
                    <h3 className="text-sm font-medium text-gray-700 mb-2 sm:mb-3">

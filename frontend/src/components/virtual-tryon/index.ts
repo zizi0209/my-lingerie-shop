@@ -8,3 +8,6 @@
  export { ResultView } from './ResultView';
  export { TryOnNotification } from './TryOnNotification';
  export { PoseGuide, PoseGuideTips } from './PoseGuide';
+export { LiveTryOnModal } from './LiveTryOnModal';
+export { TryOnModeSelector } from './TryOnModeSelector';
+export type { TryOnMode } from './TryOnModeSelector';

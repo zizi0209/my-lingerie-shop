@@ -14,9 +14,11 @@
    NormalizedLandmark,
  } from '@mediapipe/tasks-vision';
  
- // Singleton instance
+// Singleton instances
  let poseLandmarker: PoseLandmarker | null = null;
+let poseLandmarkerVideo: PoseLandmarker | null = null;
  let isInitializing = false;
+let isInitializingVideo = false;
  
  // CDN URLs for MediaPipe WASM and model
  const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm';
@@ -68,6 +70,51 @@
    }
  }
  
+/**
+ * Initialize PoseLandmarker for VIDEO mode (real-time webcam)
+ */
+export async function initPoseLandmarkerVideo(): Promise<PoseLandmarker> {
+  if (poseLandmarkerVideo) {
+    return poseLandmarkerVideo;
+  }
+
+  if (isInitializingVideo) {
+    while (isInitializingVideo) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (poseLandmarkerVideo) {
+      return poseLandmarkerVideo;
+    }
+  }
+
+  isInitializingVideo = true;
+
+  try {
+    const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+
+    poseLandmarkerVideo = await PoseLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: MODEL_URL,
+        delegate: 'GPU',
+      },
+      runningMode: 'VIDEO',
+      numPoses: 1,
+      minPoseDetectionConfidence: 0.5,
+      minPosePresenceConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+      outputSegmentationMasks: false,
+    });
+
+    console.log('[PoseDetection] VIDEO mode initialized successfully');
+    return poseLandmarkerVideo;
+  } catch (error) {
+    console.error('[PoseDetection] Failed to initialize VIDEO mode:', error);
+    throw error;
+  } finally {
+    isInitializingVideo = false;
+  }
+}
+
  /**
   * Detect pose from an image element or canvas
   */
@@ -335,6 +382,29 @@
    });
  }
  
+/**
+ * Detect pose from video frame (for real-time webcam)
+ */
+export async function detectPoseFromVideo(
+  video: HTMLVideoElement,
+  timestamp: number
+): Promise<NormalizedLandmark[] | null> {
+  const landmarker = await initPoseLandmarkerVideo();
+
+  try {
+    const result = landmarker.detectForVideo(video, timestamp);
+
+    if (result.landmarks && result.landmarks.length > 0) {
+      return result.landmarks[0];
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[PoseDetection] Video detection failed:', error);
+    return null;
+  }
+}
+
  /**
   * Cleanup resources
   */
@@ -343,4 +413,8 @@
      poseLandmarker.close();
      poseLandmarker = null;
    }
+  if (poseLandmarkerVideo) {
+    poseLandmarkerVideo.close();
+    poseLandmarkerVideo = null;
+  }
  }
