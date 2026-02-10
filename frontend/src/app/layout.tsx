@@ -34,10 +34,11 @@ export default async function RootLayout({
 
   return (
     <html lang="vi" suppressHydrationWarning>
-      <head>
+      <head suppressHydrationWarning>
         {/* Inject CSS variables directly from server */}
         <style
           id="theme-vars"
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `:root { ${themeCSS} }`,
           }}
