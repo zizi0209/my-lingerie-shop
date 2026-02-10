@@ -27,4 +27,14 @@ router.post(
   removeBackgroundFromImage
 );
 
+// Remove background for live try-on (public)
+router.post(
+  '/tryon-remove',
+  uploadLimiter,
+  upload.single('image'),
+  validateFileUpload,
+  processUploadedImage,
+  removeBackgroundFromImage
+);
+
 export default router;
