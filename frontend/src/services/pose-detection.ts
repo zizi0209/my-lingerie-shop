@@ -19,6 +19,8 @@
 let poseLandmarkerVideo: PoseLandmarker | null = null;
  let isInitializing = false;
 let isInitializingVideo = false;
+let isDisabled = false;
+let isVideoDisabled = false;
  
 // Local URLs for MediaPipe WASM and model (no CDN)
 const WASM_URL = '/mediapipe/wasm';
@@ -27,10 +29,13 @@ const MODEL_URL = '/models/pose_landmarker_lite.task';
  /**
   * Initialize PoseLandmarker (singleton pattern)
   */
- export async function initPoseLandmarker(): Promise<PoseLandmarker> {
+export async function initPoseLandmarker(): Promise<PoseLandmarker | null> {
    if (poseLandmarker) {
      return poseLandmarker;
    }
+  if (isDisabled) {
+    return null;
+  }
  
    if (isInitializing) {
      // Wait for initialization to complete
@@ -40,6 +45,9 @@ const MODEL_URL = '/models/pose_landmarker_lite.task';
      if (poseLandmarker) {
        return poseLandmarker;
      }
+    if (isDisabled) {
+      return null;
+    }
    }
  
    isInitializing = true;
@@ -63,8 +71,9 @@ const MODEL_URL = '/models/pose_landmarker_lite.task';
      console.log('[PoseDetection] Initialized successfully');
      return poseLandmarker;
    } catch (error) {
-     console.error('[PoseDetection] Failed to initialize:', error);
-     throw error;
+    console.warn('[PoseDetection] Failed to initialize, disabling:', error);
+    isDisabled = true;
+    return null;
    } finally {
      isInitializing = false;
    }
@@ -73,9 +82,12 @@ const MODEL_URL = '/models/pose_landmarker_lite.task';
 /**
  * Initialize PoseLandmarker for VIDEO mode (real-time webcam)
  */
-export async function initPoseLandmarkerVideo(): Promise<PoseLandmarker> {
+export async function initPoseLandmarkerVideo(): Promise<PoseLandmarker | null> {
   if (poseLandmarkerVideo) {
     return poseLandmarkerVideo;
+  }
+  if (isVideoDisabled) {
+    return null;
   }
 
   if (isInitializingVideo) {
@@ -84,6 +96,9 @@ export async function initPoseLandmarkerVideo(): Promise<PoseLandmarker> {
     }
     if (poseLandmarkerVideo) {
       return poseLandmarkerVideo;
+    }
+    if (isVideoDisabled) {
+      return null;
     }
   }
 
@@ -108,8 +123,9 @@ export async function initPoseLandmarkerVideo(): Promise<PoseLandmarker> {
     console.log('[PoseDetection] VIDEO mode initialized successfully');
     return poseLandmarkerVideo;
   } catch (error) {
-    console.error('[PoseDetection] Failed to initialize VIDEO mode:', error);
-    throw error;
+    console.warn('[PoseDetection] Failed to initialize VIDEO mode, disabling:', error);
+    isVideoDisabled = true;
+    return null;
   } finally {
     isInitializingVideo = false;
   }
@@ -121,7 +137,8 @@ export async function initPoseLandmarkerVideo(): Promise<PoseLandmarker> {
  export async function detectPose(
    image: HTMLImageElement | HTMLCanvasElement
  ): Promise<NormalizedLandmark[] | null> {
-   const landmarker = await initPoseLandmarker();
+  const landmarker = await initPoseLandmarker();
+  if (!landmarker) return null;
    
    try {
      const result = landmarker.detect(image);
@@ -395,6 +412,7 @@ export async function detectPoseFromVideo(
   }
 
   const landmarker = await initPoseLandmarkerVideo();
+  if (!landmarker) return null;
 
   try {
     const result = landmarker.detectForVideo(video, timestamp);
@@ -422,4 +440,6 @@ export async function detectPoseFromVideo(
     poseLandmarkerVideo.close();
     poseLandmarkerVideo = null;
   }
+  isDisabled = false;
+  isVideoDisabled = false;
  }

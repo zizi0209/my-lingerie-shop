@@ -9,6 +9,8 @@
     "node_modules",
     "dist",
     ".next",
+    "frontend/public/mediapipe/wasm/**",
+    "frontend/public/models/**",
     "**/*.test.tsx",
     "**/*.test.ts"
   ]

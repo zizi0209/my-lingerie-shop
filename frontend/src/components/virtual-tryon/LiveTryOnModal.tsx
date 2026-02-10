@@ -9,6 +9,8 @@ import { detectPersonMaskFromVideo, initBodySegmenterVideo } from '@/services/bo
    calculateOverlayPosition,
    drawClothingOverlay,
    drawMultipleClothingOverlay,
+  drawClothingOverlayMesh,
+  drawMultipleClothingOverlayMesh,
    canOverlay,
    getOverlayGuidance,
    type ProductType,
@@ -78,6 +80,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
   const SEGMENTATION_INTERVAL_MS = 120;
   const CALIBRATION_SAMPLES = 12;
   const CALIBRATION_CLAMP: [number, number] = [0.9, 1.1];
+  const USE_MESH_OVERLAY = true;
 
   const smoothLandmarks = useCallback(
     (previous: NormalizedLandmark[] | null, next: NormalizedLandmark[]): NormalizedLandmark[] => {
@@ -116,7 +119,19 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
       overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
       if (Array.isArray(position)) {
-        drawMultipleClothingOverlay(overlayCtx, [clothingImage, clothingImage], position, {
+        if (USE_MESH_OVERLAY) {
+          drawMultipleClothingOverlayMesh(overlayCtx, [clothingImage, clothingImage], position, {
+            opacity,
+            flipHorizontal: facingMode === 'user',
+          });
+        } else {
+          drawMultipleClothingOverlay(overlayCtx, [clothingImage, clothingImage], position, {
+            opacity,
+            flipHorizontal: facingMode === 'user',
+          });
+        }
+      } else if (USE_MESH_OVERLAY) {
+        drawClothingOverlayMesh(overlayCtx, clothingImage, position, {
           opacity,
           flipHorizontal: facingMode === 'user',
         });
@@ -243,19 +258,18 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
      setIsLoading(true);
      setError(null);
  
-     initPoseLandmarkerVideo()
-       .then(() => {
-         setIsLoading(false);
-         console.log('[LiveTryOn] Pose landmarker ready');
-       })
-       .catch((err) => {
-         console.error('[LiveTryOn] Failed to init pose landmarker:', err);
-         setError('Không thể khởi tạo nhận dạng tư thế');
-         setIsLoading(false);
-       });
+    initPoseLandmarkerVideo().then((landmarker) => {
+      if (!landmarker) {
+        setError('Thiếu model nhận dạng tư thế ở local. Vui lòng kiểm tra /public/models và /public/mediapipe/wasm.');
+      }
+      setIsLoading(false);
+      console.log('[LiveTryOn] Pose landmarker ready');
+    });
 
-    initBodySegmenterVideo().catch((err) => {
-      console.warn('[LiveTryOn] Segmentation init failed, fallback to pose-only:', err);
+    initBodySegmenterVideo().then((segmenter) => {
+      if (!segmenter) {
+        console.warn('[LiveTryOn] Segmentation disabled, fallback to pose-only');
+      }
     });
  
      return () => {

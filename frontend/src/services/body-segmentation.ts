@@ -2,17 +2,20 @@ import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
 
 let segmenterVideo: ImageSegmenter | null = null;
 let isInitializingVideo = false;
+let isDisabled = false;
 
 const WASM_URL = '/mediapipe/wasm';
 const MODEL_URL = '/models/selfie_segmenter.tflite';
 
-export async function initBodySegmenterVideo(): Promise<ImageSegmenter> {
+export async function initBodySegmenterVideo(): Promise<ImageSegmenter | null> {
   if (segmenterVideo) return segmenterVideo;
+  if (isDisabled) return null;
   if (isInitializingVideo) {
     while (isInitializingVideo) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     if (segmenterVideo) return segmenterVideo;
+    if (isDisabled) return null;
   }
 
   isInitializingVideo = true;
@@ -30,8 +33,9 @@ export async function initBodySegmenterVideo(): Promise<ImageSegmenter> {
     console.log('[BodySegmentation] VIDEO mode initialized');
     return segmenterVideo;
   } catch (error) {
-    console.error('[BodySegmentation] Failed to initialize VIDEO mode:', error);
-    throw error;
+    console.warn('[BodySegmentation] Failed to initialize VIDEO mode, disabling segmentation:', error);
+    isDisabled = true;
+    return null;
   } finally {
     isInitializingVideo = false;
   }
@@ -46,6 +50,7 @@ export async function detectPersonMaskFromVideo(
   }
 
   const segmenter = await initBodySegmenterVideo();
+  if (!segmenter) return null;
 
   try {
     const result = segmenter.segmentForVideo(video, timestamp);
@@ -78,4 +83,5 @@ export function disposeBodySegmenter(): void {
     segmenterVideo.close();
     segmenterVideo = null;
   }
+  isDisabled = false;
 }

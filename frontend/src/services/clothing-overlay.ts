@@ -266,16 +266,78 @@
    // Apply rotation
    ctx.rotate(rotation);
  
-   // Flip horizontal if needed (for mirrored webcam)
-   if (flipHorizontal) {
-     ctx.scale(-1, 1);
-   }
- 
-   // Draw image centered
-   ctx.drawImage(clothingImage, -width / 2, -height / 2, width, height);
- 
-   ctx.restore();
- }
+  // Flip horizontal if needed (for mirrored webcam)
+  if (flipHorizontal) {
+    ctx.scale(-1, 1);
+  }
+
+  // Draw image centered
+  ctx.drawImage(clothingImage, -width / 2, -height / 2, width, height);
+
+  ctx.restore();
+}
+
+export function drawClothingOverlayMesh(
+  ctx: CanvasRenderingContext2D,
+  clothingImage: HTMLImageElement,
+  position: OverlayPosition,
+  options?: {
+    opacity?: number;
+    flipHorizontal?: boolean;
+    depthHint?: number;
+    rows?: number;
+  }
+): void {
+  if (!position.visible) return;
+
+  const { x, y, width, height, rotation } = position;
+  const opacity = options?.opacity ?? 0.9;
+  const flipHorizontal = options?.flipHorizontal ?? false;
+  const depthHint = options?.depthHint ?? 0.12;
+  const rows = options?.rows ?? 24;
+
+  const meshCanvas = document.createElement('canvas');
+  meshCanvas.width = Math.max(1, Math.round(width));
+  meshCanvas.height = Math.max(1, Math.round(height));
+  const meshCtx = meshCanvas.getContext('2d');
+  if (!meshCtx) return;
+
+  for (let row = 0; row < rows; row += 1) {
+    const t = row / rows;
+    const srcY = t * clothingImage.height;
+    const srcH = clothingImage.height / rows;
+    const curve = Math.abs(0.5 - t) * 2;
+    const scale = 1 - depthHint * curve * curve;
+    const destW = meshCanvas.width * scale;
+    const destX = (meshCanvas.width - destW) / 2;
+    const destY = t * meshCanvas.height;
+    const destH = meshCanvas.height / rows;
+
+    meshCtx.drawImage(
+      clothingImage,
+      0,
+      srcY,
+      clothingImage.width,
+      srcH,
+      destX,
+      destY,
+      destW,
+      destH
+    );
+  }
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  const centerX = x + width / 2;
+  const centerY = y + height / 2;
+  ctx.translate(centerX, centerY);
+  ctx.rotate(rotation);
+  if (flipHorizontal) {
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(meshCanvas, -width / 2, -height / 2, width, height);
+  ctx.restore();
+}
  
  /**
   * Vẽ nhiều clothing images (cho SET)
@@ -296,6 +358,25 @@
      }
    });
  }
+
+export function drawMultipleClothingOverlayMesh(
+  ctx: CanvasRenderingContext2D,
+  clothingImages: HTMLImageElement[],
+  positions: OverlayPosition[],
+  options?: {
+    opacity?: number;
+    flipHorizontal?: boolean;
+    depthHint?: number;
+    rows?: number;
+  }
+): void {
+  positions.forEach((position, index) => {
+    const image = clothingImages[index];
+    if (image) {
+      drawClothingOverlayMesh(ctx, image, position, options);
+    }
+  });
+}
  
  /**
   * Kiểm tra xem có đủ landmarks để overlay không
