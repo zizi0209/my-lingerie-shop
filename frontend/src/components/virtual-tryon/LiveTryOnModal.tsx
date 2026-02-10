@@ -4,6 +4,7 @@
  import { X, Camera, RotateCcw, Download, Loader2, AlertCircle } from 'lucide-react';
  import Webcam from 'react-webcam';
 import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-detection';
+import { detectPersonMaskFromVideo, initBodySegmenterVideo } from '@/services/body-segmentation';
  import {
    calculateOverlayPosition,
    drawClothingOverlay,
@@ -41,13 +42,21 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
   const lostPoseFramesRef = useRef<number>(0);
   const lastMetricsRef = useRef<{ shoulderWidth: number; hipWidth: number; torsoHeight: number } | null>(null);
   const consecutiveStableFramesRef = useRef<number>(0);
+  const baselineMetricsRef = useRef<{ shoulderWidth: number; hipWidth: number; torsoHeight: number; samples: number } | null>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastSegmentationTimeRef = useRef<number>(0);
+  const targetIntervalRef = useRef<number>(33);
   const statsRef = useRef({
     frames: 0,
     poseDetected: 0,
     overlays: 0,
     dropped: 0,
+    segmentationUsed: 0,
     inferenceTotalMs: 0,
     inferenceCount: 0,
+    segmentationTotalMs: 0,
+    segmentationCount: 0,
     lastLogTime: 0,
   });
  
@@ -66,6 +75,9 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
   const MAX_METRIC_JUMP = 0.18;
   const MIN_SHOULDER_WIDTH = 0.12;
   const MAX_SHOULDER_WIDTH = 0.75;
+  const SEGMENTATION_INTERVAL_MS = 120;
+  const CALIBRATION_SAMPLES = 12;
+  const CALIBRATION_CLAMP: [number, number] = [0.9, 1.1];
 
   const smoothLandmarks = useCallback(
     (previous: NormalizedLandmark[] | null, next: NormalizedLandmark[]): NormalizedLandmark[] => {
@@ -86,6 +98,47 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     [SMOOTHING_ALPHA]
   );
 
+  const drawOverlayWithMask = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      clothingImage: HTMLImageElement,
+      position: OverlayPosition | OverlayPosition[],
+      opacity: number
+    ) => {
+      const overlayCanvas = overlayCanvasRef.current || document.createElement('canvas');
+      overlayCanvasRef.current = overlayCanvas;
+      overlayCanvas.width = ctx.canvas.width;
+      overlayCanvas.height = ctx.canvas.height;
+
+      const overlayCtx = overlayCanvas.getContext('2d');
+      if (!overlayCtx) return;
+
+      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+      if (Array.isArray(position)) {
+        drawMultipleClothingOverlay(overlayCtx, [clothingImage, clothingImage], position, {
+          opacity,
+          flipHorizontal: facingMode === 'user',
+        });
+      } else {
+        drawClothingOverlay(overlayCtx, clothingImage, position, {
+          opacity,
+          flipHorizontal: facingMode === 'user',
+        });
+      }
+
+      const maskCanvas = maskCanvasRef.current;
+      if (maskCanvas) {
+        overlayCtx.globalCompositeOperation = 'destination-in';
+        overlayCtx.drawImage(maskCanvas, 0, 0, overlayCanvas.width, overlayCanvas.height);
+        overlayCtx.globalCompositeOperation = 'source-over';
+      }
+
+      ctx.drawImage(overlayCanvas, 0, 0);
+    },
+    [facingMode]
+  );
+
   const computePoseMetrics = useCallback((landmarks: NormalizedLandmark[]) => {
     const leftShoulder = landmarks[11];
     const rightShoulder = landmarks[12];
@@ -100,6 +153,46 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 
     return { shoulderWidth, hipWidth, torsoHeight };
   }, []);
+
+  const applyCalibrationScale = useCallback(
+    (position: OverlayPosition | OverlayPosition[], scale: number): OverlayPosition | OverlayPosition[] => {
+      const clampScale = Math.min(CALIBRATION_CLAMP[1], Math.max(CALIBRATION_CLAMP[0], scale));
+      const adjust = (pos: OverlayPosition): OverlayPosition => {
+        const centerX = pos.x + pos.width / 2;
+        const centerY = pos.y + pos.height / 2;
+        const width = pos.width * clampScale;
+        const height = pos.height * clampScale;
+        return {
+          ...pos,
+          width,
+          height,
+          x: centerX - width / 2,
+          y: centerY - height / 2,
+        };
+      };
+      return Array.isArray(position) ? position.map(adjust) : adjust(position);
+    },
+    []
+  );
+
+  const updateCalibration = useCallback((landmarks: NormalizedLandmark[]) => {
+    const metrics = computePoseMetrics(landmarks);
+    const baseline = baselineMetricsRef.current;
+    if (!baseline) {
+      baselineMetricsRef.current = { ...metrics, samples: 1 };
+      return;
+    }
+
+    if (baseline.samples < CALIBRATION_SAMPLES) {
+      const nextSamples = baseline.samples + 1;
+      baselineMetricsRef.current = {
+        shoulderWidth: (baseline.shoulderWidth * baseline.samples + metrics.shoulderWidth) / nextSamples,
+        hipWidth: (baseline.hipWidth * baseline.samples + metrics.hipWidth) / nextSamples,
+        torsoHeight: (baseline.torsoHeight * baseline.samples + metrics.torsoHeight) / nextSamples,
+        samples: nextSamples,
+      };
+    }
+  }, [computePoseMetrics]);
 
   const isPoseStable = useCallback(
     (landmarks: NormalizedLandmark[]) => {
@@ -160,6 +253,10 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
          setError('Không thể khởi tạo nhận dạng tư thế');
          setIsLoading(false);
        });
+
+    initBodySegmenterVideo().catch((err) => {
+      console.warn('[LiveTryOn] Segmentation init failed, fallback to pose-only:', err);
+    });
  
      return () => {
        if (animationRef.current) {
@@ -192,7 +289,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     // Throttle to ~30fps and skip first few frames to let video stabilize
     const now = performance.now();
     frameCountRef.current++;
-    if (frameCountRef.current < 10 || now - lastProcessTimeRef.current < 33) {
+    if (frameCountRef.current < 10 || now - lastProcessTimeRef.current < targetIntervalRef.current) {
       statsRef.current.dropped += 1;
       animationRef.current = requestAnimationFrame(processFrame);
       return;
@@ -255,31 +352,53 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     if (activeLandmarks && canDraw) {
        setIsPoseDetected(true);
  
-       // Calculate overlay position
-       const position = calculateOverlayPosition(
+      if (activeLandmarks) {
+        updateCalibration(activeLandmarks);
+      }
+
+      const baseline = baselineMetricsRef.current;
+      const currentMetrics = activeLandmarks ? computePoseMetrics(activeLandmarks) : null;
+      const scale = baseline && currentMetrics
+        ? currentMetrics.shoulderWidth / baseline.shoulderWidth
+        : 1;
+
+      // Calculate overlay position
+      const position = applyCalibrationScale(
+        calculateOverlayPosition(
         activeLandmarks,
          productType,
          canvas.width,
          canvas.height
-       );
+        ),
+        scale
+      );
 
       lastOverlayRef.current = position;
       lastOverlayTimeRef.current = now;
       statsRef.current.overlays += 1;
  
-       // Draw clothing overlay
-       if (Array.isArray(position)) {
-         // SET: multiple overlays
-         drawMultipleClothingOverlay(ctx, [clothingImage, clothingImage], position, {
-           opacity: 0.85,
-           flipHorizontal: facingMode === 'user',
-         });
-       } else {
-         drawClothingOverlay(ctx, clothingImage, position, {
-           opacity: 0.85,
-           flipHorizontal: facingMode === 'user',
-         });
-       }
+      const canSegment = now - lastSegmentationTimeRef.current > SEGMENTATION_INTERVAL_MS;
+      if (canSegment) {
+        lastSegmentationTimeRef.current = now;
+        const segmentationStart = performance.now();
+        const maskData = await detectPersonMaskFromVideo(video, now);
+        const segmentationTime = performance.now() - segmentationStart;
+        statsRef.current.segmentationTotalMs += segmentationTime;
+        statsRef.current.segmentationCount += 1;
+        if (maskData) {
+          const maskCanvas = maskCanvasRef.current || document.createElement('canvas');
+          maskCanvasRef.current = maskCanvas;
+          maskCanvas.width = maskData.width;
+          maskCanvas.height = maskData.height;
+          const maskCtx = maskCanvas.getContext('2d');
+          if (maskCtx) {
+            maskCtx.putImageData(maskData, 0, 0);
+          }
+          statsRef.current.segmentationUsed += 1;
+        }
+      }
+
+      drawOverlayWithMask(ctx, clothingImage, position, 0.85);
     } else if (
       lastOverlayRef.current &&
       now - lastOverlayTimeRef.current < OVERLAY_GRACE_MS &&
@@ -287,17 +406,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     ) {
       setIsPoseDetected(true);
       const position = lastOverlayRef.current;
-      if (Array.isArray(position)) {
-        drawMultipleClothingOverlay(ctx, [clothingImage, clothingImage], position, {
-          opacity: 0.7,
-          flipHorizontal: facingMode === 'user',
-        });
-      } else {
-        drawClothingOverlay(ctx, clothingImage, position, {
-          opacity: 0.7,
-          flipHorizontal: facingMode === 'user',
-        });
-      }
+      drawOverlayWithMask(ctx, clothingImage, position, 0.7);
      } else {
        setIsPoseDetected(false);
      }
@@ -305,22 +414,41 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     statsRef.current.frames += 1;
     const statsNow = performance.now();
     if (statsNow - statsRef.current.lastLogTime > 5000) {
-      const { frames, poseDetected, overlays, dropped, inferenceTotalMs, inferenceCount } = statsRef.current;
+      const {
+        frames,
+        poseDetected,
+        overlays,
+        dropped,
+        inferenceTotalMs,
+        inferenceCount,
+        segmentationTotalMs,
+        segmentationCount,
+        segmentationUsed,
+      } = statsRef.current;
       const avgInference = inferenceCount > 0 ? Math.round(inferenceTotalMs / inferenceCount) : 0;
+      const avgSegmentation = segmentationCount > 0 ? Math.round(segmentationTotalMs / segmentationCount) : 0;
+      const nextInterval = avgInference > 45 ? 66 : avgInference > 30 ? 50 : 33;
+      targetIntervalRef.current = nextInterval;
       console.info('[TryOn] telemetry', {
         frames,
         poseSuccessRate: frames > 0 ? Math.round((poseDetected / frames) * 100) : 0,
         overlayRate: frames > 0 ? Math.round((overlays / frames) * 100) : 0,
         droppedFrames: dropped,
         avgInferenceMs: avgInference,
+        avgSegmentationMs: avgSegmentation,
+        segmentationUsed,
+        targetIntervalMs: nextInterval,
       });
       statsRef.current.lastLogTime = statsNow;
       statsRef.current.frames = 0;
       statsRef.current.poseDetected = 0;
       statsRef.current.overlays = 0;
       statsRef.current.dropped = 0;
+      statsRef.current.segmentationUsed = 0;
       statsRef.current.inferenceTotalMs = 0;
       statsRef.current.inferenceCount = 0;
+      statsRef.current.segmentationTotalMs = 0;
+      statsRef.current.segmentationCount = 0;
     }
  
      animationRef.current = requestAnimationFrame(processFrame);
@@ -337,7 +465,9 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     lostPoseFramesRef.current = 0;
     lastMetricsRef.current = null;
     consecutiveStableFramesRef.current = 0;
+    baselineMetricsRef.current = null;
     statsRef.current.lastLogTime = performance.now();
+    lastSegmentationTimeRef.current = 0;
      if (animationRef.current) {
        cancelAnimationFrame(animationRef.current);
      }
