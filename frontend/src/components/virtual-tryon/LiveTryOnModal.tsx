@@ -91,9 +91,9 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
   const USE_MESH_OVERLAY = true;
   const DEBUG_OVERLAY = false;
   const OVERLAY_OPACITY = 0.95;
-  const MASK_ALPHA_THRESHOLD_LOW = 0.25;
-  const MASK_ALPHA_THRESHOLD_HIGH = 0.75;
-  const MASK_DILATE_PX = 3;
+  const MASK_ALPHA_THRESHOLD_LOW = 0.15;
+  const MASK_ALPHA_THRESHOLD_HIGH = 0.6;
+  const MASK_DILATE_PX = 12;
 
   const smoothLandmarks = useCallback(
     (previous: NormalizedLandmark[] | null, next: NormalizedLandmark[]): NormalizedLandmark[] => {
@@ -207,10 +207,19 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 
           // Dilate mask to avoid clipping overlay edges
           if (MASK_DILATE_PX > 0) {
-            tempMaskCtx.filter = `blur(${MASK_DILATE_PX}px)`;
-            tempMaskCtx.globalCompositeOperation = 'source-over';
-            tempMaskCtx.drawImage(tempMaskCanvas, 0, 0);
-            tempMaskCtx.filter = 'none';
+            // Multi-pass blur + re-threshold for effective morphological dilation
+            for (let pass = 0; pass < 2; pass += 1) {
+              tempMaskCtx.filter = `blur(${MASK_DILATE_PX}px)`;
+              tempMaskCtx.drawImage(tempMaskCanvas, 0, 0);
+              tempMaskCtx.filter = 'none';
+            }
+            // Re-threshold after blur to harden the expanded mask
+            const dilated = tempMaskCtx.getImageData(0, 0, tempMaskCanvas.width, tempMaskCanvas.height);
+            const dd = dilated.data;
+            for (let i = 3; i < dd.length; i += 4) {
+              dd[i] = dd[i] > 25 ? 255 : 0;
+            }
+            tempMaskCtx.putImageData(dilated, 0, 0);
           }
 
           overlayCtx.globalCompositeOperation = 'destination-in';
