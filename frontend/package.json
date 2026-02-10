@@ -18,6 +18,7 @@
     "@auth/prisma-adapter": "^2.11.1",
     "@google/generative-ai": "^0.24.1",
     "@gradio/client": "^2.0.4",
+    "@imgly/background-removal": "^1.7.0",
     "@lexical/html": "^0.39.0",
     "@lexical/link": "^0.39.0",
     "@lexical/list": "^0.39.0",

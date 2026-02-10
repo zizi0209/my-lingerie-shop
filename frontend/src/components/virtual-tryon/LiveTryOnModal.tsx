@@ -6,6 +6,7 @@ import { X, Camera, RotateCcw, Download, Loader2, AlertCircle, Sparkles } from '
 import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-detection';
 import { detectPersonMaskFromVideo, initBodySegmenterVideo } from '@/services/body-segmentation';
 import { processVirtualTryOn, getErrorMessage } from '@/services/virtual-tryon-api';
+import { removeBackgroundClient, preloadBgRemovalModel } from '@/services/client-bg-removal';
  import {
    calculateOverlayPosition,
    drawClothingOverlay,
@@ -50,6 +51,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastSegmentationTimeRef = useRef<number>(0);
   const targetIntervalRef = useRef<number>(33);
+  const processedImageCacheRef = useRef<Map<string, string>>(new Map());
   const statsRef = useRef({
     frames: 0,
     poseDetected: 0,
@@ -76,18 +78,22 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
  
    const productType: ProductType = product.productType || 'BRA';
 
-  const SMOOTHING_ALPHA = 0.6;
-  const OVERLAY_GRACE_MS = 500;
-  const MAX_LOST_FRAMES = 10;
+  const SMOOTHING_ALPHA = 0.55;
+  const OVERLAY_GRACE_MS = 400;
+  const MAX_LOST_FRAMES = 8;
   const MIN_STABLE_FRAMES = 1;
   const MAX_METRIC_JUMP = 0.35;
   const MIN_SHOULDER_WIDTH = 0.12;
   const MAX_SHOULDER_WIDTH = 0.75;
-  const SEGMENTATION_INTERVAL_MS = 120;
+  const SEGMENTATION_INTERVAL_MS = 100;
   const CALIBRATION_SAMPLES = 12;
   const CALIBRATION_CLAMP: [number, number] = [0.9, 1.1];
-  const USE_MESH_OVERLAY = false;
-  const DEBUG_OVERLAY = true;
+  const USE_MESH_OVERLAY = true;
+  const DEBUG_OVERLAY = false;
+  const OVERLAY_OPACITY = 0.95;
+  const MASK_ALPHA_THRESHOLD_LOW = 0.25;
+  const MASK_ALPHA_THRESHOLD_HIGH = 0.75;
+  const MASK_DILATE_PX = 3;
 
   const smoothLandmarks = useCallback(
     (previous: NormalizedLandmark[] | null, next: NormalizedLandmark[]): NormalizedLandmark[] => {
@@ -178,9 +184,43 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 
       const maskCanvas = maskCanvasRef.current;
       if (useMask && maskCanvas) {
-        overlayCtx.globalCompositeOperation = 'destination-in';
-        overlayCtx.drawImage(maskCanvas, 0, 0, overlayCanvas.width, overlayCanvas.height);
-        overlayCtx.globalCompositeOperation = 'source-over';
+        // Sharpen mask: threshold alpha + dilate
+        const tempMaskCanvas = document.createElement('canvas');
+        tempMaskCanvas.width = overlayCanvas.width;
+        tempMaskCanvas.height = overlayCanvas.height;
+        const tempMaskCtx = tempMaskCanvas.getContext('2d');
+        if (tempMaskCtx) {
+          tempMaskCtx.drawImage(maskCanvas, 0, 0, tempMaskCanvas.width, tempMaskCanvas.height);
+          const maskImageData = tempMaskCtx.getImageData(0, 0, tempMaskCanvas.width, tempMaskCanvas.height);
+          const md = maskImageData.data;
+          for (let i = 3; i < md.length; i += 4) {
+            const a = md[i] / 255;
+            if (a < MASK_ALPHA_THRESHOLD_LOW) {
+              md[i] = 0;
+            } else if (a > MASK_ALPHA_THRESHOLD_HIGH) {
+              md[i] = 255;
+            } else {
+              md[i] = Math.round(((a - MASK_ALPHA_THRESHOLD_LOW) / (MASK_ALPHA_THRESHOLD_HIGH - MASK_ALPHA_THRESHOLD_LOW)) * 255);
+            }
+          }
+          tempMaskCtx.putImageData(maskImageData, 0, 0);
+
+          // Dilate mask to avoid clipping overlay edges
+          if (MASK_DILATE_PX > 0) {
+            tempMaskCtx.filter = `blur(${MASK_DILATE_PX}px)`;
+            tempMaskCtx.globalCompositeOperation = 'source-over';
+            tempMaskCtx.drawImage(tempMaskCanvas, 0, 0);
+            tempMaskCtx.filter = 'none';
+          }
+
+          overlayCtx.globalCompositeOperation = 'destination-in';
+          overlayCtx.drawImage(tempMaskCanvas, 0, 0);
+          overlayCtx.globalCompositeOperation = 'source-over';
+        } else {
+          overlayCtx.globalCompositeOperation = 'destination-in';
+          overlayCtx.drawImage(maskCanvas, 0, 0, overlayCanvas.width, overlayCanvas.height);
+          overlayCtx.globalCompositeOperation = 'source-over';
+        }
       }
 
       ctx.drawImage(overlayCanvas, 0, 0);
@@ -264,26 +304,53 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     [computePoseMetrics]
   );
  
-   // Load clothing image
-   useEffect(() => {
-     if (!isOpen) return;
- 
-     const img = new Image();
-     img.crossOrigin = 'anonymous';
-     img.onload = () => {
-       clothingImageRef.current = img;
-       console.log('[LiveTryOn] Clothing image loaded');
-     };
-     img.onerror = () => {
-       console.error('[LiveTryOn] Failed to load clothing image');
-       setError('Không thể tải ảnh sản phẩm');
-     };
-     img.src = product.imageUrl;
- 
-     return () => {
-       clothingImageRef.current = null;
-     };
-   }, [isOpen, product.imageUrl]);
+  // Load clothing image (with background removal)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isCancelled = false;
+
+    const loadClothingImage = async () => {
+      const originalUrl = product.imageUrl;
+      let finalUrl = originalUrl;
+
+      const cached = processedImageCacheRef.current.get(originalUrl);
+      if (cached) {
+        finalUrl = cached;
+      } else {
+        try {
+          const noBgUrl = await removeBackgroundClient(originalUrl);
+          finalUrl = noBgUrl;
+          processedImageCacheRef.current.set(originalUrl, finalUrl);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Không thể xóa nền ảnh';
+          console.warn('[LiveTryOn] Background removal failed:', message);
+        }
+      }
+
+      if (isCancelled) return;
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (isCancelled) return;
+        clothingImageRef.current = img;
+        console.log('[LiveTryOn] Clothing image loaded');
+      };
+      img.onerror = () => {
+        console.error('[LiveTryOn] Failed to load clothing image');
+        setError('Không thể tải ảnh sản phẩm');
+      };
+      img.src = finalUrl;
+    };
+
+    loadClothingImage();
+
+    return () => {
+      isCancelled = true;
+      clothingImageRef.current = null;
+    };
+  }, [isOpen, product.imageUrl]);
  
    // Initialize pose landmarker
    useEffect(() => {
@@ -305,6 +372,8 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
         console.warn('[LiveTryOn] Segmentation disabled, fallback to pose-only');
       }
     });
+
+    preloadBgRemovalModel();
  
      return () => {
        if (animationRef.current) {
@@ -349,6 +418,9 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
        animationRef.current = requestAnimationFrame(processFrame);
        return;
      }
+
+     ctx.imageSmoothingEnabled = true;
+     ctx.imageSmoothingQuality = 'high';
  
      // Set canvas size to match video
      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
@@ -447,7 +519,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
       }
 
       const useMask = productType !== 'SHAPEWEAR';
-      drawOverlayWithMask(ctx, clothingImage, position, 0.85, useMask);
+      drawOverlayWithMask(ctx, clothingImage, position, OVERLAY_OPACITY, useMask);
     } else if (
       lastOverlayRef.current &&
       now - lastOverlayTimeRef.current < OVERLAY_GRACE_MS &&
@@ -455,7 +527,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     ) {
       setIsPoseDetected(true);
       const position = lastOverlayRef.current;
-      drawOverlayWithMask(ctx, clothingImage, position, 0.7, productType !== 'SHAPEWEAR');
+      drawOverlayWithMask(ctx, clothingImage, position, OVERLAY_OPACITY * 0.8, productType !== 'SHAPEWEAR');
      } else {
        setIsPoseDetected(false);
      }

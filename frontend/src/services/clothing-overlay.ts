@@ -152,6 +152,8 @@
    height: number;
    rotation: number; // Góc xoay (radians) để match với góc nghiêng vai
    visible: boolean;
+  shoulderRatio?: number; // Tỉ lệ vai/hông cho perspective warp
+  bodyAngle?: number; // Góc nghiêng body (depth hint)
  }
  
  /**
@@ -177,7 +179,7 @@
    );
  
    if (minVis < config.minVisibility) {
-     return { x: 0, y: 0, width: 0, height: 0, rotation: 0, visible: false };
+    return { x: 0, y: 0, width: 0, height: 0, rotation: 0, visible: false, shoulderRatio: 1, bodyAngle: 0 };
    }
  
    // Tính center của top và bottom
@@ -203,6 +205,13 @@
    // Tính góc xoay dựa trên độ nghiêng vai
    const rotation = Math.atan2(topRight.y - topLeft.y, topRight.x - topLeft.x);
  
+  // Tỉ lệ vai/hông cho perspective warp
+  const shoulderRatio = bottomWidth > 0 ? topWidth / bottomWidth : 1;
+
+  // Depth hint từ z-coordinates (nếu có)
+  const avgZ = ((topLeft.z ?? 0) + (topRight.z ?? 0) + (bottomLeft.z ?? 0) + (bottomRight.z ?? 0)) / 4;
+  const bodyAngle = Math.abs(avgZ) * 2;
+
    // Convert từ normalized (0-1) sang pixel
    return {
      x: (centerX - finalWidth / 2) * canvasWidth,
@@ -211,6 +220,8 @@
      height: finalHeight * canvasHeight,
      rotation,
      visible: true,
+    shoulderRatio: Math.max(0.6, Math.min(1.4, shoulderRatio)),
+    bodyAngle: Math.min(bodyAngle, 0.3),
    };
  }
  
@@ -353,38 +364,97 @@ export function drawClothingOverlayMesh(
   const { x, y, width, height, rotation } = position;
   const opacity = options?.opacity ?? 0.9;
   const flipHorizontal = options?.flipHorizontal ?? false;
-  const depthHint = options?.depthHint ?? 0.12;
-  const rows = options?.rows ?? 24;
+  const depthHint = options?.depthHint ?? (position.bodyAngle ?? 0.12);
+  const rows = options?.rows ?? 20;
+  const cols = 12;
+  const shoulderRatio = position.shoulderRatio ?? 1;
 
+  const mW = Math.max(1, Math.round(width));
+  const mH = Math.max(1, Math.round(height));
   const meshCanvas = document.createElement('canvas');
-  meshCanvas.width = Math.max(1, Math.round(width));
-  meshCanvas.height = Math.max(1, Math.round(height));
+  meshCanvas.width = mW;
+  meshCanvas.height = mH;
   const meshCtx = meshCanvas.getContext('2d');
   if (!meshCtx) return;
 
-  for (let row = 0; row < rows; row += 1) {
-    const t = row / rows;
-    const srcY = t * clothingImage.height;
-    const srcH = clothingImage.height / rows;
-    const curve = Math.abs(0.5 - t) * 2;
-    const scale = 1 - depthHint * curve * curve;
-    const destW = meshCanvas.width * scale;
-    const destX = (meshCanvas.width - destW) / 2;
-    const destY = t * meshCanvas.height;
-    const destH = meshCanvas.height / rows;
+  meshCtx.imageSmoothingEnabled = true;
+  meshCtx.imageSmoothingQuality = 'high';
 
-    meshCtx.drawImage(
-      clothingImage,
-      0,
-      srcY,
-      clothingImage.width,
-      srcH,
-      destX,
-      destY,
-      destW,
-      destH
-    );
+  for (let row = 0; row < rows; row += 1) {
+    const tTop = row / rows;
+    const tBot = (row + 1) / rows;
+    const srcY = tTop * clothingImage.height;
+    const srcH = clothingImage.height / rows;
+
+    // Perspective: top narrower/wider based on shoulderRatio
+    const perspTop = 1 + (shoulderRatio - 1) * (1 - tTop);
+    const perspBot = 1 + (shoulderRatio - 1) * (1 - tBot);
+
+    // Body curvature (barrel distortion)
+    const curveTop = Math.abs(0.5 - tTop) * 2;
+    const curveBot = Math.abs(0.5 - tBot) * 2;
+    const scaleTop = (1 - depthHint * curveTop * curveTop) * perspTop;
+    const scaleBot = (1 - depthHint * curveBot * curveBot) * perspBot;
+
+    for (let col = 0; col < cols; col += 1) {
+      const cLeft = col / cols;
+      const cRight = (col + 1) / cols;
+      const srcX = cLeft * clothingImage.width;
+      const srcW = clothingImage.width / cols;
+
+      // Horizontal curvature per column
+      const hCenter = Math.abs(0.5 - (cLeft + cRight) / 2) * 2;
+      const hCurve = 1 - depthHint * 0.3 * hCenter * hCenter;
+
+      const topW = mW * scaleTop * hCurve;
+      const botW = mW * scaleBot * hCurve;
+      const topX = (mW - topW) / 2 + cLeft * topW;
+      const botX = (mW - botW) / 2 + cLeft * botW;
+      const topSliceW = topW / cols;
+      const botSliceW = botW / cols;
+
+      const dy = tTop * mH;
+      const dh = mH / rows;
+
+      meshCtx.save();
+      meshCtx.beginPath();
+      meshCtx.moveTo(topX, dy);
+      meshCtx.lineTo(topX + topSliceW, dy);
+      meshCtx.lineTo(botX + botSliceW, dy + dh);
+      meshCtx.lineTo(botX, dy + dh);
+      meshCtx.closePath();
+      meshCtx.clip();
+
+      const avgDestX = (topX + botX) / 2;
+      const avgDestW = (topSliceW + botSliceW) / 2;
+      meshCtx.drawImage(
+        clothingImage,
+        srcX, srcY, srcW, srcH,
+        avgDestX, dy, avgDestW, dh,
+      );
+      meshCtx.restore();
+    }
   }
+
+  // Subtle shadow for depth
+  const shadowGrad = meshCtx.createLinearGradient(0, 0, 0, mH);
+  shadowGrad.addColorStop(0, 'rgba(0,0,0,0.06)');
+  shadowGrad.addColorStop(0.35, 'rgba(0,0,0,0)');
+  shadowGrad.addColorStop(0.65, 'rgba(0,0,0,0)');
+  shadowGrad.addColorStop(1, 'rgba(0,0,0,0.08)');
+  meshCtx.globalCompositeOperation = 'multiply';
+  meshCtx.fillStyle = shadowGrad;
+  meshCtx.fillRect(0, 0, mW, mH);
+
+  // Side shadow for 3D curvature effect
+  const sideGrad = meshCtx.createLinearGradient(0, 0, mW, 0);
+  sideGrad.addColorStop(0, 'rgba(0,0,0,0.08)');
+  sideGrad.addColorStop(0.2, 'rgba(0,0,0,0)');
+  sideGrad.addColorStop(0.8, 'rgba(0,0,0,0)');
+  sideGrad.addColorStop(1, 'rgba(0,0,0,0.08)');
+  meshCtx.fillStyle = sideGrad;
+  meshCtx.fillRect(0, 0, mW, mH);
+  meshCtx.globalCompositeOperation = 'source-over';
 
   ctx.save();
   ctx.globalAlpha = opacity;
