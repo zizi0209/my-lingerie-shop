@@ -6,7 +6,6 @@
  */
 
 const { exec } = require('child_process');
-const path = require('path');
 
 console.log('🌱 Running Database Seed on Railway...\n');
 

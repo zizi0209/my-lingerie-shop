@@ -131,7 +131,6 @@ async function main() {
   let totalWritten = 0;
   let totalSkipped = 0;
   let totalFailed = 0;
-  let totalMissingColors = 0;
 
   for (const set of sets) {
     const styleCode = safeSlug(set.styleCode);
@@ -169,7 +168,6 @@ async function main() {
       const colorInputDir = resolveExistingDirCaseInsensitive(colorInputDirExpected) || colorInputDirExpected;
       const files = listImageFiles(colorInputDir);
       if (files.length === 0) {
-        totalMissingColors++;
         log(`  ⚠️  ${colorSlug}: no input images at ${colorInputDir}`, colors.yellow);
         continue;
       }

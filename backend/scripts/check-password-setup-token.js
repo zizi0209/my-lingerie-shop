@@ -58,7 +58,7 @@ async function checkPasswordSetupToken() {
         console.log(`   Created: ${token.createdAt.toISOString()}`);
         console.log(`   Expires: ${token.expiresAt.toISOString()}`);
         console.log(`   Status: ${isUsed ? '✅ USED' : isExpired ? '❌ EXPIRED' : '🟢 VALID'}`);
-        console.log(`   Used At: ${token.usedAt || 'Not used yet'}`);
+        console.log(`   Used At: ${token.usedAt ? token.usedAt.toISOString() : 'Not used yet'}`);
         console.log('');
       });
     }

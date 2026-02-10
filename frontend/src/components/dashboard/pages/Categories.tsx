@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { 
   Plus, Edit2, Trash2, Loader2, AlertCircle, X, 
@@ -16,8 +16,7 @@ import {
   compressImage, 
   type CompressedImage, 
   formatFileSize, 
-  revokePreviewUrls,
-  ACCEPTED_IMAGE_TYPES 
+  revokePreviewUrls
 } from '@/lib/imageUtils';
 
 interface CategoryFormData {

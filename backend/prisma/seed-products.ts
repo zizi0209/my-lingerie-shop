@@ -5,7 +5,7 @@
  * UPDATED: Sử dụng bảng Color mới với colorGroups cho Color Swatches
  */
 
-import { PrismaClient, ProductType } from '@prisma/client';
+import { PrismaClient, ProductType, type Category, type Product, type User } from '@prisma/client';
 import { faker } from '@faker-js/faker/locale/vi';
 import fs from 'fs';
 import path from 'path';
@@ -248,7 +248,7 @@ async function cleanupOldProducts() {
 async function seedCategories() {
   console.log('📁 Seeding categories...');
   
-  const created = [];
+  const created: Category[] = [];
   for (const cat of CATEGORIES) {
     const category = await prisma.category.upsert({
       where: { slug: cat.slug },
@@ -288,7 +288,7 @@ async function seedProducts(categories: Awaited<ReturnType<typeof seedCategories
 
   console.log(`  📎 Loaded ${COLORS.length} colors from database`);
 
-  const allProducts = [];
+  const allProducts: Product[] = [];
 
   // Manual “product sets” seeding: 1 product with many colors, images per color
   const seedSets = loadSeedProductSets();
@@ -531,7 +531,7 @@ async function seedTestUsers() {
     { email: 'user5@test.com', name: 'Hoàng Thị Lan', phone: '0945678901' },
   ];
 
-  const users = [];
+  const users: User[] = [];
   for (let i = 0; i < testUsers.length; i++) {
     const u = testUsers[i];
     const existing = await prisma.user.findFirst({ where: { email: u.email } });

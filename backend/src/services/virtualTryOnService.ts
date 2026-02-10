@@ -869,7 +869,7 @@ async function tryProvider(
     case 'vtond':
       return tryVTOND(personImageBase64, garmentImageBase64);
     default:
-      throw new Error(`Unknown provider type: ${provider.type}`);
+      throw new Error(`Unknown provider type: ${String(provider.type)}`);
   }
 }
 

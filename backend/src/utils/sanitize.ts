@@ -5,10 +5,10 @@ export function sanitizeUser(user: any) {
   if (!user) return null;
   
   const {
-    password,
-    failedLoginAttempts,
-    lockedUntil,
-    tokenVersion,
+    password: _password,
+    failedLoginAttempts: _failedLoginAttempts,
+    lockedUntil: _lockedUntil,
+    tokenVersion: _tokenVersion,
     ...safe
   } = user;
   

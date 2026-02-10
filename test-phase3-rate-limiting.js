@@ -3,9 +3,9 @@
  * Run: node test-phase3-rate-limiting.js
  */
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL_PHASE3 = 'http://localhost:5000/api';
 
-const colors = {
+const phase3Colors = {
   reset: '\x1b[0m',
   green: '\x1b[32m',
   red: '\x1b[31m',
@@ -13,26 +13,26 @@ const colors = {
   cyan: '\x1b[36m'
 };
 
-function log(message, color = colors.reset) {
-  console.log(`${color}${message}${colors.reset}`);
+function log(message, color = phase3Colors.reset) {
+  console.log(`${color}${message}${phase3Colors.reset}`);
 }
 
 function pass(test) {
-  log(`✅ PASS: ${test}`, colors.green);
+  log(`✅ PASS: ${test}`, phase3Colors.green);
 }
 
 function fail(test, reason) {
-  log(`❌ FAIL: ${test}`, colors.red);
-  if (reason) log(`   Reason: ${reason}`, colors.yellow);
+  log(`❌ FAIL: ${test}`, phase3Colors.red);
+  if (reason) log(`   Reason: ${reason}`, phase3Colors.yellow);
 }
 
 function info(message) {
-  log(`ℹ️  ${message}`, colors.cyan);
+  log(`ℹ️  ${message}`, phase3Colors.cyan);
 }
 
 async function request(endpoint, options = {}) {
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(`${API_URL_PHASE3}${endpoint}`, {
       method: options.method || 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -286,14 +286,14 @@ async function runAllTests() {
 async function checkServer() {
   info('Checking if server is running...');
   try {
-    const response = await fetch(`${API_URL}/health`);
+    const response = await fetch(`${API_URL_PHASE3}/health`);
     if (response.ok) {
       pass('Server is running');
       return true;
     }
     fail('Server Check', `Server returned status ${response.status}`);
     return false;
-  } catch (error) {
+  } catch {
     fail('Server Check', 'Server is not running');
     log('\nPlease start the server first:', colors.yellow);
     log('  cd backend', colors.cyan);

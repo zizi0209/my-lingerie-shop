@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { 
   Plus, Edit2, Trash2, Loader2, AlertCircle, X, 
@@ -14,9 +14,8 @@ import { useLanguage } from '../components/LanguageContext';
 import { 
   compressImage, 
   type CompressedImage, 
-  formatFileSize, 
-  revokePreviewUrls,
-  ACCEPTED_IMAGE_TYPES 
+  formatFileSize,
+  revokePreviewUrls
 } from '@/lib/imageUtils';
 import { LexicalEditor } from '@/components/editor';
 

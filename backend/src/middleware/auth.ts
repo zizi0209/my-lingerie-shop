@@ -7,7 +7,6 @@ if (!process.env.JWT_SECRET) {
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-import { AuthUser } from './requireAuth';
 
 interface JwtPayload {
   userId: number;

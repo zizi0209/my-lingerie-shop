@@ -194,7 +194,7 @@ async function buildDynamicFilters(
 // Handle navigation keyword search (Sale, New, Hot)
 async function handleNavigationSearch(
   keyword: { type: string; config: Prisma.JsonValue; displayName: string },
-  options: SearchOptions
+  _options: SearchOptions
 ): Promise<{ where: Prisma.ProductWhereInput; orderBy: Prisma.ProductOrderByWithRelationInput }> {
   const config = keyword.config as Record<string, unknown>;
   let where: Prisma.ProductWhereInput = { isVisible: true };

@@ -8,7 +8,7 @@ try {
   const bgRemoval = require('@imgly/background-removal-node');
   removeBackground = bgRemoval.removeBackground;
   isAIAvailable = true;
-} catch (error) {
+} catch {
   console.warn('⚠️  AI background removal not available, using fallback method');
 }
 

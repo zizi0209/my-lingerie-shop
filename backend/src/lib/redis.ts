@@ -43,7 +43,7 @@
      });
  
      return redis;
-   } catch (err) {
+  } catch {
      console.warn('[Redis] Initialization failed');
      return null;
    }

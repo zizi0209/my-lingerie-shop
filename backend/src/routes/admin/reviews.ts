@@ -18,6 +18,19 @@ router.get('/', async (req, res) => {
       sortBy = 'newest'
     } = req.query;
 
+    const getQueryString = (value: unknown, fallback?: string): string | undefined => {
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) {
+        const [first] = value;
+        if (typeof first === 'string') return first;
+      }
+      return fallback;
+    };
+
+    const statusValue = getQueryString(status);
+    const searchValue = getQueryString(search);
+    const sortByValue = getQueryString(sortBy, 'newest') ?? 'newest';
+
     const skip = (Number(page) - 1) * Number(limit);
 
     // Build where clause
@@ -28,8 +41,8 @@ router.get('/', async (req, res) => {
       OR?: Array<{ content?: { contains: string; mode: 'insensitive' }; title?: { contains: string; mode: 'insensitive' } }>;
     } = {};
 
-    if (status && status !== 'all') {
-      where.status = String(status);
+    if (statusValue && statusValue !== 'all') {
+      where.status = statusValue;
     }
 
     if (rating) {
@@ -40,20 +53,20 @@ router.get('/', async (req, res) => {
       where.productId = Number(productId);
     }
 
-    if (search) {
+    if (searchValue) {
       where.OR = [
-        { content: { contains: String(search), mode: 'insensitive' } },
-        { title: { contains: String(search), mode: 'insensitive' } }
+        { content: { contains: searchValue, mode: 'insensitive' } },
+        { title: { contains: searchValue, mode: 'insensitive' } }
       ];
     }
 
     // Build orderBy
     let orderBy: object = { createdAt: 'desc' };
-    if (sortBy === 'oldest') {
+    if (sortByValue === 'oldest') {
       orderBy = { createdAt: 'asc' };
-    } else if (sortBy === 'rating_high') {
+    } else if (sortByValue === 'rating_high') {
       orderBy = { rating: 'desc' };
-    } else if (sortBy === 'rating_low') {
+    } else if (sortByValue === 'rating_low') {
       orderBy = { rating: 'asc' };
     }
 

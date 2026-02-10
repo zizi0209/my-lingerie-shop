@@ -109,7 +109,12 @@ export const getAllOrders = async (req: Request, res: Response) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     const where: any = {};
-    if (status) where.status = String(status);
+    const statusValue = typeof status === 'string'
+      ? status
+      : Array.isArray(status)
+        ? status[0]
+        : undefined;
+    if (statusValue) where.status = statusValue;
     if (userId) where.userId = Number(userId);
 
     const [orders, total] = await Promise.all([

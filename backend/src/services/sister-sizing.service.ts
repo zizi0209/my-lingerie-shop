@@ -43,7 +43,7 @@ const prisma = new PrismaClient();
    redis.connect().catch(() => {
      redisAvailable = false;
    });
- } catch (err) {
+} catch {
    console.warn('[SisterSizing] Redis initialization failed, caching disabled');
    redis = null;
    redisAvailable = false;

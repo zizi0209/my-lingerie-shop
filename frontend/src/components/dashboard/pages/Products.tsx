@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Plus,
@@ -34,8 +34,7 @@ import {
   type CompressedImage, 
   formatFileSize, 
   validateImageFile,
-  revokePreviewUrls,
-  ACCEPTED_IMAGE_TYPES 
+  revokePreviewUrls
 } from '@/lib/imageUtils';
 
 interface ProductFormData {
@@ -110,7 +109,6 @@ const Products: React.FC = () => {
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
 
   // Image upload states
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingImages, setUploadingImages] = useState<CompressedImage[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -533,46 +531,6 @@ const Products: React.FC = () => {
     const newImages = [...formData.newImages];
     newImages[index] = value;
     setFormData(prev => ({ ...prev, newImages }));
-  };
-
-  // Handle file selection for upload
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setIsCompressing(true);
-    setFormError(null);
-
-    try {
-      const compressedList: CompressedImage[] = [];
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        setUploadProgress(`${t.compressing} (${i + 1}/${files.length})`);
-
-        // Validate file
-        const validation = validateImageFile(file);
-        if (!validation.valid) {
-          setFormError(`${file.name}: ${validation.error}`);
-          continue;
-        }
-
-        // Compress image
-        const compressed = await compressImage(file);
-        compressedList.push(compressed);
-      }
-
-      setUploadingImages(prev => [...prev, ...compressedList]);
-      setUploadProgress('');
-    } catch (err) {
-      console.error('Compression error:', err);
-      setFormError('Lỗi khi nén ảnh');
-    } finally {
-      setIsCompressing(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
   };
 
   // Remove pending upload image

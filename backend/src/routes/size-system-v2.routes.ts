@@ -61,7 +61,7 @@ const BrandFitFeedbackSchema = z.object({
  */
 router.get('/sizes/sister/:universalCode', async (req: Request, res: Response) => {
   try {
-    const { universalCode } = req.params;
+    const { universalCode } = GetSisterSizesSchema.parse(req.params);
 
     const result = await sisterSizingService.getSisterSizes({
       universalCode,
@@ -103,10 +103,16 @@ router.get(
         });
       }
 
+      const validated = GetAlternativesSchema.parse({
+        productId,
+        requestedSize,
+        regionCode,
+      });
+
       const result = await sisterSizingService.getAvailableSisterSizes({
-        productId: parseInt(productId),
-        requestedSize: requestedSize as string,
-        regionCode: regionCode as string,
+        productId: parseInt(validated.productId),
+        requestedSize: validated.requestedSize,
+        regionCode: validated.regionCode,
         sessionId: req.sessionID,
       });
 

@@ -18,9 +18,6 @@ require('dotenv').config({ override: true });
 // Debug: Show which key is being used
 console.log('DEBUG: Raw GEMINI_API_KEY from env:', process.env.GEMINI_API_KEY ? `${process.env.GEMINI_API_KEY.substring(0, 10)}...${process.env.GEMINI_API_KEY.substring(process.env.GEMINI_API_KEY.length - 4)}` : 'NOT SET');
  
- // Small test image (1x1 pixel PNG)
- const TEST_IMAGE_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
- 
  async function testGeminiAvailability() {
    console.log('╔═══════════════════════════════════════════════════════════╗');
    console.log('║        Gemini Virtual Try-On Integration Test             ║');

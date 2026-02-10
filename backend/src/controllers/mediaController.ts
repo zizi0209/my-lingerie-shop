@@ -27,7 +27,7 @@ export const uploadImage = async (req: Request, res: Response) => {
     const isPNG = req.file.mimetype === 'image/png';
 
     // Upload lên Cloudinary
-    const result = await cloudinary.uploader.upload_stream(
+    const uploadStream = cloudinary.uploader.upload_stream(
       {
         resource_type: 'image',
         folder: folder,
@@ -82,7 +82,7 @@ export const uploadImage = async (req: Request, res: Response) => {
     );
 
     // Gửi buffer của file lên Cloudinary
-    result.end(req.file.buffer);
+    uploadStream.end(req.file.buffer);
   } catch (error) {
     console.error('Upload error:', error);
     res.status(500).json({ error: 'Lỗi server!' });
@@ -170,7 +170,13 @@ export const getMediaList = async (req: Request, res: Response) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     const where: any = {};
-    if (folder) where.folder = String(folder);
+    const folderValue =
+      typeof folder === 'string'
+        ? folder
+        : Array.isArray(folder)
+          ? folder[0]
+          : undefined;
+    if (folderValue) where.folder = folderValue;
 
     const [media, total] = await Promise.all([
       prisma.media.findMany({

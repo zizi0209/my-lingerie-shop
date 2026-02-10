@@ -12,7 +12,7 @@ type FeatureItem = {
 const FeatureList: FeatureItem[] = [
   {
     title: '📏 Smart Size System',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    Svg: require('../../../static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
         Advanced size recommendation system with AI-powered suggestions
@@ -22,7 +22,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: '🎨 Modern Dashboard',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    Svg: require('../../../static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
         Intuitive admin dashboard built with Next.js 14 and Tailwind CSS.
@@ -32,7 +32,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: '⚡ Enterprise Ready',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    Svg: require('../../../static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
         Built with TypeScript, PostgreSQL, and Redis. Production-ready

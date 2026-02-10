@@ -1,4 +1,3 @@
-const https = require('https');
 const http = require('http');
 
 async function testLogin() {
@@ -37,7 +36,7 @@ async function testLogin() {
           } else {
             console.log('   ❌ FAILED:', parsed.error || data);
           }
-        } catch (e) {
+        } catch {
           console.log('   ❌ PARSE ERROR:', data.substring(0, 200));
         }
         testUsersLogin();
@@ -80,7 +79,7 @@ async function testLogin() {
             } else {
               console.log('   ❌ FAILED:', parsed.error || data);
             }
-          } catch (e) {
+          } catch {
             console.log('   ❌ PARSE ERROR:', data.substring(0, 200));
           }
         });

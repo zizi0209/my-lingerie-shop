@@ -143,11 +143,17 @@ export const getAllProducts = async (req: Request, res: Response) => {
       }
     }
 
-    if (search) {
+    const searchValue = typeof search === 'string'
+      ? search
+      : Array.isArray(search)
+        ? search[0]
+        : undefined;
+
+    if (searchValue) {
       const searchCondition = {
         OR: [
-          { name: { contains: String(search), mode: 'insensitive' as const } },
-          { description: { contains: String(search), mode: 'insensitive' as const } },
+          { name: { contains: searchValue, mode: 'insensitive' as const } },
+          { description: { contains: searchValue, mode: 'insensitive' as const } },
         ],
       };
       if ((where as any).AND) {

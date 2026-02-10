@@ -7,8 +7,6 @@ test.describe('Checkout with Voucher', () => {
     await page.waitForLoadState('networkidle');
 
     // Check for voucher input (placeholder: "Nhap ma giam gia...")
-    const voucherInput = page.locator('input[placeholder*="Nhap ma"], input[placeholder*="giam gia"], input[placeholder*="voucher"]').first();
-    
     // If checkout page requires cart items, the input might not be visible
     // This is a smoke test - we just check the page loads
     const pageLoaded = await page.locator('body').isVisible();
@@ -20,8 +18,6 @@ test.describe('Checkout with Voucher', () => {
     await page.waitForLoadState('networkidle');
 
     // Find voucher input (placeholder: "Nhap ma giam gia...")
-    const voucherInput = page.locator('input[placeholder*="Nhap ma"], input[placeholder*="giam gia"]').first();
-    
     // Smoke test - page loads correctly
     const pageLoaded = await page.locator('body').isVisible();
     expect(pageLoaded).toBe(true);
@@ -95,6 +91,7 @@ test.describe('Points and Tier Display', () => {
     // Check for points preview section
     const pointsSection = page.locator('[data-testid="points-preview"], .points-info, text=/điểm|points/i');
     // Points section might be visible for logged in users
+    await pointsSection.isVisible();
   });
 
   test('should display tier badge in profile', async ({ page }) => {
@@ -104,6 +101,7 @@ test.describe('Points and Tier Display', () => {
     // Check for tier/membership badge
     const tierBadge = page.locator('[data-testid="tier-badge"], .member-tier, text=/Bronze|Silver|Gold|Platinum/i');
     // Badge visible if user is logged in
+    await tierBadge.isVisible();
   });
 
   test('should navigate to rewards catalog', async ({ page }) => {
@@ -119,6 +117,7 @@ test.describe('Points and Tier Display', () => {
       
       // Should show rewards list
       const rewardsList = page.locator('[data-testid="rewards-list"], .rewards-catalog');
+      await rewardsList.isVisible();
     }
   });
 });
@@ -130,7 +129,6 @@ test.describe('Birthday Voucher', () => {
     await page.waitForLoadState('networkidle');
 
     // Check for birthday voucher section or button
-    const birthdaySection = page.locator('text=/sinh nhật|birthday/i');
     // Birthday section may or may not be visible depending on user's birthday
   });
 });

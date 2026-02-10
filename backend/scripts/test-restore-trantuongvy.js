@@ -49,7 +49,7 @@ async function testRestoreFlow() {
       console.log('\n🔄 Step 2: Restore Deleted User');
       console.log(`User ID: ${deletedUser.id}`);
       console.log(`Current Role: ${deletedUser.role?.name || 'No role'}`);
-      console.log(`Deleted At: ${deletedUser.deletedAt}`);
+      console.log(`Deleted At: ${deletedUser.deletedAt ? deletedUser.deletedAt.toISOString() : 'N/A'}`);
 
       // Get ADMIN role ID
       const adminRole = await prisma.role.findFirst({

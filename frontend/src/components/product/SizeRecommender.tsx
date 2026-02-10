@@ -543,7 +543,7 @@ export default function SizeRecommender({
   productType,
   sizes,
   onSizeRecommended,
-  productId,
+  productId: _productId,
 }: SizeRecommenderProps) {
   const [measurements, setMeasurements] = useState<UserMeasurements>({});
   const [result, setResult] = useState<RecommendResult | null>(null);

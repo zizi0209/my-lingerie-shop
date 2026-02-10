@@ -371,7 +371,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     if (voskRecognizerRef.current) {
       try {
         voskRecognizerRef.current.remove();
-      } catch (e) {
+      } catch {
         // Ignore cleanup errors
       }
       voskRecognizerRef.current = null;

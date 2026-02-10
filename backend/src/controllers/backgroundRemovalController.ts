@@ -197,7 +197,7 @@ export const checkBackgroundRemovalStatus = async (req: Request, res: Response) 
         ? 'AI method recommended for best quality'
         : 'Using fallback methods (simple/advanced)',
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ 
       error: 'Failed to check background removal status',
       available: false,

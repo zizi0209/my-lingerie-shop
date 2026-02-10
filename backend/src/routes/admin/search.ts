@@ -11,13 +11,18 @@ const router = express.Router();
 router.get('/synonyms', async (req, res) => {
   try {
     const { page = 1, limit = 20, search } = req.query;
+    const searchValue = typeof search === 'string'
+      ? search
+      : Array.isArray(search)
+        ? (typeof search[0] === 'string' ? search[0] : undefined)
+        : undefined;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where = search
+    const where = searchValue
       ? {
           OR: [
-            { word: { contains: String(search), mode: 'insensitive' as const } },
-            { synonym: { contains: String(search), mode: 'insensitive' as const } },
+            { word: { contains: searchValue, mode: 'insensitive' as const } },
+            { synonym: { contains: searchValue, mode: 'insensitive' as const } },
           ],
         }
       : {};

@@ -82,7 +82,13 @@ export const getPostProducts = async (req: Request, res: Response) => {
       postId: Number(postId),
       isAutoRecommended: false, // Chỉ lấy products được link thủ công
     };
-    if (displayType) where.displayType = String(displayType);
+    const displayTypeValue =
+      typeof displayType === 'string'
+        ? displayType
+        : Array.isArray(displayType)
+          ? displayType[0]
+          : undefined;
+    if (displayTypeValue) where.displayType = displayTypeValue;
     if (isAd !== undefined) where.isAd = isAd === 'true';
 
     const products = await prisma.productOnPost.findMany({

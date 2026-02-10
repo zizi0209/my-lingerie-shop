@@ -18,9 +18,6 @@ export async function removeImageBackgroundSimple(
     const threshold = options?.threshold || 240;
     const bgColor = options?.backgroundColor || 'auto';
 
-    // Get image metadata
-    const metadata = await sharp(imageBuffer).metadata();
-    
     // Convert to raw pixel data
     const { data, info } = await sharp(imageBuffer)
       .ensureAlpha()

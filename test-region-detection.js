@@ -7,10 +7,10 @@
   * 3. IP geolocation simulation
   */
  
- const API_URL = process.env.API_URL || 'http://localhost:5000/api';
+const API_URL_REGION = process.env.API_URL || 'http://localhost:5000/api';
  
  console.log('🌍 Testing Region Detection Feature\n');
- console.log('API URL:', API_URL);
+console.log('API URL:', API_URL_REGION);
  console.log('='.repeat(60));
  
  // Test 1: Get available regions
@@ -19,7 +19,7 @@
    console.log('-'.repeat(60));
    
    try {
-     const response = await fetch(`${API_URL}/regions`);
+    const response = await fetch(`${API_URL_REGION}/regions`);
      const data = await response.json();
      
      if (data.success) {
@@ -49,7 +49,7 @@
    console.log('-'.repeat(60));
    
    try {
-     const response = await fetch(`${API_URL}/regions`, {
+    const response = await fetch(`${API_URL_REGION}/regions`, {
        headers: {
          'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8'
        }
@@ -83,7 +83,7 @@
    console.log('-'.repeat(60));
    
    try {
-     const response = await fetch(`${API_URL}/regions`, {
+    const response = await fetch(`${API_URL_REGION}/regions`, {
        headers: {
          'Accept-Language': 'en-US,en;q=0.9'
        }
@@ -121,7 +121,7 @@
    
    for (const test of testCases) {
      try {
-       const response = await fetch(`${API_URL}/regions`, {
+        const response = await fetch(`${API_URL_REGION}/regions`, {
          headers: {
            'Accept-Language': test.lang
          }
@@ -171,20 +171,20 @@
      console.log('  - Test on Railway to see IP geolocation in action');
      console.log('  - Check browser DevTools → Network → Headers to see Accept-Language');
      console.log('='.repeat(60));
-   } catch (error) {
-     console.error('\n❌ Test suite failed:', error);
+  } catch {
+    console.error('\n❌ Test suite failed');
    }
  }
  
  // Check if backend is running
  async function checkBackend() {
    try {
-     const response = await fetch(`${API_URL.replace('/api', '')}/health`);
+    const response = await fetch(`${API_URL_REGION.replace('/api', '')}/health`);
      if (response.ok) {
        console.log('✅ Backend is running\n');
        return true;
      }
-   } catch (error) {
+  } catch {
      console.log('❌ Backend is not running!');
      console.log('👉 Please start backend first: cd backend && npm run dev\n');
      return false;

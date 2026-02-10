@@ -36,15 +36,28 @@ export const getPageViewAnalytics = async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, path, limit = 10 } = req.query;
 
+    const getQueryString = (value: unknown): string | undefined => {
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) {
+        const [first] = value;
+        return typeof first === 'string' ? first : undefined;
+      }
+      return undefined;
+    };
+
+    const startDateValue = getQueryString(startDate);
+    const endDateValue = getQueryString(endDate);
+    const pathValue = getQueryString(path);
+
     const where: any = {};
-    if (startDate) {
-      where.createdAt = { gte: new Date(String(startDate)) };
+    if (startDateValue) {
+      where.createdAt = { gte: new Date(startDateValue) };
     }
-    if (endDate) {
-      where.createdAt = { ...where.createdAt, lte: new Date(String(endDate)) };
+    if (endDateValue) {
+      where.createdAt = { ...where.createdAt, lte: new Date(endDateValue) };
     }
-    if (path) {
-      where.path = { contains: String(path) };
+    if (pathValue) {
+      where.path = { contains: pathValue };
     }
 
     const [total, pageViews] = await Promise.all([
@@ -108,12 +121,24 @@ export const getProductViewAnalytics = async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, limit = 10 } = req.query;
 
+    const getQueryString = (value: unknown): string | undefined => {
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) {
+        const [first] = value;
+        return typeof first === 'string' ? first : undefined;
+      }
+      return undefined;
+    };
+
+    const startDateValue = getQueryString(startDate);
+    const endDateValue = getQueryString(endDate);
+
     const where: any = {};
-    if (startDate) {
-      where.createdAt = { gte: new Date(String(startDate)) };
+    if (startDateValue) {
+      where.createdAt = { gte: new Date(startDateValue) };
     }
-    if (endDate) {
-      where.createdAt = { ...where.createdAt, lte: new Date(String(endDate)) };
+    if (endDateValue) {
+      where.createdAt = { ...where.createdAt, lte: new Date(endDateValue) };
     }
 
     const [total, productViews] = await Promise.all([
@@ -192,15 +217,28 @@ export const getCartEventAnalytics = async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, event } = req.query;
 
+    const getQueryString = (value: unknown): string | undefined => {
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) {
+        const [first] = value;
+        return typeof first === 'string' ? first : undefined;
+      }
+      return undefined;
+    };
+
+    const startDateValue = getQueryString(startDate);
+    const endDateValue = getQueryString(endDate);
+    const eventValue = getQueryString(event);
+
     const where: any = {};
-    if (startDate) {
-      where.createdAt = { gte: new Date(String(startDate)) };
+    if (startDateValue) {
+      where.createdAt = { gte: new Date(startDateValue) };
     }
-    if (endDate) {
-      where.createdAt = { ...where.createdAt, lte: new Date(String(endDate)) };
+    if (endDateValue) {
+      where.createdAt = { ...where.createdAt, lte: new Date(endDateValue) };
     }
-    if (event) {
-      where.event = String(event);
+    if (eventValue) {
+      where.event = eventValue;
     }
 
     const [total, eventGroups] = await Promise.all([

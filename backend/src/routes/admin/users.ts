@@ -1,7 +1,6 @@
 import express from 'express';
 import { prisma } from '../../lib/prisma';
 import { auditLog } from '../../utils/auditLog';
-import { z } from 'zod';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { adminCriticalLimiter } from '../../middleware/rateLimiter';
@@ -95,7 +94,7 @@ router.get('/', async (req, res) => {
     const usersWithStats = users.map(user => {
       const totalSpent = user.orders.reduce((sum, order) => sum + order.totalAmount, 0);
       // Remove orders array from response to keep it clean
-      const { orders, ...userWithoutOrders } = user;
+      const { orders: _orders, ...userWithoutOrders } = user;
       return {
         ...userWithoutOrders,
         totalSpent

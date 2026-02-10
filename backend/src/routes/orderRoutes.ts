@@ -7,7 +7,7 @@ import {
   updateOrder,
   cancelOrder,
 } from '../controllers/orderController';
-import { authenticateToken, isAdmin } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
 

@@ -73,7 +73,7 @@
      paddingX: 0.25,
      paddingY: 0.1,
      offsetY: -0.05,
-     minVisibility: 0.5,
+    minVisibility: 0.4,
    },
    // Quần lót: từ hông đến đầu gối
    PANTY: {
@@ -84,7 +84,7 @@
      paddingX: 0.2,
      paddingY: 0.1,
      offsetY: 0,
-     minVisibility: 0.5,
+    minVisibility: 0.4,
    },
    // Set đồ lót: 2 vùng riêng biệt (BRA + PANTY)
    SET: [
@@ -96,7 +96,7 @@
        paddingX: 0.25,
        paddingY: 0.1,
        offsetY: -0.05,
-       minVisibility: 0.5,
+      minVisibility: 0.4,
      },
      {
        topLeft: LANDMARK.LEFT_HIP,
@@ -106,7 +106,7 @@
        paddingX: 0.2,
        paddingY: 0.1,
        offsetY: 0,
-       minVisibility: 0.5,
+      minVisibility: 0.4,
      },
    ],
    // Đồ ngủ: từ vai đến đầu gối (full body)
@@ -118,7 +118,7 @@
      paddingX: 0.3,
      paddingY: 0.1,
      offsetY: -0.08,
-     minVisibility: 0.4,
+    minVisibility: 0.35,
    },
    // Đồ định hình: từ ngực đến đùi
    SHAPEWEAR: {
@@ -129,7 +129,7 @@
      paddingX: 0.2,
      paddingY: 0.05,
      offsetY: 0,
-     minVisibility: 0.5,
+    minVisibility: 0.4,
    },
    // Phụ kiện: không overlay
    ACCESSORY: {

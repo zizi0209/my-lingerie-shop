@@ -61,7 +61,11 @@ async function processCategory(category, dryRun = false) {
       processed++;
     } else {
       const success = await convertToWebP(inputPath, outputPath, i + 1, category);
-      success ? processed++ : failed++;
+      if (success) {
+        processed++;
+      } else {
+        failed++;
+      }
     }
   }
   return { processed, failed };

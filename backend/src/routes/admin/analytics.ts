@@ -48,7 +48,6 @@ router.get('/overview', async (req, res) => {
       currentRevenue,
       previousRevenue,
       currentCartAdds,
-      previousCartAdds,
       totalCarts,
       abandonedCarts,
       activeSessionsCount,
@@ -92,7 +91,7 @@ router.get('/overview', async (req, res) => {
             gte: periodStart,
             lte: periodEnd
           },
-          status: { notIn: ['CANCELLED', 'REFUNDED'] }
+          status: REVENUE_VALID_STATUSES
         }
       }),
       // Previous period orders
@@ -102,7 +101,7 @@ router.get('/overview', async (req, res) => {
             gte: previousStart,
             lt: previousEnd
           },
-          status: { notIn: ['CANCELLED', 'REFUNDED'] }
+          status: REVENUE_VALID_STATUSES
         }
       }),
       // Current period revenue (exclude cancelled/refunded)
@@ -113,7 +112,7 @@ router.get('/overview', async (req, res) => {
             gte: periodStart,
             lte: periodEnd
           },
-          status: { notIn: ['CANCELLED', 'REFUNDED'] }
+          status: REVENUE_VALID_STATUSES
         }
       }),
       // Previous period revenue
@@ -124,7 +123,7 @@ router.get('/overview', async (req, res) => {
             gte: previousStart,
             lt: previousEnd
           },
-          status: { notIn: ['CANCELLED', 'REFUNDED'] }
+          status: REVENUE_VALID_STATUSES
         }
       }),
       // Current period add to cart events
@@ -138,15 +137,6 @@ router.get('/overview', async (req, res) => {
         }
       }),
       // Previous period add to cart events
-      prisma.cartEvent.count({
-        where: {
-          createdAt: { 
-            gte: previousStart,
-            lt: previousEnd
-          },
-          event: 'ADD_TO_CART'
-        }
-      }),
       // Total carts with items (not affected by date range)
       prisma.cart.count({
         where: { items: { some: {} } }
@@ -172,7 +162,7 @@ router.get('/overview', async (req, res) => {
             gte: periodStart,
             lte: periodEnd
           },
-          status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] }
+          status: SUCCESS_ORDER_STATUSES
         }
       }),
       // Cancelled orders
@@ -1812,9 +1802,6 @@ router.get('/traffic-sources', async (req, res) => {
       views: v._count.id,
       percentage: totalViews > 0 ? Math.round((v._count.id / totalViews) * 100) : 0
     })).sort((a, b) => b.views - a.views);
-
-    // Add "unknown" for null sources
-    const unknownViews = sources.find(s => s.source === 'direct')?.views || 0;
 
     res.json({
       success: true,

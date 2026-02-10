@@ -9,7 +9,7 @@ async function checkTables() {
     try {
       const regionCount = await prisma.region.count();
       console.log('✅ regions table exists:', regionCount, 'rows');
-    } catch (e) {
+    } catch {
       console.log('❌ regions table does NOT exist');
     }
 
@@ -17,7 +17,7 @@ async function checkTables() {
     try {
       const standardCount = await prisma.sizeStandard.count();
       console.log('✅ size_standards table exists:', standardCount, 'rows');
-    } catch (e) {
+    } catch {
       console.log('❌ size_standards table does NOT exist');
     }
 
@@ -25,13 +25,13 @@ async function checkTables() {
     try {
       const brandCount = await prisma.brand.count();
       console.log('✅ brands table exists:', brandCount, 'rows');
-    } catch (e) {
+    } catch {
       console.log('❌ brands table does NOT exist');
     }
 
     // Check Product.brandId column
     try {
-      const product = await prisma.product.findFirst({
+      await prisma.product.findFirst({
         select: { id: true, brandId: true }
       });
       console.log('✅ Product.brandId column exists');
@@ -41,7 +41,7 @@ async function checkTables() {
 
     // Check ProductVariant columns
     try {
-      const variant = await prisma.productVariant.findFirst({
+      await prisma.productVariant.findFirst({
         select: { id: true, baseSize: true, baseSizeUIC: true }
       });
       console.log('✅ ProductVariant.baseSize and baseSizeUIC columns exist');

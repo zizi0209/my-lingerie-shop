@@ -1,5 +1,4 @@
 import express from 'express';
-import { getAuditLogs } from '../../utils/auditLog';
 import { prisma } from '../../lib/prisma';
 
 const router = express.Router();

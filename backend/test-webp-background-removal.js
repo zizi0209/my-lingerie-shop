@@ -139,11 +139,13 @@ try {
   );
 
   // Check if Sharp supports WebP
-  sharp.format.webp ? 
-    test('Sharp supports WebP format', true, 'WebP encoder available') :
+  if (sharp.format.webp) {
+    test('Sharp supports WebP format', true, 'WebP encoder available');
+  } else {
     test('Sharp supports WebP format', false, 'WebP encoder NOT available');
+  }
 
-} catch (error) {
+} catch {
   test('Sharp library is installed', false, 'Sharp not found - run: npm install sharp');
 }
 

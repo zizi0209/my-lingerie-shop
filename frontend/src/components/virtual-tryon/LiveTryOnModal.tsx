@@ -11,7 +11,9 @@ import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-de
    canOverlay,
    getOverlayGuidance,
    type ProductType,
+  type OverlayPosition,
  } from '@/services/clothing-overlay';
+import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
  
  interface Product {
    id: string;
@@ -33,6 +35,10 @@ import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-de
    const clothingImageRef = useRef<HTMLImageElement | null>(null);
   const lastProcessTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
+  const smoothedLandmarksRef = useRef<NormalizedLandmark[] | null>(null);
+  const lastOverlayRef = useRef<OverlayPosition | OverlayPosition[] | null>(null);
+  const lastOverlayTimeRef = useRef<number>(0);
+  const lostPoseFramesRef = useRef<number>(0);
  
    const [isLoading, setIsLoading] = useState(true);
    const [error, setError] = useState<string | null>(null);
@@ -41,6 +47,29 @@ import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-de
    const [capturedImage, setCapturedImage] = useState<string | null>(null);
  
    const productType: ProductType = product.productType || 'BRA';
+
+  const SMOOTHING_ALPHA = 0.6;
+  const OVERLAY_GRACE_MS = 250;
+  const MAX_LOST_FRAMES = 6;
+
+  const smoothLandmarks = useCallback(
+    (previous: NormalizedLandmark[] | null, next: NormalizedLandmark[]): NormalizedLandmark[] => {
+      if (!previous || previous.length !== next.length) return next;
+      return next.map((point, index) => {
+        const prev = previous[index];
+        const prevVisibility = prev.visibility ?? 0;
+        const nextVisibility = point.visibility ?? prevVisibility;
+        return {
+          ...point,
+          x: prev.x + (point.x - prev.x) * SMOOTHING_ALPHA,
+          y: prev.y + (point.y - prev.y) * SMOOTHING_ALPHA,
+          z: prev.z + (point.z - prev.z) * SMOOTHING_ALPHA,
+          visibility: prevVisibility + (nextVisibility - prevVisibility) * SMOOTHING_ALPHA,
+        };
+      });
+    },
+    [SMOOTHING_ALPHA]
+  );
  
    // Load clothing image
    useEffect(() => {
@@ -146,16 +175,29 @@ import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-de
       return;
     }
  
-     if (landmarks && canOverlay(landmarks, productType)) {
+    if (landmarks) {
+      lostPoseFramesRef.current = 0;
+      smoothedLandmarksRef.current = smoothLandmarks(smoothedLandmarksRef.current, landmarks);
+    } else {
+      lostPoseFramesRef.current += 1;
+    }
+
+    const activeLandmarks = smoothedLandmarksRef.current;
+    const canDraw = activeLandmarks ? canOverlay(activeLandmarks, productType) : false;
+
+    if (activeLandmarks && canDraw) {
        setIsPoseDetected(true);
  
        // Calculate overlay position
        const position = calculateOverlayPosition(
-         landmarks,
+        activeLandmarks,
          productType,
          canvas.width,
          canvas.height
        );
+
+      lastOverlayRef.current = position;
+      lastOverlayTimeRef.current = now;
  
        // Draw clothing overlay
        if (Array.isArray(position)) {
@@ -170,6 +212,24 @@ import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-de
            flipHorizontal: facingMode === 'user',
          });
        }
+    } else if (
+      lastOverlayRef.current &&
+      now - lastOverlayTimeRef.current < OVERLAY_GRACE_MS &&
+      lostPoseFramesRef.current <= MAX_LOST_FRAMES
+    ) {
+      setIsPoseDetected(true);
+      const position = lastOverlayRef.current;
+      if (Array.isArray(position)) {
+        drawMultipleClothingOverlay(ctx, [clothingImage, clothingImage], position, {
+          opacity: 0.7,
+          flipHorizontal: facingMode === 'user',
+        });
+      } else {
+        drawClothingOverlay(ctx, clothingImage, position, {
+          opacity: 0.7,
+          flipHorizontal: facingMode === 'user',
+        });
+      }
      } else {
        setIsPoseDetected(false);
      }
@@ -182,6 +242,10 @@ import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-de
      console.log('[LiveTryOn] Webcam ready, starting frame processing');
     frameCountRef.current = 0;
     lastProcessTimeRef.current = 0;
+    smoothedLandmarksRef.current = null;
+    lastOverlayRef.current = null;
+    lastOverlayTimeRef.current = 0;
+    lostPoseFramesRef.current = 0;
      if (animationRef.current) {
        cancelAnimationFrame(animationRef.current);
      }

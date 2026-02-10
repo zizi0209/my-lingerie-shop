@@ -28,7 +28,7 @@ async function testDatabaseConnection() {
     // Test 2: Query database
     console.log('\n⏳ Testing query...');
     const queryStart = Date.now();
-    const result = await prisma.$queryRaw`SELECT 1 as test`;
+    await prisma.$queryRaw`SELECT 1 as test`;
     const queryTime = Date.now() - queryStart;
 
     console.log(`✅ Query successful! (${queryTime}ms)`);

@@ -4,7 +4,7 @@
   */
  
  import { Router, Request, Response } from 'express';
- import { cleanupService, CLEANUP_CONFIG } from '../services/cleanup.service';
+import { CLEANUP_CONFIG } from '../services/cleanup.service';
  import {
    runFullCleanup,
    runLightCleanup,

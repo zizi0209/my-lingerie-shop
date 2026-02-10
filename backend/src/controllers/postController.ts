@@ -101,10 +101,15 @@ export const getAllPosts = async (req: Request, res: Response) => {
     const where: any = { deletedAt: null };
     if (categoryId) where.categoryId = Number(categoryId);
     if (isPublished !== undefined) where.isPublished = isPublished === 'true';
-    if (search) {
+    const searchValue = typeof search === 'string'
+      ? search
+      : Array.isArray(search)
+        ? search[0]
+        : undefined;
+    if (searchValue) {
       where.OR = [
-        { title: { contains: String(search), mode: 'insensitive' } },
-        { content: { contains: String(search), mode: 'insensitive' } },
+        { title: { contains: searchValue, mode: 'insensitive' } },
+        { content: { contains: searchValue, mode: 'insensitive' } },
       ];
     }
 
@@ -260,8 +265,6 @@ export const createPost = async (req: Request, res: Response) => {
       categoryId,
       isPublished,
       publishedAt,
-      adEnabled,
-      adDelaySeconds,
     } = req.body;
 
     if (!title || !slug || !content || !authorId || !categoryId) {
@@ -334,8 +337,6 @@ export const updatePost = async (req: Request, res: Response) => {
       categoryId,
       isPublished,
       publishedAt,
-      adEnabled,
-      adDelaySeconds,
     } = req.body;
 
     const existingPost = await prisma.post.findFirst({
@@ -376,8 +377,6 @@ export const updatePost = async (req: Request, res: Response) => {
       }
     }
     if (publishedAt) updateData.publishedAt = new Date(publishedAt);
-    if (adEnabled !== undefined) updateData.adEnabled = adEnabled;
-    if (adDelaySeconds !== undefined) updateData.adDelaySeconds = adDelaySeconds;
 
     const post = await prisma.post.update({
       where: { id: Number(id) },

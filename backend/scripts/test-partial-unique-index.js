@@ -33,7 +33,7 @@ async function main() {
         }
       });
       console.log('❌ ERROR: Duplicate was allowed! Index not working!');
-    } catch (error) {
+    } catch {
       console.log('✅ Correctly blocked duplicate active user');
     }
 

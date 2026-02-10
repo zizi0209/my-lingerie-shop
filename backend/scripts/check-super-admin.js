@@ -44,10 +44,12 @@ async function checkSuperAdmin() {
     console.log(`   Role: ${user.role?.name}`);
     console.log(`   Has Password: ${user.password ? 'YES ✅' : 'NO ❌'}`);
     console.log(`   Active: ${user.isActive ? 'YES ✅' : 'NO ❌'}`);
-    console.log(`   Deleted: ${user.deletedAt ? 'YES ❌ (' + user.deletedAt + ')' : 'NO ✅'}`);
+    console.log(
+      `   Deleted: ${user.deletedAt ? `YES ❌ (${user.deletedAt.toISOString()})` : 'NO ✅'}`
+    );
     console.log(`   Token Version: ${user.tokenVersion}`);
     console.log(`   Failed Login Attempts: ${user.failedLoginAttempts}`);
-    console.log(`   Locked Until: ${user.lockedUntil || 'Not locked'}`);
+    console.log(`   Locked Until: ${user.lockedUntil ? user.lockedUntil.toISOString() : 'Not locked'}`);
 
     // Test password
     if (user.password) {
@@ -66,7 +68,7 @@ async function checkSuperAdmin() {
     // Check if account is locked
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
       console.log('\n⚠️  ACCOUNT IS LOCKED');
-      console.log(`   Locked until: ${user.lockedUntil}`);
+      console.log(`   Locked until: ${user.lockedUntil.toISOString()}`);
       console.log(`   Reason: Too many failed login attempts (${user.failedLoginAttempts})`);
     }
 
@@ -79,7 +81,7 @@ async function checkSuperAdmin() {
     // Check if account is deleted
     if (user.deletedAt) {
       console.log('\n⚠️  ACCOUNT IS SOFT-DELETED');
-      console.log(`   Deleted at: ${user.deletedAt}`);
+      console.log(`   Deleted at: ${user.deletedAt.toISOString()}`);
       console.log('   The account needs to be restored');
     }
 

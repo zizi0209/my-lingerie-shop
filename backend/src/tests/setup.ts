@@ -47,7 +47,7 @@ afterEach(async () => {
     await prisma.media.deleteMany({});
     await prisma.user.deleteMany({});
     // Keep Role - it's reused across tests
-  } catch (error) {
+  } catch {
     // Silently ignore cleanup errors - they don't affect test results
   }
 });

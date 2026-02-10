@@ -12,15 +12,31 @@ export const getAllCoupons = async (req: Request, res: Response) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     const where: Record<string, unknown> = {};
-    
-    if (search) {
+
+    const searchValue = typeof search === 'string'
+      ? search
+      : Array.isArray(search)
+        ? search[0]
+        : undefined;
+    const couponTypeValue = typeof couponType === 'string'
+      ? couponType
+      : Array.isArray(couponType)
+        ? couponType[0]
+        : undefined;
+    const categoryValue = typeof category === 'string'
+      ? category
+      : Array.isArray(category)
+        ? category[0]
+        : undefined;
+
+    if (searchValue) {
       where.OR = [
-        { code: { contains: String(search), mode: 'insensitive' } },
-        { name: { contains: String(search), mode: 'insensitive' } },
+        { code: { contains: searchValue, mode: 'insensitive' } },
+        { name: { contains: searchValue, mode: 'insensitive' } },
       ];
     }
-    if (couponType) where.couponType = String(couponType);
-    if (category) where.category = String(category);
+    if (couponTypeValue) where.couponType = couponTypeValue;
+    if (categoryValue) where.category = categoryValue;
     if (isActive !== undefined) where.isActive = isActive === 'true';
     if (campaignId) where.campaignId = Number(campaignId);
 

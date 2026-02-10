@@ -211,7 +211,7 @@ export async function validateMultipleFileUploads(
           });
         }
 
-      } catch (sharpError) {
+      } catch {
         return res.status(400).json({
           error: `File thứ ${i + 1} không hợp lệ hoặc bị hỏng.`,
           fileIndex: i,

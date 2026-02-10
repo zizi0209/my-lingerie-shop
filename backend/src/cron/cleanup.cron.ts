@@ -36,7 +36,7 @@
      const lockKey = `${LOCK_KEY}:${lockName}`;
      const result = await redis.set(lockKey, Date.now().toString(), 'EX', LOCK_TTL, 'NX');
      return result === 'OK';
-   } catch (error) {
+  } catch {
      console.warn('[Cleanup] Failed to acquire lock, proceeding anyway');
      return true;
    }
@@ -53,7 +53,7 @@
  
    try {
      await redis.del(`${LOCK_KEY}:${lockName}`);
-   } catch (error) {
+  } catch {
      console.warn('[Cleanup] Failed to release lock');
    }
  }
@@ -76,7 +76,7 @@
      });
      // Keep last run info for 7 days
      await redis.expire(`${LAST_RUN_KEY}:${cleanupType}`, 7 * 24 * 60 * 60);
-   } catch (error) {
+  } catch {
      // Ignore save errors
    }
  }
@@ -93,7 +93,7 @@
    try {
      const data = await redis.hgetall(`${LAST_RUN_KEY}:${cleanupType}`);
      return Object.keys(data).length > 0 ? data : null;
-   } catch (error) {
+  } catch {
      return null;
    }
  }

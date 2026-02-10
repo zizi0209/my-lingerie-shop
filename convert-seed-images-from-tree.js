@@ -158,8 +158,6 @@ async function main() {
 
         // Detect whether this SPU has color subfolders
         const subDirs = listDirs(spuPath);
-        const hasColorLevel = subDirs.length > 0 && subDirs.every((d) => listImages(path.join(spuPath, d)).length > 0 || listDirs(path.join(spuPath, d)).length === 0 || true);
-
         const colorNodes = [];
         if (subDirs.length > 0) {
           // Treat subdirs as colors
@@ -220,9 +218,9 @@ async function main() {
             }
           }
 
+          const resolvedColorSlug = colorSlug || 'den';
           manifestColors.push({
-            colorSlug: colorSlug || 'den',
-            colorSlug: colorSlug,
+            colorSlug: resolvedColorSlug,
             isDefault: colorSlug == null || manifestColors.length === 0,
             images: urls,
             sizes: [{ size: 'Free Size', stock: 10 }],

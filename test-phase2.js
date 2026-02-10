@@ -3,10 +3,10 @@
  * Run: node test-phase2.js
  */
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL_PHASE2 = 'http://localhost:5000/api';
 
 // Colors for console output
-const colors = {
+const phase2Colors = {
   reset: '\x1b[0m',
   green: '\x1b[32m',
   red: '\x1b[31m',
@@ -14,26 +14,26 @@ const colors = {
   cyan: '\x1b[36m'
 };
 
-function log(message, color = colors.reset) {
-  console.log(`${color}${message}${colors.reset}`);
+function log(message, color = phase2Colors.reset) {
+  console.log(`${color}${message}${phase2Colors.reset}`);
 }
 
 function pass(test) {
-  log(`✅ PASS: ${test}`, colors.green);
+  log(`✅ PASS: ${test}`, phase2Colors.green);
 }
 
 function fail(test, reason) {
-  log(`❌ FAIL: ${test}`, colors.red);
-  if (reason) log(`   Reason: ${reason}`, colors.yellow);
+  log(`❌ FAIL: ${test}`, phase2Colors.red);
+  if (reason) log(`   Reason: ${reason}`, phase2Colors.yellow);
 }
 
 function info(message) {
-  log(`ℹ️  ${message}`, colors.cyan);
+  log(`ℹ️  ${message}`, phase2Colors.cyan);
 }
 
 async function request(endpoint, options = {}) {
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(`${API_URL_PHASE2}${endpoint}`, {
       method: options.method || 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -80,7 +80,7 @@ async function test1_MassAssignmentPrevention() {
   return result.data.data.user.id;
 }
 
-async function test2_PasswordSanitization(userId) {
+async function test2_PasswordSanitization(_userId) {
   info('\n[TEST 2] Password Sanitization in Response');
 
   const result = await request('/users/register', {
@@ -329,13 +329,13 @@ async function runAllTests() {
 async function checkServer() {
   info('Checking if server is running...');
   try {
-    const response = await fetch(`${API_URL}/users/register`, {
+    const _response = await fetch(`${API_URL_PHASE2}/users/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
     pass('Server is running');
     return true;
-  } catch (error) {
+  } catch {
     fail('Server Check', 'Server is not running');
     log('\nPlease start the server first:', colors.yellow);
     log('  cd backend', colors.cyan);

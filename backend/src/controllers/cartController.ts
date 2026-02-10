@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 
 // Ngưỡng abandoned: 1 giờ không hoạt động
@@ -62,13 +63,19 @@ export const getCart = async (req: Request, res: Response) => {
   try {
     const { userId, sessionId } = req.query;
 
-    if (!userId && !sessionId) {
+    const sessionIdValue = typeof sessionId === 'string'
+      ? sessionId
+      : Array.isArray(sessionId) && typeof sessionId[0] === 'string'
+        ? sessionId[0]
+        : undefined;
+
+    if (!userId && !sessionIdValue) {
       return res.status(400).json({ error: 'userId hoặc sessionId là bắt buộc!' });
     }
 
     const where: any = {};
     if (userId) where.userId = Number(userId);
-    if (sessionId) where.sessionId = String(sessionId);
+    if (sessionIdValue) where.sessionId = sessionIdValue;
 
     const cartInclude = {
       items: {
@@ -120,22 +127,21 @@ export const getCart = async (req: Request, res: Response) => {
           discountValue: true,
         },
       },
-    };
+    } satisfies Prisma.CartInclude;
+    type CartWithDetails = Prisma.CartGetPayload<{ include: typeof cartInclude }>;
 
-    let cart = await prisma.cart.findFirst({
+    const existingCart = await prisma.cart.findFirst({
       where,
       include: cartInclude,
     });
 
-    if (!cart) {
-      cart = await prisma.cart.create({
-        data: {
-          userId: userId ? Number(userId) : null,
-          sessionId: sessionId ? String(sessionId) : null,
-        },
-        include: cartInclude,
-      });
-    }
+    const cart: CartWithDetails = existingCart ?? await prisma.cart.create({
+      data: {
+        userId: userId ? Number(userId) : null,
+        sessionId: sessionIdValue ?? null,
+      },
+      include: cartInclude,
+    });
 
     // Calculate discount if coupon applied
     let discountAmount = 0;
@@ -869,7 +875,6 @@ export const getAvailableVouchers = async (req: Request, res: Response) => {
 // Legacy: Apply coupon (backward compatible - auto detect category)
 export const applyCoupon = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
     const { code } = req.body;
 
     if (!code) {

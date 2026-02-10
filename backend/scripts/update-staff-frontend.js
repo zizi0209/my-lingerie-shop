@@ -1,6 +1,4 @@
 const fs = require('fs');
-const path = require('path');
-
 const filePath = 'E:\\my-lingerie-shop\\frontend\\src\\components\\dashboard\\pages\\Staff.tsx';
 
 let content = fs.readFileSync(filePath, 'utf8');

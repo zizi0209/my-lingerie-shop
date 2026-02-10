@@ -28,11 +28,24 @@ export const search = async (req: Request, res: Response) => {
     }
 
     // Parse colors and sizes from comma-separated string
-    const colorList = colors
-      ? String(colors).split(',').map((c) => c.trim()).filter(Boolean)
+    const getQueryString = (value: unknown): string | undefined => {
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) {
+        const [first] = value;
+        return typeof first === 'string' ? first : undefined;
+      }
+      return undefined;
+    };
+
+    const colorsValue = getQueryString(colors);
+    const sizesValue = getQueryString(sizes);
+    const sortByValue = getQueryString(sortBy);
+
+    const colorList = colorsValue
+      ? colorsValue.split(',').map((c) => c.trim()).filter(Boolean)
       : undefined;
-    const sizeList = sizes
-      ? String(sizes).split(',').map((s) => s.trim()).filter(Boolean)
+    const sizeList = sizesValue
+      ? sizesValue.split(',').map((s) => s.trim()).filter(Boolean)
       : undefined;
 
     const result = await smartSearch(q, {
@@ -43,7 +56,7 @@ export const search = async (req: Request, res: Response) => {
       maxPrice: maxPrice ? Number(maxPrice) : undefined,
       colors: colorList,
       sizes: sizeList,
-      sortBy: sortBy ? String(sortBy) : undefined,
+      sortBy: sortByValue,
       // userId and sessionId can be extracted from auth middleware if needed
     });
 
