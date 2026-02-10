@@ -1,10 +1,11 @@
  'use client';
  
  import { useState, useRef, useCallback, useEffect } from 'react';
- import { X, Camera, RotateCcw, Download, Loader2, AlertCircle } from 'lucide-react';
+import { X, Camera, RotateCcw, Download, Loader2, AlertCircle, Sparkles } from 'lucide-react';
  import Webcam from 'react-webcam';
 import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-detection';
 import { detectPersonMaskFromVideo, initBodySegmenterVideo } from '@/services/body-segmentation';
+import { processVirtualTryOn, getErrorMessage } from '@/services/virtual-tryon-api';
  import {
    calculateOverlayPosition,
    drawClothingOverlay,
@@ -67,6 +68,11 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
    const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
    const [isPoseDetected, setIsPoseDetected] = useState(false);
    const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [aiResultImage, setAiResultImage] = useState<string | null>(null);
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [aiProgress, setAiProgress] = useState(0);
+  const [aiMessage, setAiMessage] = useState('');
+  const [aiError, setAiError] = useState<string | null>(null);
  
    const productType: ProductType = product.productType || 'BRA';
 
@@ -532,17 +538,60 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
  
    // Download captured image
    const handleDownload = useCallback(() => {
-     if (!capturedImage) return;
+    const imageToDownload = aiResultImage ?? capturedImage;
+    if (!imageToDownload) return;
  
      const link = document.createElement('a');
-     link.href = capturedImage;
+    link.href = imageToDownload;
      link.download = `tryon-${product.name}-${Date.now()}.jpg`;
      link.click();
-   }, [capturedImage, product.name]);
+  }, [aiResultImage, capturedImage, product.name]);
+
+  const dataUrlToFile = useCallback(async (dataUrl: string, fileName: string) => {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    return new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+  }, []);
+
+  const handleEnhanceWithAI = useCallback(async () => {
+    if (!capturedImage || aiStatus === 'loading') return;
+    setAiStatus('loading');
+    setAiError(null);
+    setAiProgress(0);
+    setAiMessage('');
+
+    try {
+      const personImage = await dataUrlToFile(capturedImage, `tryon-${product.id}.jpg`);
+      const result = await processVirtualTryOn(
+        {
+          personImage,
+          garmentImageUrl: product.imageUrl,
+          productId: product.id,
+          productName: product.name,
+        },
+        (progress, message) => {
+          setAiProgress(progress);
+          if (message) setAiMessage(message);
+        }
+      );
+
+      setAiResultImage(result.resultImage);
+      setAiStatus('idle');
+    } catch (err) {
+      const message = err instanceof Error ? getErrorMessage(err) : 'Không thể xử lý ảnh chất lượng cao.';
+      setAiError(message);
+      setAiStatus('error');
+    }
+  }, [aiStatus, capturedImage, dataUrlToFile, product.id, product.imageUrl, product.name]);
  
    // Reset captured image
    const handleRetake = useCallback(() => {
      setCapturedImage(null);
+    setAiResultImage(null);
+    setAiStatus('idle');
+    setAiProgress(0);
+    setAiMessage('');
+    setAiError(null);
    }, []);
  
    // Cleanup on close
@@ -612,8 +661,25 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
          {/* Captured image preview */}
          {capturedImage ? (
            <div className="relative w-full h-full">
+             {aiStatus === 'loading' && (
+               <div className="absolute inset-0 bg-black/60 z-20 flex items-center justify-center">
+                 <div className="text-center text-white">
+                   <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3" />
+                   <p className="text-sm">{aiMessage || 'Đang tạo ảnh chất lượng cao...'}</p>
+                   <p className="text-xs text-white/70 mt-2">{aiProgress}%</p>
+                 </div>
+               </div>
+             )}
+             {aiError && (
+               <div className="absolute inset-0 bg-black/60 z-20 flex items-center justify-center">
+                 <div className="text-center text-white px-6">
+                   <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
+                   <p className="text-sm">{aiError}</p>
+                 </div>
+               </div>
+             )}
              <img
-               src={capturedImage}
+               src={aiResultImage ?? capturedImage}
                alt="Captured"
                className="w-full h-full object-contain"
              />
@@ -688,6 +754,33 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
                  </div>
                  <span className="text-xs">Tải về</span>
                </button>
+
+              {/* AI enhance button */}
+              <button
+                type="button"
+                onClick={handleEnhanceWithAI}
+                disabled={aiStatus === 'loading'}
+                className="flex flex-col items-center gap-1 text-white"
+              >
+                <div className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <span className="text-xs">Ảnh chất lượng cao</span>
+              </button>
+
+              {/* Original toggle */}
+              {aiResultImage && (
+                <button
+                  type="button"
+                  onClick={() => setAiResultImage(null)}
+                  className="flex flex-col items-center gap-1 text-white"
+                >
+                  <div className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors">
+                    <RotateCcw className="w-6 h-6" />
+                  </div>
+                  <span className="text-xs">Ảnh gốc</span>
+                </button>
+              )}
  
                {/* Close button */}
                <button
