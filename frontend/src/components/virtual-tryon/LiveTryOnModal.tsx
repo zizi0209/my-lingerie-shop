@@ -39,6 +39,17 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
   const lastOverlayRef = useRef<OverlayPosition | OverlayPosition[] | null>(null);
   const lastOverlayTimeRef = useRef<number>(0);
   const lostPoseFramesRef = useRef<number>(0);
+  const lastMetricsRef = useRef<{ shoulderWidth: number; hipWidth: number; torsoHeight: number } | null>(null);
+  const consecutiveStableFramesRef = useRef<number>(0);
+  const statsRef = useRef({
+    frames: 0,
+    poseDetected: 0,
+    overlays: 0,
+    dropped: 0,
+    inferenceTotalMs: 0,
+    inferenceCount: 0,
+    lastLogTime: 0,
+  });
  
    const [isLoading, setIsLoading] = useState(true);
    const [error, setError] = useState<string | null>(null);
@@ -51,6 +62,10 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
   const SMOOTHING_ALPHA = 0.6;
   const OVERLAY_GRACE_MS = 250;
   const MAX_LOST_FRAMES = 6;
+  const MIN_STABLE_FRAMES = 3;
+  const MAX_METRIC_JUMP = 0.18;
+  const MIN_SHOULDER_WIDTH = 0.12;
+  const MAX_SHOULDER_WIDTH = 0.75;
 
   const smoothLandmarks = useCallback(
     (previous: NormalizedLandmark[] | null, next: NormalizedLandmark[]): NormalizedLandmark[] => {
@@ -69,6 +84,42 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
       });
     },
     [SMOOTHING_ALPHA]
+  );
+
+  const computePoseMetrics = useCallback((landmarks: NormalizedLandmark[]) => {
+    const leftShoulder = landmarks[11];
+    const rightShoulder = landmarks[12];
+    const leftHip = landmarks[23];
+    const rightHip = landmarks[24];
+
+    const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x);
+    const hipWidth = Math.abs(rightHip.x - leftHip.x);
+    const shoulderCenterY = (leftShoulder.y + rightShoulder.y) / 2;
+    const hipCenterY = (leftHip.y + rightHip.y) / 2;
+    const torsoHeight = Math.abs(hipCenterY - shoulderCenterY);
+
+    return { shoulderWidth, hipWidth, torsoHeight };
+  }, []);
+
+  const isPoseStable = useCallback(
+    (landmarks: NormalizedLandmark[]) => {
+      const metrics = computePoseMetrics(landmarks);
+      if (metrics.shoulderWidth < MIN_SHOULDER_WIDTH || metrics.shoulderWidth > MAX_SHOULDER_WIDTH) {
+        lastMetricsRef.current = metrics;
+        return false;
+      }
+
+      const previous = lastMetricsRef.current;
+      lastMetricsRef.current = metrics;
+      if (!previous) return true;
+
+      const shoulderJump = Math.abs(metrics.shoulderWidth - previous.shoulderWidth);
+      const hipJump = Math.abs(metrics.hipWidth - previous.hipWidth);
+      const torsoJump = Math.abs(metrics.torsoHeight - previous.torsoHeight);
+
+      return shoulderJump <= MAX_METRIC_JUMP && hipJump <= MAX_METRIC_JUMP && torsoJump <= MAX_METRIC_JUMP;
+    },
+    [computePoseMetrics]
   );
  
    // Load clothing image
@@ -124,6 +175,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
      const clothingImage = clothingImageRef.current;
  
      if (!video || !canvas || !clothingImage || video.readyState !== 4) {
+      statsRef.current.dropped += 1;
        animationRef.current = requestAnimationFrame(processFrame);
        return;
      }
@@ -132,6 +184,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     const vw = video.videoWidth;
     const vh = video.videoHeight;
     if (!vw || !vh || vw <= 0 || vh <= 0) {
+      statsRef.current.dropped += 1;
       animationRef.current = requestAnimationFrame(processFrame);
       return;
     }
@@ -140,6 +193,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     const now = performance.now();
     frameCountRef.current++;
     if (frameCountRef.current < 10 || now - lastProcessTimeRef.current < 33) {
+      statsRef.current.dropped += 1;
       animationRef.current = requestAnimationFrame(processFrame);
       return;
     }
@@ -162,6 +216,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
  
      // Detect pose
     let landmarks: Awaited<ReturnType<typeof detectPoseFromVideo>> = null;
+    const inferenceStart = performance.now();
     try {
       landmarks = await detectPoseFromVideo(video, now);
     } catch (err) {
@@ -174,16 +229,28 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
       animationRef.current = requestAnimationFrame(processFrame);
       return;
     }
+    const inferenceTime = performance.now() - inferenceStart;
+    statsRef.current.inferenceTotalMs += inferenceTime;
+    statsRef.current.inferenceCount += 1;
  
     if (landmarks) {
       lostPoseFramesRef.current = 0;
       smoothedLandmarksRef.current = smoothLandmarks(smoothedLandmarksRef.current, landmarks);
+      statsRef.current.poseDetected += 1;
     } else {
       lostPoseFramesRef.current += 1;
     }
 
     const activeLandmarks = smoothedLandmarksRef.current;
-    const canDraw = activeLandmarks ? canOverlay(activeLandmarks, productType) : false;
+    const stablePose = activeLandmarks ? isPoseStable(activeLandmarks) : false;
+    if (stablePose) {
+      consecutiveStableFramesRef.current += 1;
+    } else {
+      consecutiveStableFramesRef.current = 0;
+    }
+    const canDraw = activeLandmarks
+      ? canOverlay(activeLandmarks, productType) && stablePose && consecutiveStableFramesRef.current >= MIN_STABLE_FRAMES
+      : false;
 
     if (activeLandmarks && canDraw) {
        setIsPoseDetected(true);
@@ -198,6 +265,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 
       lastOverlayRef.current = position;
       lastOverlayTimeRef.current = now;
+      statsRef.current.overlays += 1;
  
        // Draw clothing overlay
        if (Array.isArray(position)) {
@@ -233,6 +301,27 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
      } else {
        setIsPoseDetected(false);
      }
+
+    statsRef.current.frames += 1;
+    const statsNow = performance.now();
+    if (statsNow - statsRef.current.lastLogTime > 5000) {
+      const { frames, poseDetected, overlays, dropped, inferenceTotalMs, inferenceCount } = statsRef.current;
+      const avgInference = inferenceCount > 0 ? Math.round(inferenceTotalMs / inferenceCount) : 0;
+      console.info('[TryOn] telemetry', {
+        frames,
+        poseSuccessRate: frames > 0 ? Math.round((poseDetected / frames) * 100) : 0,
+        overlayRate: frames > 0 ? Math.round((overlays / frames) * 100) : 0,
+        droppedFrames: dropped,
+        avgInferenceMs: avgInference,
+      });
+      statsRef.current.lastLogTime = statsNow;
+      statsRef.current.frames = 0;
+      statsRef.current.poseDetected = 0;
+      statsRef.current.overlays = 0;
+      statsRef.current.dropped = 0;
+      statsRef.current.inferenceTotalMs = 0;
+      statsRef.current.inferenceCount = 0;
+    }
  
      animationRef.current = requestAnimationFrame(processFrame);
    }, [productType, facingMode]);
@@ -246,6 +335,9 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     lastOverlayRef.current = null;
     lastOverlayTimeRef.current = 0;
     lostPoseFramesRef.current = 0;
+    lastMetricsRef.current = null;
+    consecutiveStableFramesRef.current = 0;
+    statsRef.current.lastLogTime = performance.now();
      if (animationRef.current) {
        cancelAnimationFrame(animationRef.current);
      }

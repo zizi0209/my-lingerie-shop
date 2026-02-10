@@ -20,9 +20,9 @@ let poseLandmarkerVideo: PoseLandmarker | null = null;
  let isInitializing = false;
 let isInitializingVideo = false;
  
- // CDN URLs for MediaPipe WASM and model
- const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm';
- const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task';
+// Local URLs for MediaPipe WASM and model (no CDN)
+const WASM_URL = '/mediapipe/wasm';
+const MODEL_URL = '/models/pose_landmarker_lite.task';
  
  /**
   * Initialize PoseLandmarker (singleton pattern)
