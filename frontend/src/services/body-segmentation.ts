@@ -64,7 +64,7 @@ export async function detectPersonMaskFromVideo(
     const imageData = new ImageData(width, height);
 
     for (let i = 0; i < maskData.length; i += 1) {
-      const alpha = Math.max(0, Math.min(255, Math.round(maskData[i] * 255)));
+      const alpha = Math.max(0, Math.min(255, 255 - Math.round(maskData[i] * 255)));
       const index = i * 4;
       imageData.data[index] = 255;
       imageData.data[index + 1] = 255;

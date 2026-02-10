@@ -77,10 +77,10 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
    const productType: ProductType = product.productType || 'BRA';
 
   const SMOOTHING_ALPHA = 0.6;
-  const OVERLAY_GRACE_MS = 250;
-  const MAX_LOST_FRAMES = 6;
-  const MIN_STABLE_FRAMES = 2;
-  const MAX_METRIC_JUMP = 0.25;
+  const OVERLAY_GRACE_MS = 500;
+  const MAX_LOST_FRAMES = 10;
+  const MIN_STABLE_FRAMES = 1;
+  const MAX_METRIC_JUMP = 0.35;
   const MIN_SHOULDER_WIDTH = 0.12;
   const MAX_SHOULDER_WIDTH = 0.75;
   const SEGMENTATION_INTERVAL_MS = 120;
@@ -126,14 +126,22 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 
       overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
+      const isMirrored = facingMode === 'user';
+      const mirrorPosition = (pos: OverlayPosition): OverlayPosition => ({
+        ...pos,
+        x: overlayCanvas.width - pos.x - pos.width,
+        rotation: pos.rotation - Math.PI,
+      });
+
       if (DEBUG_OVERLAY) {
         overlayCtx.save();
         overlayCtx.strokeStyle = '#22c55e';
         overlayCtx.lineWidth = 2;
         const drawDebug = (pos: OverlayPosition) => {
-          overlayCtx.strokeRect(pos.x, pos.y, pos.width, pos.height);
+          const dp = isMirrored ? mirrorPosition(pos) : pos;
+          overlayCtx.strokeRect(dp.x, dp.y, dp.width, dp.height);
           overlayCtx.beginPath();
-          overlayCtx.arc(pos.x + pos.width / 2, pos.y + pos.height / 2, 4, 0, Math.PI * 2);
+          overlayCtx.arc(dp.x + dp.width / 2, dp.y + dp.height / 2, 4, 0, Math.PI * 2);
           overlayCtx.fillStyle = '#22c55e';
           overlayCtx.fill();
         };
@@ -145,27 +153,26 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
         overlayCtx.restore();
       }
 
+      const adjustPos = (pos: OverlayPosition): OverlayPosition =>
+        isMirrored ? mirrorPosition(pos) : pos;
+
       if (Array.isArray(position)) {
         if (USE_MESH_OVERLAY) {
-          drawMultipleClothingOverlayMesh(overlayCtx, [clothingImage, clothingImage], position, {
+          drawMultipleClothingOverlayMesh(overlayCtx, [clothingImage, clothingImage], position.map(adjustPos), {
             opacity,
-            flipHorizontal: facingMode === 'user',
           });
         } else {
-          drawMultipleClothingOverlay(overlayCtx, [clothingImage, clothingImage], position, {
+          drawMultipleClothingOverlay(overlayCtx, [clothingImage, clothingImage], position.map(adjustPos), {
             opacity,
-            flipHorizontal: facingMode === 'user',
           });
         }
       } else if (USE_MESH_OVERLAY) {
-        drawClothingOverlayMesh(overlayCtx, clothingImage, position, {
+        drawClothingOverlayMesh(overlayCtx, clothingImage, adjustPos(position), {
           opacity,
-          flipHorizontal: facingMode === 'user',
         });
       } else {
-        drawClothingOverlay(overlayCtx, clothingImage, position, {
+        drawClothingOverlay(overlayCtx, clothingImage, adjustPos(position), {
           opacity,
-          flipHorizontal: facingMode === 'user',
         });
       }
 
@@ -727,9 +734,6 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
              <canvas
                ref={canvasRef}
                className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-               style={{
-                 transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
-               }}
              />
            </>
          )}
