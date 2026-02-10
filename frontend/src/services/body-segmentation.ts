@@ -52,9 +52,10 @@ export async function detectPersonMaskFromVideo(
   const segmenter = await initBodySegmenterVideo();
   if (!segmenter) return null;
 
+  let mask: ReturnType<typeof segmenter.segmentForVideo>['categoryMask'] | null = null;
   try {
     const result = segmenter.segmentForVideo(video, timestamp);
-    const mask = result.categoryMask;
+    mask = result.categoryMask;
     if (!mask) return null;
 
     const maskData = mask.getAsFloat32Array();
@@ -75,6 +76,10 @@ export async function detectPersonMaskFromVideo(
   } catch (error) {
     console.error('[BodySegmentation] Video segmentation failed:', error);
     return null;
+  } finally {
+    if (mask) {
+      mask.close();
+    }
   }
 }
 

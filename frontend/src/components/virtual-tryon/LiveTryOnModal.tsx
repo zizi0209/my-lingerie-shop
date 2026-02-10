@@ -79,14 +79,15 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
   const SMOOTHING_ALPHA = 0.6;
   const OVERLAY_GRACE_MS = 250;
   const MAX_LOST_FRAMES = 6;
-  const MIN_STABLE_FRAMES = 3;
-  const MAX_METRIC_JUMP = 0.18;
+  const MIN_STABLE_FRAMES = 2;
+  const MAX_METRIC_JUMP = 0.25;
   const MIN_SHOULDER_WIDTH = 0.12;
   const MAX_SHOULDER_WIDTH = 0.75;
   const SEGMENTATION_INTERVAL_MS = 120;
   const CALIBRATION_SAMPLES = 12;
   const CALIBRATION_CLAMP: [number, number] = [0.9, 1.1];
-  const USE_MESH_OVERLAY = true;
+  const USE_MESH_OVERLAY = false;
+  const DEBUG_OVERLAY = true;
 
   const smoothLandmarks = useCallback(
     (previous: NormalizedLandmark[] | null, next: NormalizedLandmark[]): NormalizedLandmark[] => {
@@ -112,7 +113,8 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
       ctx: CanvasRenderingContext2D,
       clothingImage: HTMLImageElement,
       position: OverlayPosition | OverlayPosition[],
-      opacity: number
+      opacity: number,
+      useMask: boolean
     ) => {
       const overlayCanvas = overlayCanvasRef.current || document.createElement('canvas');
       overlayCanvasRef.current = overlayCanvas;
@@ -123,6 +125,25 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
       if (!overlayCtx) return;
 
       overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+      if (DEBUG_OVERLAY) {
+        overlayCtx.save();
+        overlayCtx.strokeStyle = '#22c55e';
+        overlayCtx.lineWidth = 2;
+        const drawDebug = (pos: OverlayPosition) => {
+          overlayCtx.strokeRect(pos.x, pos.y, pos.width, pos.height);
+          overlayCtx.beginPath();
+          overlayCtx.arc(pos.x + pos.width / 2, pos.y + pos.height / 2, 4, 0, Math.PI * 2);
+          overlayCtx.fillStyle = '#22c55e';
+          overlayCtx.fill();
+        };
+        if (Array.isArray(position)) {
+          position.forEach(drawDebug);
+        } else {
+          drawDebug(position);
+        }
+        overlayCtx.restore();
+      }
 
       if (Array.isArray(position)) {
         if (USE_MESH_OVERLAY) {
@@ -149,7 +170,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
       }
 
       const maskCanvas = maskCanvasRef.current;
-      if (maskCanvas) {
+      if (useMask && maskCanvas) {
         overlayCtx.globalCompositeOperation = 'destination-in';
         overlayCtx.drawImage(maskCanvas, 0, 0, overlayCanvas.width, overlayCanvas.height);
         overlayCtx.globalCompositeOperation = 'source-over';
@@ -418,7 +439,8 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
         }
       }
 
-      drawOverlayWithMask(ctx, clothingImage, position, 0.85);
+      const useMask = productType !== 'SHAPEWEAR';
+      drawOverlayWithMask(ctx, clothingImage, position, 0.85, useMask);
     } else if (
       lastOverlayRef.current &&
       now - lastOverlayTimeRef.current < OVERLAY_GRACE_MS &&
@@ -426,7 +448,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     ) {
       setIsPoseDetected(true);
       const position = lastOverlayRef.current;
-      drawOverlayWithMask(ctx, clothingImage, position, 0.7);
+      drawOverlayWithMask(ctx, clothingImage, position, 0.7, productType !== 'SHAPEWEAR');
      } else {
        setIsPoseDetected(false);
      }

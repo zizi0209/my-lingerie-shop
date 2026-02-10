@@ -71,9 +71,9 @@
      bottomLeft: LANDMARK.LEFT_HIP,
      bottomRight: LANDMARK.RIGHT_HIP,
      paddingX: 0.25,
-     paddingY: 0.1,
+    paddingY: 0.14,
      offsetY: -0.05,
-    minVisibility: 0.4,
+    minVisibility: 0.28,
    },
    // Quần lót: từ hông đến đầu gối
    PANTY: {
@@ -124,12 +124,12 @@
    SHAPEWEAR: {
      topLeft: LANDMARK.LEFT_SHOULDER,
      topRight: LANDMARK.RIGHT_SHOULDER,
-     bottomLeft: LANDMARK.LEFT_KNEE,
-     bottomRight: LANDMARK.RIGHT_KNEE,
-     paddingX: 0.2,
-     paddingY: 0.05,
+    bottomLeft: LANDMARK.LEFT_HIP,
+    bottomRight: LANDMARK.RIGHT_HIP,
+    paddingX: 0.2,
+    paddingY: 0.08,
      offsetY: 0,
-    minVisibility: 0.4,
+    minVisibility: 0.3,
    },
    // Phụ kiện: không overlay
    ACCESSORY: {
@@ -217,23 +217,83 @@
  /**
   * Tính toán vị trí overlay cho một loại sản phẩm
   */
- export function calculateOverlayPosition(
-   landmarks: NormalizedLandmark[],
-   productType: ProductType,
-   canvasWidth: number,
-   canvasHeight: number
- ): OverlayPosition | OverlayPosition[] {
-   const config = OVERLAY_CONFIGS[productType];
- 
-   if (Array.isArray(config)) {
-     // SET có 2 vùng overlay
-     return config.map((c) =>
-       calculateSingleOverlay(landmarks, c, canvasWidth, canvasHeight)
-     );
-   }
- 
-   return calculateSingleOverlay(landmarks, config, canvasWidth, canvasHeight);
- }
+export function calculateOverlayPosition(
+  landmarks: NormalizedLandmark[],
+  productType: ProductType,
+  canvasWidth: number,
+  canvasHeight: number
+): OverlayPosition | OverlayPosition[] {
+  const config = OVERLAY_CONFIGS[productType];
+
+  if (Array.isArray(config)) {
+    // SET có 2 vùng overlay
+    return config.map((c) =>
+      calculateSingleOverlay(landmarks, c, canvasWidth, canvasHeight)
+    );
+  }
+
+  if (productType === 'SHAPEWEAR') {
+    const leftShoulder = landmarks[LANDMARK.LEFT_SHOULDER];
+    const rightShoulder = landmarks[LANDMARK.RIGHT_SHOULDER];
+    const leftHip = landmarks[LANDMARK.LEFT_HIP];
+    const rightHip = landmarks[LANDMARK.RIGHT_HIP];
+    const hipVisibility = Math.min(leftHip.visibility ?? 0, rightHip.visibility ?? 0);
+
+    if (hipVisibility < 0.3) {
+      const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x);
+      const topCenterY = (leftShoulder.y + rightShoulder.y) / 2;
+      const height = shoulderWidth * 1.7;
+      const bottomY = Math.min(0.98, topCenterY + height);
+      const syntheticLandmarks = [...landmarks];
+      syntheticLandmarks[LANDMARK.LEFT_HIP] = {
+        ...leftHip,
+        x: leftShoulder.x - shoulderWidth * 0.05,
+        y: bottomY,
+        visibility: 1,
+      };
+      syntheticLandmarks[LANDMARK.RIGHT_HIP] = {
+        ...rightHip,
+        x: rightShoulder.x + shoulderWidth * 0.05,
+        y: bottomY,
+        visibility: 1,
+      };
+
+      return calculateSingleOverlay(syntheticLandmarks, config, canvasWidth, canvasHeight);
+    }
+  }
+
+  if (productType === 'BRA') {
+    const leftShoulder = landmarks[LANDMARK.LEFT_SHOULDER];
+    const rightShoulder = landmarks[LANDMARK.RIGHT_SHOULDER];
+    const leftHip = landmarks[LANDMARK.LEFT_HIP];
+    const rightHip = landmarks[LANDMARK.RIGHT_HIP];
+    const hipVisibility = Math.min(leftHip.visibility ?? 0, rightHip.visibility ?? 0);
+
+    if (hipVisibility < 0.28) {
+      const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x);
+      const topCenterY = (leftShoulder.y + rightShoulder.y) / 2;
+      const height = shoulderWidth * 1.1;
+      const bottomY = Math.min(0.9, topCenterY + height);
+      const syntheticLandmarks = [...landmarks];
+      syntheticLandmarks[LANDMARK.LEFT_HIP] = {
+        ...leftHip,
+        x: leftShoulder.x - shoulderWidth * 0.1,
+        y: bottomY,
+        visibility: 1,
+      };
+      syntheticLandmarks[LANDMARK.RIGHT_HIP] = {
+        ...rightHip,
+        x: rightShoulder.x + shoulderWidth * 0.1,
+        y: bottomY,
+        visibility: 1,
+      };
+
+      return calculateSingleOverlay(syntheticLandmarks, config, canvasWidth, canvasHeight);
+    }
+  }
+
+  return calculateSingleOverlay(landmarks, config, canvasWidth, canvasHeight);
+}
  
  /**
   * Vẽ clothing image lên canvas với position đã tính
@@ -381,25 +441,32 @@ export function drawMultipleClothingOverlayMesh(
  /**
   * Kiểm tra xem có đủ landmarks để overlay không
   */
- export function canOverlay(
-   landmarks: NormalizedLandmark[] | null,
-   productType: ProductType
- ): boolean {
-   if (!landmarks || landmarks.length < 33) return false;
- 
-   const config = OVERLAY_CONFIGS[productType];
-   const configs = Array.isArray(config) ? config : [config];
- 
-   return configs.every((c) => {
-     const minVis = Math.min(
-       landmarks[c.topLeft].visibility ?? 0,
-       landmarks[c.topRight].visibility ?? 0,
-       landmarks[c.bottomLeft].visibility ?? 0,
-       landmarks[c.bottomRight].visibility ?? 0
-     );
-     return minVis >= c.minVisibility;
-   });
- }
+export function canOverlay(
+  landmarks: NormalizedLandmark[] | null,
+  productType: ProductType
+): boolean {
+  if (!landmarks || landmarks.length < 33) return false;
+
+  const config = OVERLAY_CONFIGS[productType];
+  const configs = Array.isArray(config) ? config : [config];
+
+  return configs.every((c) => {
+    const topVis = Math.min(
+      landmarks[c.topLeft].visibility ?? 0,
+      landmarks[c.topRight].visibility ?? 0
+    );
+    const bottomVis = Math.min(
+      landmarks[c.bottomLeft].visibility ?? 0,
+      landmarks[c.bottomRight].visibility ?? 0
+    );
+    const minVis = Math.min(topVis, bottomVis);
+
+    if ((productType === 'SHAPEWEAR' || productType === 'BRA') && bottomVis < c.minVisibility) {
+      return topVis >= 0.35;
+    }
+    return minVis >= c.minVisibility;
+  });
+}
  
  /**
   * Lấy thông báo hướng dẫn dựa trên ProductType

@@ -765,6 +765,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             id: String(product.id),
             name: product.name,
             imageUrl: productImages[selectedImage] || productImages[0],
+            productType: product.productType,
           }}
           onAddToCart={handleAddToCart}
         />
