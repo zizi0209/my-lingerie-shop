@@ -17,6 +17,8 @@ import type { ProductType } from '@/services/clothing-overlay';
    id: string;
    name: string;
    imageUrl: string;
+   noBgUrl?: string | null;
+  model3dUrl?: string | null;
   productType?: ProductType;
  }
  

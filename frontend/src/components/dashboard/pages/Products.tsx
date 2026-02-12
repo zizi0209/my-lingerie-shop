@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useDropzone } from 'react-dropzone';
 import {
   Plus,
@@ -18,6 +19,7 @@ import {
   Star,
   Package,
   Upload,
+  Box,
 } from 'lucide-react';
 import { productApi, type Product, type ProductImage, type CreateProductData, type UpdateProductData } from '@/lib/productApi';
 import { categoryApi, type Category } from '@/lib/categoryApi';
@@ -218,6 +220,10 @@ const Products: React.FC = () => {
     existingVariants: language === 'vi' ? 'Biến thể hiện có' : 'Existing Variants',
     newVariants: language === 'vi' ? 'Biến thể mới' : 'New Variants',
     noVariants: language === 'vi' ? 'Chưa có biến thể nào' : 'No variants yet',
+    processing3d: language === 'vi' ? 'Đang xử lý 3D' : 'Processing 3D',
+    failed3d: language === 'vi' ? 'Lỗi 3D' : '3D Failed',
+    ready3d: language === 'vi' ? '3D sẵn sàng' : '3D Ready',
+    viewProcessing: language === 'vi' ? 'Theo dõi xử lý 3D' : 'View 3D processing',
   };
 
   // Load size chart when product type changes
@@ -828,6 +834,9 @@ const Products: React.FC = () => {
                   const stock = getTotalStock(product);
                   const status = getProductStatus(product);
                   const mainImage = product.images?.[0]?.url;
+                  const has3dModel = product.images?.some((img) => !!img.model3dUrl);
+                  const hasProcessing = product.images?.some((img) => img.processingStatus === 'processing');
+                  const hasFailed = product.images?.some((img) => img.processingStatus === 'failed');
 
                   return (
                     <tr key={product.id} className="hover:bg-rose-50/30 dark:hover:bg-rose-500/5 transition-colors group">
@@ -892,16 +901,42 @@ const Products: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          status === 'active' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' :
-                          status === 'out_of_stock' ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400' :
-                          'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-500'
-                        }`}>
-                          {status === 'active' ? t.active : status === 'out_of_stock' ? t.outOfStock : t.draft}
-                        </span>
+                        <div className="flex flex-col gap-2">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            status === 'active' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' :
+                            status === 'out_of_stock' ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400' :
+                            'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-500'
+                          }`}>
+                            {status === 'active' ? t.active : status === 'out_of_stock' ? t.outOfStock : t.draft}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {hasProcessing && (
+                              <span className="px-2 py-1 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                                {t.processing3d}
+                              </span>
+                            )}
+                            {hasFailed && (
+                              <span className="px-2 py-1 rounded-full text-[9px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">
+                                {t.failed3d}
+                              </span>
+                            )}
+                            {has3dModel && (
+                              <span className="px-2 py-1 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                                {t.ready3d}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end space-x-1">
+                          <Link
+                            href={`/dashboard/products/${product.id}/processing`}
+                            className="p-2 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg transition-all"
+                            title={t.viewProcessing}
+                          >
+                            <Box size={16} />
+                          </Link>
                           <button
                             onClick={() => handleOpenAI(product)}
                             className="p-2 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10 rounded-lg transition-all"

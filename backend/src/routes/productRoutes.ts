@@ -18,6 +18,13 @@ import {
   deleteProductVariant,
 } from '../controllers/productController';
 import { authenticateToken, isAdmin } from '../middleware/auth';
+import {
+  getProductProcessingStatus,
+  triggerImageProcessing,
+  retryImageProcessing,
+  processSingleImage,
+  checkTripoSrStatus,
+} from '../controllers/imageProcessingController';
 
 const router = express.Router();
 
@@ -39,6 +46,13 @@ router.get('/images/:imageId', getProductImageById);
 router.post('/:id/images', authenticateToken, isAdmin, addProductImages);
 router.put('/images/:imageId', authenticateToken, isAdmin, updateProductImage);
 router.delete('/images/:imageId', authenticateToken, isAdmin, deleteProductImage);
+
+// Image processing routes (admin only)
+router.get('/:id/processing-status', authenticateToken, isAdmin, getProductProcessingStatus);
+router.post('/:id/process-images', authenticateToken, isAdmin, triggerImageProcessing);
+router.post('/:id/retry-processing', authenticateToken, isAdmin, retryImageProcessing);
+router.post('/images/:imageId/process', authenticateToken, isAdmin, processSingleImage);
+router.get('/processing/triposr-status', authenticateToken, isAdmin, checkTripoSrStatus);
 
 // Public routes - Product Variants
 router.get('/:id/variants', getAllProductVariants);

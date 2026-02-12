@@ -149,6 +149,9 @@ model Product {
 model ProductImage {
   id        Int      @id @default(autoincrement())
   url       String
+  noBgUrl          String?
+  model3dUrl       String?
+  processingStatus String   @default("pending")
   productId Int
   colorId   Int?
   createdAt DateTime @default(now())

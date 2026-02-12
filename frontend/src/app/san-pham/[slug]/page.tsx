@@ -23,10 +23,15 @@ import { useAuth } from "@/context/AuthContext";
 import type { ProductType } from "@/lib/sizeTemplateApi";
 import { trackProductView, trackCartEvent } from "@/lib/tracking";
 import { sanitizeForPublic } from "@/lib/sanitize";
+import Product3DViewer from "@/components/product/Product3DViewer";
+import { Box } from "lucide-react";
 
 interface ProductImage {
   id: number;
   url: string;
+  noBgUrl?: string | null;
+  model3dUrl?: string | null;
+  processingStatus?: string;
   colorId: number | null;
 }
 
@@ -46,7 +51,7 @@ interface ColorGroup {
   hexCode: string;
   slug: string;
   isDefault: boolean;
-  images: { id: number; url: string }[];
+  images: { id: number; url: string; noBgUrl?: string | null }[];
   sizes: { variantId: number; size: string; stock: number; price?: number | null; salePrice?: number | null }[];
   totalStock: number;
 }
@@ -104,6 +109,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const [tryOnModalOpen, setTryOnModalOpen] = useState(false);
+  const [show3DViewer, setShow3DViewer] = useState(false);
   // Size System V2 state
   const [regionCode, setRegionCode] = useState<RegionCode>('US');
 
@@ -340,19 +346,26 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   }
 
   // Get images for selected color, or all images if no color selected
-  const productImages = (() => {
+  const productImageObjects = (() => {
     if (selectedColorGroup && selectedColorGroup.images.length > 0) {
-      return selectedColorGroup.images.map(img => img.url);
+      return selectedColorGroup.images;
     }
-    // Fallback: show images with colorId = null or all images
     const generalImages = product.images.filter(img => img.colorId === null);
     if (generalImages.length > 0) {
-      return generalImages.map(img => img.url);
+      return generalImages;
     }
-    return product.images.length > 0
-      ? product.images.map(img => img.url)
-      : ["https://via.placeholder.com/600x800"];
+    return product.images.length > 0 ? product.images : [];
   })();
+  const productImages = productImageObjects.length > 0
+    ? productImageObjects.map(img => img.url)
+    : ["https://via.placeholder.com/600x800"];
+
+  // Find first available 3D model URL
+  const model3dUrl = product.images.find(img => img.model3dUrl)?.model3dUrl ?? null;
+  const selectedImageObject = product.images.find(
+    (img) => img.url === productImages[selectedImage]
+  );
+  const selectedModel3dUrl = selectedImageObject?.model3dUrl ?? model3dUrl;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -368,19 +381,45 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20">
         {/* Product Images */}
         <div className="space-y-4">
-          <div className="relative aspect-3/4 bg-gray-50 dark:bg-gray-800 overflow-hidden rounded-lg">
-            <Image
-              src={productImages[selectedImage]}
-              alt={product.name}
-              fill
-              className="object-cover"
+          {show3DViewer && model3dUrl ? (
+            <Product3DViewer
+              model3dUrl={model3dUrl}
+              productName={product.name}
+              className="aspect-3/4"
             />
-            {discount > 0 && (
-              <span className="absolute top-4 left-4 bg-red-600 text-white text-sm px-3 py-1">
-                -{discount}%
-              </span>
+          ) : (
+            <div className="relative aspect-3/4 bg-gray-50 dark:bg-gray-800 overflow-hidden rounded-lg">
+              <Image
+                src={productImages[selectedImage]}
+                alt={product.name}
+                fill
+                className="object-cover"
+              />
+              {discount > 0 && (
+                <span className="absolute top-4 left-4 bg-red-600 text-white text-sm px-3 py-1">
+                  -{discount}%
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* 3D toggle + thumbnails */}
+          <div className="flex items-center gap-2">
+            {model3dUrl && (
+              <button
+                onClick={() => setShow3DViewer(!show3DViewer)}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded border-2 transition-all ${
+                  show3DViewer
+                    ? "border-black dark:border-white bg-black text-white dark:bg-white dark:text-black"
+                    : "border-gray-300 dark:border-gray-600 hover:border-black dark:hover:border-white"
+                }`}
+              >
+                <Box className="w-4 h-4" />
+                3D
+              </button>
             )}
           </div>
+
           {productImages.length > 1 && (
             <div className="grid grid-cols-4 gap-2">
               {productImages.map((image, index) => (
@@ -765,6 +804,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             id: String(product.id),
             name: product.name,
             imageUrl: productImages[selectedImage] || productImages[0],
+            noBgUrl: productImageObjects[selectedImage]?.noBgUrl ?? null,
+            model3dUrl: selectedModel3dUrl,
             productType: product.productType,
           }}
           onAddToCart={handleAddToCart}

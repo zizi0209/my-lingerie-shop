@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { generateUniqueProductSlug } from '../utils/slugify';
 import { Prisma } from '@prisma/client';
+import { processProductImagesAsync } from '../services/imageProcessingService';
 
 // Helper function to group product data by colors
 interface ColorGroup {
@@ -10,14 +11,14 @@ interface ColorGroup {
   hexCode: string;
   slug: string;
   isDefault: boolean;
-  images: { id: number; url: string }[];
+  images: { id: number; url: string; noBgUrl?: string | null }[];
   sizes: { variantId: number; size: string; stock: number; price?: number | null; salePrice?: number | null }[];
   totalStock: number;
 }
 
 function groupProductByColors(product: {
   productColors?: { colorId: number; isDefault: boolean; order: number; color: { id: number; name: string; hexCode: string; slug: string } }[];
-  images?: { id: number; url: string; colorId: number | null }[];
+  images?: { id: number; url: string; noBgUrl?: string | null; colorId: number | null }[];
   variants?: { id: number; colorId: number; size: string; stock: number; price: number | null; salePrice: number | null }[];
 }): ColorGroup[] {
   if (!product.productColors || product.productColors.length === 0) {
@@ -29,7 +30,7 @@ function groupProductByColors(product: {
     .map(pc => {
       const colorImages = (product.images || [])
         .filter(img => img.colorId === pc.colorId || img.colorId === null)
-        .map(img => ({ id: img.id, url: img.url }));
+        .map(img => ({ id: img.id, url: img.url, noBgUrl: img.noBgUrl ?? null }));
 
       const colorVariants = (product.variants || [])
         .filter(v => v.colorId === pc.colorId)
@@ -55,6 +56,150 @@ function groupProductByColors(product: {
 
   return colorGroups;
 }
+
+const isLegacySchemaError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : '';
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes('productcolor') ||
+    normalized.includes('product_colors') ||
+    normalized.includes('ratingaverage') ||
+    normalized.includes('reviewcount')
+  );
+};
+
+const productSelectWithColors = {
+  id: true,
+  name: true,
+  slug: true,
+  description: true,
+  price: true,
+  salePrice: true,
+  categoryId: true,
+  isFeatured: true,
+  isVisible: true,
+  ratingAverage: true,
+  reviewCount: true,
+  createdAt: true,
+  updatedAt: true,
+  category: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
+  images: {
+    select: {
+      id: true,
+      url: true,
+      noBgUrl: true,
+      model3dUrl: true,
+      processingStatus: true,
+      colorId: true,
+    },
+  },
+  productColors: {
+    orderBy: { order: 'asc' as const },
+    select: {
+      colorId: true,
+      isDefault: true,
+      order: true,
+      color: {
+        select: {
+          id: true,
+          name: true,
+          hexCode: true,
+          slug: true,
+        },
+      },
+    },
+  },
+  variants: {
+    select: {
+      id: true,
+      size: true,
+      colorId: true,
+      stock: true,
+      price: true,
+      salePrice: true,
+    },
+  },
+} satisfies Prisma.ProductSelect;
+
+const productSelectLegacy = {
+  id: true,
+  name: true,
+  slug: true,
+  description: true,
+  price: true,
+  salePrice: true,
+  categoryId: true,
+  isFeatured: true,
+  isVisible: true,
+  createdAt: true,
+  updatedAt: true,
+  category: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
+  images: {
+    select: {
+      id: true,
+      url: true,
+      noBgUrl: true,
+      model3dUrl: true,
+      processingStatus: true,
+      colorId: true,
+    },
+  },
+} satisfies Prisma.ProductSelect;
+
+const productDetailSelectWithColors = {
+  ...productSelectWithColors,
+  productType: true,
+  brandId: true,
+  variants: {
+    select: {
+      id: true,
+      sku: true,
+      size: true,
+      colorId: true,
+      stock: true,
+      price: true,
+      salePrice: true,
+    },
+  },
+} satisfies Prisma.ProductSelect;
+
+const productDetailSelectLegacy = {
+  ...productSelectLegacy,
+  productType: true,
+  brandId: true,
+  variants: {
+    select: {
+      id: true,
+      sku: true,
+      size: true,
+      colorId: true,
+      stock: true,
+      price: true,
+      salePrice: true,
+    },
+  },
+} satisfies Prisma.ProductSelect;
+
+type ProductWithColors = Prisma.ProductGetPayload<{ select: typeof productSelectWithColors }>;
+type ProductLegacy = Prisma.ProductGetPayload<{ select: typeof productSelectLegacy }>;
+type ProductResult = ProductWithColors | ProductLegacy;
+
+type ProductDetailWithColors = Prisma.ProductGetPayload<{ select: typeof productDetailSelectWithColors }>;
+type ProductDetailLegacy = Prisma.ProductGetPayload<{ select: typeof productDetailSelectLegacy }>;
+type ProductDetailResult = ProductDetailWithColors | ProductDetailLegacy;
 
 // Get all products
 export const getAllProducts = async (req: Request, res: Response) => {
@@ -191,99 +336,76 @@ export const getAllProducts = async (req: Request, res: Response) => {
       }
     }
 
-    // Execute queries in parallel
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { [sortField]: order },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          description: true,
-          price: true,
-          salePrice: true,
-          categoryId: true,
-          isFeatured: true,
-          isVisible: true,
-          ratingAverage: true,
-          reviewCount: true,
-          createdAt: true,
-          updatedAt: true,
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-          images: {
-            select: {
-              id: true,
-              url: true,
-              colorId: true,
-            },
-          },
-          productColors: {
-            orderBy: { order: 'asc' },
-            select: {
-              colorId: true,
-              isDefault: true,
-              order: true,
-              color: {
-                select: {
-                  id: true,
-                  name: true,
-                  hexCode: true,
-                  slug: true,
-                },
-              },
-            },
-          },
-          variants: {
-            select: {
-              id: true,
-              size: true,
-              colorId: true,
-              stock: true,
-              price: true,
-              salePrice: true,
-            },
-          },
-        },
-      }),
-      prisma.product.count({ where }),
-    ]);
+    let products: ProductResult[] = [];
+    let total = 0;
+    let legacyMode = false;
+
+    try {
+      [products, total] = await Promise.all([
+        prisma.product.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { [sortField]: order },
+          select: productSelectWithColors,
+        }),
+        prisma.product.count({ where }),
+      ]);
+    } catch (error) {
+      if (!isLegacySchemaError(error)) {
+        throw error;
+      }
+
+      legacyMode = true;
+      const legacyWhere: Prisma.ProductWhereInput = { ...where };
+      delete legacyWhere.productColors;
+      delete legacyWhere.variants;
+
+      [products, total] = await Promise.all([
+        prisma.product.findMany({
+          where: legacyWhere,
+          skip,
+          take: limit,
+          orderBy: { [sortField]: order },
+          select: productSelectLegacy,
+        }),
+        prisma.product.count({ where: legacyWhere }),
+      ]);
+    }
 
     // Add effectivePrice for frontend convenience
-    const responseProducts = products.map(p => {
-      const colorGroups = groupProductByColors(p);
+    const responseProducts = products.map(product => {
+      const colorGroups = legacyMode || !('productColors' in product)
+        ? []
+        : groupProductByColors(product);
       const defaultColor = colorGroups.find(cg => cg.isDefault) || colorGroups[0];
-      
+
+      const ratingAverage = 'ratingAverage' in product ? product.ratingAverage : 0;
+      const reviewCount = 'reviewCount' in product ? product.reviewCount : 0;
+      const variants = 'variants' in product ? product.variants : [];
+
       return {
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        description: p.description,
-        price: p.price,
-        salePrice: p.salePrice,
-        effectivePrice: p.salePrice ?? p.price,
-        categoryId: p.categoryId,
-        isFeatured: p.isFeatured,
-        isVisible: p.isVisible,
-        ratingAverage: p.ratingAverage,
-        reviewCount: p.reviewCount,
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
-        category: p.category,
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        description: product.description,
+        price: product.price,
+        salePrice: product.salePrice,
+        effectivePrice: product.salePrice ?? product.price,
+        categoryId: product.categoryId,
+        isFeatured: product.isFeatured,
+        isVisible: product.isVisible,
+        ratingAverage,
+        reviewCount,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+        category: product.category,
         // Default image for listing (first image of default color)
-        image: defaultColor?.images[0]?.url || p.images[0]?.url || null,
-        images: p.images,
+        image: defaultColor?.images[0]?.url || product.images[0]?.url || null,
+        images: product.images,
         colorGroups,
         // For backward compatibility
-        variants: p.variants,
+        variants,
       };
     });
 
@@ -308,64 +430,42 @@ export const getProductById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const product = await prisma.product.findUnique({
-      where: { id: Number(id) },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        images: {
-          select: {
-            id: true,
-            url: true,
-            colorId: true,
-          },
-        },
-        productColors: {
-          orderBy: { order: 'asc' },
-          select: {
-            colorId: true,
-            isDefault: true,
-            order: true,
-            color: {
-              select: {
-                id: true,
-                name: true,
-                hexCode: true,
-                slug: true,
-              },
-            },
-          },
-        },
-        variants: {
-          select: {
-            id: true,
-            sku: true,
-            size: true,
-            colorId: true,
-            stock: true,
-            price: true,
-            salePrice: true,
-          },
-        },
-      },
-    });
+    let product: ProductDetailResult | null = null;
+    let legacyMode = false;
+
+    try {
+      product = await prisma.product.findUnique({
+        where: { id: Number(id) },
+        select: productDetailSelectWithColors,
+      });
+    } catch (error) {
+      if (!isLegacySchemaError(error)) {
+        throw error;
+      }
+      legacyMode = true;
+      product = await prisma.product.findUnique({
+        where: { id: Number(id) },
+        select: productDetailSelectLegacy,
+      });
+    }
 
     if (!product) {
       return res.status(404).json({ error: 'Không tìm thấy sản phẩm!' });
     }
 
-    const colorGroups = groupProductByColors(product);
+    const colorGroups = legacyMode || !('productColors' in product)
+      ? []
+      : groupProductByColors(product);
     const defaultColor = colorGroups.find(cg => cg.isDefault) || colorGroups[0];
+    const ratingAverage = 'ratingAverage' in product ? product.ratingAverage : 0;
+    const reviewCount = 'reviewCount' in product ? product.reviewCount : 0;
 
     res.json({
       success: true,
       data: {
         ...product,
+        ratingAverage,
+        reviewCount,
         colorGroups,
         defaultImage: defaultColor?.images[0]?.url || product.images[0]?.url || null,
       },
@@ -381,66 +481,42 @@ export const getProductBySlug = async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
 
-    const product = await prisma.product.findUnique({
-      where: { slug },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        images: {
-          select: {
-            id: true,
-            url: true,
-            colorId: true,
-          },
-        },
-        productColors: {
-          orderBy: { order: 'asc' },
-          select: {
-            colorId: true,
-            isDefault: true,
-            order: true,
-            color: {
-              select: {
-                id: true,
-                name: true,
-                hexCode: true,
-                slug: true,
-              },
-            },
-          },
-        },
-        variants: {
-          select: {
-            id: true,
-            sku: true,
-            size: true,
-            colorId: true,
-            stock: true,
-            price: true,
-            salePrice: true,
-          },
-        },
-      },
-    });
+    let product: ProductDetailResult | null = null;
+    let legacyMode = false;
+
+    try {
+      product = await prisma.product.findUnique({
+        where: { slug },
+        select: productDetailSelectWithColors,
+      });
+    } catch (error) {
+      if (!isLegacySchemaError(error)) {
+        throw error;
+      }
+      legacyMode = true;
+      product = await prisma.product.findUnique({
+        where: { slug },
+        select: productDetailSelectLegacy,
+      });
+    }
 
     if (!product) {
       return res.status(404).json({ error: 'Không tìm thấy sản phẩm!' });
     }
 
-    const colorGroups = groupProductByColors(product);
+    const colorGroups = legacyMode || !('productColors' in product)
+      ? []
+      : groupProductByColors(product);
     const defaultColor = colorGroups.find(cg => cg.isDefault) || colorGroups[0];
+    const ratingAverage = 'ratingAverage' in product ? product.ratingAverage : 0;
+    const reviewCount = 'reviewCount' in product ? product.reviewCount : 0;
 
     res.json({
       success: true,
       data: {
         ...product,
-        ratingAverage: product.ratingAverage,
-        reviewCount: product.reviewCount,
+        ratingAverage,
+        reviewCount,
         colorGroups,
         // Default image
         defaultImage: defaultColor?.images[0]?.url || product.images[0]?.url || null,
@@ -797,6 +873,11 @@ export const addProductImages = async (req: Request, res: Response) => {
         url: imageUrl,
         productId: Number(id),
       })),
+    });
+
+    // Trigger async image processing (bg removal + 3D generation)
+    processProductImagesAsync(Number(id)).catch((err) => {
+      console.error(`[Processing] Auto-processing failed for product ${id}:`, err);
     });
 
     res.status(201).json({

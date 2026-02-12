@@ -113,7 +113,7 @@ export default function RecommendationSection({
         }
 
         const url = `${endpoint}?${params.toString()}`;
-        const response = await api.get(url) as { success: boolean; data: { products: ProductCard[]; reason?: string } };
+        const response = await api.get(url, false) as { success: boolean; data: { products: ProductCard[]; reason?: string } };
         
         if (response.success && response.data.products) {
           setProducts(response.data.products);
@@ -141,7 +141,7 @@ export default function RecommendationSection({
         sectionType: type,
         sessionId: sessionId || 'anonymous',
         userId
-      });
+      }, false);
     } catch {
       // Silent fail for tracking
     }

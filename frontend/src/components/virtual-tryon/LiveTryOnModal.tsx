@@ -1,12 +1,13 @@
  'use client';
  
- import { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Camera, RotateCcw, Download, Loader2, AlertCircle, Sparkles } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { X, Camera, RotateCcw, Download, Loader2, AlertCircle, Sparkles, Box } from 'lucide-react';
  import Webcam from 'react-webcam';
 import { detectPoseFromVideo, initPoseLandmarkerVideo } from '@/services/pose-detection';
 import { detectPersonMaskFromVideo, initBodySegmenterVideo } from '@/services/body-segmentation';
 import { processVirtualTryOn, getErrorMessage } from '@/services/virtual-tryon-api';
 import { removeBackgroundClient, preloadBgRemovalModel } from '@/services/client-bg-removal';
+import Product3DViewer from '@/components/product/Product3DViewer';
  import {
    calculateOverlayPosition,
    drawClothingOverlay,
@@ -24,6 +25,8 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
    id: string;
    name: string;
    imageUrl: string;
+  noBgUrl?: string | null;
+  model3dUrl?: string | null;
    productType?: ProductType;
  }
  
@@ -75,6 +78,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
   const [aiProgress, setAiProgress] = useState(0);
   const [aiMessage, setAiMessage] = useState('');
   const [aiError, setAiError] = useState<string | null>(null);
+  const [show3DPreview, setShow3DPreview] = useState(false);
  
    const productType: ProductType = product.productType || 'BRA';
 
@@ -313,9 +317,19 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
     [computePoseMetrics]
   );
  
+  useEffect(() => {
+    if (!isOpen) return;
+    if (product.model3dUrl) {
+      setShow3DPreview(true);
+    } else {
+      setShow3DPreview(false);
+    }
+  }, [isOpen, product.model3dUrl]);
+
   // Load clothing image (with background removal)
   useEffect(() => {
     if (!isOpen) return;
+    if (show3DPreview) return;
 
     let isCancelled = false;
 
@@ -323,17 +337,22 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
       const originalUrl = product.imageUrl;
       let finalUrl = originalUrl;
 
-      const cached = processedImageCacheRef.current.get(originalUrl);
-      if (cached) {
-        finalUrl = cached;
+      // Use pre-processed noBgUrl if available (instant, high quality)
+      if (product.noBgUrl) {
+        finalUrl = product.noBgUrl;
       } else {
-        try {
-          const noBgUrl = await removeBackgroundClient(originalUrl);
-          finalUrl = noBgUrl;
-          processedImageCacheRef.current.set(originalUrl, finalUrl);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : 'Không thể xóa nền ảnh';
-          console.warn('[LiveTryOn] Background removal failed:', message);
+        const cached = processedImageCacheRef.current.get(originalUrl);
+        if (cached) {
+          finalUrl = cached;
+        } else {
+          try {
+            const noBgUrl = await removeBackgroundClient(originalUrl);
+            finalUrl = noBgUrl;
+            processedImageCacheRef.current.set(originalUrl, finalUrl);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Không thể xóa nền ảnh';
+            console.warn('[LiveTryOn] Background removal failed:', message);
+          }
         }
       }
 
@@ -359,11 +378,16 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
       isCancelled = true;
       clothingImageRef.current = null;
     };
-  }, [isOpen, product.imageUrl]);
+  }, [isOpen, product.imageUrl, product.noBgUrl, show3DPreview]);
  
-   // Initialize pose landmarker
+  // Initialize pose landmarker
    useEffect(() => {
      if (!isOpen) return;
+    if (show3DPreview) {
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
  
      setIsLoading(true);
      setError(null);
@@ -389,7 +413,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
          cancelAnimationFrame(animationRef.current);
        }
      };
-   }, [isOpen]);
+  }, [isOpen, show3DPreview]);
  
    // Real-time pose detection and overlay
    const processFrame = useCallback(async () => {
@@ -713,6 +737,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
        }
        setCapturedImage(null);
        setIsPoseDetected(false);
+      setShow3DPreview(false);
      }
    }, [isOpen]);
  
@@ -729,27 +754,44 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
              </h2>
              <p className="text-sm text-white/70">Xem trước trực tiếp</p>
            </div>
-           <button
-             type="button"
-             onClick={onClose}
-             className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-           >
-             <X className="w-6 h-6 text-white" />
-           </button>
+          <div className="flex items-center gap-2">
+            {product.model3dUrl && (
+              <button
+                type="button"
+                onClick={() => setShow3DPreview((prev) => !prev)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                  show3DPreview
+                    ? 'bg-white text-black border-white'
+                    : 'bg-white/20 text-white border-white/40 hover:bg-white/30'
+                }`}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Box className="w-4 h-4" /> 3D
+                </span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+          </div>
          </div>
        </div>
  
        {/* Main content */}
        <div className="relative w-full h-full flex items-center justify-center">
-         {/* Loading state */}
-         {isLoading && (
-           <div className="absolute inset-0 flex items-center justify-center bg-black z-30">
-             <div className="text-center text-white">
-               <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" />
-               <p>Đang khởi tạo camera...</p>
-             </div>
-           </div>
-         )}
+        {/* Loading state */}
+        {isLoading && !show3DPreview && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black z-30">
+            <div className="text-center text-white">
+              <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" />
+              <p>Đang khởi tạo camera...</p>
+            </div>
+          </div>
+        )}
  
          {/* Error state */}
          {error && (
@@ -768,8 +810,16 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
            </div>
          )}
  
-         {/* Captured image preview */}
-         {capturedImage ? (
+        {/* 3D Preview */}
+        {show3DPreview && product.model3dUrl ? (
+          <div className="w-full h-full flex items-center justify-center px-6">
+            <Product3DViewer
+              model3dUrl={product.model3dUrl}
+              productName={product.name}
+              className="w-full max-w-3xl h-[70vh]"
+            />
+          </div>
+        ) : capturedImage ? (
            <div className="relative w-full h-full">
              {aiStatus === 'loading' && (
                <div className="absolute inset-0 bg-black/60 z-20 flex items-center justify-center">
@@ -820,7 +870,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
          )}
  
          {/* Pose status indicator */}
-         {!capturedImage && !isLoading && !error && (
+        {!capturedImage && !isLoading && !error && !show3DPreview && (
            <div
              className={`absolute top-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-medium z-10 transition-colors ${
                isPoseDetected
@@ -835,8 +885,31 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
  
        {/* Bottom controls */}
        <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/70 to-transparent p-6">
-         <div className="flex items-center justify-center gap-6">
-           {capturedImage ? (
+        <div className="flex items-center justify-center gap-6">
+          {show3DPreview ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setShow3DPreview(false)}
+                className="flex flex-col items-center gap-1 text-white"
+              >
+                <div className="p-4 rounded-full bg-pink-500 hover:bg-pink-600 transition-colors">
+                  <Camera className="w-8 h-8" />
+                </div>
+                <span className="text-xs">Bắt đầu thử ảo</span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex flex-col items-center gap-1 text-white"
+              >
+                <div className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors">
+                  <X className="w-6 h-6" />
+                </div>
+                <span className="text-xs">Đóng</span>
+              </button>
+            </>
+          ) : capturedImage ? (
              <>
                {/* Retake button */}
                <button
