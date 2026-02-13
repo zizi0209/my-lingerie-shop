@@ -366,6 +366,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     (img) => img.url === productImages[selectedImage]
   );
   const selectedModel3dUrl = selectedImageObject?.model3dUrl ?? model3dUrl;
+  const model3dPosterUrl = selectedImageObject?.noBgUrl ?? productImages[selectedImage];
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -385,6 +386,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             <Product3DViewer
               model3dUrl={model3dUrl}
               productName={product.name}
+              posterUrl={model3dPosterUrl}
               className="aspect-3/4"
             />
           ) : (

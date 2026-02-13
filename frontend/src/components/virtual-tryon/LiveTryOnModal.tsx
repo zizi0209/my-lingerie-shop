@@ -816,6 +816,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
             <Product3DViewer
               model3dUrl={product.model3dUrl}
               productName={product.name}
+              posterUrl={product.noBgUrl ?? product.imageUrl}
               className="w-full max-w-3xl h-[70vh]"
             />
           </div>

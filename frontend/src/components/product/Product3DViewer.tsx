@@ -6,10 +6,11 @@
  interface Product3DViewerProps {
    model3dUrl: string;
    productName: string;
+  posterUrl?: string;
    className?: string;
  }
  
- export default function Product3DViewer({ model3dUrl, productName, className = "" }: Product3DViewerProps) {
+export default function Product3DViewer({ model3dUrl, productName, posterUrl, className = "" }: Product3DViewerProps) {
    const containerRef = useRef<HTMLDivElement>(null);
    const [loading, setLoading] = useState(true);
    const [error, setError] = useState(false);
@@ -40,6 +41,7 @@
          <model-viewer
            src={model3dUrl}
            alt={`Mô hình 3D - ${productName}`}
+          poster={posterUrl}
            auto-rotate
            camera-controls
            shadow-intensity="1"

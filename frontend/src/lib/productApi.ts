@@ -58,6 +58,7 @@ export interface ProcessingStatusSummary {
   pending: number;
   processing: number;
   completed: number;
+  partial: number;
   failed: number;
 }
 
@@ -72,6 +73,14 @@ export interface ImageProcessingResult {
   noBgUrl?: string;
   model3dUrl?: string;
   error?: string;
+}
+
+export interface TripoSrStatusResponse {
+  success: boolean;
+  available: boolean;
+  lastCheckedAt: string | null;
+  lastError: string | null;
+  lastLatencyMs: number | null;
 }
 
 export interface ProductListParams {
@@ -247,6 +256,10 @@ export const productApi = {
       return api.get(`/products/${productId}/processing-status`);
     },
 
+    async getTripoSrStatus(): Promise<TripoSrStatusResponse> {
+      return api.get('/products/processing/triposr-status');
+    },
+
     async processAll(productId: number): Promise<{ success: boolean; message: string }> {
       return api.post(`/products/${productId}/process-images`, {});
     },
@@ -257,6 +270,10 @@ export const productApi = {
 
     async processImage(imageId: number): Promise<{ success: boolean; data: ImageProcessingResult }> {
       return api.post(`/products/images/${imageId}/process`, {});
+    },
+
+    async retry3D(imageId: number): Promise<{ success: boolean; data: ImageProcessingResult }> {
+      return api.post(`/products/images/${imageId}/retry-3d`, {});
     },
   },
 };

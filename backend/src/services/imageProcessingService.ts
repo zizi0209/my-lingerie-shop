@@ -12,7 +12,8 @@
  import { prisma } from '../lib/prisma';
  import { cloudinary } from '../config/cloudinary';
  import { removeImageBackground } from '../utils/backgroundRemoval';
- import { generateModel3D, isTripoSrAvailable } from './tripoSrClient';
+import { generateModel3D } from './tripoSrClient';
+import { getTripoSrAvailability } from './tripoSrHealth';
  
  interface ProcessingResult {
    imageId: number;
@@ -107,7 +108,8 @@
  
      // Step 3: Generate 3D model (only if TripoSR is available)
      let model3dUrl: string | undefined;
-     const tripoAvailable = await isTripoSrAvailable();
+    const tripoHealth = await getTripoSrAvailability();
+    const tripoAvailable = tripoHealth.available;
  
      if (tripoAvailable) {
        try {
@@ -133,11 +135,17 @@
          console.error(`[Processing] Image ${imageId}: TripoSR error:`, msg);
        }
      } else {
-       console.warn(`[Processing] Image ${imageId}: TripoSR not available, skipping 3D`);
+      console.warn(
+        `[Processing] Image ${imageId}: TripoSR not available, skipping 3D (${tripoHealth.lastError || 'unhealthy'})`
+      );
      }
  
      // Step 4: Update final status
-     const status = noBgUrl || model3dUrl ? 'completed' : 'failed';
+   const status = noBgUrl && model3dUrl
+     ? 'completed'
+     : noBgUrl
+       ? 'partial'
+       : 'failed';
      await prisma.productImage.update({
        where: { id: imageId },
        data: {
@@ -161,6 +169,85 @@
      return { imageId, success: false, error: message };
    }
  }
+
+/**
+ * Retry 3D generation for a single image (uses existing noBgUrl if available)
+ */
+export async function retryModel3DGeneration(imageId: number): Promise<ProcessingResult> {
+  try {
+    const image = await prisma.productImage.findUnique({
+      where: { id: imageId },
+      select: { id: true, url: true, noBgUrl: true },
+    });
+
+    if (!image) {
+      return { imageId, success: false, error: 'Image not found' };
+    }
+
+    await prisma.productImage.update({
+      where: { id: imageId },
+      data: { processingStatus: 'processing' },
+    });
+
+    const tripoHealth = await getTripoSrAvailability();
+    if (!tripoHealth.available) {
+      await prisma.productImage.update({
+        where: { id: imageId },
+        data: { processingStatus: image.noBgUrl ? 'partial' : 'failed' },
+      });
+      return {
+        imageId,
+        success: false,
+        noBgUrl: image.noBgUrl || undefined,
+        error: tripoHealth.lastError || 'TripoSR not available',
+      };
+    }
+
+    const sourceBuffer = image.noBgUrl
+      ? await downloadImageBuffer(image.noBgUrl)
+      : await downloadImageBuffer(image.url);
+
+    const result = await generateModel3D(sourceBuffer);
+    if (!result.success || !result.glbBuffer) {
+      await prisma.productImage.update({
+        where: { id: imageId },
+        data: { processingStatus: image.noBgUrl ? 'partial' : 'failed' },
+      });
+      return {
+        imageId,
+        success: false,
+        noBgUrl: image.noBgUrl || undefined,
+        error: result.error || 'TripoSR returned empty result',
+      };
+    }
+
+    const model3dUrl = await uploadBufferToCloudinary(result.glbBuffer, {
+      folder: 'lingerie-shop/3d-models',
+      format: 'glb',
+    });
+
+    const status = image.noBgUrl ? 'completed' : 'partial';
+    await prisma.productImage.update({
+      where: { id: imageId },
+      data: { model3dUrl, processingStatus: status },
+    });
+
+    return {
+      imageId,
+      success: status === 'completed',
+      noBgUrl: image.noBgUrl || undefined,
+      model3dUrl,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '3D generation failed';
+    await prisma.productImage.update({
+      where: { id: imageId },
+      data: { processingStatus: 'failed' },
+    }).catch(() => {});
+
+    return { imageId, success: false, error: message };
+  }
+}
  
  /**
   * Process all pending images for a product (async, fire-and-forget)
@@ -228,6 +315,7 @@
      pending: images.filter(i => i.processingStatus === 'pending').length,
      processing: images.filter(i => i.processingStatus === 'processing').length,
      completed: images.filter(i => i.processingStatus === 'completed').length,
+    partial: images.filter(i => i.processingStatus === 'partial').length,
      failed: images.filter(i => i.processingStatus === 'failed').length,
    };
  

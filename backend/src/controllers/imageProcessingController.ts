@@ -1,11 +1,12 @@
  import { Request, Response } from 'express';
  import {
    processProductImage,
+  retryModel3DGeneration,
    processProductImagesAsync,
    retryFailedImages,
    getProcessingStatus,
  } from '../services/imageProcessingService';
- import { isTripoSrAvailable } from '../services/tripoSrClient';
+import { getTripoSrAvailability } from '../services/tripoSrHealth';
  
  /**
   * GET /api/products/:id/processing-status
@@ -82,6 +83,22 @@
      res.status(500).json({ error: message });
    }
  };
+
+/**
+ * POST /api/images/:imageId/retry-3d
+ * Retry chỉ bước tạo 3D cho 1 ảnh
+ */
+export const retryModel3D = async (req: Request, res: Response) => {
+  try {
+    const { imageId } = req.params;
+    const result = await retryModel3DGeneration(Number(imageId));
+
+    res.json({ success: result.success, data: result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Lỗi không xác định';
+    res.status(500).json({ error: message });
+  }
+};
  
  /**
   * GET /api/processing/triposr-status
@@ -89,8 +106,14 @@
   */
  export const checkTripoSrStatus = async (_req: Request, res: Response) => {
    try {
-     const available = await isTripoSrAvailable();
-     res.json({ success: true, available });
+    const status = await getTripoSrAvailability();
+    res.json({
+      success: true,
+      available: status.available,
+      lastCheckedAt: status.lastCheckedAt,
+      lastError: status.lastError,
+      lastLatencyMs: status.lastLatencyMs,
+    });
    } catch (err) {
      const message = err instanceof Error ? err.message : 'Lỗi không xác định';
      res.status(500).json({ error: message });

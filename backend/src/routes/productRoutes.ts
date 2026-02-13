@@ -23,6 +23,7 @@ import {
   triggerImageProcessing,
   retryImageProcessing,
   processSingleImage,
+  retryModel3D,
   checkTripoSrStatus,
 } from '../controllers/imageProcessingController';
 
@@ -52,6 +53,7 @@ router.get('/:id/processing-status', authenticateToken, isAdmin, getProductProce
 router.post('/:id/process-images', authenticateToken, isAdmin, triggerImageProcessing);
 router.post('/:id/retry-processing', authenticateToken, isAdmin, retryImageProcessing);
 router.post('/images/:imageId/process', authenticateToken, isAdmin, processSingleImage);
+router.post('/images/:imageId/retry-3d', authenticateToken, isAdmin, retryModel3D);
 router.get('/processing/triposr-status', authenticateToken, isAdmin, checkTripoSrStatus);
 
 // Public routes - Product Variants
