@@ -22,8 +22,8 @@
              className="w-full h-48 sm:h-64 object-contain rounded-lg bg-gray-100"
            />
          </div>
-         <div>
-           <p className="text-sm text-gray-500 mb-2">Kết quả AI</p>
+        <div>
+          <p className="text-sm text-gray-500 mb-2">Kết quả thử đồ</p>
            <img
              src={result.resultImage}
              alt="Result"

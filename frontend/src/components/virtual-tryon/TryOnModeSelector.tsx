@@ -1,8 +1,8 @@
  'use client';
  
- import { Camera, Sparkles, Clock, Zap, Lock } from 'lucide-react';
+import { Camera, Upload, Zap, Lock, ImageIcon } from 'lucide-react';
  
- export type TryOnMode = 'live' | 'ai';
+export type TryOnMode = 'live' | 'photo';
  
  interface TryOnModeSelectorProps {
    onSelectMode: (mode: TryOnMode) => void;
@@ -57,38 +57,38 @@
            </div>
          </button>
  
-         {/* AI Generation Mode */}
+        {/* Photo Upload Mode */}
          <button
            type="button"
-           onClick={() => onSelectMode('ai')}
-           className="group relative p-5 border-2 border-gray-200 rounded-xl hover:border-purple-400 hover:bg-purple-50/50 transition-all text-left"
+          onClick={() => onSelectMode('photo')}
+          className="group relative p-5 border-2 border-gray-200 rounded-xl hover:border-purple-400 hover:bg-purple-50/50 transition-all text-left"
          >
            <div className="absolute top-3 right-3">
-             <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-               <Sparkles className="w-3 h-3" />
-               AI
-             </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+              <ImageIcon className="w-3 h-3" />
+              Ảnh
+            </span>
            </div>
  
            <div className="flex items-start gap-4">
              <div className="p-3 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
-               <Sparkles className="w-6 h-6 text-purple-600" />
+              <Upload className="w-6 h-6 text-purple-600" />
              </div>
              <div className="flex-1">
                <h3 className="font-semibold text-gray-900 mb-1">
-                 Tạo ảnh bằng AI
+                Thử đồ bằng ảnh
                </h3>
                <p className="text-sm text-gray-500 mb-3">
-                 AI tạo ảnh bạn mặc sản phẩm với chất lượng cao
+                Upload ảnh toàn thân để xem trước sản phẩm
                </p>
                <ul className="space-y-1">
                  <li className="flex items-center gap-2 text-xs text-gray-600">
                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
-                   Ảnh chất lượng cao, tự nhiên
+                  Xử lý nhanh, không cần chờ đợi
                  </li>
                  <li className="flex items-center gap-2 text-xs text-gray-600">
-                   <Clock className="w-3 h-3 text-gray-400" />
-                   Thời gian xử lý 1-5 phút
+                  <Lock className="w-3 h-3 text-gray-400" />
+                  100% xử lý tại thiết bị
                  </li>
                </ul>
              </div>

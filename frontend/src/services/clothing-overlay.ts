@@ -355,6 +355,7 @@ export function drawClothingOverlayMesh(
   options?: {
     opacity?: number;
     flipHorizontal?: boolean;
+    flipVertical?: boolean;
     depthHint?: number;
     rows?: number;
   }
@@ -364,10 +365,12 @@ export function drawClothingOverlayMesh(
   const { x, y, width, height, rotation } = position;
   const opacity = options?.opacity ?? 0.9;
   const flipHorizontal = options?.flipHorizontal ?? false;
+  const flipVertical = options?.flipVertical ?? false;
   const depthHint = options?.depthHint ?? (position.bodyAngle ?? 0.12);
   const rows = options?.rows ?? 20;
   const cols = 12;
   const shoulderRatio = position.shoulderRatio ?? 1;
+  const overlapRatio = 0.02;
 
   const mW = Math.max(1, Math.round(width));
   const mH = Math.max(1, Math.round(height));
@@ -381,18 +384,20 @@ export function drawClothingOverlayMesh(
   meshCtx.imageSmoothingQuality = 'high';
 
   for (let row = 0; row < rows; row += 1) {
-    const tTop = row / rows;
-    const tBot = (row + 1) / rows;
-    const srcY = tTop * clothingImage.height;
-    const srcH = clothingImage.height / rows;
+    const baseTop = row / rows;
+    const baseBot = (row + 1) / rows;
+    const tTop = Math.max(0, baseTop - overlapRatio);
+    const tBot = Math.min(1, baseBot + overlapRatio);
+    const srcY = (flipVertical ? 1 - tBot : tTop) * clothingImage.height;
+    const srcH = (tBot - tTop) * clothingImage.height;
 
     // Perspective: top narrower/wider based on shoulderRatio
-    const perspTop = 1 + (shoulderRatio - 1) * (1 - tTop);
-    const perspBot = 1 + (shoulderRatio - 1) * (1 - tBot);
+    const perspTop = 1 + (shoulderRatio - 1) * (1 - baseTop);
+    const perspBot = 1 + (shoulderRatio - 1) * (1 - baseBot);
 
     // Body curvature (barrel distortion)
-    const curveTop = Math.abs(0.5 - tTop) * 2;
-    const curveBot = Math.abs(0.5 - tBot) * 2;
+    const curveTop = Math.abs(0.5 - baseTop) * 2;
+    const curveBot = Math.abs(0.5 - baseBot) * 2;
     const scaleTop = (1 - depthHint * curveTop * curveTop) * perspTop;
     const scaleBot = (1 - depthHint * curveBot * curveBot) * perspBot;
 
@@ -413,8 +418,8 @@ export function drawClothingOverlayMesh(
       const topSliceW = topW / cols;
       const botSliceW = botW / cols;
 
-      const dy = tTop * mH;
-      const dh = mH / rows;
+      const dy = baseTop * mH;
+      const dh = (baseBot - baseTop) * mH;
 
       meshCtx.save();
       meshCtx.beginPath();
@@ -438,20 +443,20 @@ export function drawClothingOverlayMesh(
 
   // Subtle shadow for depth
   const shadowGrad = meshCtx.createLinearGradient(0, 0, 0, mH);
-  shadowGrad.addColorStop(0, 'rgba(0,0,0,0.06)');
+  shadowGrad.addColorStop(0, 'rgba(0,0,0,0.03)');
   shadowGrad.addColorStop(0.35, 'rgba(0,0,0,0)');
   shadowGrad.addColorStop(0.65, 'rgba(0,0,0,0)');
-  shadowGrad.addColorStop(1, 'rgba(0,0,0,0.08)');
+  shadowGrad.addColorStop(1, 'rgba(0,0,0,0.04)');
   meshCtx.globalCompositeOperation = 'multiply';
   meshCtx.fillStyle = shadowGrad;
   meshCtx.fillRect(0, 0, mW, mH);
 
   // Side shadow for 3D curvature effect
   const sideGrad = meshCtx.createLinearGradient(0, 0, mW, 0);
-  sideGrad.addColorStop(0, 'rgba(0,0,0,0.08)');
+  sideGrad.addColorStop(0, 'rgba(0,0,0,0.04)');
   sideGrad.addColorStop(0.2, 'rgba(0,0,0,0)');
   sideGrad.addColorStop(0.8, 'rgba(0,0,0,0)');
-  sideGrad.addColorStop(1, 'rgba(0,0,0,0.08)');
+  sideGrad.addColorStop(1, 'rgba(0,0,0,0.04)');
   meshCtx.fillStyle = sideGrad;
   meshCtx.fillRect(0, 0, mW, mH);
   meshCtx.globalCompositeOperation = 'source-over';

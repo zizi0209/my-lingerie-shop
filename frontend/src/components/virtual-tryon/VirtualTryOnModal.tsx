@@ -1,7 +1,7 @@
 'use client';
  
 import { useState, useCallback, useEffect, useMemo } from 'react';
- import { X, AlertTriangle, RefreshCw, ArrowLeft, Sparkles, Shield, ImageIcon } from 'lucide-react';
+import { X, AlertTriangle, RefreshCw, ArrowLeft, Shield, ImageIcon, Upload } from 'lucide-react';
  import { PhotoUploader } from './PhotoUploader';
  import { ConsentCheckbox } from './ConsentCheckbox';
  import { ProcessingView } from './ProcessingView';
@@ -9,9 +9,10 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { PoseGuide, PoseGuideTips } from './PoseGuide';
 import { TryOnModeSelector, type TryOnMode } from './TryOnModeSelector';
 import { LiveTryOnModal } from './LiveTryOnModal';
- import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
+import { processPhotoTryOn } from '@/services/photo-tryon';
 import type { PoseValidationResult } from '@/services/pose-detection';
 import type { ProductType } from '@/services/clothing-overlay';
+import type { TryOnResult } from '@/types/virtual-tryon';
  
  interface Product {
    id: string;
@@ -35,8 +36,10 @@ import type { ProductType } from '@/services/clothing-overlay';
   const [poseValidation, setPoseValidation] = useState<PoseValidationResult | null>(null);
   const [selectedMode, setSelectedMode] = useState<TryOnMode | null>(null);
   const [showLiveTryOn, setShowLiveTryOn] = useState(false);
-   const { status, progress, queueInfo, result, error, startTryOn, reset, isLoading, isCompleted } =
-     useVirtualTryOn();
+  const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<TryOnResult | null>(null);
+  const [tryOnError, setTryOnError] = useState<string | null>(null);
  
   // Check if pose is valid enough to proceed
   const canProceed = useMemo(() => {
@@ -60,29 +63,54 @@ import type { ProductType } from '@/services/clothing-overlay';
     setSelectedMode(null);
     setSelectedPhoto(null);
     setPoseValidation(null);
-    reset();
-  }, [reset]);
+    setStatus('idle');
+    setProgress(0);
+    setResult(null);
+    setTryOnError(null);
+  }, []);
  
    const handleStartTryOn = useCallback(async () => {
-    if (!canProceed) return;
- 
-     try {
-       await startTryOn({
-        personImage: selectedPhoto!,
-         garmentImageUrl: product.imageUrl,
-         productId: product.id,
-         productName: product.name,
-       });
-     } catch {
-       // Error is handled in state
-     }
-  }, [canProceed, selectedPhoto, startTryOn, product]);
+    if (!canProceed || !selectedPhoto) return;
+
+    setStatus('processing');
+    setProgress(0);
+    setResult(null);
+    setTryOnError(null);
+
+    try {
+      const localResult = await processPhotoTryOn(
+        {
+          personImage: selectedPhoto,
+          garmentImageUrl: product.imageUrl,
+          garmentNoBgUrl: product.noBgUrl,
+          productId: product.id,
+          productName: product.name,
+          productType: product.productType || 'BRA',
+        },
+        (nextProgress) => {
+          setProgress(nextProgress);
+        }
+      );
+
+      setResult(localResult);
+      setStatus('completed');
+      setProgress(100);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể xử lý ảnh thử đồ.';
+      setTryOnError(message);
+      setStatus('error');
+      setProgress(0);
+    }
+  }, [canProceed, selectedPhoto, product]);
  
    const handleTryAgain = useCallback(() => {
      setSelectedPhoto(null);
     setPoseValidation(null);
-     reset();
-   }, [reset]);
+     setStatus('idle');
+     setProgress(0);
+     setResult(null);
+     setTryOnError(null);
+   }, []);
  
    const handleDownload = useCallback(() => {
      if (!result?.resultImage) return;
@@ -110,6 +138,10 @@ import type { ProductType } from '@/services/clothing-overlay';
       setSelectedPhoto(null);
       setPoseValidation(null);
       setConsent(false);
+      setStatus('idle');
+      setProgress(0);
+      setResult(null);
+      setTryOnError(null);
     }
   }, [isOpen]);
 
@@ -146,16 +178,16 @@ import type { ProductType } from '@/services/clothing-overlay';
          </div>
  
          <div className="p-4 sm:p-6">
-           {error && (
+          {tryOnError && (
              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                <div className="flex items-start gap-3">
                  <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                  <div className="flex-1">
-                   <p className="text-red-700 font-medium">Không thể kết nối</p>
-                   <p className="text-red-600 text-sm mt-1">{error}</p>
+                  <p className="text-red-700 font-medium">Không thể xử lý ảnh</p>
+                   <p className="text-red-600 text-sm mt-1">{tryOnError}</p>
                    <button
                      type="button"
-                     onClick={reset}
+                    onClick={handleTryAgain}
                      className="mt-3 inline-flex items-center gap-2 text-sm text-red-700 hover:text-red-800 font-medium"
                    >
                      <RefreshCw className="w-4 h-4" />
@@ -166,17 +198,17 @@ import type { ProductType } from '@/services/clothing-overlay';
              </div>
            )}
  
-           {isLoading && (
+          {status === 'processing' && (
              <ProcessingView
                progress={progress}
-               queueInfo={queueInfo}
+              queueInfo={null}
                personImage={personImagePreview}
                onContinueShopping={onClose}
-               onCancel={reset}
+              onCancel={handleTryAgain}
              />
            )}
  
-           {isCompleted && result && (
+          {status === 'completed' && result && (
              <ResultView
                result={result}
                onTryAgain={handleTryAgain}
@@ -194,7 +226,7 @@ import type { ProductType } from '@/services/clothing-overlay';
             </>
           )}
 
-          {status === 'idle' && selectedMode === 'ai' && (
+          {status === 'idle' && selectedMode === 'photo' && (
              <>
               {/* Header with back button */}
               <div className="flex items-center gap-3 mb-6">
@@ -208,10 +240,10 @@ import type { ProductType } from '@/services/clothing-overlay';
                 </button>
                 <div>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-purple-600" />
-                    Tạo ảnh thử đồ bằng AI
+                    <Upload className="w-5 h-5 text-purple-600" />
+                    Thử đồ bằng ảnh
                   </h3>
-                  <p className="text-sm text-gray-500">Upload ảnh toàn thân để AI tạo ảnh bạn mặc sản phẩm</p>
+                  <p className="text-sm text-gray-500">Upload ảnh toàn thân để xem trước sản phẩm</p>
                 </div>
               </div>
 
@@ -269,8 +301,8 @@ import type { ProductType } from '@/services/clothing-overlay';
                   {/* Info cards */}
                   <div className="mt-4 space-y-2">
                     <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
-                      <Sparkles className="w-4 h-4 text-purple-600 flex-shrink-0" />
-                      <p className="text-xs text-purple-700">Thời gian xử lý: 1-5 phút tùy lượng người dùng</p>
+                      <ImageIcon className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                      <p className="text-xs text-purple-700">Xử lý nhanh ngay trên thiết bị của bạn</p>
                     </div>
                     <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
                       <Shield className="w-4 h-4 text-green-600 flex-shrink-0" />
@@ -304,10 +336,10 @@ import type { ProductType } from '@/services/clothing-overlay';
                        : 'bg-gray-300 cursor-not-allowed'
                    }`}
                  >
-                   <Sparkles className="w-4 h-4" />
+                  <Upload className="w-4 h-4" />
                    {poseValidation && !poseValidation.valid && poseValidation.score < 50
                      ? 'Cần điều chỉnh tư thế'
-                     : 'Tạo ảnh thử đồ'}
+                    : 'Tạo ảnh thử đồ'}
                  </button>
                </div>
              </>
