@@ -203,7 +203,12 @@
    const centerY = (topCenterY + bottomCenterY) / 2 + config.offsetY * height;
  
    // Tính góc xoay dựa trên độ nghiêng vai
-   const rotation = Math.atan2(topRight.y - topLeft.y, topRight.x - topLeft.x);
+  const rawRotation = Math.atan2(topRight.y - topLeft.y, topRight.x - topLeft.x);
+  const rotation = rawRotation > Math.PI / 2
+    ? rawRotation - Math.PI
+    : rawRotation < -Math.PI / 2
+      ? rawRotation + Math.PI
+      : rawRotation;
  
   // Tỉ lệ vai/hông cho perspective warp
   const shoulderRatio = bottomWidth > 0 ? topWidth / bottomWidth : 1;

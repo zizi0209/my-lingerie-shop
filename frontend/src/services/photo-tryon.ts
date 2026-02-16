@@ -364,7 +364,7 @@ export async function processPhotoTryOn(
     revokeGarmentUrl = garmentUrl;
   }
 
-  const clothingImage = await loadImageWithOrientation(garmentUrl);
+  const clothingImage = await loadImage(garmentUrl);
 
   onProgress?.(55, 'Đang chuẩn bị nền...');
   const maskData = await detectPersonMaskFromImage(personCanvas);
