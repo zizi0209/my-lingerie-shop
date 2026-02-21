@@ -4,6 +4,99 @@ import { generateUniqueProductSlug } from '../utils/slugify';
 import { Prisma } from '@prisma/client';
 import { processProductImagesAsync } from '../services/imageProcessingService';
 
+type IncomingVariantPayload = {
+  sku?: string;
+  size: string;
+  colorId?: number;
+  color?: string;
+  colorName?: string;
+  stock?: number;
+  price?: number;
+  salePrice?: number;
+};
+
+const resolveVariantColorIds = async (
+  variants: IncomingVariantPayload[]
+): Promise<{
+  resolved: Array<IncomingVariantPayload & { colorId: number }>;
+  missingColors: string[];
+}> => {
+  const explicitColorIds = Array.from(
+    new Set(
+      variants
+        .map(v => Number(v.colorId))
+        .filter(id => !Number.isNaN(id) && id > 0)
+    )
+  );
+
+  const colorNameSet = new Set(
+    variants
+      .filter(v => (!v.colorId || Number(v.colorId) <= 0) && (v.color || v.colorName))
+      .map(v => (v.colorName || v.color || '').trim())
+      .filter(Boolean)
+      .map(name => name.toLowerCase())
+  );
+
+  const queryConditions: Prisma.ColorWhereInput[] = [];
+
+  if (explicitColorIds.length > 0) {
+    queryConditions.push({ id: { in: explicitColorIds } });
+  }
+
+  if (colorNameSet.size > 0) {
+    queryConditions.push(
+      ...Array.from(colorNameSet).map(name => ({
+        name: { equals: name, mode: 'insensitive' as const },
+      }))
+    );
+  }
+
+  const colorMap = new Map<string, number>();
+  const validColorIds = new Set<number>();
+
+  if (queryConditions.length > 0) {
+    const colors = await prisma.color.findMany({
+      where: { OR: queryConditions },
+      select: { id: true, name: true },
+    });
+
+    colors.forEach(color => {
+      validColorIds.add(color.id);
+      colorMap.set(color.name.toLowerCase(), color.id);
+    });
+  }
+
+  const missingColorSet = new Set<string>();
+
+  const resolved = variants
+    .map(variant => {
+      const numericColorId = Number(variant.colorId);
+      if (!Number.isNaN(numericColorId) && numericColorId > 0) {
+        if (validColorIds.has(numericColorId)) {
+          return { ...variant, colorId: numericColorId };
+        }
+        missingColorSet.add(`ID ${numericColorId}`);
+        return null;
+      }
+
+      const colorName = (variant.colorName || variant.color || '').trim();
+      const mappedColorId = colorName ? colorMap.get(colorName.toLowerCase()) : undefined;
+
+      if (!mappedColorId) {
+        missingColorSet.add(colorName || '(không có tên màu)');
+        return null;
+      }
+
+      return { ...variant, colorId: mappedColorId };
+    })
+    .filter((variant): variant is IncomingVariantPayload & { colorId: number } => variant !== null);
+
+  return {
+    resolved,
+    missingColors: Array.from(missingColorSet),
+  };
+};
+
 // Helper function to group product data by colors
 interface ColorGroup {
   colorId: number;
@@ -579,6 +672,25 @@ export const createProduct = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Không tìm thấy danh mục!' });
     }
 
+    const incomingVariants = Array.isArray(variants)
+      ? (variants as IncomingVariantPayload[])
+      : [];
+
+    const { resolved: resolvedVariants, missingColors } = await resolveVariantColorIds(incomingVariants);
+
+    if (incomingVariants.length > 0 && resolvedVariants.length === 0) {
+      const invalidColorText = missingColors.length > 0 ? `: ${missingColors.join(', ')}` : '';
+      return res.status(400).json({
+        error: `Không tìm thấy màu hợp lệ cho biến thể${invalidColorText}`,
+      });
+    }
+
+    if (missingColors.length > 0) {
+      return res.status(400).json({
+        error: `Một số biến thể có màu không hợp lệ: ${missingColors.join(', ')}`,
+      });
+    }
+
     // Create product with relations
     const product = await prisma.product.create({
       data: {
@@ -595,12 +707,22 @@ export const createProduct = async (req: Request, res: Response) => {
               create: images.map((url: string) => ({ url })),
             }
           : undefined,
-        variants: variants
+        productType: category.productType,
+        productColors: resolvedVariants.length > 0
           ? {
-              create: variants.map((v: { sku?: string; size: string; colorId?: number; color?: string; colorName?: string; stock?: number; price?: number; salePrice?: number }, index: number) => ({
-                sku: v.sku || `${slug}-${v.size}-${v.colorId || 'default'}-${Date.now()}-${index}`.toUpperCase().replace(/\s+/g, '-'),
+              create: Array.from(new Set(resolvedVariants.map(v => v.colorId))).map((colorId, index) => ({
+                colorId,
+                isDefault: index === 0,
+                order: index,
+              })),
+            }
+          : undefined,
+        variants: resolvedVariants.length > 0
+          ? {
+              create: resolvedVariants.map((v, index) => ({
+                sku: v.sku || `${slug}-${v.size}-${v.colorId}-${Date.now()}-${index}`.toUpperCase().replace(/\s+/g, '-'),
                 size: v.size,
-                colorId: v.colorId || 1,
+                colorId: v.colorId,
                 stock: v.stock || 0,
                 price: v.price || null,
                 salePrice: v.salePrice || null,
@@ -938,11 +1060,23 @@ export const getAllProductVariants = async (req: Request, res: Response) => {
     const variants = await prisma.productVariant.findMany({
       where: { productId: Number(id) },
       orderBy: { id: 'asc' },
+      include: {
+        color: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
+
+    const responseVariants = variants.map(({ color, ...variant }) => ({
+      ...variant,
+      color: color?.name || 'Unknown',
+    }));
 
     res.json({
       success: true,
-      data: variants,
+      data: responseVariants,
     });
   } catch (error) {
     console.error('Get all product variants error:', error);
@@ -965,6 +1099,11 @@ export const getProductVariantById = async (req: Request, res: Response) => {
             slug: true,
           },
         },
+        color: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
@@ -974,7 +1113,10 @@ export const getProductVariantById = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: variant,
+      data: {
+        ...variant,
+        color: variant.color?.name || 'Unknown',
+      },
     });
   } catch (error) {
     console.error('Get product variant by ID error:', error);
@@ -1001,17 +1143,41 @@ export const addProductVariants = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Không tìm thấy sản phẩm!' });
     }
 
+    const incomingVariants = variants as IncomingVariantPayload[];
+    const { resolved: resolvedVariants, missingColors } = await resolveVariantColorIds(incomingVariants);
+
+    if (resolvedVariants.length === 0) {
+      const invalidColorText = missingColors.length > 0 ? `: ${missingColors.join(', ')}` : '';
+      return res.status(400).json({
+        error: `Không tìm thấy màu hợp lệ cho biến thể${invalidColorText}`,
+      });
+    }
+
+    if (missingColors.length > 0) {
+      return res.status(400).json({
+        error: `Một số biến thể có màu không hợp lệ: ${missingColors.join(', ')}`,
+      });
+    }
+
     // Add variants
     const createdVariants = await prisma.productVariant.createMany({
-      data: variants.map((v: { sku?: string; size: string; colorId?: number; color?: string; colorName?: string; stock?: number; price?: number; salePrice?: number }) => ({
-        sku: v.sku || `${product.slug}-${v.size}-${v.colorId || 'default'}`.toUpperCase(),
+      data: resolvedVariants.map((v) => ({
+        sku: v.sku || `${product.slug}-${v.size}-${v.colorId}`.toUpperCase(),
         size: v.size,
-        colorId: v.colorId || 1,
+        colorId: v.colorId,
         stock: v.stock || 0,
         price: v.price || null,
         salePrice: v.salePrice || null,
         productId: Number(id),
       })),
+    });
+
+    await prisma.productColor.createMany({
+      data: Array.from(new Set(resolvedVariants.map(v => v.colorId))).map(colorId => ({
+        productId: Number(id),
+        colorId,
+      })),
+      skipDuplicates: true,
     });
 
     res.status(201).json({
@@ -1040,7 +1206,7 @@ export const addProductVariants = async (req: Request, res: Response) => {
 export const updateProductVariant = async (req: Request, res: Response) => {
   try {
     const { variantId } = req.params;
-    const { size, colorId, stock } = req.body;
+    const { size, colorId, color, colorName, stock } = req.body;
 
     // Check if variant exists
     const existingVariant = await prisma.productVariant.findUnique({
@@ -1054,18 +1220,96 @@ export const updateProductVariant = async (req: Request, res: Response) => {
     // Prepare update data
     const updateData: { size?: string; colorId?: number; stock?: number } = {};
     if (size) updateData.size = size;
-    if (colorId) updateData.colorId = Number(colorId);
+
+    const incomingColorId = Number(colorId);
+    if (!Number.isNaN(incomingColorId) && incomingColorId > 0) {
+      const existingColor = await prisma.color.findUnique({
+        where: { id: incomingColorId },
+        select: { id: true },
+      });
+
+      if (!existingColor) {
+        return res.status(400).json({ error: `Màu sắc không hợp lệ: ID ${incomingColorId}` });
+      }
+
+      updateData.colorId = incomingColorId;
+    } else if (color || colorName) {
+      const colorText = String(colorName || color).trim();
+      if (!colorText) {
+        return res.status(400).json({ error: 'Màu sắc không hợp lệ!' });
+      }
+
+      const existingColor = await prisma.color.findFirst({
+        where: {
+          name: { equals: colorText, mode: 'insensitive' },
+        },
+        select: { id: true, name: true },
+      });
+
+      if (!existingColor) {
+        return res.status(400).json({ error: `Màu sắc không tồn tại: ${colorText}` });
+      }
+
+      updateData.colorId = existingColor.id;
+    }
+
     if (stock !== undefined) updateData.stock = Number(stock);
 
     // Update variant
     const variant = await prisma.productVariant.update({
       where: { id: Number(variantId) },
       data: updateData,
+      include: {
+        color: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
+
+    if (updateData.colorId && updateData.colorId !== existingVariant.colorId) {
+      await prisma.productColor.upsert({
+        where: {
+          productId_colorId: {
+            productId: existingVariant.productId,
+            colorId: updateData.colorId,
+          },
+        },
+        create: {
+          productId: existingVariant.productId,
+          colorId: updateData.colorId,
+          isDefault: false,
+          order: 0,
+        },
+        update: {},
+      });
+
+      const oldColorVariantCount = await prisma.productVariant.count({
+        where: {
+          productId: existingVariant.productId,
+          colorId: existingVariant.colorId,
+          id: { not: Number(variantId) },
+        },
+      });
+
+      if (oldColorVariantCount === 0) {
+        await prisma.productColor.deleteMany({
+          where: {
+            productId: existingVariant.productId,
+            colorId: existingVariant.colorId,
+            isDefault: false,
+          },
+        });
+      }
+    }
 
     res.json({
       success: true,
-      data: variant,
+      data: {
+        ...variant,
+        color: variant.color?.name || 'Unknown',
+      },
     });
   } catch (error) {
     console.error('Update product variant error:', error);
@@ -1091,6 +1335,23 @@ export const deleteProductVariant = async (req: Request, res: Response) => {
     await prisma.productVariant.delete({
       where: { id: Number(variantId) },
     });
+
+    const remainingSameColorCount = await prisma.productVariant.count({
+      where: {
+        productId: variant.productId,
+        colorId: variant.colorId,
+      },
+    });
+
+    if (remainingSameColorCount === 0) {
+      await prisma.productColor.deleteMany({
+        where: {
+          productId: variant.productId,
+          colorId: variant.colorId,
+          isDefault: false,
+        },
+      });
+    }
 
     res.json({
       success: true,
