@@ -21,7 +21,7 @@ echo.
 echo Testing deployment status...
 echo.
 
-node test-railway.js
+node scripts/root/test/test-railway.js
 
 echo.
 echo ----------------------------------------

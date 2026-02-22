@@ -16,7 +16,7 @@ function log(msg, color = colors.reset) {
   console.log(color + msg + colors.reset);
 }
 
-const PROJECT_ROOT = __dirname;
+const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const INPUT_ROOT = path.join(PROJECT_ROOT, 'temp-images');
 const MANIFEST = path.join(PROJECT_ROOT, 'backend', 'prisma', 'seed-product-sets.json');
 const PUBLIC_ROOT = path.join(PROJECT_ROOT, 'frontend', 'public');

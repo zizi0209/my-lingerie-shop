@@ -16,7 +16,7 @@ echo ""
 
 # The seed will run using Railway's DATABASE_URL from .env
 # We just need to run it locally - it connects to Railway DB
-node run-seed.js
+node scripts/root/seed/run-seed.js
 
 echo ""
 echo "✅ Done! Check Railway Dashboard for seed logs"

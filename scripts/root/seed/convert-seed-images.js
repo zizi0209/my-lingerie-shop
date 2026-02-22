@@ -4,9 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
+const PROJECT_ROOT = path.resolve(__dirname, '../../..');
+
 const CONFIG = {
-  sourceDir: path.join(__dirname, 'temp-images'),
-  targetDir: path.join(__dirname, 'frontend', 'public', 'images', 'seed'),
+  sourceDir: path.join(PROJECT_ROOT, 'temp-images'),
+  targetDir: path.join(PROJECT_ROOT, 'frontend', 'public', 'images', 'seed'),
   quality: 85,
   resize: { width: 1200 },
   categories: ['bra', 'panty', 'set', 'sleepwear', 'shapewear', 'accessory'],
@@ -92,7 +94,7 @@ async function convertImages(dryRun = false) {
   log(`Total failed: ${stats.totalFailed}`, stats.totalFailed > 0 ? colors.red : colors.green);
   if (stats.totalProcessed > 0 && !dryRun) {
     log('\n✅ Conversion complete!', colors.green);
-    log('\n🔍 Verify: node verify-seed-images.js', colors.cyan);
+    log('\n🔍 Verify: node scripts/root/verify/verify-seed-images.js', colors.cyan);
     log('🌱 Seed: cd backend && npx ts-node prisma/seed-products.ts\n', colors.cyan);
   } else if (stats.totalProcessed === 0) {
     log('\n⚠️  No images to process!', colors.yellow);
@@ -115,7 +117,7 @@ function showInstructions() {
   log('   ├── shapewear/   (put shapewear images here)', colors.cyan);
   log('   └── accessory/   (put accessory images here)\n', colors.cyan);
   log('3. Run this script:', colors.green);
-  log('   node convert-seed-images.js\n', colors.green);
+  log('   node scripts/root/seed/convert-seed-images.js\n', colors.green);
   log('4. Images will auto-convert to WebP and rename to:');
   log('   bra-1.webp, bra-2.webp, panty-1.webp, etc.\n');
   log('✨ No manual renaming needed!\n', colors.green);

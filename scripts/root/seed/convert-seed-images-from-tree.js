@@ -27,7 +27,7 @@ function log(msg, color = colors.reset) {
   console.log(color + msg + colors.reset);
 }
 
-const PROJECT_ROOT = __dirname;
+const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const INPUT_ROOT = path.join(PROJECT_ROOT, 'temp-images');
 const PUBLIC_ROOT = path.join(PROJECT_ROOT, 'frontend', 'public');
 const OUTPUT_ROOT = path.join(PUBLIC_ROOT, 'images', 'seed_images');

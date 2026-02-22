@@ -1,6 +1,6 @@
 /**
  * Verify NextAuth configuration is valid
- * Run: node verify-nextauth-config.js
+ * Run: node scripts/root/verify/verify-nextauth-config.js
  */
 
 console.log('🔍 Verifying NextAuth configuration...\n');
@@ -8,10 +8,13 @@ console.log('🔍 Verifying NextAuth configuration...\n');
 // Check 1: Environment variables
 console.log('1. Checking environment variables:');
 const fs = require('fs');
-const envPath = './frontend/.env.local';
+const envPath = 'frontend/.env.local';
 
-if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, 'utf8');
+const projectRoot = require('path').resolve(__dirname, '..', '..', '..');
+const envFile = require('path').join(projectRoot, envPath);
+
+if (fs.existsSync(envFile)) {
+  const envContent = fs.readFileSync(envFile, 'utf8');
   
   const requiredVars = [
     'AUTH_SECRET',
@@ -63,7 +66,8 @@ const requiredFiles = [
 ];
 
 requiredFiles.forEach(file => {
-  if (fs.existsSync(file)) {
+  const absolute = require('path').join(projectRoot, file);
+  if (fs.existsSync(absolute)) {
     console.log(`   ✅ ${file}`);
   } else {
     console.log(`   ❌ ${file} is MISSING`);
@@ -73,8 +77,9 @@ requiredFiles.forEach(file => {
 // Check 3: Verify exports in auth.ts
 console.log('\n3. Checking auth.ts exports:');
 const authTsPath = 'frontend/src/auth.ts';
-if (fs.existsSync(authTsPath)) {
-  const authContent = fs.readFileSync(authTsPath, 'utf8');
+const authTsFile = require('path').join(projectRoot, authTsPath);
+if (fs.existsSync(authTsFile)) {
+  const authContent = fs.readFileSync(authTsFile, 'utf8');
   
   if (authContent.includes('export { handlers')) {
     console.log('   ✅ handlers exported correctly');
@@ -92,7 +97,8 @@ if (fs.existsSync(authTsPath)) {
 // Check 4: Database migration
 console.log('\n4. Checking database migration:');
 const migrationPath = 'backend/prisma/migrations/20260122_add_social_auth_models/migration.sql';
-if (fs.existsSync(migrationPath)) {
+const migrationFile = require('path').join(projectRoot, migrationPath);
+if (fs.existsSync(migrationFile)) {
   console.log('   ✅ Migration file exists');
   console.log('   ℹ️  Verify migration applied: cd backend && npx prisma migrate status');
 } else {

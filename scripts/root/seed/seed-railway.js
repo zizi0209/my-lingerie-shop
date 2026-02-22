@@ -52,7 +52,7 @@ async function seedRailwayDatabase() {
   } catch (error) {
     console.error('\n❌ Seed failed:', error.message);
     console.log('\n💡 Make sure Railway deployment is ready');
-    console.log('   Run: node test-railway.js');
+    console.log('   Run: node scripts/root/test/test-railway.js');
   }
 }
 

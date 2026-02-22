@@ -1,6 +1,6 @@
 /**
  * Verify Seed Images Script
- * Run: node verify-seed-images.js
+ * Run: node scripts/root/verify/verify-seed-images.js
  */
 
 const fs = require('fs');
@@ -29,7 +29,7 @@ const CATEGORIES = [
   'accessory',
 ];
 
-const PUBLIC_DIR = path.join(__dirname, 'frontend', 'public');
+const PUBLIC_DIR = path.join(__dirname, '..', '..', '..', 'frontend', 'public');
 const SEED_DIR = path.join(PUBLIC_DIR, 'images', 'seed');
 
 async function verifySeedImages() {
