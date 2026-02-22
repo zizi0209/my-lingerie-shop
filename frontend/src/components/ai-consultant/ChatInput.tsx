@@ -1,4 +1,3 @@
- 'use client';
 'use client';
 
 import { useState, useRef, KeyboardEvent } from 'react';
@@ -7,11 +6,31 @@ import { VoiceButton } from './VoiceButton';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
+  onBeforeVoiceStart?: () => void;
+  onVoiceListeningChange?: (isListening: boolean) => void;
   isLoading: boolean;
   placeholder?: string;
 }
 
-export function ChatInput({ onSend, isLoading, placeholder = 'Nhập tin nhắn...' }: ChatInputProps) {
+const appendInputWithDelimiter = (prev: string, incoming: string) => {
+  const next = incoming.trim();
+  if (!next) return prev;
+
+  if (!prev) {
+    return next;
+  }
+
+  const needsSpace = !/\s$/.test(prev);
+  return needsSpace ? `${prev} ${next}` : `${prev}${next}`;
+};
+
+export function ChatInput({
+  onSend,
+  onBeforeVoiceStart,
+  onVoiceListeningChange,
+  isLoading,
+  placeholder = 'Nhập tin nhắn...',
+}: ChatInputProps) {
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -50,15 +69,17 @@ export function ChatInput({ onSend, isLoading, placeholder = 'Nhập tin nhắn.
         placeholder={placeholder}
         disabled={isLoading}
         rows={1}
-        className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-gray-600 
+        className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-gray-600
                    bg-gray-50 dark:bg-gray-700 px-4 py-2.5 text-sm
                    focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent
                    disabled:opacity-50 disabled:cursor-not-allowed
                    dark:text-white placeholder-gray-400"
       />
-      <VoiceButton 
-        onTranscript={(text) => setInput(prev => prev + text)} 
-        disabled={isLoading} 
+      <VoiceButton
+        onTranscript={(text) => setInput(prev => appendInputWithDelimiter(prev, text))}
+        onBeforeStartListening={onBeforeVoiceStart}
+        onListeningChange={onVoiceListeningChange}
+        disabled={isLoading}
       />
       <button
         onClick={handleSend}

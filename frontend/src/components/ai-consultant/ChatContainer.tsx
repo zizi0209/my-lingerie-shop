@@ -1,7 +1,6 @@
- 'use client';
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Trash2, AlertCircle } from 'lucide-react';
 import { useAIConsultant } from '@/hooks/useAIConsultant';
 import { useWebSpeechTTS } from '@/hooks/useWebSpeechTTS';
@@ -23,23 +22,32 @@ export function ChatContainer({ onClose, productSlug }: ChatContainerProps) {
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
+  const [isSttListening, setIsSttListening] = useState(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
-    if (autoSpeak && messages.length > 0) {
+    if (autoSpeak && !isSttListening && messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === 'assistant' && lastMessage.id !== lastMessageIdRef.current) {
         lastMessageIdRef.current = lastMessage.id;
         speak(lastMessage.content);
       }
     }
-  }, [messages, autoSpeak, speak]);
+  }, [messages, autoSpeak, isSttListening, speak]);
 
   const handleSendMessage = (content: string) => {
     sendMessage(content, { currentProductSlug: productSlug });
+  };
+
+  const handleBeforeVoiceStart = () => {
+    stop();
+  };
+
+  const handleVoiceListeningChange = (listening: boolean) => {
+    setIsSttListening(listening);
   };
 
   return (
@@ -124,7 +132,12 @@ export function ChatContainer({ onClose, productSlug }: ChatContainerProps) {
         </div>
       )}
 
-      <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
+      <ChatInput
+        onSend={handleSendMessage}
+        onBeforeVoiceStart={handleBeforeVoiceStart}
+        onVoiceListeningChange={handleVoiceListeningChange}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

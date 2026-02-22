@@ -1,5 +1,4 @@
 'use client';
-'use client';
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 
@@ -61,7 +60,14 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
   const streamRef = useRef<MediaStream | null>(null);
   const voskLoadedRef = useRef(false);
   const voskLoadFailedRef = useRef(false);
+
+  // Web Speech refs
+  const webSpeechRecognitionRef = useRef<SpeechRecognition | null>(null);
+
+  // Session guards
   const isListeningRef = useRef(false);
+  const isStoppingRef = useRef(false);
+  const sessionIdRef = useRef(0);
 
   const isWebSpeechSupported = useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -80,6 +86,14 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     isListeningRef.current = isListening;
   }, [isListening]);
 
+  const appendFinalChunk = useCallback((rawChunk: string) => {
+    const chunk = rawChunk.trim();
+    if (!chunk) return '';
+
+    setTranscript(prev => (prev ? `${prev} ${chunk}` : chunk));
+    return chunk;
+  }, []);
+
   // Load Vosk model
   const preloadVoskModel = useCallback(async () => {
     if (voskLoadedRef.current || voskLoadFailedRef.current || isModelLoading) return;
@@ -89,7 +103,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       setModelLoadProgress(0);
 
       const Vosk = await import('vosk-browser');
-      
+
       // Check if model file exists
       const modelResponse = await fetch(voskModelUrl, { method: 'HEAD' });
       if (!modelResponse.ok) {
@@ -100,7 +114,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       }
 
       const model = await Vosk.createModel(voskModelUrl);
-      
+
       // Simulate progress
       let progress = 0;
       const progressInterval = setInterval(() => {
@@ -145,7 +159,6 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       setModelLoadProgress(100);
       setIsModelLoading(false);
       console.log('Vosk model loaded successfully');
-
     } catch (error) {
       console.error('Failed to load Vosk model:', error);
       voskLoadFailedRef.current = true;
@@ -155,154 +168,300 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
   }, [voskModelUrl, isModelLoading]);
 
   // Start listening with Vosk
-  const startVoskListening = useCallback(async () => {
-    if (!voskModelRef.current || isListeningRef.current) return false;
+  const startVoskListening = useCallback(
+    async (sessionId: number) => {
+      if (!voskModelRef.current || isListeningRef.current) return false;
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          channelCount: 1,
-          sampleRate: 16000,
-        },
-      });
-      streamRef.current = stream;
-
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      const audioContext = new AudioContextClass({ sampleRate: 16000 });
-      audioContextRef.current = audioContext;
-
-      const recognizer = new voskModelRef.current.KaldiRecognizer(16000);
-      voskRecognizerRef.current = recognizer;
-
-      recognizer.on('result', (message: { result: { text: string } }) => {
-        const text = message.result.text;
-        if (text && text.trim()) {
-          setTranscript(prev => prev + (prev ? ' ' : '') + text.trim());
-          onResult?.(text.trim(), true);
+      const cleanupVoskResources = () => {
+        if (sourceRef.current) {
+          sourceRef.current.disconnect();
+          sourceRef.current = null;
         }
-      });
 
-      recognizer.on('partialresult', (message: { result: { partial: string } }) => {
-        const partial = message.result.partial;
-        if (partial) {
-          setInterimTranscript(partial);
-          onResult?.(partial, false);
+        if (processorRef.current) {
+          processorRef.current.disconnect();
+          processorRef.current = null;
         }
-      });
 
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processorRef.current = processor;
+        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        }
 
-      processor.onaudioprocess = (event) => {
-        try {
-          if (voskRecognizerRef.current) {
-            voskRecognizerRef.current.acceptWaveform(event.inputBuffer);
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+
+        if (voskRecognizerRef.current) {
+          try {
+            voskRecognizerRef.current.remove();
+          } catch {
+            // Ignore cleanup errors
           }
-        } catch (error) {
-          console.error('Audio processing error:', error);
+          voskRecognizerRef.current = null;
         }
       };
 
-      const source = audioContext.createMediaStreamSource(stream);
-      sourceRef.current = source;
-      source.connect(processor);
-      processor.connect(audioContext.destination);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            channelCount: 1,
+            sampleRate: 16000,
+          },
+        });
 
-      setIsListening(true);
-      setCurrentEngine('vosk');
-      onEngineChange?.('vosk');
-      console.log('Vosk STT started');
-      return true;
+        if (sessionId !== sessionIdRef.current || isStoppingRef.current) {
+          stream.getTracks().forEach(track => track.stop());
+          return false;
+        }
 
-    } catch (error) {
-      console.error('Vosk listening failed:', error);
-      if ((error as Error).name === 'NotAllowedError') {
-        onError?.('Vui lòng cho phép truy cập microphone');
+        streamRef.current = stream;
+
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const audioContext = new AudioContextClass({ sampleRate: 16000 });
+        audioContextRef.current = audioContext;
+
+        const recognizer = new voskModelRef.current.KaldiRecognizer(16000);
+        voskRecognizerRef.current = recognizer;
+
+        recognizer.on('result', (message: { result: { text: string } }) => {
+          if (sessionId !== sessionIdRef.current || isStoppingRef.current) return;
+
+          const finalText = appendFinalChunk(message.result.text);
+          if (finalText) {
+            onResult?.(finalText, true);
+          }
+        });
+
+        recognizer.on('partialresult', (message: { result: { partial: string } }) => {
+          if (sessionId !== sessionIdRef.current || isStoppingRef.current) return;
+
+          const partial = message.result.partial;
+          if (partial) {
+            setInterimTranscript(partial);
+            onResult?.(partial, false);
+          }
+        });
+
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        processorRef.current = processor;
+
+        processor.onaudioprocess = event => {
+          if (sessionId !== sessionIdRef.current || isStoppingRef.current) return;
+
+          try {
+            if (voskRecognizerRef.current) {
+              voskRecognizerRef.current.acceptWaveform(event.inputBuffer);
+            }
+          } catch (error) {
+            console.error('Audio processing error:', error);
+          }
+        };
+
+        const source = audioContext.createMediaStreamSource(stream);
+        sourceRef.current = source;
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+
+        if (sessionId !== sessionIdRef.current || isStoppingRef.current) {
+          cleanupVoskResources();
+          return false;
+        }
+
+        isListeningRef.current = true;
+        setIsListening(true);
+        setCurrentEngine('vosk');
+        onEngineChange?.('vosk');
+        console.log('Vosk STT started');
+        return true;
+      } catch (error) {
+        cleanupVoskResources();
+        console.error('Vosk listening failed:', error);
+        if ((error as Error).name === 'NotAllowedError') {
+          onError?.('Vui lòng cho phép truy cập microphone');
+        }
+        return false;
       }
-      return false;
-    }
-  }, [onResult, onEngineChange, onError]);
+    },
+    [appendFinalChunk, onResult, onEngineChange, onError],
+  );
 
   // Start listening with Web Speech API
-  const startWebSpeechListening = useCallback(() => {
-    if (!isWebSpeechSupported || isListeningRef.current) return false;
+  const startWebSpeechListening = useCallback(
+    (sessionId: number) => {
+      if (!isWebSpeechSupported || isListeningRef.current) return false;
 
-    try {
-      const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognitionClass();
-      recognition.lang = lang;
-      recognition.continuous = false;
-      recognition.interimResults = true;
+      try {
+        const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognitionClass();
+        webSpeechRecognitionRef.current = recognition;
 
-      recognition.onstart = () => {
-        setIsListening(true);
-        setCurrentEngine('webspeech');
-        onEngineChange?.('webspeech');
-        console.log('Web Speech STT started');
-      };
+        recognition.lang = lang;
+        recognition.continuous = false;
+        recognition.interimResults = true;
 
-      recognition.onend = () => {
-        setIsListening(false);
-        setCurrentEngine(null);
-      };
-
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let interim = '';
-        let final = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            final += result[0].transcript;
-          } else {
-            interim += result[0].transcript;
+        recognition.onstart = () => {
+          if (sessionId !== sessionIdRef.current || isStoppingRef.current) {
+            try {
+              recognition.abort();
+            } catch {
+              // Ignore abort errors
+            }
+            return;
           }
-        }
 
-        if (final) {
-          setTranscript(prev => prev + final);
-          onResult?.(final, true);
-        }
+          isListeningRef.current = true;
+          setIsListening(true);
+          setCurrentEngine('webspeech');
+          onEngineChange?.('webspeech');
+          console.log('Web Speech STT started');
+        };
 
-        setInterimTranscript(interim);
-        if (interim) {
-          onResult?.(interim, false);
-        }
-      };
+        recognition.onend = () => {
+          if (webSpeechRecognitionRef.current === recognition) {
+            webSpeechRecognitionRef.current = null;
+          }
 
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.log('Web Speech API error:', event.error);
-        if (event.error === 'aborted') {
-          return;
-        }
-        let errorMessage = 'Lỗi nhận dạng giọng nói';
-        switch (event.error) {
-          case 'not-allowed':
-            errorMessage = 'Vui lòng cho phép truy cập microphone';
-            break;
-          case 'no-speech':
-            errorMessage = 'Không phát hiện giọng nói';
-            break;
-          case 'audio-capture':
-            errorMessage = 'Không thể truy cập microphone';
-            break;
-          case 'network':
-            errorMessage = 'Lỗi kết nối mạng';
-            break;
-        }
-        onError?.(errorMessage);
-        setIsListening(false);
-      };
+          if (sessionId !== sessionIdRef.current) return;
 
-      recognition.start();
-      return true;
-    } catch (error) {
-      console.error('Web Speech listening failed:', error);
-      return false;
+          isListeningRef.current = false;
+          setIsListening(false);
+          setCurrentEngine(null);
+          setInterimTranscript('');
+        };
+
+        recognition.onresult = (event: SpeechRecognitionEvent) => {
+          if (sessionId !== sessionIdRef.current || isStoppingRef.current) return;
+
+          let interim = '';
+          const finalChunks: string[] = [];
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const result = event.results[i];
+            if (result.isFinal) {
+              finalChunks.push(result[0].transcript);
+            } else {
+              interim += result[0].transcript;
+            }
+          }
+
+          const finalText = appendFinalChunk(finalChunks.join(' '));
+          if (finalText) {
+            onResult?.(finalText, true);
+          }
+
+          setInterimTranscript(interim);
+          if (interim) {
+            onResult?.(interim, false);
+          }
+        };
+
+        recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+          if (sessionId !== sessionIdRef.current) return;
+
+          console.log('Web Speech API error:', event.error);
+          if (event.error === 'aborted') {
+            return;
+          }
+
+          let errorMessage = 'Lỗi nhận dạng giọng nói';
+          switch (event.error) {
+            case 'not-allowed':
+              errorMessage = 'Vui lòng cho phép truy cập microphone';
+              break;
+            case 'no-speech':
+              errorMessage = 'Không phát hiện giọng nói';
+              break;
+            case 'audio-capture':
+              errorMessage = 'Không thể truy cập microphone';
+              break;
+            case 'network':
+              errorMessage = 'Lỗi kết nối mạng';
+              break;
+          }
+
+          onError?.(errorMessage);
+          isListeningRef.current = false;
+          setIsListening(false);
+          setCurrentEngine(null);
+        };
+
+        recognition.start();
+        return true;
+      } catch (error) {
+        console.error('Web Speech listening failed:', error);
+        return false;
+      }
+    },
+    [lang, isWebSpeechSupported, appendFinalChunk, onResult, onError, onEngineChange],
+  );
+
+  // Stop listening
+  const stopListening = useCallback(() => {
+    isStoppingRef.current = true;
+    sessionIdRef.current += 1;
+
+    // Stop Web Speech
+    const recognition = webSpeechRecognitionRef.current;
+    if (recognition) {
+      recognition.onstart = null;
+      recognition.onend = null;
+      recognition.onresult = null;
+      recognition.onerror = null;
+
+      try {
+        recognition.stop();
+      } catch {
+        // Ignore stop errors
+      }
+
+      try {
+        recognition.abort();
+      } catch {
+        // Ignore abort errors
+      }
+
+      webSpeechRecognitionRef.current = null;
     }
-  }, [lang, isWebSpeechSupported, onResult, onError, onEngineChange]);
+
+    // Stop Vosk
+    if (sourceRef.current) {
+      sourceRef.current.disconnect();
+      sourceRef.current = null;
+    }
+
+    if (processorRef.current) {
+      processorRef.current.disconnect();
+      processorRef.current = null;
+    }
+
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
+    if (voskRecognizerRef.current) {
+      try {
+        voskRecognizerRef.current.remove();
+      } catch {
+        // Ignore cleanup errors
+      }
+      voskRecognizerRef.current = null;
+    }
+
+    isListeningRef.current = false;
+    setIsListening(false);
+    setCurrentEngine(null);
+    setInterimTranscript('');
+  }, []);
 
   // Main start listening function
   const startListening = useCallback(async () => {
@@ -311,27 +470,40 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       return;
     }
 
+    isStoppingRef.current = false;
+    const sessionId = sessionIdRef.current + 1;
+    sessionIdRef.current = sessionId;
+
     setTranscript('');
     setInterimTranscript('');
 
     // Try Vosk first if preferred and model is loaded
     if (preferVosk && voskLoadedRef.current && !voskLoadFailedRef.current) {
-      const success = await startVoskListening();
+      const success = await startVoskListening(sessionId);
       if (success) return;
     }
 
     // If Vosk model not loaded yet and preferred, try loading first
     if (preferVosk && !voskLoadFailedRef.current && !voskLoadedRef.current) {
       await preloadVoskModel();
+
+      if (sessionId !== sessionIdRef.current || isStoppingRef.current) {
+        return;
+      }
+
       if (voskLoadedRef.current) {
-        const success = await startVoskListening();
+        const success = await startVoskListening(sessionId);
         if (success) return;
       }
     }
 
+    if (sessionId !== sessionIdRef.current || isStoppingRef.current) {
+      return;
+    }
+
     // Fallback to Web Speech API
     if (isWebSpeechSupported) {
-      const success = startWebSpeechListening();
+      const success = startWebSpeechListening(sessionId);
       if (success) return;
     }
 
@@ -347,41 +519,6 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     onError,
   ]);
 
-  // Stop listening
-  const stopListening = useCallback(() => {
-    console.log('Stopping STT, engine:', currentEngine);
-    
-    // Stop Vosk
-    if (sourceRef.current) {
-      sourceRef.current.disconnect();
-      sourceRef.current = null;
-    }
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (voskRecognizerRef.current) {
-      try {
-        voskRecognizerRef.current.remove();
-      } catch {
-        // Ignore cleanup errors
-      }
-      voskRecognizerRef.current = null;
-    }
-
-    setIsListening(false);
-    setCurrentEngine(null);
-    setInterimTranscript('');
-  }, [currentEngine]);
-
   const resetTranscript = useCallback(() => {
     setTranscript('');
     setInterimTranscript('');
@@ -390,20 +527,13 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (sourceRef.current) sourceRef.current.disconnect();
-      if (processorRef.current) processorRef.current.disconnect();
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close();
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+      stopListening();
       if (voskModelRef.current) {
         voskModelRef.current.terminate();
         voskModelRef.current = null;
       }
     };
-  }, []);
+  }, [stopListening]);
 
   return {
     isListening,

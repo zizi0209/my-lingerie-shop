@@ -1,4 +1,3 @@
- 'use client';
 'use client';
 
 import { Mic, MicOff, Loader2 } from 'lucide-react';
@@ -7,26 +6,36 @@ import { useEffect, useState } from 'react';
 
 interface VoiceButtonProps {
   onTranscript: (text: string) => void;
+  onBeforeStartListening?: () => void;
+  onListeningChange?: (isListening: boolean) => void;
   disabled?: boolean;
 }
 
-export function VoiceButton({ onTranscript, disabled }: VoiceButtonProps) {
+export function VoiceButton({
+  onTranscript,
+  onBeforeStartListening,
+  onListeningChange,
+  disabled,
+}: VoiceButtonProps) {
   const [showEngineInfo, setShowEngineInfo] = useState(false);
-  
+
   const {
     isListening,
     isSupported,
     isModelLoading,
     modelLoadProgress,
     currentEngine,
-    transcript,
     startListening,
     stopListening,
-    resetTranscript,
     preloadVoskModel,
   } = useHybridSTT({
     lang: 'vi-VN',
     preferVosk: true,
+    onResult: (text, isFinal) => {
+      if (isFinal) {
+        onTranscript(text);
+      }
+    },
     onError: (error) => {
       console.error('STT Error:', error);
     },
@@ -43,11 +52,14 @@ export function VoiceButton({ onTranscript, disabled }: VoiceButtonProps) {
   }, [preloadVoskModel]);
 
   useEffect(() => {
-    if (transcript) {
-      onTranscript(transcript);
-      resetTranscript();
-    }
-  }, [transcript, onTranscript, resetTranscript]);
+    onListeningChange?.(isListening);
+  }, [isListening, onListeningChange]);
+
+  useEffect(() => {
+    return () => {
+      onListeningChange?.(false);
+    };
+  }, [onListeningChange]);
 
   if (!isSupported) {
     return null;
@@ -56,9 +68,11 @@ export function VoiceButton({ onTranscript, disabled }: VoiceButtonProps) {
   const handleClick = async () => {
     if (isListening) {
       stopListening();
-    } else {
-      await startListening();
+      return;
     }
+
+    onBeforeStartListening?.();
+    await startListening();
   };
 
   const getButtonTitle = () => {
@@ -80,8 +94,8 @@ export function VoiceButton({ onTranscript, disabled }: VoiceButtonProps) {
         disabled={disabled || isModelLoading}
         className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center
                     transition-all duration-200
-                    ${isListening 
-                      ? 'bg-red-500 text-white animate-pulse' 
+                    ${isListening
+                      ? 'bg-red-500 text-white animate-pulse'
                       : isModelLoading
                         ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-300'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -97,16 +111,14 @@ export function VoiceButton({ onTranscript, disabled }: VoiceButtonProps) {
           <Mic className="w-5 h-5" />
         )}
       </button>
-      
-      {/* Model loading progress */}
+
       {isModelLoading && (
         <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap
                         text-xs bg-gray-800 text-white px-2 py-1 rounded shadow-lg">
           Tải model: {modelLoadProgress}%
         </div>
       )}
-      
-      {/* Engine indicator */}
+
       {showEngineInfo && currentEngine && (
         <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap
                         text-xs bg-green-600 text-white px-2 py-1 rounded shadow-lg animate-fade-in">
