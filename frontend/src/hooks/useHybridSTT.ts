@@ -10,6 +10,7 @@ interface UseHybridSTTOptions {
   onResult?: (transcript: string, isFinal: boolean) => void;
   onError?: (error: string) => void;
   onEngineChange?: (engine: 'vosk' | 'webspeech') => void;
+  onBeforeStop?: () => void;
 }
 
 interface UseHybridSTTReturn {
@@ -44,6 +45,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     onResult,
     onError,
     onEngineChange,
+    onBeforeStop,
   } = options;
 
   const [isListening, setIsListening] = useState(false);
@@ -269,7 +271,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
         voskRecognizerRef.current = recognizer;
 
         recognizer.on('result', (message: { result: { text: string } }) => {
-          if (sessionId !== sessionIdRef.current || isStoppingRef.current) return;
+          if (sessionId !== sessionIdRef.current) return;
 
           const finalText = appendFinalChunk(message.result.text);
           logDebug('vosk_result', {
@@ -494,6 +496,17 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     stoppingSessionIdRef.current = currentSessionId;
     logDebug('stop_requested', { sessionId: currentSessionId });
 
+    onBeforeStop?.();
+
+    const recognizer = voskRecognizerRef.current;
+    if (recognizer) {
+      try {
+        recognizer.retrieveFinalResult();
+      } catch {
+        // Ignore final-result retrieval errors
+      }
+    }
+
     // Stop Web Speech
     const recognition = webSpeechRecognitionRef.current;
     if (recognition) {
@@ -554,7 +567,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       stoppingSessionIdRef.current = null;
       logDebug('stop_completed_without_webspeech', { sessionId: currentSessionId });
     }
-  }, [logDebug]);
+  }, [logDebug, onBeforeStop]);
 
   // Main start listening function
   const startListening = useCallback(async () => {

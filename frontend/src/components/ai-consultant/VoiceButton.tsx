@@ -22,6 +22,7 @@ export function VoiceButton({
   const [showEngineInfo, setShowEngineInfo] = useState(false);
   const lastFinalTranscriptRef = useRef<string>('');
   const sttDebugEnabled = useMemo(() => process.env.NEXT_PUBLIC_STT_DEBUG === 'true', []);
+  const preferVosk = useMemo(() => process.env.NEXT_PUBLIC_STT_PREFER_VOSK !== 'false', []);
 
   const {
     isListening,
@@ -34,7 +35,7 @@ export function VoiceButton({
     preloadVoskModel,
   } = useHybridSTT({
     lang: 'vi-VN',
-    preferVosk: true,
+    preferVosk,
     debug: sttDebugEnabled,
     onResult: (text, isFinal) => {
       if (!isFinal) return;
@@ -56,6 +57,9 @@ export function VoiceButton({
       console.log('Using STT engine:', engine);
       setShowEngineInfo(true);
       setTimeout(() => setShowEngineInfo(false), 3000);
+    },
+    onBeforeStop: () => {
+      onBeforeStartListening?.();
     },
   });
 
