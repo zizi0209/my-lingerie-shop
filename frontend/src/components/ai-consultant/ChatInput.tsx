@@ -34,6 +34,7 @@ export function ChatInput({
   placeholder = 'Nhập tin nhắn...',
 }: ChatInputProps) {
   const [input, setInput] = useState('');
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = () => {
@@ -61,43 +62,54 @@ export function ChatInput({
     }
   };
 
+  const handleVoiceListeningChange = (listening: boolean) => {
+    setIsVoiceListening(listening);
+    onVoiceListeningChange?.(listening);
+  };
+
   return (
-    <div className="flex items-end gap-2 p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      <textarea
-        ref={inputRef}
-        value={input}
-        onChange={handleInput}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        disabled={isLoading}
-        rows={1}
-        className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-gray-600
-                   bg-gray-50 dark:bg-gray-700 px-4 py-2.5 text-sm
-                   focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent
-                   disabled:opacity-50 disabled:cursor-not-allowed
-                   dark:text-white placeholder-gray-400"
-      />
-      <VoiceButton
-        onTranscript={(text) => setInput(prev => appendInputWithDelimiter(prev, text))}
-        onBeforeStartListening={onBeforeVoiceStart}
-        onListeningChange={onVoiceListeningChange}
-        onError={onVoiceError}
-        disabled={isLoading}
-      />
-      <button
-        onClick={handleSend}
-        disabled={!input.trim() || isLoading}
-        className="flex-shrink-0 w-10 h-10 rounded-full bg-pink-500 text-white
-                   flex items-center justify-center
-                   hover:bg-pink-600 transition-colors
-                   disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isLoading ? (
-          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <Send className="w-5 h-5" />
-        )}
-      </button>
+    <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+      {isVoiceListening && (
+        <p className="mb-2 text-xs text-pink-600 dark:text-pink-400">🎤 Đang nghe... Bạn hãy nói rõ và dừng khi xong.</p>
+      )}
+
+      <div className="flex items-end gap-2">
+        <textarea
+          ref={inputRef}
+          value={input}
+          onChange={handleInput}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          disabled={isLoading}
+          rows={1}
+          className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-gray-600
+                     bg-gray-50 dark:bg-gray-700 px-4 py-2.5 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent
+                     disabled:opacity-50 disabled:cursor-not-allowed
+                     dark:text-white placeholder-gray-400"
+        />
+        <VoiceButton
+          onTranscript={(text) => setInput(prev => appendInputWithDelimiter(prev, text))}
+          onBeforeStartListening={onBeforeVoiceStart}
+          onListeningChange={handleVoiceListeningChange}
+          onError={onVoiceError}
+          disabled={isLoading}
+        />
+        <button
+          onClick={handleSend}
+          disabled={!input.trim() || isLoading}
+          className="flex-shrink-0 w-10 h-10 rounded-full bg-pink-500 text-white
+                     flex items-center justify-center
+                     hover:bg-pink-600 transition-colors
+                     disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Send className="w-5 h-5" />
+          )}
+        </button>
+      </div>
     </div>
   );
 }

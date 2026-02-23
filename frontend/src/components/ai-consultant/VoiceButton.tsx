@@ -22,6 +22,9 @@ export function VoiceButton({
   const [showEngineInfo, setShowEngineInfo] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const lastFinalTranscriptRef = useRef<string>('');
+  const onListeningChangeRef = useRef(onListeningChange);
+  const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isListeningRef = useRef(false);
   const sttDebugEnabled = useMemo(() => process.env.NEXT_PUBLIC_STT_DEBUG === 'true', []);
   const preferVosk = useMemo(() => process.env.NEXT_PUBLIC_STT_PREFER_VOSK !== 'false', []);
 
@@ -65,6 +68,14 @@ export function VoiceButton({
   });
 
   useEffect(() => {
+    onListeningChangeRef.current = onListeningChange;
+  }, [onListeningChange]);
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  useEffect(() => {
     if (!sttDebugEnabled) return;
     console.log(`[STT] debug_enabled ${JSON.stringify({ source: 'NEXT_PUBLIC_STT_DEBUG', preferVosk })}`);
   }, [sttDebugEnabled, preferVosk]);
@@ -75,14 +86,30 @@ export function VoiceButton({
   }, [preloadVoskModel]);
 
   useEffect(() => {
-    onListeningChange?.(isListening || isStarting);
-  }, [isListening, isStarting, onListeningChange]);
+    onListeningChangeRef.current?.(isListening || isStarting);
+  }, [isListening, isStarting]);
+
+  useEffect(() => {
+    if (!isListening || !isStarting) {
+      return;
+    }
+
+    if (startTimeoutRef.current) {
+      clearTimeout(startTimeoutRef.current);
+      startTimeoutRef.current = null;
+    }
+
+    setIsStarting(false);
+  }, [isListening, isStarting]);
 
   useEffect(() => {
     return () => {
-      onListeningChange?.(false);
+      if (startTimeoutRef.current) {
+        clearTimeout(startTimeoutRef.current);
+      }
+      onListeningChangeRef.current?.(false);
     };
-  }, [onListeningChange]);
+  }, []);
 
   if (!isSupported) {
     return null;
@@ -90,6 +117,10 @@ export function VoiceButton({
 
   const handleClick = async () => {
     if (isListening || isStarting) {
+      if (startTimeoutRef.current) {
+        clearTimeout(startTimeoutRef.current);
+        startTimeoutRef.current = null;
+      }
       stopListening();
       setIsStarting(false);
       return;
@@ -99,10 +130,28 @@ export function VoiceButton({
     setIsStarting(true);
     onBeforeStartListening?.();
 
+    if (startTimeoutRef.current) {
+      clearTimeout(startTimeoutRef.current);
+      startTimeoutRef.current = null;
+    }
+
+    startTimeoutRef.current = setTimeout(() => {
+      if (!isListeningRef.current) {
+        setIsStarting(false);
+      }
+      startTimeoutRef.current = null;
+    }, 2000);
+
     try {
       await startListening();
     } finally {
-      setIsStarting(false);
+      if (startTimeoutRef.current) {
+        clearTimeout(startTimeoutRef.current);
+        startTimeoutRef.current = null;
+      }
+      if (isListeningRef.current) {
+        setIsStarting(false);
+      }
     }
   };
 
