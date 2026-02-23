@@ -202,17 +202,17 @@
  ## 🔗 Quick Links
  
  ### For Developers:
- - [API Reference](documentation/docs/api-reference/introduction.md)
- - [Architecture Overview](documentation/docs/developer-guide/architecture/overview.md)
- - [Size System Guide](documentation/docs/developer-guide/features/size-system.md)
+ - [API Reference](../../api-reference/introduction.md)
+ - [Architecture Overview](../../developer-guide/architecture/overview.md)
+ - [Size System Guide](../../developer-guide/features/size-system.md)
  
  ### For Users:
- - [Getting Started](documentation/docs/user-guide/getting-started/introduction.md)
- - [Size Guide](documentation/docs/user-guide/size-system/overview.md)
+ - [Getting Started](../../user-guide/quick-start.md)
+ - [Size Guide](../../user-guide/size-system/overview.md)
  
  ### For Business:
- - [Dashboard Analytics](documentation/docs/api-reference/dashboard.md)
- - [Reports & Exports](documentation/docs/api-reference/dashboard.md#export-reports)
+ - [Dashboard Analytics](../../api-reference/dashboard.md)
+ - [Reports & Exports](../../api-reference/dashboard.md#export-reports)
  
  ## 📈 Documentation Quality Metrics
  
