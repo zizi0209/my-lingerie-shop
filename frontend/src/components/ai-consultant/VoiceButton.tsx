@@ -2,7 +2,7 @@
 
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { useHybridSTT } from '@/hooks/useHybridSTT';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 interface VoiceButtonProps {
   onTranscript: (text: string) => void;
@@ -21,6 +21,7 @@ export function VoiceButton({
 }: VoiceButtonProps) {
   const [showEngineInfo, setShowEngineInfo] = useState(false);
   const lastFinalTranscriptRef = useRef<string>('');
+  const sttDebugEnabled = useMemo(() => process.env.NEXT_PUBLIC_STT_DEBUG === 'true', []);
 
   const {
     isListening,
@@ -34,6 +35,7 @@ export function VoiceButton({
   } = useHybridSTT({
     lang: 'vi-VN',
     preferVosk: true,
+    debug: sttDebugEnabled,
     onResult: (text, isFinal) => {
       if (!isFinal) return;
 
@@ -56,6 +58,11 @@ export function VoiceButton({
       setTimeout(() => setShowEngineInfo(false), 3000);
     },
   });
+
+  useEffect(() => {
+    if (!sttDebugEnabled) return;
+    console.log('[STT] debug_enabled', { source: 'NEXT_PUBLIC_STT_DEBUG' });
+  }, [sttDebugEnabled]);
 
   // Preload Vosk model on component mount
   useEffect(() => {

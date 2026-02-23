@@ -6,6 +6,7 @@ interface UseHybridSTTOptions {
   lang?: string;
   preferVosk?: boolean;
   voskModelUrl?: string;
+  debug?: boolean;
   onResult?: (transcript: string, isFinal: boolean) => void;
   onError?: (error: string) => void;
   onEngineChange?: (engine: 'vosk' | 'webspeech') => void;
@@ -39,6 +40,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     lang = 'vi-VN',
     preferVosk = true,
     voskModelUrl = DEFAULT_VOSK_MODEL_URL,
+    debug = false,
     onResult,
     onError,
     onEngineChange,
@@ -50,6 +52,8 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
   const [currentEngine, setCurrentEngine] = useState<'vosk' | 'webspeech' | null>(null);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
+
+  const currentEngineRef = useRef<'vosk' | 'webspeech' | null>(null);
 
   // Vosk refs
   const voskModelRef = useRef<any>(null);
@@ -88,6 +92,28 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     isListeningRef.current = isListening;
   }, [isListening]);
 
+  useEffect(() => {
+    currentEngineRef.current = currentEngine;
+  }, [currentEngine]);
+
+  const logDebug = useCallback(
+    (event: string, meta?: Record<string, string | number | boolean | null | undefined>) => {
+      if (!debug) return;
+      const activeSession = sessionIdRef.current;
+      const stoppingSession = stoppingSessionIdRef.current;
+      console.log('[STT]', {
+        event,
+        sessionId: activeSession,
+        stoppingSessionId: stoppingSession,
+        engine: currentEngineRef.current,
+        isListening: isListeningRef.current,
+        isStopping: isStoppingRef.current,
+        ...(meta || {}),
+      });
+    },
+    [debug],
+  );
+
   const appendFinalChunk = useCallback((rawChunk: string) => {
     const chunk = rawChunk.trim();
     if (!chunk) return '';
@@ -114,6 +140,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       const Vosk = await import('vosk-browser');
 
       // Check if model file exists
+      logDebug('vosk_preload_head_start', { modelUrl: voskModelUrl });
       const modelResponse = await fetch(voskModelUrl, { method: 'HEAD' });
       if (!modelResponse.ok && modelResponse.status !== 405) {
         console.log('Vosk model not found, will use Web Speech API');
@@ -167,18 +194,23 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       voskLoadedRef.current = true;
       setModelLoadProgress(100);
       setIsModelLoading(false);
+      logDebug('vosk_preload_success', { modelUrl: voskModelUrl });
       console.log('Vosk model loaded successfully');
     } catch (error) {
       console.error('Failed to load Vosk model:', error);
+      logDebug('vosk_preload_failed', {
+        error: error instanceof Error ? error.message : 'unknown',
+      });
       voskLoadFailedRef.current = true;
       setIsModelLoading(false);
       setModelLoadProgress(0);
     }
-  }, [voskModelUrl, isModelLoading]);
+  }, [voskModelUrl, isModelLoading, logDebug]);
 
   // Start listening with Vosk
   const startVoskListening = useCallback(
     async (sessionId: number) => {
+      logDebug('vosk_start_attempt', { sessionId });
       if (!voskModelRef.current || isListeningRef.current) return false;
 
       const cleanupVoskResources = () => {
@@ -240,6 +272,10 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
           if (sessionId !== sessionIdRef.current || isStoppingRef.current) return;
 
           const finalText = appendFinalChunk(message.result.text);
+          logDebug('vosk_result', {
+            isFinal: true,
+            textLength: finalText.length,
+          });
           if (finalText) {
             onResult?.(finalText, true);
           }
@@ -249,6 +285,10 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
           if (sessionId !== sessionIdRef.current || isStoppingRef.current) return;
 
           const partial = message.result.partial;
+          logDebug('vosk_result', {
+            isFinal: false,
+            textLength: partial.trim().length,
+          });
           if (partial) {
             setInterimTranscript(partial);
             onResult?.(partial, false);
@@ -284,11 +324,15 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
         setIsListening(true);
         setCurrentEngine('vosk');
         onEngineChange?.('vosk');
+        logDebug('vosk_started', { sessionId });
         console.log('Vosk STT started');
         return true;
       } catch (error) {
         cleanupVoskResources();
         console.error('Vosk listening failed:', error);
+        logDebug('vosk_failed', {
+          error: error instanceof Error ? error.message : 'unknown',
+        });
         if ((error as Error).name === 'NotAllowedError' && !startupErrorReportedRef.current) {
           startupErrorReportedRef.current = true;
           onError?.('Vui lòng cho phép truy cập microphone');
@@ -296,7 +340,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
         return false;
       }
     },
-    [appendFinalChunk, onResult, onEngineChange, onError],
+    [appendFinalChunk, onResult, onEngineChange, onError, logDebug],
   );
 
   // Start listening with Web Speech API
@@ -327,6 +371,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
           setIsListening(true);
           setCurrentEngine('webspeech');
           onEngineChange?.('webspeech');
+          logDebug('webspeech_started', { sessionId });
           console.log('Web Speech STT started');
         };
 
@@ -340,6 +385,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
           if (stoppingSessionIdRef.current === sessionId) {
             isStoppingRef.current = false;
             stoppingSessionIdRef.current = null;
+            logDebug('webspeech_stopped', { sessionId, reason: 'onend' });
           }
 
           isListeningRef.current = false;
@@ -369,6 +415,11 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
           }
 
           setInterimTranscript(interim);
+          logDebug('webspeech_result', {
+            isFinal: finalText.length > 0,
+            finalLength: finalText.length,
+            interimLength: interim.trim().length,
+          });
           if (interim) {
             onResult?.(interim, false);
           }
@@ -382,6 +433,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
           }
 
           console.log('Web Speech API error:', event.error);
+          logDebug('webspeech_error', { error: event.error });
           if (event.error === 'aborted') {
             if (stoppingSessionIdRef.current === sessionId) {
               isStoppingRef.current = false;
@@ -420,6 +472,9 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
         return true;
       } catch (error) {
         console.error('Web Speech listening failed:', error);
+        logDebug('webspeech_failed_to_start', {
+          error: error instanceof Error ? error.message : 'unknown',
+        });
         if (!startupErrorReportedRef.current) {
           startupErrorReportedRef.current = true;
           onError?.('Không thể khởi động nhận dạng giọng nói. Vui lòng thử lại.');
@@ -427,7 +482,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
         return false;
       }
     },
-    [lang, isWebSpeechSupported, appendFinalChunk, onResult, onError, onEngineChange],
+    [lang, isWebSpeechSupported, appendFinalChunk, onResult, onError, onEngineChange, logDebug],
   );
 
   // Stop listening
@@ -437,6 +492,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     const currentSessionId = sessionIdRef.current;
     isStoppingRef.current = true;
     stoppingSessionIdRef.current = currentSessionId;
+    logDebug('stop_requested', { sessionId: currentSessionId });
 
     // Stop Web Speech
     const recognition = webSpeechRecognitionRef.current;
@@ -496,8 +552,9 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     if (!recognition) {
       isStoppingRef.current = false;
       stoppingSessionIdRef.current = null;
+      logDebug('stop_completed_without_webspeech', { sessionId: currentSessionId });
     }
-  }, []);
+  }, [logDebug]);
 
   // Main start listening function
   const startListening = useCallback(async () => {
@@ -509,6 +566,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     if (isStoppingRef.current) {
       isStoppingRef.current = false;
       stoppingSessionIdRef.current = null;
+      logDebug('stopping_state_cleared_before_start');
     }
 
     startupErrorReportedRef.current = false;
@@ -520,12 +578,14 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
 
     // Try Vosk first if preferred and model is loaded
     if (preferVosk && voskLoadedRef.current && !voskLoadFailedRef.current) {
+      logDebug('start_try_vosk', { sessionId });
       const success = await startVoskListening(sessionId);
       if (success) return;
     }
 
     // If Vosk model not loaded yet and preferred, try loading first
     if (preferVosk && !voskLoadFailedRef.current && !voskLoadedRef.current) {
+      logDebug('start_preload_vosk', { sessionId });
       await preloadVoskModel();
 
       if (sessionId !== sessionIdRef.current) {
@@ -544,6 +604,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
 
     // Fallback to Web Speech API
     if (isWebSpeechSupported) {
+      logDebug('start_try_webspeech', { sessionId });
       const success = startWebSpeechListening(sessionId);
       if (success) return;
       if (!startupErrorReportedRef.current) {
@@ -564,6 +625,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     startWebSpeechListening,
     preloadVoskModel,
     onError,
+    logDebug,
   ]);
 
   const resetTranscript = useCallback(() => {
