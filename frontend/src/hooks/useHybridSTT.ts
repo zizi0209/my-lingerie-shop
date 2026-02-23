@@ -68,6 +68,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
   const isListeningRef = useRef(false);
   const isStoppingRef = useRef(false);
   const sessionIdRef = useRef(0);
+  const stoppingSessionIdRef = useRef<number | null>(null);
   const startupErrorReportedRef = useRef(false);
 
   const isWebSpeechSupported = useMemo(() => {
@@ -91,7 +92,14 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     const chunk = rawChunk.trim();
     if (!chunk) return '';
 
-    setTranscript(prev => (prev ? `${prev} ${chunk}` : chunk));
+    setTranscript(prev => {
+      if (!prev) return chunk;
+      const normalizedPrev = prev.trim();
+      if (normalizedPrev.endsWith(chunk)) {
+        return prev;
+      }
+      return `${prev} ${chunk}`;
+    });
     return chunk;
   }, []);
 
@@ -107,7 +115,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
 
       // Check if model file exists
       const modelResponse = await fetch(voskModelUrl, { method: 'HEAD' });
-      if (!modelResponse.ok) {
+      if (!modelResponse.ok && modelResponse.status !== 405) {
         console.log('Vosk model not found, will use Web Speech API');
         voskLoadFailedRef.current = true;
         setIsModelLoading(false);
@@ -329,6 +337,11 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
 
           if (sessionId !== sessionIdRef.current) return;
 
+          if (stoppingSessionIdRef.current === sessionId) {
+            isStoppingRef.current = false;
+            stoppingSessionIdRef.current = null;
+          }
+
           isListeningRef.current = false;
           setIsListening(false);
           setCurrentEngine(null);
@@ -336,7 +349,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
         };
 
         recognition.onresult = (event: SpeechRecognitionEvent) => {
-          if (sessionId !== sessionIdRef.current || isStoppingRef.current) return;
+          if (sessionId !== sessionIdRef.current) return;
 
           let interim = '';
           const finalChunks: string[] = [];
@@ -364,8 +377,16 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
         recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
           if (sessionId !== sessionIdRef.current) return;
 
+          if (webSpeechRecognitionRef.current === recognition) {
+            webSpeechRecognitionRef.current = null;
+          }
+
           console.log('Web Speech API error:', event.error);
           if (event.error === 'aborted') {
+            if (stoppingSessionIdRef.current === sessionId) {
+              isStoppingRef.current = false;
+              stoppingSessionIdRef.current = null;
+            }
             return;
           }
 
@@ -392,6 +413,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
           isListeningRef.current = false;
           setIsListening(false);
           setCurrentEngine(null);
+          setInterimTranscript('');
         };
 
         recognition.start();
@@ -410,30 +432,30 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
 
   // Stop listening
   const stopListening = useCallback(() => {
+    if (!isListeningRef.current) return;
+
+    const currentSessionId = sessionIdRef.current;
     isStoppingRef.current = true;
-    sessionIdRef.current += 1;
+    stoppingSessionIdRef.current = currentSessionId;
 
     // Stop Web Speech
     const recognition = webSpeechRecognitionRef.current;
     if (recognition) {
-      recognition.onstart = null;
-      recognition.onend = null;
-      recognition.onresult = null;
-      recognition.onerror = null;
-
       try {
         recognition.stop();
       } catch {
         // Ignore stop errors
       }
 
-      try {
-        recognition.abort();
-      } catch {
-        // Ignore abort errors
-      }
-
-      webSpeechRecognitionRef.current = null;
+      setTimeout(() => {
+        if (webSpeechRecognitionRef.current === recognition && isStoppingRef.current) {
+          try {
+            recognition.abort();
+          } catch {
+            // Ignore abort errors
+          }
+        }
+      }, 600);
     }
 
     // Stop Vosk
@@ -470,6 +492,11 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     setIsListening(false);
     setCurrentEngine(null);
     setInterimTranscript('');
+
+    if (!recognition) {
+      isStoppingRef.current = false;
+      stoppingSessionIdRef.current = null;
+    }
   }, []);
 
   // Main start listening function
@@ -479,7 +506,11 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       return;
     }
 
-    isStoppingRef.current = false;
+    if (isStoppingRef.current) {
+      isStoppingRef.current = false;
+      stoppingSessionIdRef.current = null;
+    }
+
     startupErrorReportedRef.current = false;
     const sessionId = sessionIdRef.current + 1;
     sessionIdRef.current = sessionId;
@@ -497,7 +528,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     if (preferVosk && !voskLoadFailedRef.current && !voskLoadedRef.current) {
       await preloadVoskModel();
 
-      if (sessionId !== sessionIdRef.current || isStoppingRef.current) {
+      if (sessionId !== sessionIdRef.current) {
         return;
       }
 
@@ -507,7 +538,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       }
     }
 
-    if (sessionId !== sessionIdRef.current || isStoppingRef.current) {
+    if (sessionId !== sessionIdRef.current) {
       return;
     }
 

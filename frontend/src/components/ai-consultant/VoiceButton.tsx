@@ -2,7 +2,7 @@
 
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { useHybridSTT } from '@/hooks/useHybridSTT';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface VoiceButtonProps {
   onTranscript: (text: string) => void;
@@ -20,6 +20,7 @@ export function VoiceButton({
   disabled,
 }: VoiceButtonProps) {
   const [showEngineInfo, setShowEngineInfo] = useState(false);
+  const lastFinalTranscriptRef = useRef<string>('');
 
   const {
     isListening,
@@ -34,9 +35,17 @@ export function VoiceButton({
     lang: 'vi-VN',
     preferVosk: true,
     onResult: (text, isFinal) => {
-      if (isFinal) {
-        onTranscript(text);
+      if (!isFinal) return;
+
+      const normalized = text.trim();
+      if (!normalized) return;
+
+      if (normalized === lastFinalTranscriptRef.current) {
+        return;
       }
+
+      lastFinalTranscriptRef.current = normalized;
+      onTranscript(normalized);
     },
     onError: (error) => {
       onError?.(error);
@@ -73,6 +82,7 @@ export function VoiceButton({
       return;
     }
 
+    lastFinalTranscriptRef.current = '';
     onBeforeStartListening?.();
     await startListening();
   };

@@ -57,9 +57,10 @@ export function ChatContainer({ onClose, productSlug }: ChatContainerProps) {
   };
 
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 1) {
       const lastMessage = messages[messages.length - 1];
-      if (lastMessage.role === 'assistant') {
+      const previousMessage = messages[messages.length - 2];
+      if (previousMessage.role === 'user' && lastMessage.role === 'assistant') {
         setVoiceError(null);
       }
     }
