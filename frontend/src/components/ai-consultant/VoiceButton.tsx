@@ -65,8 +65,8 @@ export function VoiceButton({
 
   useEffect(() => {
     if (!sttDebugEnabled) return;
-    console.log('[STT] debug_enabled', { source: 'NEXT_PUBLIC_STT_DEBUG' });
-  }, [sttDebugEnabled]);
+    console.log(`[STT] debug_enabled ${JSON.stringify({ source: 'NEXT_PUBLIC_STT_DEBUG', preferVosk })}`);
+  }, [sttDebugEnabled, preferVosk]);
 
   // Preload Vosk model on component mount
   useEffect(() => {
