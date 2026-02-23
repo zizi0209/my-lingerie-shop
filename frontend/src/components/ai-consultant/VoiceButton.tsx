@@ -20,6 +20,7 @@ export function VoiceButton({
   disabled,
 }: VoiceButtonProps) {
   const [showEngineInfo, setShowEngineInfo] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const lastFinalTranscriptRef = useRef<string>('');
   const sttDebugEnabled = useMemo(() => process.env.NEXT_PUBLIC_STT_DEBUG === 'true', []);
   const preferVosk = useMemo(() => process.env.NEXT_PUBLIC_STT_PREFER_VOSK !== 'false', []);
@@ -74,8 +75,8 @@ export function VoiceButton({
   }, [preloadVoskModel]);
 
   useEffect(() => {
-    onListeningChange?.(isListening);
-  }, [isListening, onListeningChange]);
+    onListeningChange?.(isListening || isStarting);
+  }, [isListening, isStarting, onListeningChange]);
 
   useEffect(() => {
     return () => {
@@ -88,17 +89,27 @@ export function VoiceButton({
   }
 
   const handleClick = async () => {
-    if (isListening) {
+    if (isListening || isStarting) {
       stopListening();
+      setIsStarting(false);
       return;
     }
 
     lastFinalTranscriptRef.current = '';
+    setIsStarting(true);
     onBeforeStartListening?.();
-    await startListening();
+
+    try {
+      await startListening();
+    } finally {
+      setIsStarting(false);
+    }
   };
 
   const getButtonTitle = () => {
+    if (isStarting) {
+      return 'Đang bật microphone...';
+    }
     if (isModelLoading) {
       return `Đang tải model nhận dạng... ${modelLoadProgress}%`;
     }
@@ -119,14 +130,16 @@ export function VoiceButton({
                     transition-all duration-200
                     ${isListening
                       ? 'bg-red-500 text-white animate-pulse'
-                      : isModelLoading
-                        ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-300'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      : isStarting
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                        : isModelLoading
+                          ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-300'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }
                     disabled:opacity-50 disabled:cursor-not-allowed`}
         title={getButtonTitle()}
       >
-        {isModelLoading ? (
+        {isStarting || isModelLoading ? (
           <Loader2 className="w-5 h-5 animate-spin" />
         ) : isListening ? (
           <MicOff className="w-5 h-5" />
@@ -135,14 +148,21 @@ export function VoiceButton({
         )}
       </button>
 
-      {isModelLoading && (
+      {isStarting && (
+        <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap
+                        text-xs bg-blue-600 text-white px-2 py-1 rounded shadow-lg">
+          Đang bật mic...
+        </div>
+      )}
+
+      {isModelLoading && !isStarting && (
         <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap
                         text-xs bg-gray-800 text-white px-2 py-1 rounded shadow-lg">
           Tải model: {modelLoadProgress}%
         </div>
       )}
 
-      {showEngineInfo && currentEngine && (
+      {showEngineInfo && currentEngine && !isStarting && (
         <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap
                         text-xs bg-green-600 text-white px-2 py-1 rounded shadow-lg animate-fade-in">
           {currentEngine === 'vosk' ? '🎯 Vosk (Offline)' : '🌐 Web Speech'}
