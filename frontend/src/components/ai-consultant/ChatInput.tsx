@@ -34,7 +34,6 @@ export function ChatInput({
   placeholder = 'Nhập tin nhắn...',
 }: ChatInputProps) {
   const [input, setInput] = useState('');
-  const [isVoiceListening, setIsVoiceListening] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = () => {
@@ -63,16 +62,11 @@ export function ChatInput({
   };
 
   const handleVoiceListeningChange = (listening: boolean) => {
-    setIsVoiceListening(listening);
     onVoiceListeningChange?.(listening);
   };
 
   return (
     <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      {isVoiceListening && (
-        <p className="mb-2 text-xs text-pink-600 dark:text-pink-400">🎤 Đang nghe... Bạn hãy nói rõ và dừng khi xong.</p>
-      )}
-
       <div className="flex items-end gap-2">
         <textarea
           ref={inputRef}
