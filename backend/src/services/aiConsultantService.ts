@@ -8,7 +8,15 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
 const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
-const GEMINI_MODELS = ['gemini-2.0-flash-exp', 'gemini-1.5-flash'];
+const DEFAULT_GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+const GEMINI_MODELS = (process.env.GEMINI_MODELS || '')
+  .split(',')
+  .map(model => model.trim())
+  .filter(Boolean);
+const RESOLVED_GEMINI_MODELS = GEMINI_MODELS.length > 0 ? GEMINI_MODELS : DEFAULT_GEMINI_MODELS;
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+
+const AI_UNAVAILABLE_MESSAGE = 'Không thể kết nối trợ lý AI lúc này. Vui lòng thử lại sau.';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -114,6 +122,7 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
   }
 
   async chat(sessionId: string, userMessage: string, context?: ChatContext): Promise<ChatResponse> {
+    const requestId = `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     let history = this.conversationCache.get(sessionId) || [];
 
     if (context?.conversationHistory) {
@@ -136,28 +145,32 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
 
     try {
       if (this.groqFallbackActive && GROQ_API_KEY) {
-        aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history);
+        console.log(`[AIConsultant][${requestId}] provider=groq fallbackActive=true`);
+        aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history, requestId);
       } else if (genAI) {
-        aiMessage = await this.callGemini(systemPromptWithContext, userMessage, history);
+        console.log(`[AIConsultant][${requestId}] provider=gemini models=${RESOLVED_GEMINI_MODELS.join(',')}`);
+        aiMessage = await this.callGemini(systemPromptWithContext, userMessage, history, requestId);
       } else if (GROQ_API_KEY) {
-        aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history);
+        console.log(`[AIConsultant][${requestId}] provider=groq fallbackActive=false`);
+        aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history, requestId);
       } else {
-        throw new Error('No AI API key configured (GEMINI_API_KEY or GROQ_API_KEY)');
+        console.error(`[AIConsultant][${requestId}] missing_api_keys gemini=${Boolean(GEMINI_API_KEY)} groq=${Boolean(GROQ_API_KEY)}`);
+        throw new Error(AI_UNAVAILABLE_MESSAGE);
       }
     } catch (error) {
-      console.error('Primary AI call failed:', error);
-      
+      console.error(`[AIConsultant][${requestId}] primary_provider_failed`, error);
+
       if (!this.groqFallbackActive && GROQ_API_KEY) {
-        console.log('Switching to Groq fallback...');
+        console.log(`[AIConsultant][${requestId}] switching_to_groq_fallback`);
         this.groqFallbackActive = true;
         try {
-          aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history);
+          aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history, requestId);
         } catch (groqError) {
-          console.error('Groq fallback also failed:', groqError);
-          throw new Error('Không thể kết nối với AI. Vui lòng thử lại sau.');
+          console.error(`[AIConsultant][${requestId}] groq_fallback_failed`, groqError);
+          throw new Error(AI_UNAVAILABLE_MESSAGE);
         }
       } else {
-        throw new Error('Không thể kết nối với AI. Vui lòng thử lại sau.');
+        throw new Error(AI_UNAVAILABLE_MESSAGE);
       }
     }
 
@@ -178,16 +191,25 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
     };
   }
 
-  private async callGemini(systemPrompt: string, userMessage: string, history: ChatMessage[]): Promise<string> {
+  private async callGemini(
+    systemPrompt: string,
+    userMessage: string,
+    history: ChatMessage[],
+    requestId?: string,
+  ): Promise<string> {
     if (!genAI) throw new Error('Gemini not configured');
 
     let lastError: Error | null = null;
     
-    for (let i = this.currentModelIndex; i < GEMINI_MODELS.length; i++) {
+    const modelsLength = RESOLVED_GEMINI_MODELS.length;
+
+    for (let attempt = 0; attempt < modelsLength; attempt++) {
+      const modelIndex = (this.currentModelIndex + attempt) % modelsLength;
+      const modelName = RESOLVED_GEMINI_MODELS[modelIndex];
+
       try {
-        const modelName = GEMINI_MODELS[i];
-        console.log(`Trying Gemini model: ${modelName}`);
-        
+        console.log(`[AIConsultant][${requestId || 'n/a'}] trying_gemini_model=${modelName}`);
+
         const model = genAI.getGenerativeModel({ model: modelName });
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -211,10 +233,10 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
         const result = await chat.sendMessage(fullPrompt);
         const response = result.response;
         
-        this.currentModelIndex = i;
+        this.currentModelIndex = modelIndex;
         return response.text();
       } catch (error) {
-        console.error(`Gemini ${GEMINI_MODELS[i]} failed:`, error);
+        console.error(`[AIConsultant][${requestId || 'n/a'}] gemini_model_failed=${modelName}`, error);
         lastError = error as Error;
       }
     }
@@ -222,10 +244,15 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
     throw lastError || new Error('All Gemini models failed');
   }
 
-  private async callGroq(systemPrompt: string, userMessage: string, history: ChatMessage[]): Promise<string> {
+  private async callGroq(
+    systemPrompt: string,
+    userMessage: string,
+    history: ChatMessage[],
+    requestId?: string,
+  ): Promise<string> {
     if (!GROQ_API_KEY) throw new Error('Groq not configured');
 
-    console.log('Using Groq API (llama-3.1-8b-instant)');
+    console.log(`[AIConsultant][${requestId || 'n/a'}] using_groq_model=${GROQ_MODEL}`);
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -243,7 +270,7 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: GROQ_MODEL,
         messages,
         max_tokens: 500,
         temperature: 0.7,
@@ -252,7 +279,7 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Groq API error:', errorData);
+      console.error(`[AIConsultant][${requestId || 'n/a'}] groq_api_error status=${response.status} model=${GROQ_MODEL}`, errorData);
       throw new Error(`Groq API error: ${response.status}`);
     }
 

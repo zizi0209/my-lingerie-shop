@@ -8,6 +8,7 @@ interface VoiceButtonProps {
   onTranscript: (text: string) => void;
   onBeforeStartListening?: () => void;
   onListeningChange?: (isListening: boolean) => void;
+  onError?: (error: string) => void;
   disabled?: boolean;
 }
 
@@ -15,6 +16,7 @@ export function VoiceButton({
   onTranscript,
   onBeforeStartListening,
   onListeningChange,
+  onError,
   disabled,
 }: VoiceButtonProps) {
   const [showEngineInfo, setShowEngineInfo] = useState(false);
@@ -37,7 +39,7 @@ export function VoiceButton({
       }
     },
     onError: (error) => {
-      console.error('STT Error:', error);
+      onError?.(error);
     },
     onEngineChange: (engine) => {
       console.log('Using STT engine:', engine);
@@ -91,7 +93,7 @@ export function VoiceButton({
       <button
         type="button"
         onClick={handleClick}
-        disabled={disabled || isModelLoading}
+        disabled={disabled}
         className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center
                     transition-all duration-200
                     ${isListening

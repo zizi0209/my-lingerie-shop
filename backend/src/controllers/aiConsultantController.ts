@@ -29,8 +29,10 @@
  function isInappropriateContent(text: string): boolean {
    return BLOCKED_PATTERNS.some(pattern => pattern.test(text));
  }
- 
- export const chat = async (req: Request, res: Response): Promise<void> => {
+
+ const AI_FRIENDLY_ERROR_MESSAGE = 'Trợ lý AI hiện đang bận. Vui lòng thử lại sau ít phút.';
+
+export const chat = async (req: Request, res: Response): Promise<void> => {
    try {
      const { message, sessionId, context } = req.body as ChatRequestBody;
  
@@ -80,13 +82,16 @@
        },
      });
    } catch (error) {
-     console.error('AI Consultant Error:', error);
-     
-     const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
-     
+     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+     console.error('AI Consultant Error:', {
+       message: errorMessage,
+       stack: error instanceof Error ? error.stack : undefined,
+       sessionId: (req.body as ChatRequestBody)?.sessionId || null,
+     });
+
      res.status(500).json({
        success: false,
-       error: errorMessage,
+       error: AI_FRIENDLY_ERROR_MESSAGE,
      });
    }
  };

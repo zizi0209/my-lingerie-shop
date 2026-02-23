@@ -8,6 +8,7 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   onBeforeVoiceStart?: () => void;
   onVoiceListeningChange?: (isListening: boolean) => void;
+  onVoiceError?: (error: string) => void;
   isLoading: boolean;
   placeholder?: string;
 }
@@ -28,6 +29,7 @@ export function ChatInput({
   onSend,
   onBeforeVoiceStart,
   onVoiceListeningChange,
+  onVoiceError,
   isLoading,
   placeholder = 'Nhập tin nhắn...',
 }: ChatInputProps) {
@@ -79,6 +81,7 @@ export function ChatInput({
         onTranscript={(text) => setInput(prev => appendInputWithDelimiter(prev, text))}
         onBeforeStartListening={onBeforeVoiceStart}
         onListeningChange={onVoiceListeningChange}
+        onError={onVoiceError}
         disabled={isLoading}
       />
       <button

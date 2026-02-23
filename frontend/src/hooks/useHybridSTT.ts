@@ -68,6 +68,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
   const isListeningRef = useRef(false);
   const isStoppingRef = useRef(false);
   const sessionIdRef = useRef(0);
+  const startupErrorReportedRef = useRef(false);
 
   const isWebSpeechSupported = useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -280,7 +281,8 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       } catch (error) {
         cleanupVoskResources();
         console.error('Vosk listening failed:', error);
-        if ((error as Error).name === 'NotAllowedError') {
+        if ((error as Error).name === 'NotAllowedError' && !startupErrorReportedRef.current) {
+          startupErrorReportedRef.current = true;
           onError?.('Vui lòng cho phép truy cập microphone');
         }
         return false;
@@ -383,7 +385,10 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
               break;
           }
 
-          onError?.(errorMessage);
+          if (!startupErrorReportedRef.current) {
+            startupErrorReportedRef.current = true;
+            onError?.(errorMessage);
+          }
           isListeningRef.current = false;
           setIsListening(false);
           setCurrentEngine(null);
@@ -393,6 +398,10 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
         return true;
       } catch (error) {
         console.error('Web Speech listening failed:', error);
+        if (!startupErrorReportedRef.current) {
+          startupErrorReportedRef.current = true;
+          onError?.('Không thể khởi động nhận dạng giọng nói. Vui lòng thử lại.');
+        }
         return false;
       }
     },
@@ -471,6 +480,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     }
 
     isStoppingRef.current = false;
+    startupErrorReportedRef.current = false;
     const sessionId = sessionIdRef.current + 1;
     sessionIdRef.current = sessionId;
 
@@ -505,9 +515,15 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     if (isWebSpeechSupported) {
       const success = startWebSpeechListening(sessionId);
       if (success) return;
+      if (!startupErrorReportedRef.current) {
+        startupErrorReportedRef.current = true;
+        onError?.('Không thể khởi động nhận dạng giọng nói. Vui lòng thử lại.');
+      }
+      return;
     }
 
-    if (!isWebSpeechSupported && !voskLoadedRef.current) {
+    if (!startupErrorReportedRef.current) {
+      startupErrorReportedRef.current = true;
       onError?.('Trình duyệt không hỗ trợ nhận dạng giọng nói');
     }
   }, [

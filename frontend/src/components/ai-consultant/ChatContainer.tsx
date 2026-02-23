@@ -23,6 +23,7 @@ export function ChatContainer({ onClose, productSlug }: ChatContainerProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
   const [isSttListening, setIsSttListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,12 +44,26 @@ export function ChatContainer({ onClose, productSlug }: ChatContainerProps) {
   };
 
   const handleBeforeVoiceStart = () => {
+    setVoiceError(null);
     stop();
   };
 
   const handleVoiceListeningChange = (listening: boolean) => {
     setIsSttListening(listening);
   };
+
+  const handleVoiceError = (message: string) => {
+    setVoiceError(message);
+  };
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant') {
+        setVoiceError(null);
+      }
+    }
+  }, [messages]);
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
@@ -122,11 +137,17 @@ export function ChatContainer({ onClose, productSlug }: ChatContainerProps) {
         )}
       </div>
 
-      {error && (
+      {(error || voiceError) && (
         <div className="mx-4 mb-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <p className="text-xs text-red-600 dark:text-red-400 flex-1">{error}</p>
-          <button onClick={dismissError} className="text-red-500 hover:text-red-700">
+          <p className="text-xs text-red-600 dark:text-red-400 flex-1">{error || voiceError}</p>
+          <button
+            onClick={() => {
+              dismissError();
+              setVoiceError(null);
+            }}
+            className="text-red-500 hover:text-red-700"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -136,6 +157,7 @@ export function ChatContainer({ onClose, productSlug }: ChatContainerProps) {
         onSend={handleSendMessage}
         onBeforeVoiceStart={handleBeforeVoiceStart}
         onVoiceListeningChange={handleVoiceListeningChange}
+        onVoiceError={handleVoiceError}
         isLoading={isLoading}
       />
     </div>
