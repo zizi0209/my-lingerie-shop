@@ -1,6 +1,15 @@
  // Virtual Try-On TypeScript Interfaces
  
  export type TryOnStatus = 'idle' | 'uploading' | 'queued' | 'processing' | 'completed' | 'error';
+
+export type TryOnErrorCode =
+  | 'INPUT_GARMENT_INVALID'
+  | 'INPUT_GARMENT_MODEL_WORN'
+  | 'INPUT_GARMENT_TOO_SMALL'
+  | 'USER_IMAGE_INVALID'
+  | 'USER_IMAGE_TOO_SMALL'
+  | 'USER_IMAGE_ASPECT_RATIO'
+  | 'INPUT_IMAGE_UNSUPPORTED';
  
  export interface TryOnResult {
    originalImage: string;

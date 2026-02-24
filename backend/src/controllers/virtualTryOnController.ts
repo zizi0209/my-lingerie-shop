@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
- import { processVirtualTryOn, checkSpacesStatus, resetProviderHealth, getProviderHealthStats } from '../services/virtualTryOnService';
+import { processVirtualTryOn, checkSpacesStatus, resetProviderHealth, getProviderHealthStats } from '../services/virtualTryOnService';
+import { validateTryOnInputs } from '../services/inputValidatorService';
  
  export async function tryOn(req: Request, res: Response) {
    try {
@@ -31,6 +32,17 @@ import { Request, Response } from 'express';
      }
  
      console.log('Images validated. Person:', Math.round(personImage.length/1024), 'KB, Garment:', Math.round(garmentImage.length/1024), 'KB');
+
+     const validation = await validateTryOnInputs(personImage, garmentImage);
+     if (!validation.ok && validation.error) {
+       console.log('[TryOn] Input validation failed:', validation.error.code, validation.error.message);
+       return res.status(422).json({
+         success: false,
+         error: validation.error.message,
+         errorCode: validation.error.code,
+         details: validation.error.details,
+       });
+     }
      console.log('Calling processVirtualTryOn...');
      
      const result = await processVirtualTryOn(personImage, garmentImage);

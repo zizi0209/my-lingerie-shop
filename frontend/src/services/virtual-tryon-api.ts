@@ -1,8 +1,14 @@
-import { TryOnRequest, TryOnResult } from '@/types/virtual-tryon';
+import { TryOnRequest, TryOnResult, TryOnErrorCode } from '@/types/virtual-tryon';
  
  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
  
  type ProgressCallback = (progress: number, message?: string) => void;
+
+interface TryOnErrorPayload {
+  error?: string;
+  message?: string;
+  errorCode?: TryOnErrorCode;
+}
  
  async function blobToBase64(blob: Blob): Promise<string> {
    return new Promise((resolve, reject) => {
@@ -44,16 +50,18 @@ import { TryOnRequest, TryOnResult } from '@/types/virtual-tryon';
  
    onProgress?.(80, 'Đang xử lý kết quả...');
  
-   if (!response.ok) {
-     const error = await response.json().catch(() => ({ message: 'Lỗi kết nối' }));
-     throw new Error(error.message || 'Không thể xử lý hình ảnh');
-   }
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({ message: 'Lỗi kết nối' }))) as TryOnErrorPayload;
+    const mapped = mapTryOnErrorCode(error.errorCode, error.message || error.error);
+    throw new Error(mapped);
+  }
  
    const result = await response.json();
  
-   if (!result.success) {
-     throw new Error(result.message || 'Không thể xử lý hình ảnh');
-   }
+  if (!result.success) {
+    const mapped = mapTryOnErrorCode(result.errorCode as TryOnErrorCode | undefined, result.message || result.error);
+    throw new Error(mapped || 'Không thể xử lý hình ảnh');
+  }
  
    onProgress?.(100, 'Hoàn thành!');
  
@@ -107,4 +115,27 @@ import { TryOnRequest, TryOnResult } from '@/types/virtual-tryon';
    
    return 'Đã xảy ra lỗi. Vui lòng thử lại sau.';
  }
+
+function mapTryOnErrorCode(
+  code?: TryOnErrorCode,
+  fallbackMessage?: string
+): string {
+  switch (code) {
+    case 'INPUT_GARMENT_MODEL_WORN':
+      return 'Ảnh sản phẩm phải là ảnh lingerie riêng (đã tách nền), không dùng ảnh người mẫu mặc đồ.';
+    case 'INPUT_GARMENT_TOO_SMALL':
+      return 'Ảnh sản phẩm quá nhỏ. Vui lòng dùng ảnh rõ nét, độ phân giải cao.';
+    case 'USER_IMAGE_TOO_SMALL':
+      return 'Ảnh người quá nhỏ. Vui lòng dùng ảnh rõ nét, toàn thân.';
+    case 'USER_IMAGE_ASPECT_RATIO':
+      return 'Tỷ lệ ảnh người không phù hợp. Vui lòng dùng ảnh toàn thân thẳng đứng.';
+    case 'INPUT_IMAGE_UNSUPPORTED':
+      return 'Định dạng ảnh không được hỗ trợ.';
+    case 'INPUT_GARMENT_INVALID':
+    case 'USER_IMAGE_INVALID':
+      return fallbackMessage || 'Không thể đọc ảnh đầu vào. Vui lòng thử ảnh khác.';
+    default:
+      return fallbackMessage || 'Không thể xử lý hình ảnh.';
+  }
+}
  
