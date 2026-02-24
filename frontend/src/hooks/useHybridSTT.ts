@@ -57,6 +57,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
 
   const currentEngineRef = useRef<'vosk' | 'webspeech' | null>(null);
   const manualStopRequestedRef = useRef(false);
+  const voskUnavailableNotifiedRef = useRef(false);
 
   // Vosk refs
   const voskModelRef = useRef<any>(null);
@@ -145,6 +146,49 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
     setInterimTranscript('');
   }, [interimTranscript, appendFinalChunk, onResult, logDebug]);
 
+  const checkVoskModelAvailable = useCallback(async () => {
+    try {
+      const headResponse = await fetch(voskModelUrl, { method: 'HEAD' });
+      if (headResponse.ok || headResponse.status === 405) {
+        logDebug('vosk_model_head_ok', { status: headResponse.status });
+        return true;
+      }
+
+      logDebug('vosk_model_head_failed', { status: headResponse.status });
+    } catch (error) {
+      logDebug('vosk_model_head_error', {
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+    }
+
+    try {
+      const getResponse = await fetch(voskModelUrl, {
+        method: 'GET',
+        headers: { Range: 'bytes=0-0' },
+      });
+
+      if (getResponse.ok || getResponse.status === 206) {
+        logDebug('vosk_model_get_ok', { status: getResponse.status });
+        if (getResponse.body) {
+          try {
+            await getResponse.body.cancel();
+          } catch {
+            // Ignore cancel errors
+          }
+        }
+        return true;
+      }
+
+      logDebug('vosk_model_get_failed', { status: getResponse.status });
+    } catch (error) {
+      logDebug('vosk_model_get_error', {
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+    }
+
+    return false;
+  }, [voskModelUrl, logDebug]);
+
   // Load Vosk model
   const preloadVoskModel = useCallback(async () => {
     if (voskLoadedRef.current || voskLoadFailedRef.current || isModelLoading) return;
@@ -156,12 +200,16 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       const Vosk = await import('vosk-browser');
 
       // Check if model file exists
-      logDebug('vosk_preload_head_start', { modelUrl: voskModelUrl });
-      const modelResponse = await fetch(voskModelUrl, { method: 'HEAD' });
-      if (!modelResponse.ok && modelResponse.status !== 405) {
+      logDebug('vosk_preload_check_start', { modelUrl: voskModelUrl });
+      const modelAvailable = await checkVoskModelAvailable();
+      if (!modelAvailable) {
         console.log('Vosk model not found, will use Web Speech API');
         voskLoadFailedRef.current = true;
         setIsModelLoading(false);
+        if (!voskUnavailableNotifiedRef.current) {
+          voskUnavailableNotifiedRef.current = true;
+          onError?.('Không thể tải model nhận dạng offline, sẽ dùng Web Speech');
+        }
         return;
       }
 
@@ -221,7 +269,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
       setIsModelLoading(false);
       setModelLoadProgress(0);
     }
-  }, [voskModelUrl, isModelLoading, logDebug]);
+  }, [voskModelUrl, isModelLoading, logDebug, checkVoskModelAvailable, onError]);
 
   // Start listening with Vosk
   const startVoskListening = useCallback(
