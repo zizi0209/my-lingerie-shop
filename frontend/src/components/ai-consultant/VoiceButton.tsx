@@ -26,7 +26,15 @@ export function VoiceButton({
   const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isListeningRef = useRef(false);
   const sttDebugEnabled = useMemo(() => process.env.NEXT_PUBLIC_STT_DEBUG === 'true', []);
-  const preferVosk = useMemo(() => process.env.NEXT_PUBLIC_STT_PREFER_VOSK !== 'false', []);
+  const preferVosk = useMemo(() => {
+    const value = process.env.NEXT_PUBLIC_STT_PREFER_VOSK;
+    if (!value) return true;
+
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'false') return false;
+    if (normalized === 'true') return true;
+    return true;
+  }, []);
 
   const {
     isListening,
