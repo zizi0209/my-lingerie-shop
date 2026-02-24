@@ -2,7 +2,7 @@
 
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { useHybridSTT } from '@/hooks/useHybridSTT';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface VoiceButtonProps {
   onTranscript: (text: string) => void;
@@ -24,6 +24,8 @@ export function VoiceButton({
   const lastFinalTranscriptRef = useRef<string>('');
   const onListeningChangeRef = useRef(onListeningChange);
   const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resetSilenceTimerRef = useRef<() => void>(() => undefined);
   const isListeningRef = useRef(false);
   const sttDebugEnabled = useMemo(() => process.env.NEXT_PUBLIC_STT_DEBUG === 'true', []);
   const preferVosk = useMemo(() => {
@@ -50,6 +52,9 @@ export function VoiceButton({
     preferVosk,
     debug: sttDebugEnabled,
     onResult: (text, isFinal) => {
+      if (text.trim()) {
+        resetSilenceTimerRef.current();
+      }
       if (!isFinal) return;
 
       const normalized = text.trim();
@@ -75,6 +80,22 @@ export function VoiceButton({
     },
   });
 
+  const resetSilenceTimer = useCallback(() => {
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+    }
+
+    silenceTimeoutRef.current = setTimeout(() => {
+      if (isListeningRef.current) {
+        stopListening();
+      }
+    }, 2000);
+  }, [stopListening]);
+
+  useEffect(() => {
+    resetSilenceTimerRef.current = resetSilenceTimer;
+  }, [resetSilenceTimer]);
+
   useEffect(() => {
     onListeningChangeRef.current = onListeningChange;
   }, [onListeningChange]);
@@ -82,6 +103,18 @@ export function VoiceButton({
   useEffect(() => {
     isListeningRef.current = isListening;
   }, [isListening]);
+
+  useEffect(() => {
+    if (!isListening) {
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+        silenceTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    resetSilenceTimer();
+  }, [isListening, resetSilenceTimer]);
 
   useEffect(() => {
     if (!sttDebugEnabled) return;
@@ -114,6 +147,9 @@ export function VoiceButton({
     return () => {
       if (startTimeoutRef.current) {
         clearTimeout(startTimeoutRef.current);
+      }
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
       }
       onListeningChangeRef.current?.(false);
     };
