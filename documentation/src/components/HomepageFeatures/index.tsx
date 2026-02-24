@@ -1,57 +1,72 @@
 import type {ReactNode} from 'react';
 import clsx from 'clsx';
+import Link from '@docusaurus/Link';
 import Heading from '@theme/Heading';
+
 import styles from './styles.module.css';
 
 type FeatureItem = {
   title: string;
-  Svg: React.ComponentType<React.ComponentProps<'svg'>>;
   description: ReactNode;
+  to: string;
+  cta: string;
+  Svg: React.ComponentType<React.ComponentProps<'svg'>>;
 };
 
-const FeatureList: FeatureItem[] = [
+const featureList: FeatureItem[] = [
   {
-    title: '📏 Smart Size System',
+    title: 'Vận hành hằng ngày',
+    description: (
+      <>
+        Tài liệu theo luồng công việc cho dashboard: sản phẩm, đơn hàng, khách hàng,
+        ưu đãi và theo dõi vận hành.
+      </>
+    ),
+    to: '/docs/user-guide/intro',
+    cta: 'Mở User Guide',
     Svg: require('../../../static/img/undraw_docusaurus_mountain.svg').default,
-    description: (
-      <>
-        Advanced size recommendation system with AI-powered suggestions
-        and sister sizing algorithm for optimal fit.
-      </>
-    ),
   },
   {
-    title: '🎨 Modern Dashboard',
+    title: 'Phát triển hệ thống',
+    description: (
+      <>
+        Chuẩn phát triển cho frontend Next.js, backend Express, Prisma, testing và
+        quy trình triển khai.
+      </>
+    ),
+    to: '/docs/developer-guide/intro',
+    cta: 'Mở Developer Guide',
     Svg: require('../../../static/img/undraw_docusaurus_tree.svg').default,
-    description: (
-      <>
-        Intuitive admin dashboard built with Next.js 14 and Tailwind CSS.
-        Manage products, orders, and customers with ease.
-      </>
-    ),
   },
   {
-    title: '⚡ Enterprise Ready',
-    Svg: require('../../../static/img/undraw_docusaurus_react.svg').default,
+    title: 'Tích hợp API theo route thật',
     description: (
       <>
-        Built with TypeScript, PostgreSQL, and Redis. Production-ready
-        with comprehensive testing and CI/CD integration.
+        Danh mục endpoint được đối chiếu trực tiếp từ backend routes, gồm auth,
+        commerce, admin analytics, media và size system.
       </>
     ),
+    to: '/docs/api-reference/introduction',
+    cta: 'Mở API Reference',
+    Svg: require('../../../static/img/undraw_docusaurus_react.svg').default,
   },
 ];
 
-function Feature({title, Svg, description}: FeatureItem) {
+function Feature({title, description, to, cta, Svg}: FeatureItem) {
   return (
     <div className={clsx('col col--4')}>
-      <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
-      </div>
-      <div className="text--center padding-horiz--md">
-        <Heading as="h3">{title}</Heading>
-        <p>{description}</p>
-      </div>
+      <article className={styles.featureCard}>
+        <div className="text--center">
+          <Svg className={styles.featureSvg} role="img" />
+        </div>
+        <div className={styles.featureBody}>
+          <Heading as="h3">{title}</Heading>
+          <p>{description}</p>
+          <Link className={clsx('button button--primary button--sm', styles.featureLink)} to={to}>
+            {cta}
+          </Link>
+        </div>
+      </article>
     </div>
   );
 }
@@ -61,8 +76,8 @@ export default function HomepageFeatures(): ReactNode {
     <section className={styles.features}>
       <div className="container">
         <div className="row">
-          {FeatureList.map((props, idx) => (
-            <Feature key={idx} {...props} />
+          {featureList.map((item) => (
+            <Feature key={item.to} {...item} />
           ))}
         </div>
       </div>

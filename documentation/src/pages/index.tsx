@@ -3,13 +3,43 @@ import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
-import HomepageFeatures from '../components/HomepageFeatures';
 import Heading from '@theme/Heading';
+import HomepageFeatures from '../components/HomepageFeatures';
 
 import styles from './index.module.css';
 
+type HomeLink = {
+  label: string;
+  to: string;
+  variant: 'primary' | 'secondary';
+};
+
+const homeLinks: HomeLink[] = [
+  {
+    label: 'User Guide',
+    to: '/docs/user-guide/intro',
+    variant: 'primary',
+  },
+  {
+    label: 'Developer Guide',
+    to: '/docs/developer-guide/intro',
+    variant: 'secondary',
+  },
+  {
+    label: 'API Reference',
+    to: '/docs/api-reference/introduction',
+    variant: 'secondary',
+  },
+  {
+    label: 'Changelog',
+    to: '/changelog',
+    variant: 'secondary',
+  },
+];
+
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
+
   return (
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
@@ -17,24 +47,19 @@ function HomepageHeader() {
           {siteConfig.title}
         </Heading>
         <p className="hero__subtitle">{siteConfig.tagline}</p>
-        <div className={styles.buttons}>
-          <Link
-            className="button button--secondary button--lg"
-            to="/docs/user-guide/intro">
-            📖 User Guide
-          </Link>
-          <Link
-            className="button button--primary button--lg"
-            to="/docs/developer-guide/intro"
-            style={{ marginLeft: '1rem' }}>
-            💻 Developer Guide
-          </Link>
-          <Link
-            className="button button--secondary button--lg"
-            to="/docs/api-reference/intro"
-            style={{ marginLeft: '1rem' }}>
-            🔌 API Reference
-          </Link>
+
+        <div className={styles.buttonGroup}>
+          {homeLinks.map((item) => (
+            <Link
+              key={item.to}
+              className={clsx(
+                'button button--lg',
+                item.variant === 'primary' ? 'button--secondary' : 'button--primary',
+              )}
+              to={item.to}>
+              {item.label}
+            </Link>
+          ))}
         </div>
       </div>
     </header>
@@ -43,10 +68,11 @@ function HomepageHeader() {
 
 export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
+
   return (
     <Layout
-      title={`Hello from ${siteConfig.title}`}
-      description="Description will go into a meta tag in <head />">
+      title={`Trang chủ | ${siteConfig.title}`}
+      description="Tài liệu vận hành, phát triển và tích hợp API cho My Lingerie Shop.">
       <HomepageHeader />
       <main>
         <HomepageFeatures />

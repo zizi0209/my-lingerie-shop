@@ -2,37 +2,43 @@ import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
-// This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
+const docsBrandName = process.env.DOCS_BRAND_NAME || 'IntiMate';
+const docsTagline =
+  process.env.DOCS_TAGLINE ||
+  'Tài liệu vận hành và phát triển hệ thống thương mại điện tử lingerie';
+const docsUrl = process.env.DOCS_SITE_URL || 'https://my-lingerie-shop-docs.vercel.app';
+const docsApiBaseUrl =
+  process.env.DOCS_API_BASE_URL || 'https://my-lingerie-shop-production.up.railway.app/api';
+const docsPrimaryColor = process.env.DOCS_PRIMARY_COLOR || '#f43f5e';
 
 const config: Config = {
-  title: 'My Lingerie Shop',
-  tagline: 'Enterprise E-commerce Platform Documentation',
+  title: `${docsBrandName} Docs`,
+  tagline: docsTagline,
   favicon: 'img/favicon.ico',
 
-  // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
-    v4: true, // Improve compatibility with the upcoming Docusaurus v4
+    v4: true,
   },
 
-  // Set the production url of your site here
-  url: 'https://my-lingerie-shop-docs.vercel.app',
-  // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
+  url: docsUrl,
   baseUrl: '/',
 
-  // GitHub pages deployment config.
-  // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'zizi0209', // Usually your GitHub org/user name.
-  projectName: 'my-lingerie-shop', // Usually your repo name.
+  organizationName: 'zizi0209',
+  projectName: 'my-lingerie-shop',
 
   onBrokenLinks: 'throw',
 
-  // Even if you don't use internationalization, you can use this field to set
-  // useful metadata like html lang. For example, if your site is Chinese, you
-  // may want to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: 'vi',
-    locales: ['vi', 'en'],
+    locales: ['vi'],
+  },
+
+  customFields: {
+    apiBaseUrl: docsApiBaseUrl,
+    defaultBrandName: docsBrandName,
+    defaultPrimaryColor: docsPrimaryColor,
+    defaultStoreDescription:
+      'Tài liệu chính thức cho vận hành cửa hàng, quản trị dashboard và tích hợp API.',
   },
 
   presets: [
@@ -57,15 +63,14 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',
     colorMode: {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'My Lingerie Shop',
+      title: docsBrandName,
       logo: {
-        alt: 'My Lingerie Shop Logo',
+        alt: `${docsBrandName} Logo`,
         src: 'img/logo.svg',
       },
       items: [
@@ -89,10 +94,6 @@ const config: Config = {
         },
         {to: '/changelog', label: 'Changelog', position: 'left'},
         {
-          type: 'localeDropdown',
-          position: 'right',
-        },
-        {
           href: 'https://github.com/zizi0209/my-lingerie-shop',
           label: 'GitHub',
           position: 'right',
@@ -115,7 +116,7 @@ const config: Config = {
             },
             {
               label: 'API Reference',
-              to: '/docs/api-reference/intro',
+              to: '/docs/api-reference/introduction',
             },
           ],
         },
@@ -123,13 +124,13 @@ const config: Config = {
           title: 'Project',
           items: [
             {
-              label: 'GitHub',
+              label: 'GitHub Repository',
               href: 'https://github.com/zizi0209/my-lingerie-shop',
             },
           ],
         },
         {
-          title: 'More',
+          title: 'Release Notes',
           items: [
             {
               label: 'Changelog',
@@ -138,7 +139,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} My Lingerie Shop. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} ${docsBrandName}. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

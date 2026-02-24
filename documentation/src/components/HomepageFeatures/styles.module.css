@@ -1,11 +1,28 @@
 .features {
-  display: flex;
-  align-items: center;
-  padding: 2rem 0;
-  width: 100%;
+  padding: 2rem 0 3rem;
+}
+
+.featureCard {
+  height: 100%;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+  background: var(--ifm-background-surface-color);
 }
 
 .featureSvg {
-  height: 200px;
-  width: 200px;
+  height: 160px;
+  width: 160px;
+}
+
+.featureBody {
+  text-align: center;
+}
+
+.featureBody p {
+  min-height: 72px;
+}
+
+.featureLink {
+  margin-top: 0.5rem;
 }
