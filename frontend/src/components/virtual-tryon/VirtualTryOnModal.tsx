@@ -315,9 +315,6 @@ import type { TryOnResult } from '@/types/virtual-tryon';
               {/* Consent */}
               <div className="mb-6 p-4 bg-gray-50 rounded-xl">
                 <ConsentCheckbox checked={consent} onChange={setConsent} />
-                <p className="mt-3 text-xs text-gray-500">
-                  Kết quả chỉ mang tính mô phỏng; nội dung phụ thuộc ảnh bạn tải lên.
-                </p>
               </div>
  
               {/* Actions */}

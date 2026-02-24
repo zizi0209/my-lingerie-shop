@@ -2,12 +2,10 @@ import { detectPose } from '@/services/pose-detection';
 import { detectPersonMaskFromImage } from '@/services/body-segmentation';
 import {
   calculateOverlayPosition,
-  drawClothingOverlayMesh,
+  drawClothingOverlay,
   type ProductType,
   type OverlayPosition,
-  type BodyShapeProfile,
 } from '@/services/clothing-overlay';
-import { estimateBodyShape } from '@/services/body-shape';
 import { removeBackgroundClient } from '@/services/client-bg-removal';
 import type { TryOnResult } from '@/types/virtual-tryon';
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
@@ -196,7 +194,7 @@ function drawOverlayWithMask(
   clothingImage: HTMLImageElement,
   position: OverlayPosition | OverlayPosition[],
   maskData: ImageData | null,
-  options?: { opacity?: number; bodyShape?: BodyShapeProfile }
+  options?: { opacity?: number }
 ): void {
   const overlayCanvas = document.createElement('canvas');
   overlayCanvas.width = ctx.canvas.width;
@@ -209,10 +207,10 @@ function drawOverlayWithMask(
 
   if (Array.isArray(position)) {
     position.forEach((pos) => {
-      drawClothingOverlayMesh(overlayCtx, clothingImage, pos, { opacity, bodyShape: options?.bodyShape });
+      drawClothingOverlay(overlayCtx, clothingImage, pos, { opacity });
     });
   } else {
-    drawClothingOverlayMesh(overlayCtx, clothingImage, position, { opacity, bodyShape: options?.bodyShape });
+    drawClothingOverlay(overlayCtx, clothingImage, position, { opacity });
   }
 
   if (maskData) {
@@ -396,12 +394,8 @@ export async function processPhotoTryOn(
     canvas.height
   );
 
-  const bodyShape = estimateBodyShape(landmarks, canvas.width);
   const shouldMask = request.productType !== 'SHAPEWEAR';
-  drawOverlayWithMask(ctx, clothingImage, normalizedPosition, shouldMask ? maskData : null, {
-    opacity: 0.94,
-    bodyShape,
-  });
+  drawOverlayWithMask(ctx, clothingImage, normalizedPosition, shouldMask ? maskData : null, { opacity: 0.92 });
 
   const resultImage = canvas.toDataURL('image/jpeg', 0.92);
 

@@ -832,53 +832,20 @@ export const updateProduct = async (req: Request, res: Response) => {
 export const deleteProduct = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const productId = Number(id);
-
-    if (Number.isNaN(productId) || productId <= 0) {
-      return res.status(400).json({ error: 'ID sản phẩm không hợp lệ!' });
-    }
 
     // Check if product exists
-    const [product, orderItemCount] = await prisma.$transaction([
-      prisma.product.findUnique({
-        where: { id: productId },
-        select: { id: true, deletedAt: true },
-      }),
-      prisma.orderItem.count({
-        where: { productId },
-      }),
-    ]);
+    const product = await prisma.product.findUnique({
+      where: { id: Number(id) },
+    });
 
     if (!product) {
       return res.status(404).json({ error: 'Không tìm thấy sản phẩm!' });
     }
 
-    if (orderItemCount > 0) {
-      await prisma.$transaction([
-        prisma.cartItem.deleteMany({ where: { productId } }),
-        prisma.productView.deleteMany({ where: { productId } }),
-        prisma.product.update({
-          where: { id: productId },
-          data: {
-            deletedAt: new Date(),
-            isVisible: false,
-          },
-        }),
-      ]);
-
-      return res.json({
-        success: true,
-        message: 'Sản phẩm đã phát sinh đơn hàng nên được ẩn khỏi danh sách.',
-        softDeleted: true,
-      });
-    }
-
-    // Delete dependent records before product (to avoid FK restrictions)
-    await prisma.$transaction([
-      prisma.cartItem.deleteMany({ where: { productId } }),
-      prisma.productView.deleteMany({ where: { productId } }),
-      prisma.product.delete({ where: { id: productId } }),
-    ]);
+    // Delete product (images and variants will be auto-deleted due to onDelete: Cascade)
+    await prisma.product.delete({
+      where: { id: Number(id) },
+    });
 
     res.json({
       success: true,

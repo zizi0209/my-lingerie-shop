@@ -155,12 +155,6 @@
   shoulderRatio?: number; // Tỉ lệ vai/hông cho perspective warp
   bodyAngle?: number; // Góc nghiêng body (depth hint)
  }
-
-export interface BodyShapeProfile {
-  bustRatio: number;
-  waistRatio: number;
-  hipRatio: number;
-}
  
  /**
   * Tính toán vị trí overlay cho một config
@@ -369,7 +363,6 @@ export function drawClothingOverlayMesh(
     flipVertical?: boolean;
     depthHint?: number;
     rows?: number;
-    bodyShape?: BodyShapeProfile;
   }
 ): void {
   if (!position.visible) return;
@@ -380,7 +373,6 @@ export function drawClothingOverlayMesh(
   const flipVertical = options?.flipVertical ?? false;
   const depthHint = options?.depthHint ?? (position.bodyAngle ?? 0.12);
   const rows = options?.rows ?? 20;
-  const bodyShape = options?.bodyShape;
   const cols = 12;
   const shoulderRatio = position.shoulderRatio ?? 1;
   const overlapRatio = 0.02;
@@ -411,10 +403,8 @@ export function drawClothingOverlayMesh(
     // Body curvature (barrel distortion)
     const curveTop = Math.abs(0.5 - baseTop) * 2;
     const curveBot = Math.abs(0.5 - baseBot) * 2;
-    const shapeTop = bodyShape ? interpolateBodyWidth(bodyShape, baseTop) : 1;
-    const shapeBot = bodyShape ? interpolateBodyWidth(bodyShape, baseBot) : 1;
-    const scaleTop = (1 - depthHint * curveTop * curveTop) * perspTop * shapeTop;
-    const scaleBot = (1 - depthHint * curveBot * curveBot) * perspBot * shapeBot;
+    const scaleTop = (1 - depthHint * curveTop * curveTop) * perspTop;
+    const scaleBot = (1 - depthHint * curveBot * curveBot) * perspBot;
 
     for (let col = 0; col < cols; col += 1) {
       const cLeft = col / cols;
@@ -487,22 +477,6 @@ export function drawClothingOverlayMesh(
   }
   ctx.drawImage(meshCanvas, -width / 2, -height / 2, width, height);
   ctx.restore();
-}
-
-function interpolateBodyWidth(profile: BodyShapeProfile, t: number): number {
-  if (t <= 0.35) {
-    const localT = t / 0.35;
-    return lerp(profile.bustRatio, profile.waistRatio, localT);
-  }
-  if (t <= 0.7) {
-    const localT = (t - 0.35) / 0.35;
-    return lerp(profile.waistRatio, profile.hipRatio, localT);
-  }
-  return profile.hipRatio;
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
 }
  
  /**

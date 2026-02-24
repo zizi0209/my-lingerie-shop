@@ -319,95 +319,6 @@ const Products: React.FC = () => {
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
-  type ApiErrorResponse = { status?: number; data?: unknown };
-  type ApiError = Error & { statusCode?: number; response?: ApiErrorResponse };
-
-  const isRecord = (value: unknown): value is Record<string, unknown> =>
-    typeof value === 'object' && value !== null;
-
-  const getStringField = (value: unknown, field: string): string | undefined => {
-    if (!isRecord(value)) return undefined;
-    const fieldValue = value[field];
-    return typeof fieldValue === 'string' ? fieldValue : undefined;
-  };
-
-  const getErrorMessage = (value: unknown): string | undefined => {
-    if (typeof value === 'string') return value;
-    return (
-      getStringField(value, 'error') ??
-      getStringField(value, 'message') ??
-      getStringField(value, 'details') ??
-      getStringField(value, 'rawError')
-    );
-  };
-
-  const getStatusFromError = (err: unknown): number | undefined => {
-    if (!(err instanceof Error)) return undefined;
-    const typed = err as ApiError;
-    return typed.statusCode ?? typed.response?.status;
-  };
-
-  const getDataFromError = (err: unknown): unknown => {
-    if (!(err instanceof Error)) return undefined;
-    const typed = err as ApiError;
-    return typed.response?.data;
-  };
-
-  const getDefaultReason = (status?: number): string => {
-    if (language === 'vi') {
-      if (status === 401 || status === 403) return 'Bạn không có quyền thực hiện thao tác này';
-      if (status === 404) return 'Sản phẩm không tồn tại hoặc đã bị xóa';
-      if (status === 409) return 'Sản phẩm đang được liên kết với dữ liệu khác';
-      if (status === 400 || status === 422) return 'Dữ liệu yêu cầu không hợp lệ';
-      if (status && status >= 500) return 'Hệ thống đang gặp sự cố';
-      return 'Không thể xóa sản phẩm';
-    }
-
-    if (status === 401 || status === 403) return 'You are not authorized to perform this action';
-    if (status === 404) return 'Product does not exist or was already deleted';
-    if (status === 409) return 'Product is linked to other data';
-    if (status === 400 || status === 422) return 'Request data is invalid';
-    if (status && status >= 500) return 'System error occurred';
-    return 'Unable to delete product';
-  };
-
-  const getActionSuggestion = (status?: number): string => {
-    if (language === 'vi') {
-      if (status === 401 || status === 403) return 'Vui lòng đăng nhập lại hoặc liên hệ quản trị để được cấp quyền.';
-      if (status === 404) return 'Vui lòng tải lại danh sách và thử lại.';
-      if (status === 409) return 'Hãy gỡ các liên kết (đơn hàng/biến thể/ảnh) trước khi xóa.';
-      if (status === 400 || status === 422) return 'Vui lòng kiểm tra dữ liệu và thử lại.';
-      if (status && status >= 500) return 'Vui lòng thử lại sau hoặc liên hệ kỹ thuật.';
-      return 'Vui lòng thử lại hoặc liên hệ quản trị.';
-    }
-
-    if (status === 401 || status === 403) return 'Please sign in again or contact admin for access.';
-    if (status === 404) return 'Please refresh the list and try again.';
-    if (status === 409) return 'Remove related links (orders/variants/images) before deleting.';
-    if (status === 400 || status === 422) return 'Please verify the request data and try again.';
-    if (status && status >= 500) return 'Please try again later or contact support.';
-    return 'Please try again or contact admin.';
-  };
-
-  const buildDeleteErrorMessage = (err: unknown): string => {
-    const status = getStatusFromError(err);
-    const data = getDataFromError(err);
-    const dataMessage = getErrorMessage(data);
-    const errorMessage = err instanceof Error ? err.message : undefined;
-    let reason = dataMessage ?? errorMessage;
-
-    if (reason === 'SESSION_EXPIRED') {
-      reason = language === 'vi' ? 'Phiên đăng nhập đã hết hạn' : 'Session expired';
-    }
-
-    if (!reason || reason.startsWith('HTTP error! status:')) {
-      reason = getDefaultReason(status);
-    }
-
-    const suggestion = getActionSuggestion(status);
-    return `${reason}. ${suggestion}`;
-  };
-
   // Delete product
   const handleDelete = async (id: number) => {
     if (!confirm(t.confirmDelete)) return;
@@ -417,7 +328,7 @@ const Products: React.FC = () => {
       setRefreshTrigger(prev => prev + 1);
     } catch (err) {
       console.error('Failed to delete product:', err);
-      alert(buildDeleteErrorMessage(err));
+      alert(t.deleteError);
     }
   };
 

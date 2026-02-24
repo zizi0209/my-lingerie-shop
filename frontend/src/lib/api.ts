@@ -189,38 +189,7 @@ class ApiService {
       }
 
       if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        let errorData: unknown = {};
-
-        if (contentType && contentType.includes('application/json')) {
-          const parsed = await response.json().catch(() => null);
-          errorData = parsed ?? {};
-        } else {
-          const text = await response.text().catch(() => '');
-          errorData = text ? { rawError: text } : {};
-        }
-
-        const isRecord = (value: unknown): value is Record<string, unknown> =>
-          typeof value === 'object' && value !== null;
-
-        const getStringField = (value: unknown, field: string): string | undefined => {
-          if (!isRecord(value)) return undefined;
-          const fieldValue = value[field];
-          return typeof fieldValue === 'string' ? fieldValue : undefined;
-        };
-
-        const getErrorMessage = (value: unknown): string | undefined => {
-          if (typeof value === 'string') return value;
-          return (
-            getStringField(value, 'error') ??
-            getStringField(value, 'message') ??
-            getStringField(value, 'details') ??
-            getStringField(value, 'rawError')
-          );
-        };
-
-        const getSuggestion = (value: unknown): string | undefined =>
-          getStringField(value, 'suggestion');
+        const errorData = await response.json().catch(() => ({}));
 
         if ((response.status === 401 || response.status === 403) && requireAuth) {
           this.removeToken();
@@ -236,8 +205,8 @@ class ApiService {
 
         // 🔄 SPECIAL CASE: 409 Conflict với suggestion (Role Promotion)
         // Không throw error, return data để caller xử lý
-        if (response.status === 409 && getSuggestion(errorData) === 'PROMOTE_ROLE') {
-          const error = new Error(getErrorMessage(errorData) || 'Conflict') as Error & {
+        if (response.status === 409 && errorData.suggestion === 'PROMOTE_ROLE') {
+          const error = new Error(errorData.error || 'Conflict') as Error & {
             response?: { status: number; data: unknown };
             statusCode?: number;
           };
@@ -250,7 +219,7 @@ class ApiService {
         }
 
         // For all other errors, attach response data for proper error handling
-        const error = new Error(getErrorMessage(errorData) || `HTTP error! status: ${response.status}`) as Error & {
+        const error = new Error(errorData.error || `HTTP error! status: ${response.status}`) as Error & {
           response?: { status: number; data: unknown };
           statusCode?: number;
         };
