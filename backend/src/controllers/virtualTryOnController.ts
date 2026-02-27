@@ -1,8 +1,15 @@
 import { Request, Response } from 'express';
 import { processVirtualTryOn, checkSpacesStatus, resetProviderHealth, getProviderHealthStats } from '../services/virtualTryOnService';
 import { validateTryOnInputs } from '../services/inputValidatorService';
+import {
+  createTryOnJob,
+  updateTryOnJob,
+  getTryOnJob,
+  isTryOnJobStoreEnabled,
+} from '../services/virtualTryOnJobRepository';
  
  export async function tryOn(req: Request, res: Response) {
+  let jobId: string | undefined;
    try {
      console.log('=== Virtual Try-On Request Received ===');
      console.log('Content-Type:', req.headers['content-type']);
@@ -43,6 +50,12 @@ import { validateTryOnInputs } from '../services/inputValidatorService';
          details: validation.error.details,
        });
      }
+     const jobStoreEnabled = isTryOnJobStoreEnabled();
+     const jobRecord = jobStoreEnabled
+       ? await createTryOnJob({ status: 'processing' })
+       : null;
+     jobId = jobRecord?.jobId;
+
      console.log('Calling processVirtualTryOn...');
      
      const result = await processVirtualTryOn(personImage, garmentImage);
@@ -50,31 +63,89 @@ import { validateTryOnInputs } from '../services/inputValidatorService';
      console.log('Processing complete. Success:', result.success);
  
      if (result.success) {
+       if (jobId) {
+         await updateTryOnJob(jobId, {
+           status: 'completed',
+           provider: result.provider,
+           processingTime: result.processingTime,
+           resultImage: result.resultImage,
+         });
+       }
+
        return res.json({
          success: true,
          data: {
            resultImage: result.resultImage,
            provider: result.provider,
            processingTime: result.processingTime,
+           ...(jobId ? { jobId } : {}),
          },
        });
-     } else {
-       return res.status(503).json({
-         success: false,
-         error: result.error || 'Failed to process virtual try-on',
-        errorCode: result.errorCode,
-         message: 'Tất cả hệ thống AI đang bận. Vui lòng thử lại sau vài phút.',
+     }
+
+     if (jobId) {
+       await updateTryOnJob(jobId, {
+         status: 'failed',
+         errorCode: result.errorCode,
+         errorMessage: result.error || 'Failed to process virtual try-on',
        });
      }
+
+     return res.status(503).json({
+       success: false,
+       error: result.error || 'Failed to process virtual try-on',
+       errorCode: result.errorCode,
+       message: 'Tất cả hệ thống AI đang bận. Vui lòng thử lại sau vài phút.',
+       ...(jobId ? { jobId } : {}),
+     });
    } catch (error) {
      console.error('Virtual try-on error:', error);
+     const message = error instanceof Error ? error.message : 'Internal server error';
+     if (jobId) {
+       await updateTryOnJob(jobId, {
+         status: 'failed',
+         errorMessage: message,
+       });
+     }
      return res.status(500).json({
        success: false,
-       error: 'Internal server error',
+       error: message,
        message: 'Đã xảy ra lỗi. Vui lòng thử lại sau.',
      });
    }
  }
+
+export async function getJobStatus(req: Request, res: Response) {
+  try {
+    if (!isTryOnJobStoreEnabled()) {
+      return res.status(501).json({
+        success: false,
+        error: 'Try-on job tracking is not configured',
+      });
+    }
+
+    const jobId = req.params.id;
+    const job = await getTryOnJob(jobId);
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        error: 'Job not found',
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: job,
+    });
+  } catch (error) {
+    console.error('Get job status error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to get job status',
+    });
+  }
+}
 
 export async function resetHealth(_req: Request, res: Response) {
   try {

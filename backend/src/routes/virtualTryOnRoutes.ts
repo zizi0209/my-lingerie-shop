@@ -1,5 +1,5 @@
  import express from 'express';
- import { tryOn, getStatus, resetHealth, getHealthStats } from '../controllers/virtualTryOnController';
+import { tryOn, getStatus, resetHealth, getHealthStats, getJobStatus } from '../controllers/virtualTryOnController';
  import { apiLimiter } from '../middleware/rateLimiter';
  
  const router = express.Router();
@@ -9,6 +9,9 @@
  
  // Process virtual try-on (with rate limiting)
  router.post('/process', apiLimiter, tryOn);
+
+// Get try-on job status
+router.get('/jobs/:id', getJobStatus);
  
 // Get detailed health stats
 router.get('/health', getHealthStats);

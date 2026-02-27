@@ -12,86 +12,12 @@
  * - Pre-flight health checks to skip unavailable providers
  */
 import { processGeminiTryOn, isGeminiAvailable } from './geminiVirtualTryOnService';
+import { uploadToTemporaryUrl } from './virtualTryOnStorage';
 
 // Configuration constants
 const PARALLEL_BATCH_SIZE = 2; // Try 2 providers in parallel for stability
 const QUICK_HEALTH_CHECK_TIMEOUT = 3000; // 3 seconds for quick health check
 
-// imgbb API for temporary image hosting (HuggingFace Spaces require URLs)
-const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '';
-
-/**
- * Upload image to imgbb and get URL
- * Images auto-expire after 10 minutes
- */
-async function uploadToImgbb(base64Image: string): Promise<string> {
-  if (!IMGBB_API_KEY) {
-    throw new Error('IMGBB_API_KEY not configured');
-  }
-
-  // Remove data URL prefix if present
-  let imageData = base64Image;
-  if (base64Image.startsWith('data:')) {
-    imageData = base64Image.split(',')[1];
-  }
-
-  const formData = new URLSearchParams();
-  formData.append('key', IMGBB_API_KEY);
-  formData.append('image', imageData);
-  formData.append('expiration', '600'); // 10 minutes
-
-  const response = await fetch('https://api.imgbb.com/1/upload', {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    console.log('[imgbb] Upload failed:', response.status, text);
-    throw new Error(`imgbb upload failed: ${response.status}`);
-  }
-
-  const result = await response.json() as { 
-    success: boolean; 
-    data?: { url: string };
-    error?: { message: string };
-  };
-
-  if (!result.success || !result.data?.url) {
-    throw new Error(result.error?.message || 'imgbb upload failed');
-  }
-
-  console.log('[imgbb] Uploaded:', result.data.url);
-  return result.data.url;
-}
-
-/**
- * Check if imgbb is configured
- */
-function isImgbbConfigured(): boolean {
-  return IMGBB_API_KEY.length > 0;
-}
-
-/**
- * Ensure image has proper data URL format for Gradio API
- */
-function ensureDataUrl(base64: string): string {
-  if (base64.startsWith('data:')) {
-    return base64;
-  }
-  // Detect image type from base64 header
-  if (base64.startsWith('/9j/')) {
-    return `data:image/jpeg;base64,${base64}`;
-  }
-  if (base64.startsWith('iVBOR')) {
-    return `data:image/png;base64,${base64}`;
-  }
-  if (base64.startsWith('UklGR')) {
-    return `data:image/webp;base64,${base64}`;
-  }
-  // Default to jpeg
-  return `data:image/jpeg;base64,${base64}`;
-}
 
 interface ProviderConfig {
   name: string;
@@ -461,21 +387,11 @@ async function pollForResult(
    
    console.log('[IDM-VTON] Starting request...');
    
-   // Upload images to imgbb to get URLs (HuggingFace Spaces require URLs)
-   let personUrl: string;
-   let garmentUrl: string;
-   
-   if (isImgbbConfigured()) {
-     console.log('[IDM-VTON] Uploading images to imgbb...');
-     [personUrl, garmentUrl] = await Promise.all([
-       uploadToImgbb(personImageBase64),
-       uploadToImgbb(garmentImageBase64),
-     ]);
-   } else {
-     // Fallback to data URL (may not work with all Spaces)
-     personUrl = ensureDataUrl(personImageBase64);
-     garmentUrl = ensureDataUrl(garmentImageBase64);
-   }
+  // Upload images to get URLs (HuggingFace Spaces require URLs)
+  const [personUrl, garmentUrl] = await Promise.all([
+    uploadToTemporaryUrl(personImageBase64, 'person'),
+    uploadToTemporaryUrl(garmentImageBase64, 'garment'),
+  ]);
    
    // IDM-VTON API format
    const payload = {
@@ -533,20 +449,11 @@ async function tryFASHNVTON(
   
   console.log('[FASHN-VTON-1.5] Starting request...');
   
-  // Upload images to imgbb to get URLs
-  let personUrl: string;
-  let garmentUrl: string;
-  
-  if (isImgbbConfigured()) {
-    console.log('[FASHN-VTON-1.5] Uploading images to imgbb...');
-    [personUrl, garmentUrl] = await Promise.all([
-      uploadToImgbb(personImageBase64),
-      uploadToImgbb(garmentImageBase64),
-    ]);
-  } else {
-    personUrl = ensureDataUrl(personImageBase64);
-    garmentUrl = ensureDataUrl(garmentImageBase64);
-  }
+  // Upload images to get URLs
+  const [personUrl, garmentUrl] = await Promise.all([
+    uploadToTemporaryUrl(personImageBase64, 'person'),
+    uploadToTemporaryUrl(garmentImageBase64, 'garment'),
+  ]);
   
   // FASHN VTON 1.5 API format
   const payload = {
@@ -597,20 +504,11 @@ async function tryFASHNVTON(
    
    console.log('[OOTDiffusion] Starting request...');
    
-   // Upload images to imgbb to get URLs
-   let personUrl: string;
-   let garmentUrl: string;
-   
-   if (isImgbbConfigured()) {
-     console.log('[OOTDiffusion] Uploading images to imgbb...');
-     [personUrl, garmentUrl] = await Promise.all([
-       uploadToImgbb(personImageBase64),
-       uploadToImgbb(garmentImageBase64),
-     ]);
-   } else {
-     personUrl = ensureDataUrl(personImageBase64);
-     garmentUrl = ensureDataUrl(garmentImageBase64);
-   }
+  // Upload images to get URLs
+  const [personUrl, garmentUrl] = await Promise.all([
+    uploadToTemporaryUrl(personImageBase64, 'person'),
+    uploadToTemporaryUrl(garmentImageBase64, 'garment'),
+  ]);
    
    const payload = {
      data: [
@@ -659,15 +557,8 @@ async function tryOutfitAnyone(
 
   console.log('[OutfitAnyone] Starting request...');
   
-  // Upload garment image to imgbb
-  let garmentUrl: string;
-  
-  if (isImgbbConfigured()) {
-    console.log('[OutfitAnyone] Uploading garment to imgbb...');
-    garmentUrl = await uploadToImgbb(garmentImageBase64);
-  } else {
-    garmentUrl = ensureDataUrl(garmentImageBase64);
-  }
+  // Upload garment image to get URL
+  const garmentUrl = await uploadToTemporaryUrl(garmentImageBase64, 'garment');
   
   // OutfitAnyone uses pre-set models, only accepts garment uploads
   const payload = {
@@ -713,20 +604,11 @@ async function tryKwaiKolors(
 
   console.log('[Kolors-VTON] Starting request...');
   
-  // Upload images to imgbb to get URLs
-  let personUrl: string;
-  let garmentUrl: string;
-  
-  if (isImgbbConfigured()) {
-    console.log('[Kolors-VTON] Uploading images to imgbb...');
-    [personUrl, garmentUrl] = await Promise.all([
-      uploadToImgbb(personImageBase64),
-      uploadToImgbb(garmentImageBase64),
-    ]);
-  } else {
-    personUrl = ensureDataUrl(personImageBase64);
-    garmentUrl = ensureDataUrl(garmentImageBase64);
-  }
+  // Upload images to get URLs
+  const [personUrl, garmentUrl] = await Promise.all([
+    uploadToTemporaryUrl(personImageBase64, 'person'),
+    uploadToTemporaryUrl(garmentImageBase64, 'garment'),
+  ]);
   
   const payload = {
     data: [
@@ -773,20 +655,11 @@ async function tryStableVITON(
 
   console.log('[StableVITON] Starting request...');
   
-  // Upload images to imgbb to get URLs
-  let personUrl: string;
-  let garmentUrl: string;
-  
-  if (isImgbbConfigured()) {
-    console.log('[StableVITON] Uploading images to imgbb...');
-    [personUrl, garmentUrl] = await Promise.all([
-      uploadToImgbb(personImageBase64),
-      uploadToImgbb(garmentImageBase64),
-    ]);
-  } else {
-    personUrl = ensureDataUrl(personImageBase64);
-    garmentUrl = ensureDataUrl(garmentImageBase64);
-  }
+  // Upload images to get URLs
+  const [personUrl, garmentUrl] = await Promise.all([
+    uploadToTemporaryUrl(personImageBase64, 'person'),
+    uploadToTemporaryUrl(garmentImageBase64, 'garment'),
+  ]);
   
   const payload = {
     data: [
@@ -833,20 +706,11 @@ async function tryVTOND(
 
   console.log('[VTON-D] Starting request...');
   
-  // Upload images to imgbb to get URLs
-  let personUrl: string;
-  let garmentUrl: string;
-  
-  if (isImgbbConfigured()) {
-    console.log('[VTON-D] Uploading images to imgbb...');
-    [personUrl, garmentUrl] = await Promise.all([
-      uploadToImgbb(personImageBase64),
-      uploadToImgbb(garmentImageBase64),
-    ]);
-  } else {
-    personUrl = ensureDataUrl(personImageBase64);
-    garmentUrl = ensureDataUrl(garmentImageBase64);
-  }
+  // Upload images to get URLs
+  const [personUrl, garmentUrl] = await Promise.all([
+    uploadToTemporaryUrl(personImageBase64, 'person'),
+    uploadToTemporaryUrl(garmentImageBase64, 'garment'),
+  ]);
   
   const payload = {
     data: [
