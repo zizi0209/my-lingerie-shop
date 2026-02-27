@@ -7,6 +7,8 @@ import {
   type OverlayPosition,
 } from '@/services/clothing-overlay';
 import { removeBackgroundClient } from '@/services/client-bg-removal';
+import { isOnnxTryOnEnabled, runOnnxTryOn } from '@/services/onnx-tryon';
+import { processVirtualTryOn, isRemoteTryOnEnabled } from '@/services/virtual-tryon-api';
 import type { TryOnResult } from '@/types/virtual-tryon';
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 
@@ -344,18 +346,31 @@ export async function processPhotoTryOn(
   request: PhotoTryOnRequest,
   onProgress?: ProgressCallback
 ): Promise<TryOnResult> {
+  const remoteEnabled = await isRemoteTryOnEnabled();
+  if (remoteEnabled) {
+    try {
+      return await processVirtualTryOn(
+        {
+          personImage: request.personImage,
+          garmentImageUrl: request.garmentImageUrl,
+          productId: request.productId,
+          productName: request.productName,
+        },
+        onProgress
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể xử lý từ AI server.';
+      console.warn('[TryOn][Remote] Fallback về xử lý cục bộ:', message);
+      onProgress?.(12, 'AI server đang bận, chuyển sang xử lý trên thiết bị...');
+    }
+  }
+
   onProgress?.(5, 'Đang chuẩn bị ảnh...');
 
   const originalImage = await fileToDataUrl(request.personImage);
   const personCanvas = await createOrientedCanvas(request.personImage);
 
-  onProgress?.(20, 'Đang phân tích tư thế...');
-  const landmarks = await detectPose(personCanvas);
-  if (!landmarks) {
-    throw new Error('Không phát hiện được tư thế. Vui lòng chọn ảnh rõ toàn thân.');
-  }
-
-  onProgress?.(35, 'Đang xử lý sản phẩm...');
+  onProgress?.(20, 'Đang xử lý sản phẩm...');
   let garmentUrl = request.garmentNoBgUrl ?? request.garmentImageUrl;
   let revokeGarmentUrl: string | null = null;
 
@@ -365,9 +380,91 @@ export async function processPhotoTryOn(
   }
 
   const clothingImage = await loadImage(garmentUrl);
+  let maskDataForFallback: ImageData | null = null;
 
-  onProgress?.(55, 'Đang chuẩn bị nền...');
-  const maskData = await detectPersonMaskFromImage(personCanvas);
+  if (await isOnnxTryOnEnabled()) {
+    try {
+      const onnxCanvas = await runOnnxTryOn({
+        personCanvas,
+        garmentImage: clothingImage,
+        getMaskData: async () => {
+          onProgress?.(52, 'Đang tách nền cơ thể...');
+          maskDataForFallback = await detectPersonMaskFromImage(personCanvas);
+          return maskDataForFallback;
+        },
+        onProgress,
+      });
+
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = personCanvas.width;
+      finalCanvas.height = personCanvas.height;
+      const finalCtx = finalCanvas.getContext('2d');
+      if (!finalCtx) {
+        throw new Error('Không thể tạo ảnh thử đồ.');
+      }
+      finalCtx.drawImage(onnxCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+      const resultImage = finalCanvas.toDataURL('image/jpeg', 0.92);
+
+      if (revokeGarmentUrl) {
+        URL.revokeObjectURL(revokeGarmentUrl);
+      }
+
+      onProgress?.(100, 'Hoàn thành!');
+
+      return {
+        originalImage,
+        resultImage,
+        productId: request.productId,
+        productName: request.productName,
+        timestamp: Date.now(),
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Lỗi ONNX try-on';
+      console.warn('[TryOn][ONNX] Fallback về overlay:', message);
+    }
+  }
+
+  const resultImage = await processOverlayTryOn(
+    personCanvas,
+    clothingImage,
+    request,
+    onProgress,
+    maskDataForFallback
+  );
+
+  if (revokeGarmentUrl) {
+    URL.revokeObjectURL(revokeGarmentUrl);
+  }
+
+  onProgress?.(100, 'Hoàn thành!');
+
+  return {
+    originalImage,
+    resultImage,
+    productId: request.productId,
+    productName: request.productName,
+    timestamp: Date.now(),
+  };
+}
+
+async function processOverlayTryOn(
+  personCanvas: HTMLCanvasElement,
+  clothingImage: HTMLImageElement,
+  request: PhotoTryOnRequest,
+  onProgress?: ProgressCallback,
+  maskDataOverride?: ImageData | null
+): Promise<string> {
+  onProgress?.(30, 'Đang phân tích tư thế...');
+  const landmarks = await detectPose(personCanvas);
+  if (!landmarks) {
+    throw new Error('Không phát hiện được tư thế. Vui lòng chọn ảnh rõ toàn thân.');
+  }
+
+  let maskData = maskDataOverride ?? null;
+  if (!maskData) {
+    onProgress?.(55, 'Đang chuẩn bị nền...');
+    maskData = await detectPersonMaskFromImage(personCanvas);
+  }
 
   onProgress?.(75, 'Đang tạo kết quả thử đồ...');
   const canvas = document.createElement('canvas');
@@ -397,19 +494,5 @@ export async function processPhotoTryOn(
   const shouldMask = request.productType !== 'SHAPEWEAR';
   drawOverlayWithMask(ctx, clothingImage, normalizedPosition, shouldMask ? maskData : null, { opacity: 0.92 });
 
-  const resultImage = canvas.toDataURL('image/jpeg', 0.92);
-
-  if (revokeGarmentUrl) {
-    URL.revokeObjectURL(revokeGarmentUrl);
-  }
-
-  onProgress?.(100, 'Hoàn thành!');
-
-  return {
-    originalImage,
-    resultImage,
-    productId: request.productId,
-    productName: request.productName,
-    timestamp: Date.now(),
-  };
+  return canvas.toDataURL('image/jpeg', 0.92);
 }

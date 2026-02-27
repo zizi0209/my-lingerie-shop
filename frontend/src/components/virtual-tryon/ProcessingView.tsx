@@ -8,6 +8,7 @@
    progress: number;
    queueInfo: TryOnQueueInfo | null;
    personImage: string | null;
+  statusMessage?: string | null;
    onContinueShopping?: () => void;
    onCancel?: () => void;
  }
@@ -16,6 +17,7 @@
    progress,
    queueInfo,
    personImage,
+  statusMessage,
    onContinueShopping,
    onCancel,
  }: ProcessingViewProps) {
@@ -73,6 +75,9 @@
                />
              </div>
             <div className="text-center mt-2 space-y-1">
+              {statusMessage && (
+                <p className="text-xs sm:text-sm text-gray-700">{statusMessage}</p>
+              )}
               <p className="text-xs sm:text-sm text-gray-600 flex items-center justify-center gap-1">
                 <Clock className="w-3 h-3" />
                 Đã chờ: {formatTime(elapsedTime)}

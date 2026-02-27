@@ -62,6 +62,7 @@ import { validateTryOnInputs } from '../services/inputValidatorService';
        return res.status(503).json({
          success: false,
          error: result.error || 'Failed to process virtual try-on',
+        errorCode: result.errorCode,
          message: 'Tất cả hệ thống AI đang bận. Vui lòng thử lại sau vài phút.',
        });
      }

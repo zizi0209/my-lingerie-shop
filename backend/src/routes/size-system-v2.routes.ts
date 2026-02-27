@@ -55,6 +55,37 @@ const BrandFitFeedbackSchema = z.object({
 // ============================================
 
 /**
+ * GET /api/sizes/sister/stats
+ *
+ * Get sister size acceptance statistics
+ */
+router.get('/sizes/sister/stats', async (req: Request, res: Response) => {
+  try {
+    const { from, to } = req.query;
+
+    const dateRange = from && to
+      ? {
+          from: new Date(from as string),
+          to: new Date(to as string),
+        }
+      : undefined;
+
+    const stats = await sisterSizingService.getAcceptanceStats(dateRange);
+
+    res.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error: any) {
+    console.error('Get stats error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get stats',
+    });
+  }
+});
+
+/**
  * GET /api/sizes/sister/:universalCode
  *
  * Get sister sizes for a given size
@@ -196,37 +227,6 @@ router.post('/sizes/sister/accept', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to accept recommendation',
-    });
-  }
-});
-
-/**
- * GET /api/sizes/sister/stats
- *
- * Get sister size acceptance statistics
- */
-router.get('/sizes/sister/stats', async (req: Request, res: Response) => {
-  try {
-    const { from, to } = req.query;
-
-    const dateRange = from && to
-      ? {
-          from: new Date(from as string),
-          to: new Date(to as string),
-        }
-      : undefined;
-
-    const stats = await sisterSizingService.getAcceptanceStats(dateRange);
-
-    res.json({
-      success: true,
-      data: stats,
-    });
-  } catch (error: any) {
-    console.error('Get stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to get stats',
     });
   }
 });

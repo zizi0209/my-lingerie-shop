@@ -89,9 +89,10 @@ test.describe('Points and Tier Display', () => {
     await page.waitForLoadState('networkidle');
 
     // Check for points preview section
-    const pointsSection = page.locator('[data-testid="points-preview"], .points-info, text=/điểm|points/i');
+    const pointsSection = page.locator('[data-testid="points-preview"], .points-info');
+    const pointsFallback = page.getByText(/điểm|points/i);
     // Points section might be visible for logged in users
-    await pointsSection.isVisible();
+    await pointsSection.or(pointsFallback).first().isVisible();
   });
 
   test('should display tier badge in profile', async ({ page }) => {
@@ -99,9 +100,10 @@ test.describe('Points and Tier Display', () => {
     await page.waitForLoadState('networkidle');
 
     // Check for tier/membership badge
-    const tierBadge = page.locator('[data-testid="tier-badge"], .member-tier, text=/Bronze|Silver|Gold|Platinum/i');
+    const tierBadge = page.locator('[data-testid="tier-badge"], .member-tier');
+    const tierFallback = page.getByText(/Bronze|Silver|Gold|Platinum/i);
     // Badge visible if user is logged in
-    await tierBadge.isVisible();
+    await tierBadge.or(tierFallback).first().isVisible();
   });
 
   test('should navigate to rewards catalog', async ({ page }) => {

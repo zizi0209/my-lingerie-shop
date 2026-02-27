@@ -13,7 +13,7 @@
  * - Sister Up:   36B (looser band, same cup volume)
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
  import Redis from 'ioredis';
 
 const prisma = new PrismaClient();
@@ -344,9 +344,17 @@ export class SisterSizingService {
     }
 
     // Get all sizes with same cup volume in the region
+    const region = await prisma.region.findFirst({
+      where: { code: params.regionCode },
+    });
+
+    if (!region) {
+      throw new Error('Region not found');
+    }
+
     const family = await prisma.regionalSize.findMany({
       where: {
-        regionId: params.regionCode,
+        regionId: region.id,
         cupVolume: originalSize.cupVolume,
         standardId: originalSize.standardId,
       },
@@ -380,7 +388,7 @@ export class SisterSizingService {
    * Get sister size acceptance statistics
    */
   async getAcceptanceStats(dateRange?: { from: Date; to: Date }) {
-    const where: any = {};
+    const where: Prisma.SisterSizeRecommendationWhereInput = {};
 
     if (dateRange) {
       where.createdAt = {
@@ -389,24 +397,41 @@ export class SisterSizingService {
       };
     }
 
-    const stats = await prisma.sisterSizeRecommendation.groupBy({
-      by: ['recommendationType'],
-      where,
-      _count: {
-        id: true,
-        accepted: true,
-      },
-    });
+    const [totalStats, acceptedStats] = await Promise.all([
+      prisma.sisterSizeRecommendation.groupBy({
+        by: ['recommendationType'],
+        where,
+        _count: {
+          id: true,
+        },
+      }),
+      prisma.sisterSizeRecommendation.groupBy({
+        by: ['recommendationType'],
+        where: {
+          ...where,
+          accepted: true,
+        },
+        _count: {
+          id: true,
+        },
+      }),
+    ]);
 
-    return stats.map((stat) => ({
-      type: stat.recommendationType,
-      totalRecommendations: stat._count?.id || 0,
-      acceptedRecommendations: stat._count?.accepted || 0,
-      acceptanceRate:
-        (stat._count?.id || 0) > 0
-          ? ((stat._count?.accepted || 0) / (stat._count?.id || 0)) * 100
-          : 0,
-    }));
+    const acceptedMap = new Map(
+      acceptedStats.map((stat) => [stat.recommendationType, stat._count.id])
+    );
+
+    return totalStats.map((stat) => {
+      const total = stat._count.id;
+      const accepted = acceptedMap.get(stat.recommendationType) ?? 0;
+
+      return {
+        type: stat.recommendationType,
+        totalRecommendations: total,
+        acceptedRecommendations: accepted,
+        acceptanceRate: total > 0 ? (accepted / total) * 100 : 0,
+      };
+    });
   }
 
   /**

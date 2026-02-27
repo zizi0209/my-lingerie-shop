@@ -101,6 +101,11 @@ interface ProviderConfig {
   enabled: boolean;
 }
 
+export type TryOnErrorCode =
+  | 'PROVIDER_UNAVAILABLE'
+  | 'PROVIDER_TIMEOUT'
+  | 'PROVIDER_RATE_LIMITED';
+
 interface ProviderHealth {
   lastSuccess: number;
   lastFailure: number;
@@ -202,10 +207,21 @@ export function resetProviderHealth(): void {
   console.log('[Health] All provider health stats reset');
 }
 
- const TIMEOUT_MS = 120000; // 2 minutes per request
+const TIMEOUT_MS = 120000; // 2 minutes per request
 const POLL_INTERVAL = 2000; // 2 seconds (reduced from 3)
 const MAX_POLL_ATTEMPTS = 60; // 2 minutes max polling
 const INITIAL_POLL_DELAY = 1000; // Start polling after 1 second
+const MAX_RETRY_ATTEMPTS = 1;
+const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const RETRY_BASE_DELAY_MS = 600;
+const PROVIDER_ALLOWLIST = (process.env.TRYON_PROVIDER_ALLOWLIST || '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
+const PROVIDER_BLOCKLIST = (process.env.TRYON_PROVIDER_BLOCKLIST || '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
  
  interface TryOnResult {
    success: boolean;
@@ -213,6 +229,7 @@ const INITIAL_POLL_DELAY = 1000; // Start polling after 1 second
    provider?: string;
    error?: string;
    processingTime?: number;
+  errorCode?: TryOnErrorCode;
  }
  
  interface SpaceStatus {
@@ -242,16 +259,35 @@ async function quickHealthCheck(providerUrl: string): Promise<boolean> {
   }
 }
 
+function getActiveProviders(): ProviderConfig[] {
+  let providers = PROVIDERS.filter((provider) => provider.enabled);
+
+  if (PROVIDER_ALLOWLIST.length > 0) {
+    providers = providers.filter((provider) => PROVIDER_ALLOWLIST.includes(provider.name));
+  }
+
+  if (PROVIDER_BLOCKLIST.length > 0) {
+    providers = providers.filter((provider) => !PROVIDER_BLOCKLIST.includes(provider.name));
+  }
+
+  if (providers.length === 0) {
+    return PROVIDERS.filter((provider) => provider.enabled);
+  }
+
+  return providers;
+}
+
 /**
  * Get providers in round-robin order starting from current index
  */
 function getProvidersInOrder(): ProviderConfig[] {
+  const activeProviders = getActiveProviders();
   const result: ProviderConfig[] = [];
   const now = Date.now();
   
-  for (let i = 0; i < PROVIDERS.length; i++) {
-    const index = (currentProviderIndex + i) % PROVIDERS.length;
-    const provider = PROVIDERS[index];
+  for (let i = 0; i < activeProviders.length; i++) {
+    const index = (currentProviderIndex + i) % activeProviders.length;
+    const provider = activeProviders[index];
     const health = providerHealth.get(provider.name);
     
     // Skip providers that are still in cooling period
@@ -264,12 +300,14 @@ function getProvidersInOrder(): ProviderConfig[] {
     
     result.push(provider);
   }
-  currentProviderIndex = (currentProviderIndex + 1) % PROVIDERS.length;
+  currentProviderIndex = activeProviders.length > 0
+    ? (currentProviderIndex + 1) % activeProviders.length
+    : 0;
   
   // If all providers are cooling down, include them anyway (last resort)
   if (result.length === 0) {
     console.log('[Round-Robin] All providers cooling down, trying anyway...');
-    return [...PROVIDERS];
+    return [...activeProviders];
   }
   
   return result;
@@ -456,7 +494,7 @@ async function pollForResult(
      ],
    };
  
-   const response = await fetchWithTimeout(
+   const response = await fetchWithRetry(
      `${spaceUrl}/call/tryon`,
      {
        method: 'POST',
@@ -524,7 +562,7 @@ async function tryFASHNVTON(
     ],
   };
 
-  const response = await fetchWithTimeout(
+  const response = await fetchWithRetry(
     `${spaceUrl}/gradio_api/call/try_on`,
     {
       method: 'POST',
@@ -586,7 +624,7 @@ async function tryFASHNVTON(
      ],
    };
  
-   const response = await fetchWithTimeout(
+  const response = await fetchWithRetry(
      `${spaceUrl}/call/process_dc`,
      {
        method: 'POST',
@@ -640,7 +678,7 @@ async function tryOutfitAnyone(
     ],
   };
 
-  const response = await fetchWithTimeout(
+  const response = await fetchWithRetry(
     `${spaceUrl}/call/get_tryon_result`,
     {
       method: 'POST',
@@ -697,7 +735,7 @@ async function tryKwaiKolors(
     ],
   };
 
-  const response = await fetchWithTimeout(
+  const response = await fetchWithRetry(
     `${spaceUrl}/call/tryon`,
     {
       method: 'POST',
@@ -757,7 +795,7 @@ async function tryStableVITON(
     ],
   };
 
-  const response = await fetchWithTimeout(
+  const response = await fetchWithRetry(
     `${spaceUrl}/call/process`,
     {
       method: 'POST',
@@ -817,7 +855,7 @@ async function tryVTOND(
     ],
   };
 
-  const response = await fetchWithTimeout(
+  const response = await fetchWithRetry(
     `${spaceUrl}/call/tryon`,
     {
       method: 'POST',
@@ -871,6 +909,38 @@ async function tryProvider(
     default:
       throw new Error(`Unknown provider type: ${String(provider.type)}`);
   }
+}
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  timeout: number,
+  maxRetries = MAX_RETRY_ATTEMPTS
+): Promise<Response> {
+  let attempt = 0;
+  let lastError: unknown = null;
+
+  while (attempt <= maxRetries) {
+    try {
+      const response = await fetchWithTimeout(url, options, timeout);
+      if (!RETRYABLE_STATUS.has(response.status) || attempt === maxRetries) {
+        return response;
+      }
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxRetries) {
+        throw error;
+      }
+    }
+
+    const jitter = Math.random() * 200;
+    const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt) + jitter;
+    await sleep(delay);
+    attempt += 1;
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Unknown retry error');
 }
 
 /**
@@ -1018,9 +1088,15 @@ export async function processVirtualTryOn(
   console.log('Errors:', errors);
 
   console.log('=== All providers (Gemini + HF) failed ===');
+  const errorCode: TryOnErrorCode = errors.some((error) => error.toLowerCase().includes('timeout'))
+    ? 'PROVIDER_TIMEOUT'
+    : errors.some((error) => error.toLowerCase().includes('rate') || error.includes('429'))
+      ? 'PROVIDER_RATE_LIMITED'
+      : 'PROVIDER_UNAVAILABLE';
   return {
     success: false,
     error: `Tất cả hệ thống AI đang bận. Chi tiết: ${errors.join('; ')}`,
+    errorCode,
     processingTime: Date.now() - startTime,
   };
 }
@@ -1030,8 +1106,9 @@ export async function processVirtualTryOn(
  */
 export async function checkSpacesStatus(): Promise<SpaceStatus[]> {
   const results: SpaceStatus[] = [];
+  const activeProviders = getActiveProviders();
 
-  for (const provider of PROVIDERS) {
+  for (const provider of activeProviders) {
     const health = providerHealth.get(provider.name);
     
     try {

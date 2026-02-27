@@ -20,7 +20,6 @@ describe('SisterSizingService', () => {
   beforeAll(async () => {
     // Seed test sizes and category
     testSizeData = await seedTestSizes();
-    testCategory = await createTestCategory({ name: 'Test Bras', slug: 'test-bras' });
   });
 
   afterAll(async () => {
@@ -36,6 +35,11 @@ describe('SisterSizingService', () => {
     await sisterSizingService.invalidateCache();
     // Clear recommendation logs to avoid data accumulation
     await cleanupSisterSizeRecommendations();
+    const uniqueSuffix = Date.now();
+    testCategory = await createTestCategory({
+      name: 'Test Bras',
+      slug: `test-bras-${uniqueSuffix}`,
+    });
   });
 
   describe('getSisterSizes', () => {
@@ -170,7 +174,7 @@ describe('SisterSizingService', () => {
       const variant32D = await prisma.productVariant.create({
         data: {
           sku: `TEST-BRA-32D-BLACK-${uniqueSuffix}`,
-          size: '34C',
+          size: '32D',
           baseSizeUIC: 'UIC_BRA_BAND81_CUPVOL6',
           colorId: 1,
           stock: 5,
@@ -182,7 +186,7 @@ describe('SisterSizingService', () => {
       const variant36B = await prisma.productVariant.create({
         data: {
           sku: `TEST-BRA-36B-BLACK-${uniqueSuffix}`,
-          size: '34C',
+          size: '36B',
           baseSizeUIC: 'UIC_BRA_BAND91_CUPVOL6',
           colorId: 1,
           stock: 3,
@@ -243,7 +247,7 @@ describe('SisterSizingService', () => {
       const variant32D = await prisma.productVariant.create({
         data: {
           sku: `TEST-BRA-32D-BLACK-3-${uniqueSuffix}`,
-          size: '34C',
+          size: '32D',
           baseSizeUIC: 'UIC_BRA_BAND81_CUPVOL6',
           colorId: 1,
           stock: 5,

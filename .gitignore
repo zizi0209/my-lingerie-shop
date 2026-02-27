@@ -57,6 +57,7 @@ backend/uploads/
 next-env.d.ts
 local-*
 .claude
+.factory
 .z-ai-config
 dev.log
 test

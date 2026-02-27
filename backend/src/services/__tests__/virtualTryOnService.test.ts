@@ -15,6 +15,56 @@
  // Mock fetch for testing
  const mockFetch = vi.fn();
  global.fetch = mockFetch;
+
+const setupFetchMock = (options?: {
+  failAll?: boolean;
+  failFashn?: boolean;
+}) => {
+  mockFetch.mockImplementation(async (url: string | URL, init?: RequestInit) => {
+    const requestUrl = typeof url === 'string' ? url : url.toString();
+    const method = init?.method ?? 'GET';
+
+    if (method === 'HEAD') {
+      return {
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve('OK'),
+      };
+    }
+
+    if (method === 'POST') {
+      if (options?.failAll) {
+        throw new Error('Service unavailable');
+      }
+      if (requestUrl.includes('api.imgbb.com/1/upload')) {
+        return {
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            success: true,
+            data: { url: 'https://example.com/mock-upload.jpg' },
+          }),
+          text: () => Promise.resolve('OK'),
+        };
+      }
+      if (options?.failFashn && requestUrl.includes('fashn-ai-fashn-vton-1-5')) {
+        throw new Error('First provider down');
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ event_id: 'test-event-123' }),
+        text: () => Promise.resolve('OK'),
+      };
+    }
+
+    return {
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve('event: complete\ndata: ["https://example.com/result.jpg"]'),
+    };
+  });
+};
  
  // Mock Gemini service
  vi.mock('../geminiVirtualTryOnService', () => ({
@@ -30,14 +80,21 @@
    // Sample base64 images for testing
    const samplePersonImage = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAA...';
    const sampleGarmentImage = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAB...';
+  const originalImgbbKey = process.env.IMGBB_API_KEY;
  
    beforeEach(() => {
      vi.clearAllMocks();
      resetProviderHealth();
+    process.env.IMGBB_API_KEY = '';
    });
  
    afterEach(() => {
      vi.restoreAllMocks();
+    if (originalImgbbKey) {
+      process.env.IMGBB_API_KEY = originalImgbbKey;
+    } else {
+      delete process.env.IMGBB_API_KEY;
+    }
    });
  
    describe('resetProviderHealth', () => {
@@ -67,6 +124,8 @@
        expect(stats['OOTDiffusion']).toBeDefined();
        expect(stats['OutfitAnyone']).toBeDefined();
        expect(stats['Kolors-VTON']).toBeDefined();
+      expect(stats['StableVITON']).toBeDefined();
+      expect(stats['VTON-D']).toBeDefined();
      });
  
      it('should have correct health structure', () => {
@@ -85,16 +144,13 @@
    describe('checkSpacesStatus', () => {
      it('should return status for all providers', async () => {
        // Mock successful health checks
-       mockFetch.mockResolvedValue({
-         ok: true,
-         text: () => Promise.resolve('OK'),
-       });
+      setupFetchMock();
  
        const statuses = await checkSpacesStatus();
  
        expect(statuses).toBeDefined();
        expect(Array.isArray(statuses)).toBe(true);
-       expect(statuses.length).toBe(5); // 5 HF providers
+      expect(statuses.length).toBe(Object.keys(getProviderHealthStats()).length);
      });
  
      it('should mark provider as unavailable on error', async () => {
@@ -112,7 +168,7 @@
    describe('processVirtualTryOn', () => {
      it('should return error when all providers fail', async () => {
        // Mock all providers failing
-       mockFetch.mockRejectedValue(new Error('Service unavailable'));
+      setupFetchMock({ failAll: true });
  
        const result = await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
@@ -122,7 +178,7 @@
      });
  
      it('should track processing time', async () => {
-       mockFetch.mockRejectedValue(new Error('Service unavailable'));
+      setupFetchMock({ failAll: true });
  
        const result = await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
@@ -131,7 +187,7 @@
      });
  
      it('should update provider health on failure', async () => {
-       mockFetch.mockRejectedValue(new Error('Service unavailable'));
+      setupFetchMock({ failAll: true });
  
        await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
@@ -143,16 +199,7 @@
      });
  
      it('should return success with result image on success', async () => {
-       // Mock successful API call
-       mockFetch
-         .mockResolvedValueOnce({
-           ok: true,
-           json: () => Promise.resolve({ event_id: 'test-event-123' }),
-         })
-         .mockResolvedValueOnce({
-           ok: true,
-           text: () => Promise.resolve('event: complete\ndata: ["https://example.com/result.jpg"]'),
-         });
+      setupFetchMock();
  
        const result = await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
@@ -162,15 +209,7 @@
      });
  
      it('should update health stats on success', async () => {
-       mockFetch
-         .mockResolvedValueOnce({
-           ok: true,
-           json: () => Promise.resolve({ event_id: 'test-event-123' }),
-         })
-         .mockResolvedValueOnce({
-           ok: true,
-           text: () => Promise.resolve('event: complete\ndata: ["https://example.com/result.jpg"]'),
-         });
+      setupFetchMock();
  
        await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
@@ -181,16 +220,7 @@
  
      it('should try next provider on first failure', async () => {
        // First provider fails, second succeeds
-       mockFetch
-         .mockRejectedValueOnce(new Error('First provider down'))
-         .mockResolvedValueOnce({
-           ok: true,
-           json: () => Promise.resolve({ event_id: 'test-event-456' }),
-         })
-         .mockResolvedValueOnce({
-           ok: true,
-           text: () => Promise.resolve('event: complete\ndata: ["https://example.com/result2.jpg"]'),
-         });
+      setupFetchMock({ failFashn: true });
  
        const result = await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
@@ -207,9 +237,9 @@
        expect(providers[0]).toBe('FASHN-VTON-1.5');
      });
  
-     it('should have 5 HuggingFace providers configured', () => {
+    it('should have 7 HuggingFace providers configured', () => {
        const stats = getProviderHealthStats();
-       expect(Object.keys(stats).length).toBe(5);
+      expect(Object.keys(stats).length).toBe(7);
      });
    });
  });

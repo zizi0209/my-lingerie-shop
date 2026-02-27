@@ -4,7 +4,7 @@
  * Tests for all API endpoints
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import { prisma } from '../../tests/setup';
 import { createTestCategory, seedTestSizes } from '../../tests/helpers';
@@ -13,15 +13,19 @@ import app from '../../server'; // Your Express app
 describe('Size System API v2', () => {
   let testProductId: number;
   let testBrandId: string;
+  let testBrandName: string;
   let testCategory: Awaited<ReturnType<typeof createTestCategory>>;
 
   beforeAll(async () => {
     // Seed test sizes and create test category
     await seedTestSizes();
+  });
+
+  beforeEach(async () => {
     const uniqueSuffix = Date.now();
-    testCategory = await createTestCategory({ 
-      name: `Test API Category ${uniqueSuffix}`, 
-      slug: `test-api-category-${uniqueSuffix}` 
+    testCategory = await createTestCategory({
+      name: `Test API Category ${uniqueSuffix}`,
+      slug: `test-api-category-${uniqueSuffix}`,
     });
 
     // Create test product
@@ -74,9 +78,10 @@ describe('Size System API v2', () => {
     ]);
 
     // Create test brand
+    testBrandName = `Test API Brand ${uniqueSuffix}`;
     const brand = await prisma.brand.create({
       data: {
-        name: `Test API Brand ${uniqueSuffix}`,
+        name: testBrandName,
         slug: `test-api-brand-${uniqueSuffix}`,
         fitType: 'RUNS_SMALL',
         bandAdjustment: 1,
@@ -87,14 +92,16 @@ describe('Size System API v2', () => {
     testBrandId = brand.id;
   });
 
-  afterAll(async () => {
-    // Cleanup
+  afterEach(async () => {
+    await prisma.brandFitFeedback.deleteMany({
+      where: { brandId: testBrandId },
+    });
     await prisma.productVariant.deleteMany({
       where: { productId: testProductId },
     });
-    await prisma.product.delete({ where: { id: testProductId } });
-    await prisma.brand.delete({ where: { id: testBrandId } });
-    await prisma.category.delete({ where: { id: testCategory.id } });
+    await prisma.product.deleteMany({ where: { id: testProductId } });
+    await prisma.brand.deleteMany({ where: { id: testBrandId } });
+    await prisma.category.deleteMany({ where: { id: testCategory.id } });
   });
 
   // ============================================
@@ -356,7 +363,7 @@ describe('Size System API v2', () => {
       expect(response.body.success).toBe(true);
 
       const data = response.body.data;
-      expect(data.name).toBe('Test API Brand');
+      expect(data.name).toBe(testBrandName);
       expect(data.fitType).toBe('RUNS_SMALL');
       expect(data.bandAdjustment).toBe(1);
     });

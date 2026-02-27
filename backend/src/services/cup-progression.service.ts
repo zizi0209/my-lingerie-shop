@@ -15,10 +15,54 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { Redis } from 'ioredis';
+import Redis from 'ioredis';
 
 const prisma = new PrismaClient();
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+let redis: Redis | null = null;
+let redisAvailable = false;
+
+try {
+  redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    maxRetriesPerRequest: 3,
+    enableReadyCheck: false,
+    lazyConnect: true,
+  });
+
+  redis.on('error', (err) => {
+    console.warn('[CupProgression] Redis connection error, caching disabled:', err.message);
+    redisAvailable = false;
+  });
+
+  redis.on('connect', () => {
+    redisAvailable = true;
+  });
+
+  redis.connect().catch(() => {
+    redisAvailable = false;
+  });
+} catch {
+  console.warn('[CupProgression] Redis initialization failed, caching disabled');
+  redis = null;
+  redisAvailable = false;
+}
+
+async function safeRedisGet(key: string): Promise<string | null> {
+  if (!redis || !redisAvailable) return null;
+  try {
+    return await redis.get(key);
+  } catch {
+    return null;
+  }
+}
+
+async function safeRedisSetex(key: string, ttl: number, value: string): Promise<void> {
+  if (!redis || !redisAvailable) return;
+  try {
+    await redis.setex(key, ttl, value);
+  } catch {
+    // Ignore cache write errors
+  }
+}
 
 // ============================================
 // HARDCODED CUP PROGRESSION TABLES
@@ -75,7 +119,7 @@ export class CupProgressionService {
 
     // Check cache
     const cacheKey = `cup-conversion:${fromRegion}:${toRegion}:${cupLetter}`;
-    const cached = await redis.get(cacheKey);
+    const cached = await safeRedisGet(cacheKey);
     if (cached) {
       return JSON.parse(cached);
     }
@@ -118,7 +162,7 @@ export class CupProgressionService {
     };
 
     // Cache for 24 hours
-    await redis.setex(cacheKey, 86400, JSON.stringify(result));
+    await safeRedisSetex(cacheKey, 86400, JSON.stringify(result));
 
     return result;
   }
@@ -371,6 +415,7 @@ export class CupProgressionService {
    * Invalidate cup conversion cache
    */
   async invalidateCache(): Promise<void> {
+    if (!redis || !redisAvailable) return;
     const keys = await redis.keys('cup-conversion:*');
     if (keys.length > 0) {
       await redis.del(...keys);

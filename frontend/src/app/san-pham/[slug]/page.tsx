@@ -10,7 +10,7 @@ import ReviewList from "@/components/product/ReviewList";
 import SizeGuideModal from "@/components/product/SizeGuideModal";
 import RecommendationSection from "@/components/product/RecommendationSection";
 import RelatedPosts from "@/components/product/RelatedPosts";
-import { VirtualTryOnButton, VirtualTryOnModal } from "@/components/virtual-tryon";
+import { TryOnNotification, VirtualTryOnButton, VirtualTryOnModal } from "@/components/virtual-tryon";
 // Size System V2 Components
 import SisterSizeAlert from "@/components/product/SisterSizeAlert";
 import BrandFitNotice from "@/components/product/BrandFitNotice";
@@ -20,6 +20,8 @@ import type { RegionCode } from "@/types/size-system-v2";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
+import { useVirtualTryOnContext } from "@/context/VirtualTryOnContext";
+import type { TryOnResult } from "@/types/virtual-tryon";
 import type { ProductType } from "@/lib/sizeTemplateApi";
 import { trackProductView, trackCartEvent } from "@/lib/tracking";
 import { sanitizeForPublic } from "@/lib/sanitize";
@@ -93,6 +95,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { isAuthenticated, user } = useAuth();
+  const { hasCompletedJob, consumeResult } = useVirtualTryOnContext();
   
   const [product, setProduct] = useState<Product | null>(null);
   const [_relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
@@ -109,6 +112,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const [tryOnModalOpen, setTryOnModalOpen] = useState(false);
+  const [pendingTryOnResult, setPendingTryOnResult] = useState<TryOnResult | null>(null);
+  const [showTryOnNotification, setShowTryOnNotification] = useState(false);
   const [show3DViewer, setShow3DViewer] = useState(false);
   // Size System V2 state
   const [regionCode, setRegionCode] = useState<RegionCode>('US');
@@ -132,6 +137,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     }
     setSessionId(sid);
   }, []);
+
+  useEffect(() => {
+    if (!product || tryOnModalOpen) return;
+    if (hasCompletedJob(String(product.id))) {
+      setShowTryOnNotification(true);
+    }
+  }, [hasCompletedJob, product, tryOnModalOpen]);
+
+  useEffect(() => {
+    if (!tryOnModalOpen) {
+      setPendingTryOnResult(null);
+    }
+  }, [tryOnModalOpen]);
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
@@ -322,6 +340,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
   const displayPrice = product?.salePrice || product?.price || 0;
   const originalPrice = product?.salePrice ? product.price : null;
+
+  const handleViewTryOnResult = () => {
+    if (!product) return;
+    const result = consumeResult(String(product.id));
+    if (result) {
+      setPendingTryOnResult(result);
+    }
+    setTryOnModalOpen(true);
+    setShowTryOnNotification(false);
+  };
 
   if (loading) {
     return (
@@ -810,7 +838,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             model3dUrl: selectedModel3dUrl,
             productType: product.productType,
           }}
+          initialResult={pendingTryOnResult}
           onAddToCart={handleAddToCart}
+        />
+      )}
+
+      {product && showTryOnNotification && (
+        <TryOnNotification
+          productName={product.name}
+          onView={handleViewTryOnResult}
+          onDismiss={() => setShowTryOnNotification(false)}
         />
       )}
     </div>

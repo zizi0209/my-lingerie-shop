@@ -9,7 +9,10 @@ export type TryOnErrorCode =
   | 'USER_IMAGE_INVALID'
   | 'USER_IMAGE_TOO_SMALL'
   | 'USER_IMAGE_ASPECT_RATIO'
-  | 'INPUT_IMAGE_UNSUPPORTED';
+  | 'INPUT_IMAGE_UNSUPPORTED'
+  | 'PROVIDER_UNAVAILABLE'
+  | 'PROVIDER_TIMEOUT'
+  | 'PROVIDER_RATE_LIMITED';
  
  export interface TryOnResult {
    originalImage: string;
@@ -17,6 +20,7 @@ export type TryOnErrorCode =
    productId: string;
    productName: string;
    timestamp: number;
+  provider?: string;
  }
  
  export interface TryOnQueueInfo {

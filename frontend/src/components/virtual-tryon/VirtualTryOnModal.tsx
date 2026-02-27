@@ -1,6 +1,6 @@
 'use client';
- 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { X, AlertTriangle, RefreshCw, ArrowLeft, Shield, ImageIcon, Upload } from 'lucide-react';
  import { PhotoUploader } from './PhotoUploader';
  import { ConsentCheckbox } from './ConsentCheckbox';
@@ -13,6 +13,7 @@ import { processPhotoTryOn } from '@/services/photo-tryon';
 import type { PoseValidationResult } from '@/services/pose-detection';
 import type { ProductType } from '@/services/clothing-overlay';
 import type { TryOnResult } from '@/types/virtual-tryon';
+import { useVirtualTryOnContext } from '@/context/VirtualTryOnContext';
  
  interface Product {
    id: string;
@@ -28,9 +29,17 @@ import type { TryOnResult } from '@/types/virtual-tryon';
    onClose: () => void;
    product: Product;
    onAddToCart?: () => void;
+  initialResult?: TryOnResult | null;
  }
  
- export function VirtualTryOnModal({ isOpen, onClose, product, onAddToCart }: VirtualTryOnModalProps) {
+export function VirtualTryOnModal({
+  isOpen,
+  onClose,
+  product,
+  onAddToCart,
+  initialResult,
+}: VirtualTryOnModalProps) {
+  const { addJob, updateJob, removeJob } = useVirtualTryOnContext();
    const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
    const [consent, setConsent] = useState(false);
   const [poseValidation, setPoseValidation] = useState<PoseValidationResult | null>(null);
@@ -38,8 +47,16 @@ import type { TryOnResult } from '@/types/virtual-tryon';
   const [showLiveTryOn, setShowLiveTryOn] = useState(false);
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [result, setResult] = useState<TryOnResult | null>(null);
   const [tryOnError, setTryOnError] = useState<string | null>(null);
+  const jobIdRef = useRef<string | null>(null);
+  const isOpenRef = useRef(isOpen);
+  const cancelRef = useRef(false);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
  
   // Check if pose is valid enough to proceed
   const canProceed = useMemo(() => {
@@ -59,21 +76,39 @@ import type { TryOnResult } from '@/types/virtual-tryon';
     }
   }, []);
 
-  const handleBackToModeSelect = useCallback(() => {
-    setSelectedMode(null);
+  const resetLocalState = useCallback(() => {
     setSelectedPhoto(null);
     setPoseValidation(null);
     setStatus('idle');
     setProgress(0);
+    setProgressMessage(null);
     setResult(null);
     setTryOnError(null);
   }, []);
+
+  const handleBackToModeSelect = useCallback(() => {
+    setSelectedMode(null);
+    resetLocalState();
+  }, [resetLocalState]);
  
    const handleStartTryOn = useCallback(async () => {
     if (!canProceed || !selectedPhoto) return;
 
+    cancelRef.current = false;
+    if (jobIdRef.current) {
+      removeJob(jobIdRef.current);
+      jobIdRef.current = null;
+    }
+    const jobId = addJob({
+      productId: product.id,
+      productName: product.name,
+      status: 'processing',
+    });
+    jobIdRef.current = jobId;
+
     setStatus('processing');
     setProgress(0);
+    setProgressMessage(null);
     setResult(null);
     setTryOnError(null);
 
@@ -87,30 +122,79 @@ import type { TryOnResult } from '@/types/virtual-tryon';
           productName: product.name,
           productType: product.productType || 'BRA',
         },
-        (nextProgress) => {
-          setProgress(nextProgress);
+        (nextProgress, message) => {
+          if (isOpenRef.current) {
+            setProgress(nextProgress);
+            if (message) {
+              setProgressMessage(message);
+            }
+          }
         }
       );
 
-      setResult(localResult);
-      setStatus('completed');
-      setProgress(100);
+      if (cancelRef.current) {
+        if (jobIdRef.current) {
+          removeJob(jobIdRef.current);
+          jobIdRef.current = null;
+        }
+        return;
+      }
+
+      if (jobIdRef.current) {
+        if (isOpenRef.current) {
+          removeJob(jobIdRef.current);
+        } else {
+          updateJob(jobIdRef.current, { status: 'completed', result: localResult });
+        }
+        jobIdRef.current = null;
+      }
+
+      if (isOpenRef.current) {
+        setResult(localResult);
+        setStatus('completed');
+        setProgress(100);
+        setProgressMessage('Hoàn thành!');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Không thể xử lý ảnh thử đồ.';
-      setTryOnError(message);
-      setStatus('error');
-      setProgress(0);
+      if (cancelRef.current) {
+        if (jobIdRef.current) {
+          removeJob(jobIdRef.current);
+          jobIdRef.current = null;
+        }
+        return;
+      }
+
+      if (jobIdRef.current) {
+        if (isOpenRef.current) {
+          removeJob(jobIdRef.current);
+        } else {
+          updateJob(jobIdRef.current, { status: 'error', error: message });
+        }
+        jobIdRef.current = null;
+      }
+
+      if (isOpenRef.current) {
+        setTryOnError(message);
+        setStatus('error');
+        setProgress(0);
+        setProgressMessage(null);
+      }
     }
-  }, [canProceed, selectedPhoto, product]);
+  }, [addJob, canProceed, product, removeJob, selectedPhoto, updateJob]);
  
    const handleTryAgain = useCallback(() => {
-     setSelectedPhoto(null);
-    setPoseValidation(null);
-     setStatus('idle');
-     setProgress(0);
-     setResult(null);
-     setTryOnError(null);
-   }, []);
+    resetLocalState();
+  }, [resetLocalState]);
+
+  const handleCancelProcessing = useCallback(() => {
+    cancelRef.current = true;
+    if (jobIdRef.current) {
+      removeJob(jobIdRef.current);
+      jobIdRef.current = null;
+    }
+    resetLocalState();
+  }, [removeJob, resetLocalState]);
  
    const handleDownload = useCallback(() => {
      if (!result?.resultImage) return;
@@ -129,21 +213,25 @@ import type { TryOnResult } from '@/types/virtual-tryon';
        }
      };
    }, [personImagePreview]);
+
+  useEffect(() => {
+    if (initialResult && isOpen) {
+      setResult(initialResult);
+      setStatus('completed');
+      setProgress(100);
+      setProgressMessage('Hoàn thành!');
+    }
+  }, [initialResult, isOpen]);
  
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setSelectedMode(null);
       setShowLiveTryOn(false);
-      setSelectedPhoto(null);
-      setPoseValidation(null);
       setConsent(false);
-      setStatus('idle');
-      setProgress(0);
-      setResult(null);
-      setTryOnError(null);
+      resetLocalState();
     }
-  }, [isOpen]);
+  }, [isOpen, resetLocalState]);
 
    if (!isOpen) return null;
  
@@ -203,8 +291,9 @@ import type { TryOnResult } from '@/types/virtual-tryon';
                progress={progress}
               queueInfo={null}
                personImage={personImagePreview}
+              statusMessage={progressMessage}
                onContinueShopping={onClose}
-              onCancel={handleTryAgain}
+              onCancel={handleCancelProcessing}
              />
            )}
  
@@ -302,11 +391,11 @@ import type { TryOnResult } from '@/types/virtual-tryon';
                   <div className="mt-4 space-y-2">
                     <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
                       <ImageIcon className="w-4 h-4 text-purple-600 flex-shrink-0" />
-                      <p className="text-xs text-purple-700">Xử lý nhanh ngay trên thiết bị của bạn</p>
+                      <p className="text-xs text-purple-700">Ưu tiên AI server chất lượng cao, tự fallback khi cần</p>
                     </div>
                     <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
                       <Shield className="w-4 h-4 text-green-600 flex-shrink-0" />
-                      <p className="text-xs text-green-700">Ảnh được xóa ngay sau khi xử lý xong</p>
+                      <p className="text-xs text-green-700">Ảnh chỉ dùng tạm thời cho xử lý, không lưu trữ lâu</p>
                     </div>
                   </div>
                  </div>

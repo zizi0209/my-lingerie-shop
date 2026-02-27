@@ -1,6 +1,7 @@
 import { TryOnRequest, TryOnResult, TryOnErrorCode } from '@/types/virtual-tryon';
  
  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const ENV_ENABLE_REMOTE_TRYON = process.env.NEXT_PUBLIC_ENABLE_REMOTE_TRYON;
  
  type ProgressCallback = (progress: number, message?: string) => void;
 
@@ -8,6 +9,64 @@ interface TryOnErrorPayload {
   error?: string;
   message?: string;
   errorCode?: TryOnErrorCode;
+}
+
+interface PublicConfigPayload {
+  enable_remote_tryon?: string;
+}
+
+interface RemoteTryOnConfig {
+  enabled: boolean;
+}
+
+const normalizeBoolean = (value?: string): boolean | null => {
+  if (value === undefined) return null;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return null;
+};
+
+let cachedRemoteConfig: RemoteTryOnConfig | null = null;
+let remoteConfigPromise: Promise<RemoteTryOnConfig> | null = null;
+
+async function fetchPublicConfig(): Promise<PublicConfigPayload> {
+  const response = await fetch(`${API_BASE_URL}/public/config`);
+  if (!response.ok) {
+    throw new Error('Không thể tải public config');
+  }
+  const payload = (await response.json()) as { data?: PublicConfigPayload; success?: boolean };
+  if (!payload.success || !payload.data) {
+    return {};
+  }
+  return payload.data;
+}
+
+async function getRemoteConfig(): Promise<RemoteTryOnConfig> {
+  if (cachedRemoteConfig) return cachedRemoteConfig;
+  if (remoteConfigPromise) return remoteConfigPromise;
+
+  remoteConfigPromise = (async () => {
+    let publicConfig: PublicConfigPayload = {};
+    try {
+      publicConfig = await fetchPublicConfig();
+    } catch (error) {
+      console.warn('[TryOn][Remote] Không thể lấy public config:', error);
+    }
+
+    const envEnabled = normalizeBoolean(ENV_ENABLE_REMOTE_TRYON);
+    const runtimeEnabled = normalizeBoolean(publicConfig.enable_remote_tryon);
+    const enabled = envEnabled ?? runtimeEnabled ?? true;
+
+    cachedRemoteConfig = { enabled };
+    return cachedRemoteConfig;
+  })();
+
+  return remoteConfigPromise;
+}
+
+export async function isRemoteTryOnEnabled(): Promise<boolean> {
+  const config = await getRemoteConfig();
+  return config.enabled;
 }
  
  async function blobToBase64(blob: Blob): Promise<string> {
@@ -56,7 +115,13 @@ interface TryOnErrorPayload {
     throw new Error(mapped);
   }
  
-   const result = await response.json();
+   const result = await response.json() as {
+     success?: boolean;
+     data?: { resultImage?: string; provider?: string };
+     error?: string;
+     message?: string;
+     errorCode?: TryOnErrorCode;
+   };
  
   if (!result.success) {
     const mapped = mapTryOnErrorCode(result.errorCode as TryOnErrorCode | undefined, result.message || result.error);
@@ -65,12 +130,18 @@ interface TryOnErrorPayload {
  
    onProgress?.(100, 'Hoàn thành!');
  
+   const resultData = result.data;
+   if (!resultData?.resultImage) {
+     throw new Error('Không nhận được ảnh kết quả từ hệ thống AI');
+   }
+
    return {
      originalImage: personImageBase64,
-     resultImage: result.data.resultImage,
+     resultImage: resultData.resultImage,
      productId: request.productId,
      productName: request.productName,
      timestamp: Date.now(),
+     provider: resultData.provider,
    };
  }
  
@@ -104,6 +175,9 @@ interface TryOnErrorPayload {
    if (message.includes('timeout') || message.includes('thời gian')) {
      return 'Kết nối quá thời gian. Vui lòng thử lại.';
    }
+  if (message.includes('rate') || message.includes('quota')) {
+    return 'Hệ thống đang quá tải. Vui lòng thử lại sau.';
+  }
    if (message.includes('network') || message.includes('fetch') || message.includes('kết nối')) {
      return 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet.';
    }
@@ -134,6 +208,12 @@ function mapTryOnErrorCode(
     case 'INPUT_GARMENT_INVALID':
     case 'USER_IMAGE_INVALID':
       return fallbackMessage || 'Không thể đọc ảnh đầu vào. Vui lòng thử ảnh khác.';
+    case 'PROVIDER_TIMEOUT':
+      return 'AI đang xử lý quá lâu. Vui lòng thử lại sau.';
+    case 'PROVIDER_RATE_LIMITED':
+      return 'Hệ thống đang quá tải. Vui lòng thử lại sau.';
+    case 'PROVIDER_UNAVAILABLE':
+      return 'AI đang bận. Vui lòng thử lại sau vài phút.';
     default:
       return fallbackMessage || 'Không thể xử lý hình ảnh.';
   }

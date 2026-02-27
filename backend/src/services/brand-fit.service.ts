@@ -16,7 +16,99 @@ import { Redis } from 'ioredis';
 import { cupProgressionService } from './cup-progression.service';
 
 const prisma = new PrismaClient();
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  lazyConnect: true,
+  maxRetriesPerRequest: 1,
+  enableReadyCheck: false,
+});
+let redisReady = false;
+let redisInitAttempted = false;
+
+redis.on('error', (err) => {
+  console.warn(`[BrandFit] Redis error: ${err.message}`);
+  redisReady = false;
+});
+
+const ensureRedisConnection = async (): Promise<boolean> => {
+  if (redisInitAttempted) {
+    return redisReady;
+  }
+
+  redisInitAttempted = true;
+
+  try {
+    await redis.connect();
+    redisReady = true;
+    return true;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.warn(`[BrandFit] Redis connection error, caching disabled: ${message}`);
+    redisReady = false;
+    return false;
+  }
+};
+
+const safeRedisGet = async (key: string): Promise<string | null> => {
+  const available = await ensureRedisConnection();
+  if (!available) {
+    return null;
+  }
+
+  try {
+    return await redis.get(key);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.warn(`[BrandFit] Redis get error: ${message}`);
+    return null;
+  }
+};
+
+const safeRedisSetex = async (key: string, ttlSeconds: number, value: string): Promise<void> => {
+  const available = await ensureRedisConnection();
+  if (!available) {
+    return;
+  }
+
+  try {
+    await redis.setex(key, ttlSeconds, value);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.warn(`[BrandFit] Redis setex error: ${message}`);
+  }
+};
+
+const safeRedisKeys = async (pattern: string): Promise<string[]> => {
+  const available = await ensureRedisConnection();
+  if (!available) {
+    return [];
+  }
+
+  try {
+    return await redis.keys(pattern);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.warn(`[BrandFit] Redis keys error: ${message}`);
+    return [];
+  }
+};
+
+const safeRedisDel = async (keys: string[]): Promise<void> => {
+  if (keys.length === 0) {
+    return;
+  }
+
+  const available = await ensureRedisConnection();
+  if (!available) {
+    return;
+  }
+
+  try {
+    await redis.del(...keys);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.warn(`[BrandFit] Redis delete error: ${message}`);
+  }
+};
 
 // ============================================
 // TYPE DEFINITIONS
@@ -73,7 +165,7 @@ export class BrandFitService {
 
     // Check cache
     const cacheKey = `brand-fit:${brandId}:${userNormalSize}:${regionCode}`;
-    const cached = await redis.get(cacheKey);
+    const cached = await safeRedisGet(cacheKey);
     if (cached) {
       return JSON.parse(cached);
     }
@@ -161,7 +253,7 @@ export class BrandFitService {
     };
 
     // Cache for 1 hour
-    await redis.setex(cacheKey, 3600, JSON.stringify(result));
+    await safeRedisSetex(cacheKey, 3600, JSON.stringify(result));
 
     return result;
   }
@@ -475,15 +567,11 @@ export class BrandFitService {
    */
   async invalidateCache(brandId?: string): Promise<void> {
     if (brandId) {
-      const keys = await redis.keys(`brand-fit:${brandId}:*`);
-      if (keys.length > 0) {
-        await redis.del(...keys);
-      }
+      const keys = await safeRedisKeys(`brand-fit:${brandId}:*`);
+      await safeRedisDel(keys);
     } else {
-      const keys = await redis.keys('brand-fit:*');
-      if (keys.length > 0) {
-        await redis.del(...keys);
-      }
+      const keys = await safeRedisKeys('brand-fit:*');
+      await safeRedisDel(keys);
     }
   }
 }

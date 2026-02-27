@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
+import path from 'path';
 
 dotenv.config();
 
@@ -52,7 +53,7 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', 1);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
@@ -76,9 +77,25 @@ app.use(
   })
 );
 
+// Static ONNX models (no CDN, same-origin hosting)
+const onnxStaticDir = path.resolve(__dirname, '../public/onnx');
+app.use(
+  '/static/onnx',
+  express.static(onnxStaticDir, {
+    setHeaders: (res, filePath) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      if (filePath.endsWith('manifest.json')) {
+        res.setHeader('Cache-Control', 'public, max-age=60');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    },
+  })
+);
+
 // Body parsing
- app.use(express.json({ limit: '50mb' }));
- app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
  app.use(cookieParser());
 // Public routes (no rate limit, no auth required)
 app.use('/api/public/config', publicConfigRoutes);
@@ -135,7 +152,7 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.send("Hello from Lingerie Shop Backend!");
 });
 
