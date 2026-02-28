@@ -7,6 +7,17 @@ import {
   getTryOnJob,
   isTryOnJobStoreEnabled,
 } from '../services/virtualTryOnJobRepository';
+import {
+  createTryOnUploadSignedUrl,
+  getSignedReadUrlForGcsUri,
+  isGcsUri,
+  isTryOnGcsConfigured,
+} from '../services/virtualTryOnStorage';
+import {
+  generateVeoVideoFromImage,
+  processVertexTryOnFromGcs,
+  storeTryOnResult,
+} from '../services/vertexTryOnService';
  
  export async function tryOn(req: Request, res: Response) {
   let jobId: string | undefined;
@@ -143,6 +154,227 @@ export async function getJobStatus(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       error: 'Failed to get job status',
+    });
+  }
+}
+
+export async function createUploadUrl(req: Request, res: Response) {
+  try {
+    if (!isTryOnGcsConfigured()) {
+      return res.status(501).json({
+        success: false,
+        error: 'GCS chưa được cấu hình',
+      });
+    }
+
+    const { contentType, extension, category } = req.body as {
+      contentType?: string;
+      extension?: string;
+      category?: string;
+    };
+
+    if (!contentType || typeof contentType !== 'string' || !contentType.startsWith('image/')) {
+      return res.status(400).json({
+        success: false,
+        error: 'contentType không hợp lệ',
+      });
+    }
+
+    const upload = await createTryOnUploadSignedUrl({
+      contentType,
+      extension,
+      category,
+    });
+
+    return res.json({
+      success: true,
+      data: upload,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Lỗi không xác định';
+    return res.status(500).json({
+      success: false,
+      error: message,
+    });
+  }
+}
+
+export async function createTryOnJobAsync(req: Request, res: Response) {
+  try {
+    if (!isTryOnJobStoreEnabled()) {
+      return res.status(501).json({
+        success: false,
+        error: 'Try-on job tracking is not configured',
+      });
+    }
+
+    const {
+      personImageGcsUri,
+      garmentImageGcsUri,
+      wantsVideo,
+      videoDurationSeconds,
+      userId,
+      productId,
+    } = req.body as {
+      personImageGcsUri?: string;
+      garmentImageGcsUri?: string;
+      wantsVideo?: boolean;
+      videoDurationSeconds?: number;
+      userId?: string;
+      productId?: string;
+    };
+
+    if (!personImageGcsUri || !garmentImageGcsUri) {
+      return res.status(400).json({
+        success: false,
+        error: 'personImageGcsUri và garmentImageGcsUri là bắt buộc',
+      });
+    }
+
+    if (!isGcsUri(personImageGcsUri) || !isGcsUri(garmentImageGcsUri)) {
+      return res.status(400).json({
+        success: false,
+        error: 'GCS URI không hợp lệ',
+      });
+    }
+
+    const jobRecord = await createTryOnJob({
+      status: 'queued',
+      personImageGcsUri,
+      garmentImageGcsUri,
+      wantsVideo: Boolean(wantsVideo),
+      videoDurationSeconds: typeof videoDurationSeconds === 'number' ? videoDurationSeconds : undefined,
+      userId,
+      productId,
+    });
+
+    if (!jobRecord) {
+      return res.status(500).json({
+        success: false,
+        error: 'Không thể tạo job',
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: jobRecord,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Lỗi không xác định';
+    return res.status(500).json({
+      success: false,
+      error: message,
+    });
+  }
+}
+
+export async function processTryOnJob(req: Request, res: Response) {
+  let jobId: string | undefined;
+  try {
+    if (!isTryOnJobStoreEnabled()) {
+      return res.status(501).json({
+        success: false,
+        error: 'Try-on job tracking is not configured',
+      });
+    }
+
+    const workerToken = process.env.TRYON_WORKER_TOKEN;
+    if (workerToken) {
+      const tokenHeader = req.headers['x-worker-token'];
+      if (!tokenHeader || tokenHeader !== workerToken) {
+        return res.status(403).json({
+          success: false,
+          error: 'Worker token không hợp lệ',
+        });
+      }
+    }
+
+    jobId = req.params.id;
+    const job = await getTryOnJob(jobId);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        error: 'Job not found',
+      });
+    }
+
+    if (!job.personImageGcsUri || !job.garmentImageGcsUri) {
+      return res.status(422).json({
+        success: false,
+        error: 'Thiếu dữ liệu ảnh trong job',
+      });
+    }
+
+    if (job.status === 'processing') {
+      return res.status(409).json({
+        success: false,
+        error: 'Job đang xử lý',
+      });
+    }
+
+    await updateTryOnJob(jobId, {
+      status: 'processing',
+      provider: 'vertex-ai-tryon',
+    });
+
+    const startTime = Date.now();
+    const tryOnResult = await processVertexTryOnFromGcs({
+      personImageGcsUri: job.personImageGcsUri,
+      garmentImageGcsUri: job.garmentImageGcsUri,
+    });
+
+    const storedImage = await storeTryOnResult({
+      base64Image: tryOnResult.base64Image,
+      mimeType: tryOnResult.mimeType,
+    });
+
+    let resultVideoGcsUri: string | undefined;
+    let resultVideoSignedUrl: string | undefined;
+
+    if (job.wantsVideo) {
+      const veoResult = await generateVeoVideoFromImage({
+        imageGcsUri: storedImage.gcsUri,
+        durationSeconds: job.videoDurationSeconds,
+        mimeType: tryOnResult.mimeType,
+      });
+      resultVideoGcsUri = veoResult.gcsUri;
+      resultVideoSignedUrl = await getSignedReadUrlForGcsUri(veoResult.gcsUri);
+    }
+
+    const processingTime = Date.now() - startTime;
+
+    await updateTryOnJob(jobId, {
+      status: 'completed',
+      provider: 'vertex-ai-tryon',
+      processingTime,
+      resultImage: storedImage.signedUrl,
+      resultImageGcsUri: storedImage.gcsUri,
+      resultVideo: resultVideoSignedUrl,
+      resultVideoGcsUri,
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        jobId,
+        resultImage: storedImage.signedUrl,
+        resultImageGcsUri: storedImage.gcsUri,
+        resultVideo: resultVideoSignedUrl,
+        resultVideoGcsUri,
+        processingTime,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Lỗi không xác định';
+    if (jobId) {
+      await updateTryOnJob(jobId, {
+        status: 'failed',
+        errorMessage: message,
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      error: message,
     });
   }
 }

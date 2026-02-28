@@ -20,6 +20,13 @@ export interface TryOnJobRecord {
   errorMessage?: string;
   processingTime?: number;
   resultImage?: string;
+  resultImageGcsUri?: string;
+  resultVideo?: string;
+  resultVideoGcsUri?: string;
+  personImageGcsUri?: string;
+  garmentImageGcsUri?: string;
+  wantsVideo?: boolean;
+  videoDurationSeconds?: number;
   createdAt: number;
   updatedAt: number;
   userId?: string;
@@ -34,6 +41,13 @@ export interface CreateTryOnJobInput {
   errorMessage?: string;
   processingTime?: number;
   resultImage?: string;
+  resultImageGcsUri?: string;
+  resultVideo?: string;
+  resultVideoGcsUri?: string;
+  personImageGcsUri?: string;
+  garmentImageGcsUri?: string;
+  wantsVideo?: boolean;
+  videoDurationSeconds?: number;
   userId?: string;
   productId?: string;
 }
@@ -86,6 +100,13 @@ function toTryOnJobRecord(jobId: string, data: DocumentData | undefined): TryOnJ
     errorMessage: typeof data.errorMessage === 'string' ? data.errorMessage : undefined,
     processingTime: typeof data.processingTime === 'number' ? data.processingTime : undefined,
     resultImage: typeof data.resultImage === 'string' ? data.resultImage : undefined,
+    resultImageGcsUri: typeof data.resultImageGcsUri === 'string' ? data.resultImageGcsUri : undefined,
+    resultVideo: typeof data.resultVideo === 'string' ? data.resultVideo : undefined,
+    resultVideoGcsUri: typeof data.resultVideoGcsUri === 'string' ? data.resultVideoGcsUri : undefined,
+    personImageGcsUri: typeof data.personImageGcsUri === 'string' ? data.personImageGcsUri : undefined,
+    garmentImageGcsUri: typeof data.garmentImageGcsUri === 'string' ? data.garmentImageGcsUri : undefined,
+    wantsVideo: typeof data.wantsVideo === 'boolean' ? data.wantsVideo : undefined,
+    videoDurationSeconds: typeof data.videoDurationSeconds === 'number' ? data.videoDurationSeconds : undefined,
     createdAt,
     updatedAt,
     userId: typeof data.userId === 'string' ? data.userId : undefined,
@@ -113,6 +134,13 @@ export async function createTryOnJob(input: CreateTryOnJobInput): Promise<TryOnJ
     errorMessage: input.errorMessage,
     processingTime: input.processingTime,
     resultImage: input.resultImage,
+    resultImageGcsUri: input.resultImageGcsUri,
+    resultVideo: input.resultVideo,
+    resultVideoGcsUri: input.resultVideoGcsUri,
+    personImageGcsUri: input.personImageGcsUri,
+    garmentImageGcsUri: input.garmentImageGcsUri,
+    wantsVideo: input.wantsVideo,
+    videoDurationSeconds: input.videoDurationSeconds,
     createdAt: now,
     updatedAt: now,
     userId: input.userId,
