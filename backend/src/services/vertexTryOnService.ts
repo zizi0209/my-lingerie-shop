@@ -1,4 +1,4 @@
-import { downloadGcsUriAsBase64, isGcsUri, uploadBase64ToGcs } from './virtualTryOnStorage';
+import { downloadGcsUriAsBase64, getTryOnStorageProvider, isGcsUri, uploadBase64ToTryOnStorage } from './virtualTryOnStorage';
 
 const VERTEX_PROJECT_ID = process.env.VERTEX_AI_PROJECT_ID
   || process.env.GCP_PROJECT_ID
@@ -15,6 +15,7 @@ const VERTEX_TRYON_SAMPLE_COUNT = Number(process.env.VERTEX_TRYON_SAMPLE_COUNT |
 const VERTEX_VEO_DURATION_SECONDS = Number(process.env.VERTEX_VEO_DURATION_SECONDS || 8);
 const VERTEX_VEO_POLL_INTERVAL_MS = Number(process.env.VERTEX_VEO_POLL_INTERVAL_MS || 3000);
 const VERTEX_VEO_MAX_POLL_ATTEMPTS = Number(process.env.VERTEX_VEO_MAX_POLL_ATTEMPTS || 40);
+const FREE_MODE_DISABLE_VIDEO = process.env.FREE_MODE_DISABLE_VIDEO === 'true';
 
 const ACCESS_TOKEN_ENV = process.env.VERTEX_AI_ACCESS_TOKEN || process.env.GCP_ACCESS_TOKEN || '';
 const METADATA_TOKEN_URL =
@@ -132,6 +133,16 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function downloadUrlAsBase64(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Không tải được ảnh từ URL: ${response.status} ${text}`);
+  }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return buffer.toString('base64');
+}
+
 export async function processVertexTryOn(params: {
   personImageBase64: string;
   garmentImageBase64: string;
@@ -205,6 +216,21 @@ export async function processVertexTryOnFromGcs(params: {
   });
 }
 
+export async function processVertexTryOnFromUrl(params: {
+  personImageUrl: string;
+  garmentImageUrl: string;
+}): Promise<{ base64Image: string; mimeType: string }> {
+  const [personBase64, garmentBase64] = await Promise.all([
+    downloadUrlAsBase64(params.personImageUrl),
+    downloadUrlAsBase64(params.garmentImageUrl),
+  ]);
+
+  return processVertexTryOn({
+    personImageBase64: personBase64,
+    garmentImageBase64: garmentBase64,
+  });
+}
+
 function buildVeoOutputStorageUri(): string {
   if (VERTEX_VEO_OUTPUT_GCS_URI) {
     return VERTEX_VEO_OUTPUT_GCS_URI;
@@ -222,6 +248,9 @@ export async function generateVeoVideoFromImage(params: {
   durationSeconds?: number;
   mimeType?: string;
 }): Promise<{ gcsUri: string; mimeType: string }> {
+  if (FREE_MODE_DISABLE_VIDEO || getTryOnStorageProvider() !== 'gcs') {
+    throw new Error('Video generation disabled in free mode');
+  }
   if (!isGcsUri(params.imageGcsUri)) {
     throw new Error('imageGcsUri không hợp lệ');
   }
@@ -306,10 +335,15 @@ export async function generateVeoVideoFromImage(params: {
 export async function storeTryOnResult(params: {
   base64Image: string;
   mimeType: string;
-}): Promise<{ gcsUri: string; signedUrl: string }> {
-  return uploadBase64ToGcs({
+}): Promise<{ storageUri?: string; signedUrl: string }> {
+  const result = await uploadBase64ToTryOnStorage({
     base64: params.base64Image,
     mimeType: params.mimeType,
     prefix: VERTEX_TRYON_OUTPUT_PREFIX,
   });
+
+  return {
+    storageUri: result.storageUri,
+    signedUrl: result.url,
+  };
 }

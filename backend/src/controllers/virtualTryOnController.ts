@@ -10,12 +10,14 @@ import {
 import {
   createTryOnUploadSignedUrl,
   getSignedReadUrlForGcsUri,
+  getTryOnStorageProvider,
   isGcsUri,
   isTryOnGcsConfigured,
 } from '../services/virtualTryOnStorage';
 import {
   generateVeoVideoFromImage,
   processVertexTryOnFromGcs,
+  processVertexTryOnFromUrl,
   storeTryOnResult,
 } from '../services/vertexTryOnService';
  
@@ -160,10 +162,10 @@ export async function getJobStatus(req: Request, res: Response) {
 
 export async function createUploadUrl(req: Request, res: Response) {
   try {
-    if (!isTryOnGcsConfigured()) {
+    if (!getTryOnStorageProvider()) {
       return res.status(501).json({
         success: false,
-        error: 'GCS chưa được cấu hình',
+        error: 'Try-on storage chưa được cấu hình',
       });
     }
 
@@ -211,6 +213,8 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
     const {
       personImageGcsUri,
       garmentImageGcsUri,
+      personImageUrl,
+      garmentImageUrl,
       wantsVideo,
       videoDurationSeconds,
       userId,
@@ -218,30 +222,56 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
     } = req.body as {
       personImageGcsUri?: string;
       garmentImageGcsUri?: string;
+      personImageUrl?: string;
+      garmentImageUrl?: string;
       wantsVideo?: boolean;
       videoDurationSeconds?: number;
       userId?: string;
       productId?: string;
     };
 
-    if (!personImageGcsUri || !garmentImageGcsUri) {
-      return res.status(400).json({
+    const storageProvider = getTryOnStorageProvider();
+    if (!storageProvider) {
+      return res.status(501).json({
         success: false,
-        error: 'personImageGcsUri và garmentImageGcsUri là bắt buộc',
+        error: 'Try-on storage chưa được cấu hình',
       });
     }
 
-    if (!isGcsUri(personImageGcsUri) || !isGcsUri(garmentImageGcsUri)) {
-      return res.status(400).json({
-        success: false,
-        error: 'GCS URI không hợp lệ',
-      });
+    const expectsGcs = storageProvider === 'gcs';
+    const expectsUrl = storageProvider === 'cloudinary';
+
+    if (expectsGcs) {
+      if (!personImageGcsUri || !garmentImageGcsUri) {
+        return res.status(400).json({
+          success: false,
+          error: 'personImageGcsUri và garmentImageGcsUri là bắt buộc',
+        });
+      }
+
+      if (!isGcsUri(personImageGcsUri) || !isGcsUri(garmentImageGcsUri)) {
+        return res.status(400).json({
+          success: false,
+          error: 'GCS URI không hợp lệ',
+        });
+      }
+    }
+
+    if (expectsUrl) {
+      if (!personImageUrl || !garmentImageUrl) {
+        return res.status(400).json({
+          success: false,
+          error: 'personImageUrl và garmentImageUrl là bắt buộc',
+        });
+      }
     }
 
     const jobRecord = await createTryOnJob({
       status: 'queued',
       personImageGcsUri,
       garmentImageGcsUri,
+      personImageUrl,
+      garmentImageUrl,
       wantsVideo: Boolean(wantsVideo),
       videoDurationSeconds: typeof videoDurationSeconds === 'number' ? videoDurationSeconds : undefined,
       userId,
@@ -298,10 +328,17 @@ export async function processTryOnJob(req: Request, res: Response) {
       });
     }
 
-    if (!job.personImageGcsUri || !job.garmentImageGcsUri) {
+    if (!job.personImageGcsUri && !job.personImageUrl) {
       return res.status(422).json({
         success: false,
-        error: 'Thiếu dữ liệu ảnh trong job',
+        error: 'Thiếu dữ liệu ảnh người trong job',
+      });
+    }
+
+    if (!job.garmentImageGcsUri && !job.garmentImageUrl) {
+      return res.status(422).json({
+        success: false,
+        error: 'Thiếu dữ liệu ảnh sản phẩm trong job',
       });
     }
 
@@ -318,10 +355,15 @@ export async function processTryOnJob(req: Request, res: Response) {
     });
 
     const startTime = Date.now();
-    const tryOnResult = await processVertexTryOnFromGcs({
-      personImageGcsUri: job.personImageGcsUri,
-      garmentImageGcsUri: job.garmentImageGcsUri,
-    });
+    const tryOnResult = job.personImageGcsUri && job.garmentImageGcsUri
+      ? await processVertexTryOnFromGcs({
+        personImageGcsUri: job.personImageGcsUri,
+        garmentImageGcsUri: job.garmentImageGcsUri,
+      })
+      : await processVertexTryOnFromUrl({
+        personImageUrl: job.personImageUrl || '',
+        garmentImageUrl: job.garmentImageUrl || '',
+      });
 
     const storedImage = await storeTryOnResult({
       base64Image: tryOnResult.base64Image,
@@ -331,9 +373,12 @@ export async function processTryOnJob(req: Request, res: Response) {
     let resultVideoGcsUri: string | undefined;
     let resultVideoSignedUrl: string | undefined;
 
-    if (job.wantsVideo) {
+    const storageProvider = getTryOnStorageProvider();
+    const videoDisabled = process.env.FREE_MODE_DISABLE_VIDEO === 'true' || storageProvider !== 'gcs';
+
+    if (job.wantsVideo && !videoDisabled) {
       const veoResult = await generateVeoVideoFromImage({
-        imageGcsUri: storedImage.gcsUri,
+        imageGcsUri: storedImage.storageUri || '',
         durationSeconds: job.videoDurationSeconds,
         mimeType: tryOnResult.mimeType,
       });
@@ -348,7 +393,7 @@ export async function processTryOnJob(req: Request, res: Response) {
       provider: 'vertex-ai-tryon',
       processingTime,
       resultImage: storedImage.signedUrl,
-      resultImageGcsUri: storedImage.gcsUri,
+      resultImageGcsUri: storedImage.storageUri,
       resultVideo: resultVideoSignedUrl,
       resultVideoGcsUri,
     });
@@ -358,7 +403,7 @@ export async function processTryOnJob(req: Request, res: Response) {
       data: {
         jobId,
         resultImage: storedImage.signedUrl,
-        resultImageGcsUri: storedImage.gcsUri,
+        resultImageGcsUri: storedImage.storageUri,
         resultVideo: resultVideoSignedUrl,
         resultVideoGcsUri,
         processingTime,

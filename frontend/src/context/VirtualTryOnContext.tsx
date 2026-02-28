@@ -7,7 +7,7 @@
    id: string;
    productId: string;
    productName: string;
-   status: 'pending' | 'processing' | 'completed' | 'error';
+  status: 'pending' | 'queued' | 'processing' | 'completed' | 'error';
    result?: TryOnResult;
    error?: string;
  }

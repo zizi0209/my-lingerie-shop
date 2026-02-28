@@ -8,9 +8,10 @@
    onTryAgain: () => void;
    onAddToCart?: () => void;
    onDownload: () => void;
+  onDownloadVideo?: () => void;
  }
  
- export function ResultView({ result, onTryAgain, onAddToCart, onDownload }: ResultViewProps) {
+export function ResultView({ result, onTryAgain, onAddToCart, onDownload, onDownloadVideo }: ResultViewProps) {
    return (
      <div className="space-y-4 sm:space-y-6">
        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -31,6 +32,17 @@
            />
          </div>
        </div>
+
+      {result.resultVideo && (
+        <div>
+          <p className="text-sm text-gray-500 mb-2">Video thử đồ</p>
+          <video
+            controls
+            src={result.resultVideo}
+            className="w-full max-h-80 rounded-lg bg-black"
+          />
+        </div>
+      )}
  
        <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
          <p className="font-medium text-gray-800 text-sm sm:text-base">{result.productName}</p>
@@ -55,6 +67,16 @@
            <Download className="w-4 h-4" />
            Tải ảnh
          </button>
+        {result.resultVideo && onDownloadVideo && (
+          <button
+            type="button"
+            onClick={onDownloadVideo}
+            className="flex items-center justify-center gap-2 py-2.5 sm:py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+          >
+            <Download className="w-4 h-4" />
+            Tải video
+          </button>
+        )}
          <button
            type="button"
            onClick={onTryAgain}

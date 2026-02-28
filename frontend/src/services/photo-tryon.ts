@@ -28,6 +28,8 @@ interface PhotoTryOnRequest {
   productId: string;
   productName: string;
   productType: ProductType;
+  wantsVideo?: boolean;
+  videoDurationSeconds?: number;
 }
 
 type ProgressCallback = (progress: number, message?: string) => void;
@@ -344,7 +346,8 @@ function normalizeOverlayPosition(
 
 export async function processPhotoTryOn(
   request: PhotoTryOnRequest,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  options?: { signal?: AbortSignal }
 ): Promise<TryOnResult> {
   const remoteEnabled = await isRemoteTryOnEnabled();
   if (remoteEnabled) {
@@ -355,8 +358,11 @@ export async function processPhotoTryOn(
           garmentImageUrl: request.garmentImageUrl,
           productId: request.productId,
           productName: request.productName,
+          wantsVideo: request.wantsVideo,
+          videoDurationSeconds: request.videoDurationSeconds,
         },
-        onProgress
+        onProgress,
+        options?.signal
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Không thể xử lý từ AI server.';
@@ -417,6 +423,7 @@ export async function processPhotoTryOn(
         productId: request.productId,
         productName: request.productName,
         timestamp: Date.now(),
+        source: 'local',
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Lỗi ONNX try-on';
@@ -444,6 +451,7 @@ export async function processPhotoTryOn(
     productId: request.productId,
     productName: request.productName,
     timestamp: Date.now(),
+    source: 'local',
   };
 }
 

@@ -45,6 +45,7 @@ export function VirtualTryOnModal({
   const [poseValidation, setPoseValidation] = useState<PoseValidationResult | null>(null);
   const [selectedMode, setSelectedMode] = useState<TryOnMode | null>(null);
   const [showLiveTryOn, setShowLiveTryOn] = useState(false);
+  const [wantsVideo, setWantsVideo] = useState(false);
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
@@ -53,6 +54,7 @@ export function VirtualTryOnModal({
   const jobIdRef = useRef<string | null>(null);
   const isOpenRef = useRef(isOpen);
   const cancelRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     isOpenRef.current = isOpen;
@@ -84,6 +86,7 @@ export function VirtualTryOnModal({
     setProgressMessage(null);
     setResult(null);
     setTryOnError(null);
+    setWantsVideo(false);
   }, []);
 
   const handleBackToModeSelect = useCallback(() => {
@@ -95,6 +98,8 @@ export function VirtualTryOnModal({
     if (!canProceed || !selectedPhoto) return;
 
     cancelRef.current = false;
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
     if (jobIdRef.current) {
       removeJob(jobIdRef.current);
       jobIdRef.current = null;
@@ -121,6 +126,7 @@ export function VirtualTryOnModal({
           productId: product.id,
           productName: product.name,
           productType: product.productType || 'BRA',
+          wantsVideo,
         },
         (nextProgress, message) => {
           if (isOpenRef.current) {
@@ -129,7 +135,8 @@ export function VirtualTryOnModal({
               setProgressMessage(message);
             }
           }
-        }
+        },
+        { signal: abortRef.current?.signal }
       );
 
       if (cancelRef.current) {
@@ -189,6 +196,7 @@ export function VirtualTryOnModal({
 
   const handleCancelProcessing = useCallback(() => {
     cancelRef.current = true;
+    abortRef.current?.abort();
     if (jobIdRef.current) {
       removeJob(jobIdRef.current);
       jobIdRef.current = null;
@@ -203,6 +211,14 @@ export function VirtualTryOnModal({
      link.download = `tryon-${product.name}.jpg`;
      link.click();
    }, [result, product.name]);
+
+  const handleDownloadVideo = useCallback(() => {
+    if (!result?.resultVideo) return;
+    const link = document.createElement('a');
+    link.href = result.resultVideo;
+    link.download = `tryon-${product.name}.mp4`;
+    link.click();
+  }, [result, product.name]);
  
    const personImagePreview = selectedPhoto ? URL.createObjectURL(selectedPhoto) : null;
  
@@ -303,6 +319,7 @@ export function VirtualTryOnModal({
                onTryAgain={handleTryAgain}
                onAddToCart={onAddToCart}
                onDownload={handleDownload}
+              onDownloadVideo={handleDownloadVideo}
              />
            )}
  
@@ -404,6 +421,18 @@ export function VirtualTryOnModal({
               {/* Consent */}
               <div className="mb-6 p-4 bg-gray-50 rounded-xl">
                 <ConsentCheckbox checked={consent} onChange={setConsent} />
+              </div>
+
+              <div className="mb-6 p-4 bg-white border border-gray-200 rounded-xl">
+                <label className="flex items-center gap-3 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 text-purple-600 border-gray-300 rounded"
+                    checked={wantsVideo}
+                    onChange={(event) => setWantsVideo(event.target.checked)}
+                  />
+                  Tạo video thử đồ (tốn thêm thời gian xử lý)
+                </label>
               </div>
  
               {/* Actions */}

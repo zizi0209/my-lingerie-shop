@@ -1,5 +1,6 @@
 import { Storage } from '@google-cloud/storage';
 import { randomUUID } from 'crypto';
+import { cloudinary } from '../config/cloudinary';
 
 const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '';
 const GCS_TRYON_BUCKET = process.env.GCS_TRYON_BUCKET || '';
@@ -10,6 +11,10 @@ const GCS_SIGNED_URL_TTL_SECONDS = process.env.GCS_TRYON_SIGNED_URL_TTL_SECONDS;
 const GCS_CLIENT_EMAIL = process.env.GCS_CLIENT_EMAIL || '';
 const GCS_PRIVATE_KEY = process.env.GCS_PRIVATE_KEY || '';
 const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || '';
+const TRYON_STORAGE_PROVIDER = process.env.TRYON_STORAGE_PROVIDER || 'auto';
+const TRYON_CLOUDINARY_FOLDER = process.env.TRYON_CLOUDINARY_FOLDER || 'virtual-tryon';
+
+export type TryOnStorageProvider = 'gcs' | 'cloudinary';
 
 let gcsStorage: Storage | null = null;
 
@@ -41,6 +46,27 @@ function getGcsStorage(): Storage | null {
   }
 
   return gcsStorage;
+}
+
+function isCloudinaryConfigured(): boolean {
+  return Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME
+    && process.env.CLOUDINARY_API_KEY
+    && process.env.CLOUDINARY_API_SECRET
+  );
+}
+
+export function getTryOnStorageProvider(): TryOnStorageProvider | null {
+  if (TRYON_STORAGE_PROVIDER === 'gcs') {
+    return isGcsConfigured() ? 'gcs' : null;
+  }
+  if (TRYON_STORAGE_PROVIDER === 'cloudinary') {
+    return isCloudinaryConfigured() ? 'cloudinary' : null;
+  }
+
+  if (isGcsConfigured()) return 'gcs';
+  if (isCloudinaryConfigured()) return 'cloudinary';
+  return null;
 }
 
 function parseBase64Image(base64: string): { data: string; mimeType: string; extension: string } {
@@ -127,31 +153,73 @@ export async function createTryOnUploadSignedUrl(options: {
   contentType: string;
   extension?: string;
   category?: string;
-}): Promise<{ uploadUrl: string; gcsUri: string; objectPath: string; expiresInSeconds: number }> {
-  const storage = getGcsStorage();
-  if (!storage) {
-    throw new Error('GCS_TRYON_BUCKET not configured');
+}): Promise<{
+  uploadUrl: string;
+  uploadMethod: 'PUT' | 'POST';
+  uploadFields?: Record<string, string>;
+  provider: TryOnStorageProvider;
+  gcsUri?: string;
+  objectPath?: string;
+  expiresInSeconds: number;
+}> {
+  const provider = getTryOnStorageProvider();
+  if (!provider) {
+    throw new Error('TRYON storage provider is not configured');
   }
 
-  const extension = options.extension || mapMimeTypeToExtension(options.contentType);
-  const safeCategory = options.category ? options.category.replace(/[^a-zA-Z0-9-_]/g, '') : 'generic';
-  const objectPath = `${GCS_TRYON_UPLOAD_PREFIX}/${safeCategory}/${Date.now()}-${randomUUID()}.${extension}`;
-  const bucket = storage.bucket(GCS_TRYON_BUCKET);
-  const file = bucket.file(objectPath);
+  if (provider === 'gcs') {
+    const storage = getGcsStorage();
+    if (!storage) {
+      throw new Error('GCS_TRYON_BUCKET not configured');
+    }
 
-  const expiresInSeconds = getSignedUrlTtlSeconds();
-  const expires = Date.now() + expiresInSeconds * 1000;
-  const [uploadUrl] = await file.getSignedUrl({
-    action: 'write',
-    expires,
-    contentType: options.contentType,
-  });
+    const extension = options.extension || mapMimeTypeToExtension(options.contentType);
+    const safeCategory = options.category ? options.category.replace(/[^a-zA-Z0-9-_]/g, '') : 'generic';
+    const objectPath = `${GCS_TRYON_UPLOAD_PREFIX}/${safeCategory}/${Date.now()}-${randomUUID()}.${extension}`;
+    const bucket = storage.bucket(GCS_TRYON_BUCKET);
+    const file = bucket.file(objectPath);
+
+    const expiresInSeconds = getSignedUrlTtlSeconds();
+    const expires = Date.now() + expiresInSeconds * 1000;
+    const [uploadUrl] = await file.getSignedUrl({
+      action: 'write',
+      expires,
+      contentType: options.contentType,
+    });
+
+    return {
+      uploadUrl,
+      uploadMethod: 'PUT',
+      provider,
+      gcsUri: `gs://${GCS_TRYON_BUCKET}/${objectPath}`,
+      objectPath,
+      expiresInSeconds,
+    };
+  }
+
+  if (!isCloudinaryConfigured()) {
+    throw new Error('Cloudinary chưa được cấu hình');
+  }
+
+  const safeCategory = options.category ? options.category.replace(/[^a-zA-Z0-9-_]/g, '') : 'generic';
+  const folder = `${TRYON_CLOUDINARY_FOLDER}/${safeCategory}`;
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = cloudinary.utils.api_sign_request(
+    { timestamp, folder },
+    process.env.CLOUDINARY_API_SECRET || ''
+  );
 
   return {
-    uploadUrl,
-    gcsUri: `gs://${GCS_TRYON_BUCKET}/${objectPath}`,
-    objectPath,
-    expiresInSeconds,
+    uploadUrl: `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/auto/upload`,
+    uploadMethod: 'POST',
+    provider,
+    uploadFields: {
+      api_key: process.env.CLOUDINARY_API_KEY || '',
+      timestamp: String(timestamp),
+      signature,
+      folder,
+    },
+    expiresInSeconds: 600,
   };
 }
 
@@ -213,6 +281,33 @@ export async function uploadBase64ToGcs(options: {
   };
 }
 
+export async function uploadBase64ToTryOnStorage(options: {
+  base64: string;
+  mimeType: string;
+  prefix?: string;
+}): Promise<{ url: string; storageUri?: string }> {
+  const provider = getTryOnStorageProvider();
+  if (provider === 'gcs') {
+    const result = await uploadBase64ToGcs(options);
+    return { url: result.signedUrl, storageUri: result.gcsUri };
+  }
+
+  if (provider === 'cloudinary') {
+    if (!isCloudinaryConfigured()) {
+      throw new Error('Cloudinary chưa được cấu hình');
+    }
+    const dataUrl = ensureDataUrl(options.base64);
+    const folder = options.prefix || `${TRYON_CLOUDINARY_FOLDER}/outputs`;
+    const uploadResult = await cloudinary.uploader.upload(dataUrl, {
+      folder,
+      resource_type: 'image',
+    });
+    return { url: uploadResult.secure_url };
+  }
+
+  throw new Error('TRYON storage provider is not configured');
+}
+
 async function uploadToImgbb(base64Image: string): Promise<string> {
   if (!IMGBB_API_KEY) {
     throw new Error('IMGBB_API_KEY not configured');
@@ -262,7 +357,7 @@ function isGcsConfigured(): boolean {
 }
 
 export function isTryOnGcsConfigured(): boolean {
-  return isGcsConfigured();
+  return getTryOnStorageProvider() === 'gcs' && isGcsConfigured();
 }
 
 function ensureDataUrl(base64: string): string {

@@ -17,11 +17,51 @@ export type TryOnErrorCode =
  export interface TryOnResult {
    originalImage: string;
    resultImage: string;
+  resultVideo?: string;
+  resultImageGcsUri?: string;
+  resultVideoGcsUri?: string;
+  processingTime?: number;
+  jobId?: string;
+  source?: 'cloud' | 'local';
    productId: string;
    productName: string;
    timestamp: number;
   provider?: string;
  }
+
+export interface SignedUploadResponse {
+  uploadUrl: string;
+  uploadMethod?: 'PUT' | 'POST';
+  uploadFields?: Record<string, string>;
+  provider?: 'gcs' | 'cloudinary';
+  gcsUri?: string;
+  objectPath?: string;
+  expiresInSeconds: number;
+}
+
+export type TryOnJobApiStatus = 'queued' | 'processing' | 'completed' | 'failed';
+
+export interface CreateTryOnJobResponse {
+  jobId: string;
+  status: TryOnJobApiStatus;
+  wantsVideo?: boolean;
+  videoDurationSeconds?: number;
+  productId?: string;
+  personImageGcsUri?: string;
+  garmentImageGcsUri?: string;
+}
+
+export interface TryOnJobStatusResponse {
+  jobId: string;
+  status: TryOnJobApiStatus;
+  errorMessage?: string;
+  processingTime?: number;
+  provider?: string;
+  resultImage?: string;
+  resultImageGcsUri?: string;
+  resultVideo?: string;
+  resultVideoGcsUri?: string;
+}
  
  export interface TryOnQueueInfo {
    position: number;
