@@ -48,7 +48,7 @@
    const startTime = Date.now();
    
    try {
-     const response = await fetch(`${BASE_URL}/api/virtual-tryon/try-on`, {
+    const response = await fetch(`${BASE_URL}/api/virtual-tryon/process`, {
        method: 'POST',
        headers: {
          'Content-Type': 'application/json',

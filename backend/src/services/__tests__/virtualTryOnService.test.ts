@@ -5,26 +5,44 @@
   */
  
  import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
- import {
-   processVirtualTryOn,
-   checkSpacesStatus,
-   resetProviderHealth,
-   getProviderHealthStats,
- } from '../virtualTryOnService';
+type VirtualTryOnModule = typeof import('../virtualTryOnService');
  
- // Mock fetch for testing
- const mockFetch = vi.fn();
- global.fetch = mockFetch;
+// Mock fetch for testing
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
+
+let service: VirtualTryOnModule;
+const loadService = async (): Promise<void> => {
+  service = await import('../virtualTryOnService');
+};
 
 const setupFetchMock = (options?: {
   failAll?: boolean;
   failFashn?: boolean;
+  failSelfHostedReadiness?: boolean;
+  timeoutSelfHosted?: boolean;
+  failFashnAfterSelfHosted?: boolean;
 }) => {
   mockFetch.mockImplementation(async (url: string | URL, init?: RequestInit) => {
     const requestUrl = typeof url === 'string' ? url : url.toString();
     const method = init?.method ?? 'GET';
 
     if (method === 'HEAD') {
+      return {
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve('OK'),
+      };
+    }
+
+    if (method === 'OPTIONS') {
+      if (options?.failSelfHostedReadiness && requestUrl.includes('zy131-tryon-lingerie')) {
+        return {
+          ok: false,
+          status: 500,
+          text: () => Promise.resolve('ERROR'),
+        };
+      }
       return {
         ok: true,
         status: 200,
@@ -46,6 +64,12 @@ const setupFetchMock = (options?: {
           }),
           text: () => Promise.resolve('OK'),
         };
+      }
+      if (options?.timeoutSelfHosted && requestUrl.includes('zy131-tryon-lingerie')) {
+        throw new Error('timeout');
+      }
+      if (options?.failFashnAfterSelfHosted && requestUrl.includes('fashn-ai-fashn-vton-1-5')) {
+        throw new Error('First provider down');
       }
       if (options?.failFashn && requestUrl.includes('fashn-ai-fashn-vton-1-5')) {
         throw new Error('First provider down');
@@ -82,11 +106,17 @@ const setupFetchMock = (options?: {
    const sampleGarmentImage = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAB...';
   const originalImgbbKey = process.env.IMGBB_API_KEY;
  
-   beforeEach(() => {
-     vi.clearAllMocks();
-     resetProviderHealth();
+  beforeEach(async () => {
+    vi.clearAllMocks();
     process.env.IMGBB_API_KEY = '';
-   });
+    delete process.env.TRYON_SELF_HOSTED_URL;
+    delete process.env.TRYON_SELF_HOSTED_ENDPOINT;
+    delete process.env.TRYON_SELF_HOSTED_NAME;
+    delete process.env.TRYON_PRIMARY_PROVIDERS;
+    vi.resetModules();
+    await loadService();
+    service.resetProviderHealth();
+  });
  
    afterEach(() => {
      vi.restoreAllMocks();
@@ -99,8 +129,8 @@ const setupFetchMock = (options?: {
  
    describe('resetProviderHealth', () => {
      it('should reset all provider health stats', () => {
-       resetProviderHealth();
-       const stats = getProviderHealthStats();
+      service.resetProviderHealth();
+      const stats = service.getProviderHealthStats();
  
        expect(stats).toBeDefined();
        expect(Object.keys(stats).length).toBeGreaterThan(0);
@@ -116,7 +146,7 @@ const setupFetchMock = (options?: {
  
    describe('getProviderHealthStats', () => {
      it('should return health stats for all providers', () => {
-       const stats = getProviderHealthStats();
+      const stats = service.getProviderHealthStats();
  
        expect(stats).toBeDefined();
        expect(stats['FASHN-VTON-1.5']).toBeDefined();
@@ -129,15 +159,22 @@ const setupFetchMock = (options?: {
      });
  
      it('should have correct health structure', () => {
-       const stats = getProviderHealthStats();
+      const stats = service.getProviderHealthStats();
        const health = stats['FASHN-VTON-1.5'];
  
        expect(health).toHaveProperty('lastSuccess');
        expect(health).toHaveProperty('lastFailure');
+      expect(health).toHaveProperty('lastErrorAt');
+      expect(health).toHaveProperty('lastErrorMessage');
        expect(health).toHaveProperty('successCount');
        expect(health).toHaveProperty('failureCount');
        expect(health).toHaveProperty('consecutiveFailures');
+      expect(health).toHaveProperty('consecutiveTimeouts');
        expect(health).toHaveProperty('avgResponseTime');
+      expect(health).toHaveProperty('successRate');
+      expect(health).toHaveProperty('timeoutRate');
+      expect(health).toHaveProperty('coolingDownUntil');
+      expect(health).toHaveProperty('stage');
      });
    });
  
@@ -146,18 +183,18 @@ const setupFetchMock = (options?: {
        // Mock successful health checks
       setupFetchMock();
  
-       const statuses = await checkSpacesStatus();
+      const statuses = await service.checkSpacesStatus();
  
        expect(statuses).toBeDefined();
        expect(Array.isArray(statuses)).toBe(true);
-      expect(statuses.length).toBe(Object.keys(getProviderHealthStats()).length);
+      expect(statuses.length).toBe(Object.keys(service.getProviderHealthStats()).length);
      });
  
      it('should mark provider as unavailable on error', async () => {
        // Mock failed health check
        mockFetch.mockRejectedValue(new Error('Network error'));
  
-       const statuses = await checkSpacesStatus();
+      const statuses = await service.checkSpacesStatus();
  
        statuses.forEach(status => {
          expect(status.available).toBe(false);
@@ -170,7 +207,7 @@ const setupFetchMock = (options?: {
        // Mock all providers failing
       setupFetchMock({ failAll: true });
  
-       const result = await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
+      const result = await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
        expect(result.success).toBe(false);
        expect(result.error).toBeDefined();
@@ -180,7 +217,7 @@ const setupFetchMock = (options?: {
      it('should track processing time', async () => {
       setupFetchMock({ failAll: true });
  
-       const result = await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
+      const result = await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
        expect(result.processingTime).toBeDefined();
        expect(typeof result.processingTime).toBe('number');
@@ -189,9 +226,9 @@ const setupFetchMock = (options?: {
      it('should update provider health on failure', async () => {
       setupFetchMock({ failAll: true });
  
-       await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
+      await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
-       const stats = getProviderHealthStats();
+      const stats = service.getProviderHealthStats();
  
        // At least one provider should have failure recorded
        const hasFailure = Object.values(stats).some(h => h.failureCount > 0);
@@ -201,7 +238,7 @@ const setupFetchMock = (options?: {
      it('should return success with result image on success', async () => {
       setupFetchMock();
  
-       const result = await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
+      const result = await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
        expect(result.success).toBe(true);
        expect(result.resultImage).toBeDefined();
@@ -211,9 +248,9 @@ const setupFetchMock = (options?: {
      it('should update health stats on success', async () => {
       setupFetchMock();
  
-       await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
+      await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
-       const stats = getProviderHealthStats();
+      const stats = service.getProviderHealthStats();
        expect(stats['FASHN-VTON-1.5'].successCount).toBe(1);
        expect(stats['FASHN-VTON-1.5'].consecutiveFailures).toBe(0);
      });
@@ -222,23 +259,85 @@ const setupFetchMock = (options?: {
        // First provider fails, second succeeds
       setupFetchMock({ failFashn: true });
  
-       const result = await processVirtualTryOn(samplePersonImage, sampleGarmentImage);
+      const result = await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
        expect(result.success).toBe(true);
        expect(result.provider).toBe('IDM-VTON');
      });
    });
+
+  describe('Self-hosted readiness and fallback', () => {
+    const originalSelfHostedUrl = process.env.TRYON_SELF_HOSTED_URL;
+    const originalPrimaryProviders = process.env.TRYON_PRIMARY_PROVIDERS;
+    const originalSelfHostedName = process.env.TRYON_SELF_HOSTED_NAME;
+    const originalSelfHostedEndpoint = process.env.TRYON_SELF_HOSTED_ENDPOINT;
+
+    afterEach(() => {
+      if (originalSelfHostedUrl) {
+        process.env.TRYON_SELF_HOSTED_URL = originalSelfHostedUrl;
+      } else {
+        delete process.env.TRYON_SELF_HOSTED_URL;
+      }
+      if (originalPrimaryProviders) {
+        process.env.TRYON_PRIMARY_PROVIDERS = originalPrimaryProviders;
+      } else {
+        delete process.env.TRYON_PRIMARY_PROVIDERS;
+      }
+      if (originalSelfHostedName) {
+        process.env.TRYON_SELF_HOSTED_NAME = originalSelfHostedName;
+      } else {
+        delete process.env.TRYON_SELF_HOSTED_NAME;
+      }
+      if (originalSelfHostedEndpoint) {
+        process.env.TRYON_SELF_HOSTED_ENDPOINT = originalSelfHostedEndpoint;
+      } else {
+        delete process.env.TRYON_SELF_HOSTED_ENDPOINT;
+      }
+    });
+
+    it('should skip self-hosted when readiness fails', async () => {
+      process.env.TRYON_SELF_HOSTED_URL = 'https://zy131-tryon-lingerie.hf.space';
+      process.env.TRYON_SELF_HOSTED_NAME = 'Zy131-TryOn';
+      process.env.TRYON_SELF_HOSTED_ENDPOINT = '/call/tryon';
+      process.env.TRYON_PRIMARY_PROVIDERS = 'Zy131-TryOn,FASHN-VTON-1.5,IDM-VTON';
+
+      setupFetchMock({ failSelfHostedReadiness: true });
+      vi.resetModules();
+      await loadService();
+
+      const result = await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
+
+      expect(result.success).toBe(true);
+      expect(result.provider).toBe('FASHN-VTON-1.5');
+    });
+
+    it('should fallback when self-hosted times out', async () => {
+      process.env.TRYON_SELF_HOSTED_URL = 'https://zy131-tryon-lingerie.hf.space';
+      process.env.TRYON_SELF_HOSTED_NAME = 'Zy131-TryOn';
+      process.env.TRYON_SELF_HOSTED_ENDPOINT = '/call/tryon';
+      process.env.TRYON_PRIMARY_PROVIDERS = 'Zy131-TryOn,FASHN-VTON-1.5,IDM-VTON';
+
+      setupFetchMock({ timeoutSelfHosted: true, failFashnAfterSelfHosted: true });
+      vi.resetModules();
+      await loadService();
+
+      const result = await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
+
+      expect(result.success).toBe(true);
+      expect(result.provider).toBe('IDM-VTON');
+    });
+  });
  
    describe('Provider Configuration', () => {
      it('should have FASHN-VTON-1.5 as first provider', () => {
-       const stats = getProviderHealthStats();
+      const stats = service.getProviderHealthStats();
        const providers = Object.keys(stats);
        
        expect(providers[0]).toBe('FASHN-VTON-1.5');
      });
  
     it('should have 7 HuggingFace providers configured', () => {
-       const stats = getProviderHealthStats();
+      const stats = service.getProviderHealthStats();
       expect(Object.keys(stats).length).toBe(7);
      });
    });

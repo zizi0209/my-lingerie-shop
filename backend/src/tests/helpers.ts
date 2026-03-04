@@ -3,7 +3,13 @@ import { prisma } from './setup';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
+function getJwtSecretForTests(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET không được cấu hình cho test!');
+  }
+  return secret;
+}
 
 // Create test user
 export async function createTestUser(overrides: Partial<{
@@ -213,7 +219,7 @@ export function generateTestToken(userId: number, options: {
     roleName: options.roleName,
     tokenVersion: options.tokenVersion ?? 0,
   };
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign(payload, getJwtSecretForTests(), { expiresIn: '1h' });
 }
 
 // Create test category

@@ -1,5 +1,17 @@
 import { PrismaClient } from '@prisma/client';
+import dotenv from 'dotenv';
+import path from 'path';
 import { beforeAll, afterAll, afterEach } from 'vitest';
+
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET không được cấu hình trong file .env cho test!');
+}
+
+if (!process.env.TEST_DATABASE_URL && process.env.DATABASE_URL) {
+  process.env.TEST_DATABASE_URL = process.env.DATABASE_URL;
+}
 
 // Set NODE_ENV to test for all test runs
 process.env.NODE_ENV = 'test';
