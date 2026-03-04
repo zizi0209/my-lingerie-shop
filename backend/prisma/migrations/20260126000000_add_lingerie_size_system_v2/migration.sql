@@ -364,7 +364,7 @@ INSERT INTO "regional_sizes"
 ("id", "universalCode", "regionId", "standardId", "displaySize", "sortOrder",
  "bandSize", "cupVolume", "cupLetter", "measurements", "createdAt", "updatedAt")
 VALUES
-('size_eu_75c', 'UIC_BRA_BAND86_CUPVOL6', 'reg_eu', 'std_eu_bra', '75C', 200,
+('size_eu_75c', 'UIC_BRA_EU_BAND86_CUPVOL6', 'reg_eu', 'std_eu_bra', '75C', 200,
  86, 6, 'C',
  '{"bandSize":{"value":75,"unit":"cm","min":73,"max":77},"cupSize":{"value":"C","letterCode":"C","volume":6},"underBust":{"min":68,"max":72,"unit":"cm"},"bust":{"min":86,"max":88,"unit":"cm"}}'::jsonb,
  NOW(), NOW());
