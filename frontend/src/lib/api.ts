@@ -4,6 +4,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/a
 
 interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
+  suppressErrorStatuses?: number[];
   _retry?: boolean;
 }
 
@@ -24,6 +25,23 @@ class ApiService {
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+  }
+
+  private normalizeOptions(
+    options: boolean | Pick<RequestOptions, 'requireAuth' | 'suppressErrorStatuses'> | undefined
+  ): Pick<RequestOptions, 'requireAuth' | 'suppressErrorStatuses'> {
+    if (typeof options === 'boolean') {
+      return { requireAuth: options };
+    }
+
+    if (!options) {
+      return { requireAuth: true };
+    }
+
+    return {
+      requireAuth: options.requireAuth ?? true,
+      suppressErrorStatuses: options.suppressErrorStatuses,
+    };
   }
 
   // Lấy token từ memory/localStorage
@@ -143,7 +161,12 @@ class ApiService {
     endpoint: string,
     options: RequestOptions = {}
   ): Promise<T> {
-    const { requireAuth = true, _retry = false, ...fetchOptions } = options;
+    const {
+      requireAuth = true,
+      _retry = false,
+      suppressErrorStatuses,
+      ...fetchOptions
+    } = options;
 
     // Auto refresh nếu token sắp hết hạn
     if (requireAuth && this.isAuthenticated() && this.isTokenExpiringSoon() && !_retry) {
@@ -236,8 +259,18 @@ class ApiService {
       // Không log silent errors (SESSION_EXPIRED) và expected business errors (409 PROMOTE_ROLE)
       const isSilent = error instanceof Error && (error as Error & { silent?: boolean }).silent;
       const is409Conflict = error instanceof Error && (error as Error & { statusCode?: number }).statusCode === 409;
+      const statusCode = error instanceof Error
+        ? (error as Error & { statusCode?: number; response?: { status?: number } }).statusCode
+        : undefined;
+      const responseStatus = error instanceof Error
+        ? (error as Error & { response?: { status?: number } }).response?.status
+        : undefined;
+      const status = statusCode ?? responseStatus;
+      const isSuppressedStatus = status !== undefined
+        ? (suppressErrorStatuses ?? []).includes(status)
+        : false;
 
-      if (!isSilent && !is409Conflict) {
+      if (!isSilent && !is409Conflict && !isSuppressedStatus) {
         console.error('API Error:', error);
       }
       throw error;
@@ -245,10 +278,14 @@ class ApiService {
   }
 
   // GET request
-  public async get<T>(endpoint: string, requireAuth = true): Promise<T> {
+  public async get<T>(
+    endpoint: string,
+    options: boolean | Pick<RequestOptions, 'requireAuth' | 'suppressErrorStatuses'> = true
+  ): Promise<T> {
+    const normalized = this.normalizeOptions(options);
     return this.request<T>(endpoint, {
       method: 'GET',
-      requireAuth,
+      ...normalized,
     });
   }
 
@@ -256,12 +293,13 @@ class ApiService {
   public async post<T>(
     endpoint: string,
     data?: unknown,
-    requireAuth = true
+    options: boolean | Pick<RequestOptions, 'requireAuth' | 'suppressErrorStatuses'> = true
   ): Promise<T> {
+    const normalized = this.normalizeOptions(options);
     return this.request<T>(endpoint, {
       method: 'POST',
       body: JSON.stringify(data),
-      requireAuth,
+      ...normalized,
     });
   }
 
@@ -269,12 +307,13 @@ class ApiService {
   public async put<T>(
     endpoint: string,
     data?: unknown,
-    requireAuth = true
+    options: boolean | Pick<RequestOptions, 'requireAuth' | 'suppressErrorStatuses'> = true
   ): Promise<T> {
+    const normalized = this.normalizeOptions(options);
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: JSON.stringify(data),
-      requireAuth,
+      ...normalized,
     });
   }
 
@@ -282,20 +321,25 @@ class ApiService {
   public async patch<T>(
     endpoint: string,
     data?: unknown,
-    requireAuth = true
+    options: boolean | Pick<RequestOptions, 'requireAuth' | 'suppressErrorStatuses'> = true
   ): Promise<T> {
+    const normalized = this.normalizeOptions(options);
     return this.request<T>(endpoint, {
       method: 'PATCH',
       body: JSON.stringify(data),
-      requireAuth,
+      ...normalized,
     });
   }
 
   // DELETE request
-  public async delete<T>(endpoint: string, requireAuth = true): Promise<T> {
+  public async delete<T>(
+    endpoint: string,
+    options: boolean | Pick<RequestOptions, 'requireAuth' | 'suppressErrorStatuses'> = true
+  ): Promise<T> {
+    const normalized = this.normalizeOptions(options);
     return this.request<T>(endpoint, {
       method: 'DELETE',
-      requireAuth,
+      ...normalized,
     });
   }
 

@@ -104,7 +104,7 @@ export const fetchSizeChartByType = async (type: ProductType): Promise<SizeChart
   try {
     const response = await api.get<ApiResponse<SizeChartTemplate>>(
       `/size-templates/${type}`,
-      false
+      { requireAuth: false, suppressErrorStatuses: [404] }
     );
     
     if (response.success && response.data) {
@@ -122,6 +122,18 @@ export const fetchSizeChartByType = async (type: ProductType): Promise<SizeChart
     }
     return null;
   } catch (error) {
+    const statusCode = error instanceof Error
+      ? (error as Error & { statusCode?: number; response?: { status?: number } }).statusCode
+      : undefined;
+    const responseStatus = error instanceof Error
+      ? (error as Error & { response?: { status?: number } }).response?.status
+      : undefined;
+    const status = statusCode ?? responseStatus;
+
+    if (status === 404) {
+      return null;
+    }
+
     console.error('Error fetching size chart:', error);
     return null;
   }
