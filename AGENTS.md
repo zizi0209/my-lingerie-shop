@@ -105,7 +105,9 @@ Khi giải quyết vấn đề phức tạp, áp dụng quy trình và format sa
 ## 6. Final Verification
 
 Trước khi hoàn tất, chạy các lệnh kiểm tra sau để đảm bảo không lỗi deploy:
-Type Check: - bunx tsc --project frontend/tsconfig.json --noEmit - bunx tsc --project backend/tsconfig.json --noEmit
+Type Check: 
+- bunx tsc --project frontend/tsconfig.json --noEmit 
+- bunx tsc --project backend/tsconfig.json --noEmit
 Linting: - bunx oxlint --type-aware --type-check --fix
 Bun Cache Troubleshooting:
 Nếu bunx lỗi: Remove-Item -Recurse -Force $env:LOCALAPPDATA\Temp\bunx-\* hoặc chạy bun install.
