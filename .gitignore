@@ -83,3 +83,10 @@ prisma.config.js.map
 .kiro
 
 AGENTS.md
+
+_bmad
+_bmad-output
+.agents
+
+triposr-service
+tryon-worker
