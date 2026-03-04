@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import ProductCard from "@/components/product/ProductCard";
 import { Filter, Loader2, Search, X } from "lucide-react";
 import { trackPageView, trackSearch } from "@/lib/tracking";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 interface Product {
   id: string;
@@ -76,7 +77,7 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useState("newest");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
   const hasTrackedPageView = useRef(false);
 
   // Track page view on mount

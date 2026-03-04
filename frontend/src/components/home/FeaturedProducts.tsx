@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronRight } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 interface Product {
   id: number;
@@ -32,7 +33,7 @@ export default function FeaturedProducts({ content }: FeaturedProductsProps) {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        const baseUrl = getApiBaseUrl();
         const res = await fetch(`${baseUrl}/products?isFeatured=true&limit=${limit}`);
         const data = await res.json();
         if (data.success) {

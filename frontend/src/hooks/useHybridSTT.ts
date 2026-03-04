@@ -112,7 +112,7 @@ export function useHybridSTT(options: UseHybridSTTOptions = {}): UseHybridSTTRet
         engine: currentEngineRef.current,
         isListening: isListeningRef.current,
         isStopping: isStoppingRef.current,
-        ...(meta || {}),
+        ...meta,
       };
       console.log(`[STT] ${event} ${JSON.stringify(payload)}`);
     },

@@ -27,6 +27,7 @@ import { trackProductView, trackCartEvent } from "@/lib/tracking";
 import { sanitizeForPublic } from "@/lib/sanitize";
 import Product3DViewer from "@/components/product/Product3DViewer";
 import { Box } from "lucide-react";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 interface ProductImage {
   id: number;
@@ -151,7 +152,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     }
   }, [tryOnModalOpen]);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
 
   // Fetch product by slug
   useEffect(() => {
