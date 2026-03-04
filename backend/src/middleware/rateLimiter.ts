@@ -133,6 +133,27 @@ export const uploadLimiter = rateLimit({
 });
 
 /**
+ * Rate limiter for Virtual Try-On endpoints
+ * Higher limit to allow polling but still prevent abuse
+ */
+export const tryOnLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: isDevOrTest ? 500 : 120,
+  skip: skipInTest,
+  message: {
+    error: 'Quá nhiều yêu cầu thử đồ ảo. Vui lòng thử lại sau.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      error: 'Quá nhiều yêu cầu thử đồ ảo. Vui lòng thử lại sau 1 phút.',
+      retryAfter: 60
+    });
+  }
+});
+
+/**
  * 🔒 CRITICAL: Rate limiter for admin critical operations
  * (user creation, role promotion, Super Admin creation)
  * Max 10 critical operations per 15 minutes per IP

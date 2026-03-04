@@ -8,8 +8,9 @@ import {
   createUploadUrl,
   createTryOnJobAsync,
   processTryOnJob,
+  getTryOnMetrics,
 } from '../controllers/virtualTryOnController';
- import { apiLimiter } from '../middleware/rateLimiter';
+import { apiLimiter, tryOnLimiter } from '../middleware/rateLimiter';
  
  const router = express.Router();
  
@@ -17,22 +18,25 @@ import {
  router.get('/status', getStatus);
  
  // Process virtual try-on (with rate limiting)
- router.post('/process', apiLimiter, tryOn);
+router.post('/process', apiLimiter, tryOn);
 
 // Create signed upload URL (GCS)
-router.post('/uploads/signed-url', createUploadUrl);
+router.post('/uploads/signed-url', tryOnLimiter, createUploadUrl);
 
 // Create async try-on job
-router.post('/jobs', createTryOnJobAsync);
+router.post('/jobs', tryOnLimiter, createTryOnJobAsync);
 
 // Get try-on job status
-router.get('/jobs/:id', getJobStatus);
+router.get('/jobs/:id', tryOnLimiter, getJobStatus);
 
 // Worker: process try-on job (Cloud Tasks/Run)
 router.post('/jobs/:id/process', processTryOnJob);
  
 // Get detailed health stats
 router.get('/health', getHealthStats);
+
+// Internal metrics endpoint
+router.get('/metrics', getTryOnMetrics);
 
 // Reset health stats (for testing/debugging)
 router.post('/reset-health', resetHealth);

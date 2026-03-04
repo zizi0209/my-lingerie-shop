@@ -2,8 +2,9 @@
  * Virtual Try-On Service
  * 
  * Features:
- * - Primary: HuggingFace Spaces (FASHN VTON 1.5 + other providers)
- * - Fallback: Google Gemini API when all HF Spaces fail
+ * - Primary: Self-hosted HuggingFace Space (ZeroGPU) when configured
+ * - Fallback: Public HuggingFace Spaces
+ * - Optional: Google Gemini (explicitly enabled)
  * - Round-robin load balancing across multiple HF providers
  * - Health tracking with automatic failover
  * - Weighted distribution based on success rate
@@ -12,11 +13,26 @@
  * - Pre-flight health checks to skip unavailable providers
  */
 import { processGeminiTryOn, isGeminiAvailable } from './geminiVirtualTryOnService';
-import { uploadToTemporaryUrl } from './virtualTryOnStorage';
+import { deleteTryOnAsset, TemporaryUpload, uploadToTemporaryUrl } from './virtualTryOnStorage';
 
 // Configuration constants
-const PARALLEL_BATCH_SIZE = 2; // Try 2 providers in parallel for stability
+const PRIMARY_PARALLEL_BATCH_SIZE = Number(process.env.TRYON_PRIMARY_PARALLEL_BATCH_SIZE || '1');
+const FALLBACK_PARALLEL_BATCH_SIZE = Number(process.env.TRYON_FALLBACK_PARALLEL_BATCH_SIZE || '2');
 const QUICK_HEALTH_CHECK_TIMEOUT = 3000; // 3 seconds for quick health check
+const DEFAULT_PROVIDER_TIMEOUT_MS = Number(process.env.TRYON_PROVIDER_TIMEOUT_MS || '120000');
+const SELF_HOSTED_TIMEOUT_MS = Number(process.env.TRYON_SELF_HOSTED_TIMEOUT_MS || '180000');
+const GEMINI_ENABLED = process.env.TRYON_USE_GEMINI === 'true';
+const MAX_CONCURRENT_TRYON = Number(process.env.TRYON_MAX_CONCURRENT || '2');
+const OVERLOAD_RETRY_SECONDS = Number(process.env.TRYON_OVERLOAD_RETRY_SECONDS || '30');
+const SELF_HOSTED_READINESS_TIMEOUT_MS = Number(
+  process.env.TRYON_SELF_HOSTED_READINESS_TIMEOUT_MS || '4000'
+);
+const SELF_HOSTED_READINESS_TTL_MS = Number(
+  process.env.TRYON_SELF_HOSTED_READINESS_TTL_MS || '30000'
+);
+const HEALTH_WINDOW_MS = Number(process.env.TRYON_HEALTH_WINDOW_MS || String(15 * 60 * 1000));
+const FAIL_RATE_WARNING_THRESHOLD = Number(process.env.TRYON_FAIL_RATE_WARNING_THRESHOLD || '0.4');
+const TIMEOUT_WARNING_THRESHOLD = Number(process.env.TRYON_TIMEOUT_WARNING_THRESHOLD || '2');
 
 
 interface ProviderConfig {
@@ -30,18 +46,55 @@ interface ProviderConfig {
 export type TryOnErrorCode =
   | 'PROVIDER_UNAVAILABLE'
   | 'PROVIDER_TIMEOUT'
-  | 'PROVIDER_RATE_LIMITED';
+  | 'PROVIDER_RATE_LIMITED'
+  | 'SYSTEM_OVERLOADED';
 
 interface ProviderHealth {
   lastSuccess: number;
   lastFailure: number;
+  lastErrorAt: number;
+  lastErrorMessage: string | null;
   successCount: number;
   failureCount: number;
   consecutiveFailures: number;
+  consecutiveTimeouts: number;
   avgResponseTime: number;
+  recentEvents: Array<{ timestamp: number; success: boolean; timeout: boolean }>;
 }
 
+interface ProviderHealthSnapshot {
+  lastSuccess: number;
+  lastFailure: number;
+  lastErrorAt: number;
+  lastErrorMessage: string | null;
+  successCount: number;
+  failureCount: number;
+  consecutiveFailures: number;
+  consecutiveTimeouts: number;
+  avgResponseTime: number;
+  successRate: number;
+  timeoutRate: number;
+  coolingDownUntil: number | null;
+  stage: 'primary' | 'fallback';
+}
+
+const SELF_HOSTED_PROVIDER_URL = process.env.TRYON_SELF_HOSTED_URL || '';
+const SELF_HOSTED_PROVIDER_ENDPOINT = process.env.TRYON_SELF_HOSTED_ENDPOINT || '/call/tryon';
+const SELF_HOSTED_PROVIDER_TYPE = (process.env.TRYON_SELF_HOSTED_TYPE || 'idm') as ProviderConfig['type'];
+const SELF_HOSTED_PROVIDER_NAME = process.env.TRYON_SELF_HOSTED_NAME || 'ZeroGPU-SelfHosted';
+
+const SELF_HOSTED_PROVIDER: ProviderConfig | null = SELF_HOSTED_PROVIDER_URL
+  ? {
+      name: SELF_HOSTED_PROVIDER_NAME,
+      url: SELF_HOSTED_PROVIDER_URL,
+      endpoint: SELF_HOSTED_PROVIDER_ENDPOINT,
+      type: SELF_HOSTED_PROVIDER_TYPE,
+      enabled: true,
+    }
+  : null;
+
 const PROVIDERS: ProviderConfig[] = [
+  ...(SELF_HOSTED_PROVIDER ? [SELF_HOSTED_PROVIDER] : []),
   // FASHN VTON 1.5 - Priority provider (Apache-2.0, high quality)
   // Note: HuggingFace Space URL uses dashes, not dots for version
   {
@@ -99,19 +152,33 @@ const PROVIDERS: ProviderConfig[] = [
 
 // Round-robin state (persists across requests)
 let currentProviderIndex = 0;
+let activeTryOnCount = 0;
 
 // Health tracking for each provider
 const providerHealth: Map<string, ProviderHealth> = new Map();
+const providerReadiness: Map<string, { lastCheckedAt: number; ready: boolean; reason?: string }> = new Map();
+const providerProbeAt: Map<string, number> = new Map();
+
+function logTryOnEvent(event: Record<string, unknown>): void {
+  console.log('[TryOn][Telemetry]', JSON.stringify({
+    timestamp: Date.now(),
+    ...event,
+  }));
+}
 
 // Initialize health tracking
 PROVIDERS.forEach(p => {
   providerHealth.set(p.name, {
     lastSuccess: 0,
     lastFailure: 0,
+    lastErrorAt: 0,
+    lastErrorMessage: null,
     successCount: 0,
     failureCount: 0,
     consecutiveFailures: 0,
+    consecutiveTimeouts: 0,
     avgResponseTime: 0,
+    recentEvents: [],
   });
 });
  
@@ -123,17 +190,21 @@ export function resetProviderHealth(): void {
     providerHealth.set(p.name, {
       lastSuccess: 0,
       lastFailure: 0,
+      lastErrorAt: 0,
+      lastErrorMessage: null,
       successCount: 0,
       failureCount: 0,
       consecutiveFailures: 0,
+      consecutiveTimeouts: 0,
       avgResponseTime: 0,
+      recentEvents: [],
     });
   });
   currentProviderIndex = 0;
+  providerReadiness.clear();
   console.log('[Health] All provider health stats reset');
 }
 
-const TIMEOUT_MS = 120000; // 2 minutes per request
 const POLL_INTERVAL = 2000; // 2 seconds (reduced from 3)
 const MAX_POLL_ATTEMPTS = 60; // 2 minutes max polling
 const INITIAL_POLL_DELAY = 1000; // Start polling after 1 second
@@ -148,6 +219,25 @@ const PROVIDER_BLOCKLIST = (process.env.TRYON_PROVIDER_BLOCKLIST || '')
   .split(',')
   .map((item) => item.trim())
   .filter(Boolean);
+const PRIMARY_PROVIDER_NAMES = (process.env.TRYON_PRIMARY_PROVIDERS || '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
+
+const DEFAULT_PRIMARY_PROVIDERS = SELF_HOSTED_PROVIDER
+  ? [SELF_HOSTED_PROVIDER.name]
+  : ['FASHN-VTON-1.5', 'IDM-VTON'];
+
+function getPrimaryProviderNames(): string[] {
+  return PRIMARY_PROVIDER_NAMES.length > 0 ? PRIMARY_PROVIDER_NAMES : DEFAULT_PRIMARY_PROVIDERS;
+}
+
+function getProviderTimeout(providerName: string): number {
+  if (SELF_HOSTED_PROVIDER && providerName === SELF_HOSTED_PROVIDER.name) {
+    return SELF_HOSTED_TIMEOUT_MS;
+  }
+  return DEFAULT_PROVIDER_TIMEOUT_MS;
+}
  
  interface TryOnResult {
    success: boolean;
@@ -156,6 +246,9 @@ const PROVIDER_BLOCKLIST = (process.env.TRYON_PROVIDER_BLOCKLIST || '')
    error?: string;
    processingTime?: number;
   errorCode?: TryOnErrorCode;
+  retryAfterSeconds?: number;
+  errorStage?: 'admission' | 'primary' | 'fallback' | 'gemini';
+  providerHint?: string;
  }
  
  interface SpaceStatus {
@@ -167,6 +260,7 @@ const PROVIDER_BLOCKLIST = (process.env.TRYON_PROVIDER_BLOCKLIST || '')
 // Constants for health-based routing
 const MAX_CONSECUTIVE_FAILURES = 2; // Disable provider after 2 consecutive failures (faster failover)
 const RECOVERY_TIME = 30000; // 30 seconds before retrying failed provider
+const PROBE_MIN_INTERVAL_MS = 10000; // 10s to avoid repeated probes
 
 /**
  * Quick health check - verify if a Space is responding
@@ -183,6 +277,94 @@ async function quickHealthCheck(providerUrl: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function isSelfHostedProvider(provider: ProviderConfig): boolean {
+  return Boolean(SELF_HOSTED_PROVIDER && provider.name === SELF_HOSTED_PROVIDER.name);
+}
+
+function isTimeoutError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return error.name === 'AbortError'
+    || message.includes('timeout')
+    || message.includes('timed out')
+    || message.includes('abort');
+}
+
+function pruneRecentEvents(health: ProviderHealth, now: number): void {
+  health.recentEvents = health.recentEvents.filter((event) => now - event.timestamp <= HEALTH_WINDOW_MS);
+}
+
+function recordHealthEvent(health: ProviderHealth, success: boolean, timeout: boolean): void {
+  const now = Date.now();
+  health.recentEvents.push({ timestamp: now, success, timeout });
+  pruneRecentEvents(health, now);
+}
+
+function getHealthWindowStats(health: ProviderHealth): { successRate: number; timeoutRate: number } {
+  if (health.recentEvents.length === 0) {
+    return { successRate: 0, timeoutRate: 0 };
+  }
+  const successes = health.recentEvents.filter((event) => event.success).length;
+  const timeouts = health.recentEvents.filter((event) => event.timeout).length;
+  return {
+    successRate: successes / health.recentEvents.length,
+    timeoutRate: timeouts / health.recentEvents.length,
+  };
+}
+
+function computeProviderScore(health: ProviderHealth): number | null {
+  if (health.recentEvents.length === 0) {
+    return null;
+  }
+  const { successRate, timeoutRate } = getHealthWindowStats(health);
+  const latencyPenalty = health.avgResponseTime > 0 ? health.avgResponseTime / 1000 : 0;
+  return successRate * 100 - timeoutRate * 50 - latencyPenalty;
+}
+
+async function probeProviderEndpoint(provider: ProviderConfig): Promise<boolean> {
+  try {
+    const response = await fetchWithTimeout(
+      `${provider.url}${provider.endpoint}`,
+      { method: 'OPTIONS' },
+      SELF_HOSTED_READINESS_TIMEOUT_MS
+    );
+    return response.ok || response.status === 405;
+  } catch {
+    return false;
+  }
+}
+
+async function checkSelfHostedReadiness(provider: ProviderConfig): Promise<{ ready: boolean; reason?: string }> {
+  const now = Date.now();
+  const cached = providerReadiness.get(provider.name);
+  if (cached && now - cached.lastCheckedAt < SELF_HOSTED_READINESS_TTL_MS) {
+    return { ready: cached.ready, reason: cached.reason };
+  }
+
+  if (!provider.url || !provider.endpoint) {
+    const reason = 'Thiếu URL hoặc endpoint self-hosted';
+    providerReadiness.set(provider.name, { lastCheckedAt: now, ready: false, reason });
+    return { ready: false, reason };
+  }
+
+  const baseHealthy = await quickHealthCheck(provider.url);
+  if (!baseHealthy) {
+    const reason = 'Health check self-hosted thất bại';
+    providerReadiness.set(provider.name, { lastCheckedAt: now, ready: false, reason });
+    return { ready: false, reason };
+  }
+
+  const endpointHealthy = await probeProviderEndpoint(provider);
+  if (!endpointHealthy) {
+    const reason = 'Endpoint self-hosted không phản hồi đúng';
+    providerReadiness.set(provider.name, { lastCheckedAt: now, ready: false, reason });
+    return { ready: false, reason };
+  }
+
+  providerReadiness.set(provider.name, { lastCheckedAt: now, ready: true });
+  return { ready: true };
 }
 
 function getActiveProviders(): ProviderConfig[] {
@@ -206,37 +388,75 @@ function getActiveProviders(): ProviderConfig[] {
 /**
  * Get providers in round-robin order starting from current index
  */
-function getProvidersInOrder(): ProviderConfig[] {
-  const activeProviders = getActiveProviders();
+function getProvidersInOrder(providers: ProviderConfig[]): ProviderConfig[] {
   const result: ProviderConfig[] = [];
   const now = Date.now();
-  
-  for (let i = 0; i < activeProviders.length; i++) {
-    const index = (currentProviderIndex + i) % activeProviders.length;
-    const provider = activeProviders[index];
+
+  if (providers.length === 0) return result;
+
+  const scoredProviders = providers.map((provider, index) => {
     const health = providerHealth.get(provider.name);
-    
+    const score = health ? computeProviderScore(health) : null;
+    return { provider, index, score };
+  });
+
+  scoredProviders.sort((a, b) => {
+    if (a.score === null && b.score === null) return a.index - b.index;
+    if (a.score === null) return 1;
+    if (b.score === null) return -1;
+    return b.score - a.score;
+  });
+
+  const orderedProviders = scoredProviders.map((entry) => entry.provider);
+  const rotationStart = orderedProviders.length > 0
+    ? currentProviderIndex % orderedProviders.length
+    : 0;
+  const rotatedProviders = orderedProviders
+    .slice(rotationStart)
+    .concat(orderedProviders.slice(0, rotationStart));
+
+  for (const provider of rotatedProviders) {
+    const health = providerHealth.get(provider.name);
+
     // Skip providers that are still in cooling period
     if (health && health.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
       const timeSinceFailure = now - health.lastFailure;
       if (timeSinceFailure < RECOVERY_TIME) {
         continue; // Skip this provider
       }
+      const lastProbe = providerProbeAt.get(provider.name) ?? 0;
+      if (now - lastProbe < PROBE_MIN_INTERVAL_MS) {
+        continue;
+      }
+      providerProbeAt.set(provider.name, now);
     }
-    
+
     result.push(provider);
   }
-  currentProviderIndex = activeProviders.length > 0
-    ? (currentProviderIndex + 1) % activeProviders.length
+  currentProviderIndex = orderedProviders.length > 0
+    ? (currentProviderIndex + 1) % orderedProviders.length
     : 0;
-  
+
   // If all providers are cooling down, include them anyway (last resort)
   if (result.length === 0) {
     console.log('[Round-Robin] All providers cooling down, trying anyway...');
-    return [...activeProviders];
+    return [...orderedProviders];
   }
-  
+
   return result;
+}
+
+function splitProvidersByPriority(activeProviders: ProviderConfig[]): {
+  primary: ProviderConfig[];
+  fallback: ProviderConfig[];
+} {
+  const primaryOrder = getPrimaryProviderNames();
+  const primaryNameSet = new Set(primaryOrder);
+  const primary = primaryOrder
+    .map((name) => activeProviders.find((provider) => provider.name === name))
+    .filter((provider): provider is ProviderConfig => Boolean(provider));
+  const fallback = activeProviders.filter((provider) => !primaryNameSet.has(provider.name));
+  return { primary, fallback };
 }
 
  async function sleep(ms: number): Promise<void> {
@@ -263,6 +483,17 @@ function getProvidersInOrder(): ProviderConfig[] {
      throw error;
    }
  }
+
+async function cleanupTemporaryUploads(uploads: TemporaryUpload[]): Promise<void> {
+  await Promise.all(
+    uploads.map(async (upload) => {
+      if (upload.provider === 'inline' || upload.provider === 'imgbb') {
+        return;
+      }
+      await deleteTryOnAsset({ gcsUri: upload.storageUri, url: upload.url });
+    })
+  );
+}
  
 /**
  * Update provider health after request
@@ -270,23 +501,40 @@ function getProvidersInOrder(): ProviderConfig[] {
 function updateProviderHealth(
   providerName: string, 
   success: boolean, 
-  responseTime: number
+  responseTime: number,
+  options?: { errorMessage?: string; timeout?: boolean }
 ): void {
   const health = providerHealth.get(providerName);
   if (!health) return;
+
+  const timeout = options?.timeout ?? false;
+  recordHealthEvent(health, success, timeout);
 
   if (success) {
     health.lastSuccess = Date.now();
     health.successCount++;
     health.consecutiveFailures = 0;
+    health.consecutiveTimeouts = 0;
     // Update rolling average response time
     health.avgResponseTime = health.avgResponseTime === 0 
       ? responseTime 
       : (health.avgResponseTime * 0.7 + responseTime * 0.3);
   } else {
     health.lastFailure = Date.now();
+    health.lastErrorAt = Date.now();
+    health.lastErrorMessage = options?.errorMessage || 'Unknown error';
     health.failureCount++;
     health.consecutiveFailures++;
+    health.consecutiveTimeouts = timeout ? health.consecutiveTimeouts + 1 : 0;
+  }
+
+  const stats = getHealthWindowStats(health);
+  const failureRate = health.recentEvents.length > 0 ? 1 - stats.successRate : 0;
+  if (!success && failureRate >= FAIL_RATE_WARNING_THRESHOLD) {
+    console.warn(`[High][Health] ${providerName} fail-rate ${failureRate.toFixed(2)} vượt ngưỡng`);
+  }
+  if (!success && timeout && health.consecutiveTimeouts >= TIMEOUT_WARNING_THRESHOLD) {
+    console.warn(`[High][Health] ${providerName} timeout liên tiếp: ${health.consecutiveTimeouts}`);
   }
 
   console.log(`[Health] ${providerName}: success=${health.successCount}, fail=${health.failureCount}, consecutive=${health.consecutiveFailures}, avgTime=${Math.round(health.avgResponseTime)}ms`);
@@ -379,64 +627,68 @@ async function pollForResult(
   throw new Error('Timeout waiting for result');
 }
 
- async function tryIDMVTON(
-   personImageBase64: string,
-   garmentImageBase64: string
- ): Promise<string> {
-   const spaceUrl = 'https://yisol-idm-vton.hf.space';
-   
-   console.log('[IDM-VTON] Starting request...');
-   
+async function tryIdmProvider(
+  providerName: string,
+  spaceUrl: string,
+  endpoint: string,
+  personImageBase64: string,
+  garmentImageBase64: string
+): Promise<string> {
+  console.log(`[${providerName}] Starting request...`);
+
   // Upload images to get URLs (HuggingFace Spaces require URLs)
-  const [personUrl, garmentUrl] = await Promise.all([
+  const [personUpload, garmentUpload] = await Promise.all([
     uploadToTemporaryUrl(personImageBase64, 'person'),
     uploadToTemporaryUrl(garmentImageBase64, 'garment'),
   ]);
-   
-   // IDM-VTON API format
-   const payload = {
-     data: [
-       { 
-         background: { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } }, 
-         layers: [], 
-         composite: null 
-       },
-       { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
-       'clothing item',
-       true,  // auto mask
-       true,  // auto crop
-       30,    // denoise steps
-       42,    // seed
-     ],
-   };
- 
-   const response = await fetchWithRetry(
-     `${spaceUrl}/call/tryon`,
-     {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify(payload),
-     },
-     TIMEOUT_MS
-   );
- 
-   if (!response.ok) {
-     const text = await response.text();
-     console.log('[IDM-VTON] API error:', response.status, text);
-     throw new Error(`API error: ${response.status}`);
-   }
- 
-   const result = await response.json() as { event_id?: string };
-   console.log('[IDM-VTON] Got event_id:', result.event_id);
-   
-   if (!result.event_id) {
-     throw new Error('No event_id returned');
-   }
- 
-   const resultUrl = `${spaceUrl}/call/tryon/${result.event_id}`;
-  return pollForResult(resultUrl, 'IDM-VTON');
- }
- 
+
+  // IDM-VTON API format
+  const payload = {
+    data: [
+      {
+        background: { path: personUpload.url, url: personUpload.url, meta: { _type: 'gradio.FileData' } },
+        layers: [],
+        composite: null,
+      },
+      { path: garmentUpload.url, url: garmentUpload.url, meta: { _type: 'gradio.FileData' } },
+      'clothing item',
+      true, // auto mask
+      true, // auto crop
+      30, // denoise steps
+      42, // seed
+    ],
+  };
+  try {
+    const response = await fetchWithRetry(
+      `${spaceUrl}${endpoint}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+      getProviderTimeout(providerName)
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.log(`[${providerName}] API error:`, response.status, text);
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json() as { event_id?: string };
+    console.log(`[${providerName}] Got event_id:`, result.event_id);
+
+    if (!result.event_id) {
+      throw new Error('No event_id returned');
+    }
+
+    const resultUrl = `${spaceUrl}${endpoint}/${result.event_id}`;
+    return pollForResult(resultUrl, providerName);
+  } finally {
+    await cleanupTemporaryUploads([personUpload, garmentUpload]);
+  }
+}
+
 /**
  * FASHN VTON 1.5 - Primary provider
  * Apache-2.0 licensed, high quality fashion-specific model
@@ -450,7 +702,7 @@ async function tryFASHNVTON(
   console.log('[FASHN-VTON-1.5] Starting request...');
   
   // Upload images to get URLs
-  const [personUrl, garmentUrl] = await Promise.all([
+  const [personUpload, garmentUpload] = await Promise.all([
     uploadToTemporaryUrl(personImageBase64, 'person'),
     uploadToTemporaryUrl(garmentImageBase64, 'garment'),
   ]);
@@ -458,8 +710,8 @@ async function tryFASHNVTON(
   // FASHN VTON 1.5 API format
   const payload = {
     data: [
-      { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } },
-      { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
+      { path: personUpload.url, url: personUpload.url, meta: { _type: 'gradio.FileData' } },
+      { path: garmentUpload.url, url: garmentUpload.url, meta: { _type: 'gradio.FileData' } },
       'tops',
       'flat-lay',
       50,
@@ -468,32 +720,35 @@ async function tryFASHNVTON(
       true,
     ],
   };
+  try {
+    const response = await fetchWithRetry(
+      `${spaceUrl}/gradio_api/call/try_on`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+      getProviderTimeout('FASHN-VTON-1.5')
+    );
 
-  const response = await fetchWithRetry(
-    `${spaceUrl}/gradio_api/call/try_on`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    },
-    TIMEOUT_MS
-  );
+    if (!response.ok) {
+      const text = await response.text();
+      console.log('[FASHN-VTON-1.5] API error:', response.status, text);
+      throw new Error(`API error: ${response.status}`);
+    }
 
-  if (!response.ok) {
-    const text = await response.text();
-    console.log('[FASHN-VTON-1.5] API error:', response.status, text);
-    throw new Error(`API error: ${response.status}`);
+    const result = await response.json() as { event_id?: string };
+    console.log('[FASHN-VTON-1.5] Got event_id:', result.event_id);
+    
+    if (!result.event_id) {
+      throw new Error('No event_id returned');
+    }
+
+    const resultUrl = `${spaceUrl}/gradio_api/call/try_on/${result.event_id}`;
+    return pollForResult(resultUrl, 'FASHN-VTON-1.5');
+  } finally {
+    await cleanupTemporaryUploads([personUpload, garmentUpload]);
   }
-
-  const result = await response.json() as { event_id?: string };
-  console.log('[FASHN-VTON-1.5] Got event_id:', result.event_id);
-  
-  if (!result.event_id) {
-    throw new Error('No event_id returned');
-  }
-
-  const resultUrl = `${spaceUrl}/gradio_api/call/try_on/${result.event_id}`;
-  return pollForResult(resultUrl, 'FASHN-VTON-1.5');
 }
 
  async function tryOOTDiffusion(
@@ -505,15 +760,15 @@ async function tryFASHNVTON(
    console.log('[OOTDiffusion] Starting request...');
    
   // Upload images to get URLs
-  const [personUrl, garmentUrl] = await Promise.all([
+  const [personUpload, garmentUpload] = await Promise.all([
     uploadToTemporaryUrl(personImageBase64, 'person'),
     uploadToTemporaryUrl(garmentImageBase64, 'garment'),
   ]);
    
    const payload = {
      data: [
-       { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } },
-       { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
+       { path: personUpload.url, url: personUpload.url, meta: { _type: 'gradio.FileData' } },
+       { path: garmentUpload.url, url: garmentUpload.url, meta: { _type: 'gradio.FileData' } },
        'Upper-body',
        1,    // n_samples
        20,   // n_steps
@@ -521,32 +776,36 @@ async function tryFASHNVTON(
        42,   // seed
      ],
    };
- 
-  const response = await fetchWithRetry(
-     `${spaceUrl}/call/process_dc`,
-     {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify(payload),
-     },
-     TIMEOUT_MS
-   );
- 
-   if (!response.ok) {
-     const text = await response.text();
-     console.log('[OOTDiffusion] API error:', response.status, text);
-     throw new Error(`API error: ${response.status}`);
-   }
- 
-   const result = await response.json() as { event_id?: string };
-   console.log('[OOTDiffusion] Got event_id:', result.event_id);
-   
-   if (!result.event_id) {
-     throw new Error('No event_id returned');
-   }
- 
-   const resultUrl = `${spaceUrl}/call/process_dc/${result.event_id}`;
-  return pollForResult(resultUrl, 'OOTDiffusion');
+
+  try {
+    const response = await fetchWithRetry(
+       `${spaceUrl}/call/process_dc`,
+       {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(payload),
+       },
+      getProviderTimeout('OOTDiffusion')
+     );
+
+     if (!response.ok) {
+       const text = await response.text();
+       console.log('[OOTDiffusion] API error:', response.status, text);
+       throw new Error(`API error: ${response.status}`);
+     }
+
+     const result = await response.json() as { event_id?: string };
+     console.log('[OOTDiffusion] Got event_id:', result.event_id);
+     
+     if (!result.event_id) {
+       throw new Error('No event_id returned');
+     }
+
+     const resultUrl = `${spaceUrl}/call/process_dc/${result.event_id}`;
+    return pollForResult(resultUrl, 'OOTDiffusion');
+  } finally {
+    await cleanupTemporaryUploads([personUpload, garmentUpload]);
+  }
  }
  
 async function tryOutfitAnyone(
@@ -558,42 +817,46 @@ async function tryOutfitAnyone(
   console.log('[OutfitAnyone] Starting request...');
   
   // Upload garment image to get URL
-  const garmentUrl = await uploadToTemporaryUrl(garmentImageBase64, 'garment');
+  const garmentUpload = await uploadToTemporaryUrl(garmentImageBase64, 'garment');
   
   // OutfitAnyone uses pre-set models, only accepts garment uploads
   const payload = {
     data: [
       0,  // model index (first pre-set model)
-      { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },  // top garment
+      { path: garmentUpload.url, url: garmentUpload.url, meta: { _type: 'gradio.FileData' } },  // top garment
       null,  // lower garment (optional)
     ],
   };
 
-  const response = await fetchWithRetry(
-    `${spaceUrl}/call/get_tryon_result`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    },
-    TIMEOUT_MS
-  );
+  try {
+    const response = await fetchWithRetry(
+      `${spaceUrl}/call/get_tryon_result`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+      getProviderTimeout('OutfitAnyone')
+    );
 
-  if (!response.ok) {
-    const text = await response.text();
-    console.log('[OutfitAnyone] API error:', response.status, text);
-    throw new Error(`API error: ${response.status}`);
+    if (!response.ok) {
+      const text = await response.text();
+      console.log('[OutfitAnyone] API error:', response.status, text);
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json() as { event_id?: string };
+    console.log('[OutfitAnyone] Got event_id:', result.event_id);
+    
+    if (!result.event_id) {
+      throw new Error('No event_id returned');
+    }
+
+    const resultUrl = `${spaceUrl}/call/get_tryon_result/${result.event_id}`;
+    return pollForResult(resultUrl, 'OutfitAnyone');
+  } finally {
+    await cleanupTemporaryUploads([garmentUpload]);
   }
-
-  const result = await response.json() as { event_id?: string };
-  console.log('[OutfitAnyone] Got event_id:', result.event_id);
-  
-  if (!result.event_id) {
-    throw new Error('No event_id returned');
-  }
-
-  const resultUrl = `${spaceUrl}/call/get_tryon_result/${result.event_id}`;
-  return pollForResult(resultUrl, 'OutfitAnyone');
 }
 
 async function tryKwaiKolors(
@@ -605,43 +868,47 @@ async function tryKwaiKolors(
   console.log('[Kolors-VTON] Starting request...');
   
   // Upload images to get URLs
-  const [personUrl, garmentUrl] = await Promise.all([
+  const [personUpload, garmentUpload] = await Promise.all([
     uploadToTemporaryUrl(personImageBase64, 'person'),
     uploadToTemporaryUrl(garmentImageBase64, 'garment'),
   ]);
   
   const payload = {
     data: [
-      { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } },
-      { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
+      { path: personUpload.url, url: personUpload.url, meta: { _type: 'gradio.FileData' } },
+      { path: garmentUpload.url, url: garmentUpload.url, meta: { _type: 'gradio.FileData' } },
     ],
   };
 
-  const response = await fetchWithRetry(
-    `${spaceUrl}/call/tryon`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    },
-    TIMEOUT_MS
-  );
+  try {
+    const response = await fetchWithRetry(
+      `${spaceUrl}/call/tryon`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+      getProviderTimeout('Kolors-VTON')
+    );
 
-  if (!response.ok) {
-    const text = await response.text();
-    console.log('[Kolors-VTON] API error:', response.status, text);
-    throw new Error(`API error: ${response.status}`);
+    if (!response.ok) {
+      const text = await response.text();
+      console.log('[Kolors-VTON] API error:', response.status, text);
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json() as { event_id?: string };
+    console.log('[Kolors-VTON] Got event_id:', result.event_id);
+    
+    if (!result.event_id) {
+      throw new Error('No event_id returned');
+    }
+
+    const resultUrl = `${spaceUrl}/call/tryon/${result.event_id}`;
+    return pollForResult(resultUrl, 'Kolors-VTON');
+  } finally {
+    await cleanupTemporaryUploads([personUpload, garmentUpload]);
   }
-
-  const result = await response.json() as { event_id?: string };
-  console.log('[Kolors-VTON] Got event_id:', result.event_id);
-  
-  if (!result.event_id) {
-    throw new Error('No event_id returned');
-  }
-
-  const resultUrl = `${spaceUrl}/call/tryon/${result.event_id}`;
-  return pollForResult(resultUrl, 'Kolors-VTON');
 }
 
 /**
@@ -656,43 +923,47 @@ async function tryStableVITON(
   console.log('[StableVITON] Starting request...');
   
   // Upload images to get URLs
-  const [personUrl, garmentUrl] = await Promise.all([
+  const [personUpload, garmentUpload] = await Promise.all([
     uploadToTemporaryUrl(personImageBase64, 'person'),
     uploadToTemporaryUrl(garmentImageBase64, 'garment'),
   ]);
   
   const payload = {
     data: [
-      { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } },
-      { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
+      { path: personUpload.url, url: personUpload.url, meta: { _type: 'gradio.FileData' } },
+      { path: garmentUpload.url, url: garmentUpload.url, meta: { _type: 'gradio.FileData' } },
     ],
   };
 
-  const response = await fetchWithRetry(
-    `${spaceUrl}/call/process`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    },
-    TIMEOUT_MS
-  );
+  try {
+    const response = await fetchWithRetry(
+      `${spaceUrl}/call/process`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+      getProviderTimeout('StableVITON')
+    );
 
-  if (!response.ok) {
-    const text = await response.text();
-    console.log('[StableVITON] API error:', response.status, text);
-    throw new Error(`API error: ${response.status}`);
+    if (!response.ok) {
+      const text = await response.text();
+      console.log('[StableVITON] API error:', response.status, text);
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json() as { event_id?: string };
+    console.log('[StableVITON] Got event_id:', result.event_id);
+    
+    if (!result.event_id) {
+      throw new Error('No event_id returned');
+    }
+
+    const resultUrl = `${spaceUrl}/call/process/${result.event_id}`;
+    return pollForResult(resultUrl, 'StableVITON');
+  } finally {
+    await cleanupTemporaryUploads([personUpload, garmentUpload]);
   }
-
-  const result = await response.json() as { event_id?: string };
-  console.log('[StableVITON] Got event_id:', result.event_id);
-  
-  if (!result.event_id) {
-    throw new Error('No event_id returned');
-  }
-
-  const resultUrl = `${spaceUrl}/call/process/${result.event_id}`;
-  return pollForResult(resultUrl, 'StableVITON');
 }
 
 /**
@@ -707,43 +978,47 @@ async function tryVTOND(
   console.log('[VTON-D] Starting request...');
   
   // Upload images to get URLs
-  const [personUrl, garmentUrl] = await Promise.all([
+  const [personUpload, garmentUpload] = await Promise.all([
     uploadToTemporaryUrl(personImageBase64, 'person'),
     uploadToTemporaryUrl(garmentImageBase64, 'garment'),
   ]);
   
   const payload = {
     data: [
-      { path: personUrl, url: personUrl, meta: { _type: 'gradio.FileData' } },
-      { path: garmentUrl, url: garmentUrl, meta: { _type: 'gradio.FileData' } },
+      { path: personUpload.url, url: personUpload.url, meta: { _type: 'gradio.FileData' } },
+      { path: garmentUpload.url, url: garmentUpload.url, meta: { _type: 'gradio.FileData' } },
     ],
   };
 
-  const response = await fetchWithRetry(
-    `${spaceUrl}/call/tryon`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    },
-    TIMEOUT_MS
-  );
+  try {
+    const response = await fetchWithRetry(
+      `${spaceUrl}/call/tryon`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+      getProviderTimeout('VTON-D')
+    );
 
-  if (!response.ok) {
-    const text = await response.text();
-    console.log('[VTON-D] API error:', response.status, text);
-    throw new Error(`API error: ${response.status}`);
+    if (!response.ok) {
+      const text = await response.text();
+      console.log('[VTON-D] API error:', response.status, text);
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json() as { event_id?: string };
+    console.log('[VTON-D] Got event_id:', result.event_id);
+    
+    if (!result.event_id) {
+      throw new Error('No event_id returned');
+    }
+
+    const resultUrl = `${spaceUrl}/call/tryon/${result.event_id}`;
+    return pollForResult(resultUrl, 'VTON-D');
+  } finally {
+    await cleanupTemporaryUploads([personUpload, garmentUpload]);
   }
-
-  const result = await response.json() as { event_id?: string };
-  console.log('[VTON-D] Got event_id:', result.event_id);
-  
-  if (!result.event_id) {
-    throw new Error('No event_id returned');
-  }
-
-  const resultUrl = `${spaceUrl}/call/tryon/${result.event_id}`;
-  return pollForResult(resultUrl, 'VTON-D');
 }
 
 /**
@@ -759,7 +1034,13 @@ async function tryProvider(
       if (provider.name === 'FASHN-VTON-1.5') {
         return tryFASHNVTON(personImageBase64, garmentImageBase64);
       }
-      return tryIDMVTON(personImageBase64, garmentImageBase64);
+      return tryIdmProvider(
+        provider.name,
+        provider.url,
+        provider.endpoint,
+        personImageBase64,
+        garmentImageBase64
+      );
     case 'ootd':
       return tryOOTDiffusion(personImageBase64, garmentImageBase64);
     case 'outfitanyone':
@@ -811,10 +1092,11 @@ async function fetchWithRetry(
  * Process Virtual Try-On
  * 
  * Strategy:
- * 1. Primary: Google Gemini API (fast, stable, 500 free/day)
- * 2. Fallback: HuggingFace Spaces when Gemini fails/rate-limited
- * 3. Track health and skip unhealthy providers
- * 4. Return first successful result
+ * 1. Primary: Self-hosted provider(s) when configured
+ * 2. Fallback: Public HuggingFace Spaces (round-robin)
+ * 3. Optional: Gemini (explicitly enabled)
+ * 4. Track health and skip unhealthy providers
+ * 5. Return first successful result
  */
 export async function processVirtualTryOn(
   personImageBase64: string,
@@ -823,146 +1105,195 @@ export async function processVirtualTryOn(
   const startTime = Date.now();
   const errors: string[] = [];
 
-  console.log('=== Starting Virtual Try-On ===');
-  console.log(`[Config] Gemini primary: ${isGeminiAvailable() ? 'AVAILABLE' : 'NOT CONFIGURED'}`);
-  console.log('Person image size:', Math.round(personImageBase64.length / 1024), 'KB');
-  console.log('Garment image size:', Math.round(garmentImageBase64.length / 1024), 'KB');
-
-  // PRIORITY 1: Try Gemini API (fast, stable, free tier 500/day)
-  if (isGeminiAvailable()) {
-    console.log('\n=== Trying Gemini API (Primary) ===');
-    
-    try {
-      const geminiResult = await processGeminiTryOn(personImageBase64, garmentImageBase64);
-      
-      if (geminiResult.success && geminiResult.resultImage) {
-        console.log(`=== Gemini SUCCESS (${geminiResult.processingTime}ms) ===`);
-        return {
-          success: true,
-          resultImage: geminiResult.resultImage,
-          provider: 'Gemini',
-          processingTime: Date.now() - startTime,
-        };
-      }
-      
-      // Log Gemini error but continue to fallback
-      const geminiError = geminiResult.error || 'Unknown error';
-      console.log(`[Gemini] Failed: ${geminiError}`);
-      errors.push(`Gemini: ${geminiError}`);
-      
-      // If rate limited or safety blocked, still try HF as fallback
-      if (geminiError.includes('RATE_LIMIT') || geminiError.includes('quota')) {
-        console.log('[Gemini] Rate limited, falling back to HuggingFace...');
-      } else if (geminiError.includes('SAFETY') || geminiError.includes('an toàn')) {
-        console.log('[Gemini] Content blocked by safety filter, trying HuggingFace...');
-      }
-    } catch (geminiError) {
-      const errorMsg = geminiError instanceof Error ? geminiError.message : 'Unknown error';
-      console.error('[Gemini] Error:', errorMsg);
-      errors.push(`Gemini: ${errorMsg}`);
-    }
-  } else {
-    console.log('[Gemini] Not configured, skipping to HuggingFace...');
+  if (activeTryOnCount >= MAX_CONCURRENT_TRYON) {
+    return {
+      success: false,
+      error: 'Hệ thống đang quá tải. Vui lòng thử lại sau.',
+      errorCode: 'SYSTEM_OVERLOADED',
+      retryAfterSeconds: OVERLOAD_RETRY_SECONDS,
+      processingTime: Date.now() - startTime,
+      errorStage: 'admission',
+    };
   }
 
-  // PRIORITY 2: Fallback to HuggingFace Spaces
-  console.log('\n=== Trying HuggingFace Spaces (Fallback) ===');
+  activeTryOnCount += 1;
+  try {
+    console.log('=== Starting Virtual Try-On ===');
+    console.log(`[Config] Gemini enabled: ${GEMINI_ENABLED && isGeminiAvailable() ? 'YES' : 'NO'}`);
+    console.log('Person image size:', Math.round(personImageBase64.length / 1024), 'KB');
+    console.log('Garment image size:', Math.round(garmentImageBase64.length / 1024), 'KB');
 
-  // Get providers in round-robin order
-  const orderedProviders = getProvidersInOrder();
-  console.log(`[Round-Robin] Provider order: ${orderedProviders.map(p => p.name).join(' → ')}`);
+  const activeProviders = getActiveProviders();
+  const { primary, fallback } = splitProvidersByPriority(activeProviders);
+  const fallbackCandidates = fallback.length > 0 ? fallback : activeProviders;
+  const orderedFallback = getProvidersInOrder(fallbackCandidates);
+  const primaryNames = primary.map((provider) => provider.name);
+  console.log(`[Config] Primary providers: ${primaryNames.length > 0 ? primaryNames.join(', ') : 'none'}`);
 
-  // Try providers in parallel batches for faster response
-  for (let batchStart = 0; batchStart < orderedProviders.length; batchStart += PARALLEL_BATCH_SIZE) {
-    const batch = orderedProviders.slice(batchStart, batchStart + PARALLEL_BATCH_SIZE);
-    console.log(`\n[Batch ${Math.floor(batchStart / PARALLEL_BATCH_SIZE) + 1}] Trying: ${batch.map(p => p.name).join(', ')}`);
-    
-    // Quick health check on batch providers
-    const healthChecks = await Promise.all(
-      batch.map(async (provider) => {
-        const isHealthy = await quickHealthCheck(provider.url);
-        if (!isHealthy) {
-          console.log(`[${provider.name}] Health check failed - skipping`);
-          errors.push(`${provider.name}: health check failed`);
+  const stages: Array<{ label: string; providers: ProviderConfig[]; batchSize: number }> = [
+    { label: 'Primary', providers: primary, batchSize: PRIMARY_PARALLEL_BATCH_SIZE },
+    { label: 'Fallback', providers: orderedFallback, batchSize: FALLBACK_PARALLEL_BATCH_SIZE },
+  ];
+
+  const tryStage = async (
+    label: string,
+    providers: ProviderConfig[],
+    batchSize: number
+  ): Promise<TryOnResult | null> => {
+    if (providers.length === 0) return null;
+    console.log(`\n=== Trying ${label} providers ===`);
+    console.log(`[${label}] Provider order: ${providers.map((p) => p.name).join(' → ')}`);
+
+    for (let batchStart = 0; batchStart < providers.length; batchStart += batchSize) {
+      const batch = providers.slice(batchStart, batchStart + batchSize);
+      console.log(`\n[${label} Batch ${Math.floor(batchStart / batchSize) + 1}] Trying: ${batch.map(p => p.name).join(', ')}`);
+
+      logTryOnEvent({ stage: label.toLowerCase(), event: 'batch_start', providers: batch.map((p) => p.name) });
+
+      const healthChecks = await Promise.all(
+        batch.map(async (provider) => {
+          if (isSelfHostedProvider(provider)) {
+            const readiness = await checkSelfHostedReadiness(provider);
+            if (!readiness.ready) {
+              const reason = readiness.reason || 'Readiness check failed';
+              console.log(`[${provider.name}] Readiness failed - skipping: ${reason}`);
+              errors.push(`${provider.name}: readiness failed (${reason})`);
+              return { provider, isHealthy: false };
+            }
+            return { provider, isHealthy: true };
+          }
+
+          const isHealthy = await quickHealthCheck(provider.url);
+          if (!isHealthy) {
+            console.log(`[${provider.name}] Health check failed - skipping`);
+            errors.push(`${provider.name}: health check failed`);
+          }
+          return { provider, isHealthy };
+        })
+      );
+
+      const healthyProviders = healthChecks.filter(h => h.isHealthy).map(h => h.provider);
+
+      if (healthyProviders.length === 0) {
+        console.log(`[${label}] No healthy providers in batch, moving to next...`);
+        continue;
+      }
+
+      const attempts = healthyProviders.map(async (provider) => {
+        const providerStartTime = Date.now();
+
+        try {
+          console.log(`[${provider.name}] Trying... (stage=${label})`);
+          logTryOnEvent({ stage: label.toLowerCase(), event: 'provider_attempt', provider: provider.name });
+          const resultImage = await tryProvider(provider, personImageBase64, garmentImageBase64);
+
+          const responseTime = Date.now() - providerStartTime;
+          updateProviderHealth(provider.name, true, responseTime);
+          logTryOnEvent({ stage: label.toLowerCase(), event: 'provider_success', provider: provider.name, latencyMs: responseTime });
+
+          return {
+            success: true as const,
+            resultImage,
+            provider: provider.name,
+            responseTime,
+          };
+        } catch (error) {
+          const responseTime = Date.now() - providerStartTime;
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          const timeout = isTimeoutError(error);
+
+          updateProviderHealth(provider.name, false, responseTime, {
+            errorMessage: errorMsg,
+            timeout,
+          });
+          console.log(`[${provider.name}] Failed: ${errorMsg}`);
+          logTryOnEvent({ stage: label.toLowerCase(), event: 'provider_failed', provider: provider.name, latencyMs: responseTime, error: errorMsg, timeout });
+
+          return {
+            success: false as const,
+            provider: provider.name,
+            error: errorMsg,
+          };
         }
-        return { provider, isHealthy };
-      })
-    );
-    
-    const healthyProviders = healthChecks.filter(h => h.isHealthy).map(h => h.provider);
-    
-    if (healthyProviders.length === 0) {
-      console.log('[Batch] No healthy providers in batch, moving to next...');
-      continue;
-    }
-    
-    // Try healthy providers in parallel
-    const attempts = healthyProviders.map(async (provider) => {
-      const providerStartTime = Date.now();
-      
-      try {
-        console.log(`[${provider.name}] Trying...`);
-        const resultImage = await tryProvider(provider, personImageBase64, garmentImageBase64);
-        
-        const responseTime = Date.now() - providerStartTime;
-        updateProviderHealth(provider.name, true, responseTime);
-        
-        return {
-          success: true as const,
-          resultImage,
-          provider: provider.name,
-          responseTime,
-        };
-      } catch (error) {
-        const responseTime = Date.now() - providerStartTime;
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        
-        updateProviderHealth(provider.name, false, responseTime);
-        console.log(`[${provider.name}] Failed: ${errorMsg}`);
-        
-        return {
-          success: false as const,
-          provider: provider.name,
-          error: errorMsg,
-        };
-      }
-    });
-    
-    // Wait for first success or all failures
-    const results = await Promise.allSettled(attempts);
-    
-    for (const result of results) {
-      if (result.status === 'fulfilled' && result.value.success) {
-        console.log(`=== Success with ${result.value.provider} (${result.value.responseTime}ms) ===`);
-        return {
-          success: true,
-          resultImage: result.value.resultImage,
-          provider: result.value.provider,
-          processingTime: Date.now() - startTime,
-        };
-      }
-      
-      if (result.status === 'fulfilled' && !result.value.success) {
-        errors.push(`${result.value.provider}: ${result.value.error}`);
+      });
+
+      const results = await Promise.allSettled(attempts);
+
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.success) {
+          console.log(`=== Success with ${result.value.provider} (${result.value.responseTime}ms) ===`);
+          logTryOnEvent({ stage: label.toLowerCase(), event: 'stage_success', provider: result.value.provider, latencyMs: result.value.responseTime });
+          return {
+            success: true,
+            resultImage: result.value.resultImage,
+            provider: result.value.provider,
+            processingTime: Date.now() - startTime,
+          };
+        }
+
+        if (result.status === 'fulfilled' && !result.value.success) {
+          errors.push(`${result.value.provider}: ${result.value.error}`);
+        }
       }
     }
-  }
 
-  console.log('=== All HuggingFace providers failed ===');
-  console.log('Errors:', errors);
-
-  console.log('=== All providers (Gemini + HF) failed ===');
-  const errorCode: TryOnErrorCode = errors.some((error) => error.toLowerCase().includes('timeout'))
-    ? 'PROVIDER_TIMEOUT'
-    : errors.some((error) => error.toLowerCase().includes('rate') || error.includes('429'))
-      ? 'PROVIDER_RATE_LIMITED'
-      : 'PROVIDER_UNAVAILABLE';
-  return {
-    success: false,
-    error: `Tất cả hệ thống AI đang bận. Chi tiết: ${errors.join('; ')}`,
-    errorCode,
-    processingTime: Date.now() - startTime,
+    return null;
   };
+
+    for (const stage of stages) {
+      const result = await tryStage(stage.label, stage.providers, stage.batchSize);
+      if (result?.success) {
+        return result;
+      }
+    }
+
+    if (GEMINI_ENABLED && isGeminiAvailable()) {
+      console.log('\n=== Trying Gemini API (Optional) ===');
+      try {
+        const geminiResult = await processGeminiTryOn(personImageBase64, garmentImageBase64);
+        if (geminiResult.success && geminiResult.resultImage) {
+          console.log(`=== Gemini SUCCESS (${geminiResult.processingTime}ms) ===`);
+          return {
+            success: true,
+            resultImage: geminiResult.resultImage,
+            provider: 'Gemini',
+            processingTime: Date.now() - startTime,
+          };
+        }
+
+        const geminiError = geminiResult.error || 'Unknown error';
+        console.log(`[Gemini] Failed: ${geminiError}`);
+        errors.push(`Gemini: ${geminiError}`);
+      } catch (geminiError) {
+        const errorMsg = geminiError instanceof Error ? geminiError.message : 'Unknown error';
+        console.error('[Gemini] Error:', errorMsg);
+        errors.push(`Gemini: ${errorMsg}`);
+      }
+    } else if (isGeminiAvailable()) {
+      console.log('[Gemini] Disabled by TRYON_USE_GEMINI');
+    }
+
+    console.log('=== All HuggingFace providers failed ===');
+    console.log('Errors:', errors);
+
+    console.log('=== All providers (Gemini + HF) failed ===');
+    const errorCode: TryOnErrorCode = errors.some((error) => error.toLowerCase().includes('timeout'))
+      ? 'PROVIDER_TIMEOUT'
+      : errors.some((error) => error.toLowerCase().includes('rate') || error.includes('429'))
+        ? 'PROVIDER_RATE_LIMITED'
+        : 'PROVIDER_UNAVAILABLE';
+    logTryOnEvent({ event: 'all_failed', errorCode, errors });
+    return {
+      success: false,
+      error: `Tất cả hệ thống AI đang bận. Chi tiết: ${errors.join('; ')}`,
+      errorCode,
+      processingTime: Date.now() - startTime,
+      errorStage: 'fallback',
+      retryAfterSeconds: errorCode === 'PROVIDER_RATE_LIMITED' ? 60 : undefined,
+    };
+  } finally {
+    activeTryOnCount = Math.max(0, activeTryOnCount - 1);
+  }
 }
  
 /**
@@ -974,8 +1305,11 @@ export async function checkSpacesStatus(): Promise<SpaceStatus[]> {
 
   for (const provider of activeProviders) {
     const health = providerHealth.get(provider.name);
-    
+
     try {
+      const readiness = isSelfHostedProvider(provider)
+        ? await checkSelfHostedReadiness(provider)
+        : { ready: true };
       const response = await fetchWithTimeout(
         provider.url,
         { method: 'GET' },
@@ -983,7 +1317,9 @@ export async function checkSpacesStatus(): Promise<SpaceStatus[]> {
       );
 
       results.push({
-        available: response.ok && (!health || health.consecutiveFailures < MAX_CONSECUTIVE_FAILURES),
+        available: response.ok
+          && readiness.ready
+          && (!health || health.consecutiveFailures < MAX_CONSECUTIVE_FAILURES),
         name: provider.name,
         queueSize: health?.consecutiveFailures,
       });
@@ -1002,10 +1338,33 @@ export async function checkSpacesStatus(): Promise<SpaceStatus[]> {
 /**
  * Get current health stats for monitoring
  */
-export function getProviderHealthStats(): Record<string, ProviderHealth> {
-  const stats: Record<string, ProviderHealth> = {};
+export function getProviderHealthStats(): Record<string, ProviderHealthSnapshot> {
+  const stats: Record<string, ProviderHealthSnapshot> = {};
+  const primaryNames = new Set(getPrimaryProviderNames());
+  const now = Date.now();
+
   providerHealth.forEach((health, name) => {
-    stats[name] = { ...health };
+    pruneRecentEvents(health, now);
+    const { successRate, timeoutRate } = getHealthWindowStats(health);
+    const coolingDownUntil = health.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES
+      ? Math.max(health.lastFailure + RECOVERY_TIME, now)
+      : null;
+
+    stats[name] = {
+      lastSuccess: health.lastSuccess,
+      lastFailure: health.lastFailure,
+      lastErrorAt: health.lastErrorAt,
+      lastErrorMessage: health.lastErrorMessage,
+      successCount: health.successCount,
+      failureCount: health.failureCount,
+      consecutiveFailures: health.consecutiveFailures,
+      consecutiveTimeouts: health.consecutiveTimeouts,
+      avgResponseTime: health.avgResponseTime,
+      successRate,
+      timeoutRate,
+      coolingDownUntil,
+      stage: primaryNames.has(name) ? 'primary' : 'fallback',
+    };
   });
   return stats;
 }

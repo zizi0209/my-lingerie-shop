@@ -13,6 +13,13 @@ const GCS_PRIVATE_KEY = process.env.GCS_PRIVATE_KEY || '';
 const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || '';
 const TRYON_STORAGE_PROVIDER = process.env.TRYON_STORAGE_PROVIDER || 'auto';
 const TRYON_CLOUDINARY_FOLDER = process.env.TRYON_CLOUDINARY_FOLDER || 'virtual-tryon';
+const TRYON_UPLOAD_MAX_BYTES = Number(process.env.TRYON_UPLOAD_MAX_BYTES || String(10 * 1024 * 1024));
+
+const ALLOWED_UPLOAD_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
 
 export type TryOnStorageProvider = 'gcs' | 'cloudinary';
 
@@ -109,7 +116,7 @@ function mapMimeTypeToExtension(mimeType: string): string {
   return 'bin';
 }
 
-async function uploadToGcs(base64Image: string): Promise<string> {
+async function uploadToGcs(base64Image: string): Promise<{ signedUrl: string; gcsUri: string }> {
   const storage = getGcsStorage();
   if (!storage) {
     throw new Error('GCS_TRYON_BUCKET not configured');
@@ -131,7 +138,10 @@ async function uploadToGcs(base64Image: string): Promise<string> {
 
   const expires = Date.now() + getSignedUrlTtlSeconds() * 1000;
   const [signedUrl] = await file.getSignedUrl({ action: 'read', expires });
-  return signedUrl;
+  return {
+    signedUrl,
+    gcsUri: `gs://${GCS_TRYON_BUCKET}/${objectName}`,
+  };
 }
 
 function parseGcsUri(gcsUri: string): { bucket: string; objectPath: string } {
@@ -153,6 +163,7 @@ export async function createTryOnUploadSignedUrl(options: {
   contentType: string;
   extension?: string;
   category?: string;
+  contentLength?: number;
 }): Promise<{
   uploadUrl: string;
   uploadMethod: 'PUT' | 'POST';
@@ -165,6 +176,14 @@ export async function createTryOnUploadSignedUrl(options: {
   const provider = getTryOnStorageProvider();
   if (!provider) {
     throw new Error('TRYON storage provider is not configured');
+  }
+
+  if (!ALLOWED_UPLOAD_MIME.has(options.contentType)) {
+    throw new Error('contentType không được hỗ trợ');
+  }
+
+  if (typeof options.contentLength === 'number' && options.contentLength > TRYON_UPLOAD_MAX_BYTES) {
+    throw new Error('Kích thước file vượt giới hạn cho phép');
   }
 
   if (provider === 'gcs') {
@@ -308,6 +327,78 @@ export async function uploadBase64ToTryOnStorage(options: {
   throw new Error('TRYON storage provider is not configured');
 }
 
+export interface TemporaryUpload {
+  url: string;
+  storageUri?: string;
+  provider: 'gcs' | 'imgbb' | 'inline';
+}
+
+export async function deleteGcsObjectByUri(gcsUri: string): Promise<boolean> {
+  const storage = getGcsStorage();
+  if (!storage) return false;
+
+  try {
+    const { bucket, objectPath } = parseGcsUri(gcsUri);
+    await storage.bucket(bucket).file(objectPath).delete();
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Lỗi không xác định';
+    console.warn(`[GCS] Delete failed: ${message}`);
+    return false;
+  }
+}
+
+function parseCloudinaryPublicId(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    const uploadIndex = parts.indexOf('upload');
+    if (uploadIndex < 0 || uploadIndex + 1 >= parts.length) {
+      return null;
+    }
+    let publicParts = parts.slice(uploadIndex + 1);
+    if (publicParts[0] && /^v\d+$/.test(publicParts[0])) {
+      publicParts = publicParts.slice(1);
+    }
+    if (publicParts.length === 0) return null;
+    const last = publicParts[publicParts.length - 1];
+    publicParts[publicParts.length - 1] = last.replace(/\.[^.]+$/, '');
+    return publicParts.join('/');
+  } catch {
+    return null;
+  }
+}
+
+async function deleteCloudinaryAsset(url: string): Promise<boolean> {
+  if (!isCloudinaryConfigured()) return false;
+  const publicId = parseCloudinaryPublicId(url);
+  if (!publicId) return false;
+
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Lỗi không xác định';
+    console.warn(`[Cloudinary] Delete failed: ${message}`);
+    return false;
+  }
+}
+
+export async function deleteTryOnAsset(options: {
+  gcsUri?: string;
+  url?: string;
+}): Promise<boolean> {
+  if (options.gcsUri && isGcsUri(options.gcsUri)) {
+    return deleteGcsObjectByUri(options.gcsUri);
+  }
+
+  if (options.url && options.url.includes('cloudinary.com')) {
+    return deleteCloudinaryAsset(options.url);
+  }
+
+  return false;
+}
+
 async function uploadToImgbb(base64Image: string): Promise<string> {
   if (!IMGBB_API_KEY) {
     throw new Error('IMGBB_API_KEY not configured');
@@ -376,13 +467,17 @@ function ensureDataUrl(base64: string): string {
   return `data:image/jpeg;base64,${base64}`;
 }
 
-export async function uploadToTemporaryUrl(base64Image: string, label: string): Promise<string> {
+export async function uploadToTemporaryUrl(base64Image: string, label: string): Promise<TemporaryUpload> {
   if (isGcsConfigured()) {
     try {
       console.log(`[GCS] Uploading ${label} image...`);
-      const url = await uploadToGcs(base64Image);
+      const result = await uploadToGcs(base64Image);
       console.log(`[GCS] Uploaded ${label} image`);
-      return url;
+      return {
+        url: result.signedUrl,
+        storageUri: result.gcsUri,
+        provider: 'gcs',
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Lỗi không xác định';
       console.warn(`[GCS] Upload failed, fallback to imgbb: ${message}`);
@@ -391,8 +486,9 @@ export async function uploadToTemporaryUrl(base64Image: string, label: string): 
 
   if (isImgbbConfigured()) {
     console.log(`[imgbb] Uploading ${label} image...`);
-    return uploadToImgbb(base64Image);
+    const url = await uploadToImgbb(base64Image);
+    return { url, provider: 'imgbb' };
   }
 
-  return ensureDataUrl(base64Image);
+  return { url: ensureDataUrl(base64Image), provider: 'inline' };
 }
