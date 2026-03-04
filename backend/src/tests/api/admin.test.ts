@@ -68,15 +68,16 @@ describe('Admin API', () => {
     });
 
     it('should search by email', async () => {
-      await createTestUser({ email: 'search@example.com' });
+      const uniqueEmail = `search_${Date.now()}@example.com`;
+      await createTestUser({ email: uniqueEmail });
 
       const response = await request(app)
-        .get('/api/admin/users?search=search@')
+        .get('/api/admin/users?search=search_')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
       expect(response.body.data.length).toBeGreaterThan(0);
-      expect(response.body.data[0].email).toContain('search');
+      expect(response.body.data[0].email).toContain('search_');
     });
   });
 

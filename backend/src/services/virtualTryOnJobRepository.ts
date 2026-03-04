@@ -22,6 +22,11 @@ export interface TryOnJobRecord {
   jobId: string;
   status: TryOnJobStatus;
   provider?: string;
+  qualityScore?: number;
+  modelName?: string;
+  seed?: number;
+  latencyMs?: number;
+  fallbackReason?: string;
   errorCode?: string;
   errorMessage?: string;
   processingTime?: number;
@@ -54,6 +59,11 @@ export interface CreateTryOnJobInput {
   jobId?: string;
   status: TryOnJobStatus;
   provider?: string;
+  qualityScore?: number;
+  modelName?: string;
+  seed?: number;
+  latencyMs?: number;
+  fallbackReason?: string;
   errorCode?: string;
   errorMessage?: string;
   processingTime?: number;
@@ -89,6 +99,11 @@ interface PostgresTryOnJobRow {
   job_id: string;
   status: string;
   provider: string | null;
+  quality_score: number | null;
+  model_name: string | null;
+  seed: number | null;
+  latency_ms: number | null;
+  fallback_reason: string | null;
   error_code: string | null;
   error_message: string | null;
   processing_time: number | null;
@@ -176,6 +191,11 @@ function toTryOnJobRecord(jobId: string, data: DocumentData | undefined): TryOnJ
     jobId,
     status: data.status,
     provider: typeof data.provider === 'string' ? data.provider : undefined,
+    qualityScore: typeof data.qualityScore === 'number' ? data.qualityScore : undefined,
+    modelName: typeof data.modelName === 'string' ? data.modelName : undefined,
+    seed: typeof data.seed === 'number' ? data.seed : undefined,
+    latencyMs: typeof data.latencyMs === 'number' ? data.latencyMs : undefined,
+    fallbackReason: typeof data.fallbackReason === 'string' ? data.fallbackReason : undefined,
     errorCode: typeof data.errorCode === 'string' ? data.errorCode : undefined,
     errorMessage: typeof data.errorMessage === 'string' ? data.errorMessage : undefined,
     processingTime: typeof data.processingTime === 'number' ? data.processingTime : undefined,
@@ -225,6 +245,11 @@ function toTryOnJobRecordFromRow(row: PostgresTryOnJobRow): TryOnJobRecord | nul
     status: row.status,
     provider: row.provider ?? undefined,
     errorCode: row.error_code ?? undefined,
+    qualityScore: normalizeNumber(row.quality_score),
+    modelName: row.model_name ?? undefined,
+    seed: normalizeNumber(row.seed),
+    latencyMs: normalizeNumber(row.latency_ms),
+    fallbackReason: row.fallback_reason ?? undefined,
     errorMessage: row.error_message ?? undefined,
     processingTime: normalizeNumber(row.processing_time),
     resultImage: row.result_image ?? undefined,
@@ -263,6 +288,11 @@ async function ensurePostgresSchema(): Promise<void> {
       job_id TEXT PRIMARY KEY,
       status TEXT NOT NULL,
       provider TEXT,
+      quality_score DOUBLE PRECISION,
+      model_name TEXT,
+      seed INTEGER,
+      latency_ms INTEGER,
+      fallback_reason TEXT,
       error_code TEXT,
       error_message TEXT,
       processing_time INTEGER,
@@ -298,7 +328,12 @@ async function ensurePostgresSchema(): Promise<void> {
     ADD COLUMN IF NOT EXISTS last_attempt_at BIGINT,
     ADD COLUMN IF NOT EXISTS next_retry_at BIGINT,
     ADD COLUMN IF NOT EXISTS processing_started_at BIGINT,
-    ADD COLUMN IF NOT EXISTS dead_lettered_at BIGINT;
+    ADD COLUMN IF NOT EXISTS dead_lettered_at BIGINT,
+    ADD COLUMN IF NOT EXISTS quality_score DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS model_name TEXT,
+    ADD COLUMN IF NOT EXISTS seed INTEGER,
+    ADD COLUMN IF NOT EXISTS latency_ms INTEGER,
+    ADD COLUMN IF NOT EXISTS fallback_reason TEXT;
   `);
 
   await prisma.$executeRawUnsafe(`
@@ -330,6 +365,11 @@ export async function createTryOnJob(input: CreateTryOnJobInput): Promise<TryOnJ
     jobId,
     status: input.status,
     provider: input.provider,
+    qualityScore: input.qualityScore,
+    modelName: input.modelName,
+    seed: input.seed,
+    latencyMs: input.latencyMs,
+    fallbackReason: input.fallbackReason,
     errorCode: input.errorCode,
     errorMessage: input.errorMessage,
     processingTime: input.processingTime,
@@ -372,7 +412,7 @@ export async function createTryOnJob(input: CreateTryOnJobInput): Promise<TryOnJ
     await ensurePostgresSchema();
     await prisma.$executeRaw`
       INSERT INTO virtual_tryon_jobs (
-        job_id, status, provider, error_code, error_message, processing_time,
+        job_id, status, provider, quality_score, model_name, seed, latency_ms, fallback_reason, error_code, error_message, processing_time,
         result_image, result_image_gcs_uri, result_video, result_video_gcs_uri,
         person_image_gcs_uri, garment_image_gcs_uri, person_image_url, garment_image_url,
         wants_video, video_duration_seconds, attempt_count, last_attempt_at,
@@ -380,7 +420,7 @@ export async function createTryOnJob(input: CreateTryOnJobInput): Promise<TryOnJ
         expires_at, idempotency_key, lease_owner, lease_expires_at,
         user_id, product_id
       ) VALUES (
-        ${record.jobId}, ${record.status}, ${record.provider}, ${record.errorCode}, ${record.errorMessage}, ${record.processingTime},
+        ${record.jobId}, ${record.status}, ${record.provider}, ${record.qualityScore}, ${record.modelName}, ${record.seed}, ${record.latencyMs}, ${record.fallbackReason}, ${record.errorCode}, ${record.errorMessage}, ${record.processingTime},
         ${record.resultImage}, ${record.resultImageGcsUri}, ${record.resultVideo}, ${record.resultVideoGcsUri},
         ${record.personImageGcsUri}, ${record.garmentImageGcsUri}, ${record.personImageUrl}, ${record.garmentImageUrl},
         ${record.wantsVideo}, ${record.videoDurationSeconds}, ${record.attemptCount}, ${record.lastAttemptAt},
@@ -391,6 +431,11 @@ export async function createTryOnJob(input: CreateTryOnJobInput): Promise<TryOnJ
       ON CONFLICT (job_id) DO UPDATE SET
         status = EXCLUDED.status,
         provider = EXCLUDED.provider,
+        quality_score = EXCLUDED.quality_score,
+        model_name = EXCLUDED.model_name,
+        seed = EXCLUDED.seed,
+        latency_ms = EXCLUDED.latency_ms,
+        fallback_reason = EXCLUDED.fallback_reason,
         error_code = EXCLUDED.error_code,
         error_message = EXCLUDED.error_message,
         processing_time = EXCLUDED.processing_time,
@@ -448,6 +493,11 @@ export async function updateTryOnJob(jobId: string, patch: Partial<TryOnJobRecor
       jobId,
       status: patch.status ?? existing?.status ?? 'queued',
       provider: patch.provider ?? existing?.provider,
+      qualityScore: patch.qualityScore ?? existing?.qualityScore,
+      modelName: patch.modelName ?? existing?.modelName,
+      seed: patch.seed ?? existing?.seed,
+      latencyMs: patch.latencyMs ?? existing?.latencyMs,
+      fallbackReason: patch.fallbackReason ?? existing?.fallbackReason,
       errorCode: patch.errorCode ?? existing?.errorCode,
       errorMessage: patch.errorMessage ?? existing?.errorMessage,
       processingTime: patch.processingTime ?? existing?.processingTime,
@@ -478,7 +528,7 @@ export async function updateTryOnJob(jobId: string, patch: Partial<TryOnJobRecor
 
     await prisma.$executeRaw`
       INSERT INTO virtual_tryon_jobs (
-        job_id, status, provider, error_code, error_message, processing_time,
+        job_id, status, provider, quality_score, model_name, seed, latency_ms, fallback_reason, error_code, error_message, processing_time,
         result_image, result_image_gcs_uri, result_video, result_video_gcs_uri,
         person_image_gcs_uri, garment_image_gcs_uri, person_image_url, garment_image_url,
         wants_video, video_duration_seconds, attempt_count, last_attempt_at,
@@ -486,7 +536,7 @@ export async function updateTryOnJob(jobId: string, patch: Partial<TryOnJobRecor
         expires_at, idempotency_key, lease_owner, lease_expires_at,
         user_id, product_id
       ) VALUES (
-        ${merged.jobId}, ${merged.status}, ${merged.provider}, ${merged.errorCode}, ${merged.errorMessage}, ${merged.processingTime},
+        ${merged.jobId}, ${merged.status}, ${merged.provider}, ${merged.qualityScore}, ${merged.modelName}, ${merged.seed}, ${merged.latencyMs}, ${merged.fallbackReason}, ${merged.errorCode}, ${merged.errorMessage}, ${merged.processingTime},
         ${merged.resultImage}, ${merged.resultImageGcsUri}, ${merged.resultVideo}, ${merged.resultVideoGcsUri},
         ${merged.personImageGcsUri}, ${merged.garmentImageGcsUri}, ${merged.personImageUrl}, ${merged.garmentImageUrl},
         ${merged.wantsVideo}, ${merged.videoDurationSeconds}, ${merged.attemptCount}, ${merged.lastAttemptAt},
@@ -497,6 +547,11 @@ export async function updateTryOnJob(jobId: string, patch: Partial<TryOnJobRecor
       ON CONFLICT (job_id) DO UPDATE SET
         status = EXCLUDED.status,
         provider = EXCLUDED.provider,
+        quality_score = EXCLUDED.quality_score,
+        model_name = EXCLUDED.model_name,
+        seed = EXCLUDED.seed,
+        latency_ms = EXCLUDED.latency_ms,
+        fallback_reason = EXCLUDED.fallback_reason,
         error_code = EXCLUDED.error_code,
         error_message = EXCLUDED.error_message,
         processing_time = EXCLUDED.processing_time,
@@ -567,6 +622,8 @@ export async function markTryOnJobRetryScheduled(jobId: string, options: {
   attemptCount: number;
   errorMessage?: string;
   errorCode?: string;
+  modelName?: string;
+  latencyMs?: number;
 }): Promise<boolean> {
   return updateTryOnJob(jobId, {
     status: 'queued',
@@ -575,17 +632,23 @@ export async function markTryOnJobRetryScheduled(jobId: string, options: {
     lastAttemptAt: Date.now(),
     errorMessage: options.errorMessage,
     errorCode: options.errorCode,
+    modelName: options.modelName,
+    latencyMs: options.latencyMs,
   });
 }
 
 export async function markTryOnJobDeadLetter(jobId: string, options: {
   errorMessage: string;
   errorCode?: string;
+  modelName?: string;
+  latencyMs?: number;
 }): Promise<boolean> {
   return updateTryOnJob(jobId, {
     status: 'failed',
     errorMessage: options.errorMessage,
     errorCode: options.errorCode || 'DEAD_LETTER',
+    modelName: options.modelName,
+    latencyMs: options.latencyMs,
     deadLetteredAt: Date.now(),
   });
 }

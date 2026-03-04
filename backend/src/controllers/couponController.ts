@@ -1253,7 +1253,7 @@ export const redeemReward = async (req: Request, res: Response) => {
       }
 
       return { redemption, userCoupon, newBalance };
-    });
+    }, { timeout: 60000 });
 
     res.json({
       success: true,

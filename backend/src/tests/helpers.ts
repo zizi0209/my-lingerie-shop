@@ -49,6 +49,29 @@ export async function createTestUser(overrides: Partial<{
   // Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
 
+  if (overrides.email) {
+    const existingUser = await prisma.user.findFirst({
+      where: { email: uniqueEmail },
+      include: { role: true },
+    });
+
+    if (existingUser) {
+      const updatedUser = await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          email: uniqueEmail,
+          password: hashedPassword,
+          name,
+          roleId: role?.id || null,
+          isActive,
+        },
+        include: { role: true },
+      });
+
+      return { user: updatedUser, password };
+    }
+  }
+
   // Create user
   const user = await prisma.user.create({
     data: {

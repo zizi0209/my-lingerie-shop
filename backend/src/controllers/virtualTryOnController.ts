@@ -32,6 +32,7 @@ const PROCESS_ESTIMATE_MS = Number(process.env.TRYON_PROCESS_ESTIMATE_MS || '120
 const TRYON_JOB_RETRY_BASE_SECONDS = Number(process.env.TRYON_JOB_RETRY_BASE_SECONDS || '30');
 const TRYON_JOB_RETRY_MAX_SECONDS = Number(process.env.TRYON_JOB_RETRY_MAX_SECONDS || '300');
 const TRYON_MAX_VIDEO_DURATION_SECONDS = Number(process.env.TRYON_MAX_VIDEO_DURATION_SECONDS || '10');
+const VERTEX_TRYON_MODEL_ID = process.env.VERTEX_TRYON_MODEL_ID || 'virtual-try-on-001';
 const TRYON_WORKER_WEBHOOK_URL = process.env.TRYON_WORKER_WEBHOOK_URL || '';
 const TRYON_WORKER_TOKEN = process.env.TRYON_WORKER_TOKEN;
 const TRYON_METRICS_TOKEN = process.env.TRYON_METRICS_TOKEN;
@@ -382,6 +383,7 @@ export async function processTryOnJob(req: Request, res: Response) {
   let leaseOwner: string | null = null;
   let leaseAcquired = false;
   let shouldCleanup = false;
+  let processingStartedAt: number | undefined;
   try {
     if (!isTryOnJobStoreEnabled()) {
       return res.status(501).json({
@@ -470,7 +472,7 @@ export async function processTryOnJob(req: Request, res: Response) {
     }
 
     attemptCount = (jobRecord.attemptCount ?? 0) + 1;
-    const processingStartedAt = Date.now();
+    processingStartedAt = Date.now();
     await updateTryOnJob(jobId, {
       status: 'processing',
       provider: 'vertex-ai-tryon',
@@ -524,6 +526,8 @@ export async function processTryOnJob(req: Request, res: Response) {
     await updateTryOnJob(jobId, {
       status: 'completed',
       provider: 'vertex-ai-tryon',
+      modelName: VERTEX_TRYON_MODEL_ID,
+      latencyMs: processingTime,
       processingTime,
       resultImage: storedImage.signedUrl,
       resultImageGcsUri: storedImage.storageUri,
@@ -549,6 +553,7 @@ export async function processTryOnJob(req: Request, res: Response) {
     const message = error instanceof Error ? error.message : 'Lỗi không xác định';
     let retryAt: number | null = null;
     if (jobId && jobRecord) {
+      const latencyMs = processingStartedAt ? Date.now() - processingStartedAt : undefined;
       const currentAttempt = attemptCount || jobRecord.attemptCount || 0;
       const maxAttempts = getTryOnJobMaxAttempts();
       const canRetry = isRetryableJobError(message) && currentAttempt < maxAttempts;
@@ -560,10 +565,14 @@ export async function processTryOnJob(req: Request, res: Response) {
           nextRetryAt,
           attemptCount: currentAttempt + 1,
           errorMessage: message,
+          modelName: VERTEX_TRYON_MODEL_ID,
+          latencyMs,
         });
       } else {
         await markTryOnJobDeadLetter(jobId, {
           errorMessage: message,
+          modelName: VERTEX_TRYON_MODEL_ID,
+          latencyMs,
         });
         shouldCleanup = true;
       }

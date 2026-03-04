@@ -129,6 +129,11 @@ function toTryOnResult(params: {
   resultImageGcsUri?: string;
   resultVideoGcsUri?: string;
   processingTime?: number;
+  qualityScore?: number;
+  modelName?: string;
+  seed?: number;
+  latencyMs?: number;
+  fallbackReason?: string;
 }): TryOnResult {
   if (!params.resultImage) {
     throw new Error('Không nhận được ảnh kết quả từ hệ thống AI');
@@ -147,6 +152,11 @@ function toTryOnResult(params: {
     productName: params.productName,
     timestamp: Date.now(),
     provider: params.provider,
+    qualityScore: params.qualityScore,
+    modelName: params.modelName,
+    seed: params.seed,
+    latencyMs: params.latencyMs,
+    fallbackReason: params.fallbackReason,
   };
 }
 
@@ -405,6 +415,11 @@ async function processVirtualTryOnAsyncCloud(
     resultImageGcsUri: jobStatus.resultImageGcsUri,
     resultVideoGcsUri: jobStatus.resultVideoGcsUri,
     processingTime: jobStatus.processingTime,
+    qualityScore: jobStatus.qualityScore,
+    modelName: jobStatus.modelName,
+    seed: jobStatus.seed,
+    latencyMs: jobStatus.latencyMs,
+    fallbackReason: jobStatus.fallbackReason,
   });
 }
  

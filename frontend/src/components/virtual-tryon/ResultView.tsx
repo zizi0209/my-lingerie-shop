@@ -12,6 +12,17 @@
  }
  
 export function ResultView({ result, onTryAgain, onAddToCart, onDownload, onDownloadVideo }: ResultViewProps) {
+  const qualityLabel = typeof result.qualityScore === 'number'
+    ? `${Math.round(result.qualityScore * 100)}%`
+    : undefined;
+
+  const metadataItems = [
+    result.provider ? { label: 'Provider', value: result.provider } : null,
+    result.modelName ? { label: 'Model', value: result.modelName } : null,
+    qualityLabel ? { label: 'Chất lượng', value: qualityLabel } : null,
+    typeof result.latencyMs === 'number' ? { label: 'Latency', value: `${Math.round(result.latencyMs / 1000)}s` } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+
    return (
      <div className="space-y-4 sm:space-y-6">
        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -47,6 +58,19 @@ export function ResultView({ result, onTryAgain, onAddToCart, onDownload, onDown
        <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
          <p className="font-medium text-gray-800 text-sm sm:text-base">{result.productName}</p>
        </div>
+
+      {metadataItems.length > 0 && (
+        <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
+          <p className="text-sm font-medium text-gray-700 mb-2">Thông tin xử lý</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {metadataItems.map((item) => (
+              <div key={item.label} className="text-xs sm:text-sm text-gray-600">
+                <span className="font-medium text-gray-700">{item.label}:</span> {item.value}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
  
        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
          {onAddToCart && (

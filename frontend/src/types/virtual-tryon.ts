@@ -29,6 +29,11 @@ export type TryOnErrorCode =
    productName: string;
    timestamp: number;
   provider?: string;
+  qualityScore?: number;
+  modelName?: string;
+  seed?: number;
+  latencyMs?: number;
+  fallbackReason?: string;
  }
 
 export interface SignedUploadResponse {
@@ -63,6 +68,11 @@ export interface TryOnJobStatusResponse {
   resultImageGcsUri?: string;
   resultVideo?: string;
   resultVideoGcsUri?: string;
+  qualityScore?: number;
+  modelName?: string;
+  seed?: number;
+  latencyMs?: number;
+  fallbackReason?: string;
   etaMs?: number;
   attemptCount?: number;
   nextRetryAt?: number;
