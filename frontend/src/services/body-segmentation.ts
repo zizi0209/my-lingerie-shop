@@ -150,9 +150,12 @@ export async function detectPersonMaskFromImage(
   const segmenter = await initBodySegmenterImage();
   if (!segmenter) return null;
 
+  const source = normalizeImageSource(image);
+  if (!source) return null;
+
   let mask: ReturnType<typeof segmenter.segment>['categoryMask'] | null = null;
   try {
-    const result = segmenter.segment(image);
+    const result = segmenter.segment(source);
     mask = result.categoryMask;
     if (!mask) return null;
 
@@ -170,7 +173,11 @@ export async function detectPersonMaskFromImage(
       imageData.data[index + 3] = alpha;
     }
 
-    return imageData;
+    if (width === source.width && height === source.height) {
+      return imageData;
+    }
+
+    return scaleMaskToCanvas(imageData, source.width, source.height);
   } catch (error) {
     console.error('[BodySegmentation] Image segmentation failed:', error);
     return null;
@@ -179,6 +186,46 @@ export async function detectPersonMaskFromImage(
       mask.close();
     }
   }
+}
+
+function normalizeImageSource(
+  image: HTMLImageElement | HTMLCanvasElement
+): HTMLCanvasElement | null {
+  if (image instanceof HTMLCanvasElement) {
+    if (image.width <= 0 || image.height <= 0) return null;
+    return image;
+  }
+
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  if (width <= 0 || height <= 0) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.drawImage(image, 0, 0, width, height);
+  return canvas;
+}
+
+function scaleMaskToCanvas(maskData: ImageData, width: number, height: number): ImageData | null {
+  const sourceCanvas = document.createElement('canvas');
+  sourceCanvas.width = maskData.width;
+  sourceCanvas.height = maskData.height;
+  const sourceCtx = sourceCanvas.getContext('2d');
+  if (!sourceCtx) return null;
+  sourceCtx.putImageData(maskData, 0, 0);
+
+  const targetCanvas = document.createElement('canvas');
+  targetCanvas.width = width;
+  targetCanvas.height = height;
+  const targetCtx = targetCanvas.getContext('2d');
+  if (!targetCtx) return null;
+  targetCtx.imageSmoothingEnabled = true;
+  targetCtx.imageSmoothingQuality = 'high';
+  targetCtx.drawImage(sourceCanvas, 0, 0, width, height);
+  return targetCtx.getImageData(0, 0, width, height);
 }
 
 export function disposeBodySegmenter(): void {

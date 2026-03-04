@@ -493,7 +493,7 @@ const buildImageFromTensor = (
 export const runOnnxTryOn = async (request: OnnxTryOnRequest): Promise<HTMLCanvasElement> => {
   const runtimeConfig = await getRuntimeConfig();
   if (!runtimeConfig.enabled) {
-    throw new Error('ONNX try-on chưa được bật');
+    throw new Error('ONNX_DISABLED: ONNX try-on chưa được bật');
   }
 
   request.onProgress?.(18, 'Đang tải cấu hình try-on...');

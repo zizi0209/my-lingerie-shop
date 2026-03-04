@@ -18,6 +18,9 @@ interface TryOnErrorPayload {
   error?: string;
   message?: string;
   errorCode?: TryOnErrorCode;
+  retryAfterSeconds?: number;
+  errorStage?: string;
+  providerHint?: string;
 }
 
 interface PublicConfigPayload {
@@ -32,6 +35,7 @@ interface SignedUploadPayload {
   contentType: string;
   extension?: string;
   category?: string;
+  contentLength?: number;
 }
 
 const normalizeBoolean = (value?: string): boolean | null => {
@@ -93,12 +97,6 @@ export async function isRemoteTryOnEnabled(): Promise<boolean> {
    });
  }
  
- async function urlToBase64(url: string): Promise<string> {
-   const response = await fetch(url);
-   const blob = await response.blob();
-   return blobToBase64(blob);
- }
-
 const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -296,22 +294,32 @@ async function pollTryOnJob(
   while (Date.now() - start < timeoutMs) {
     const data = await fetchTryOnJob(jobId, { signal: options.signal });
     if (data.status === 'queued') {
-      onProgress?.(50, 'Đang chờ trong hàng đợi...');
+      if (data.nextRetryAt && data.nextRetryAt > Date.now()) {
+        const retrySeconds = Math.max(1, Math.round((data.nextRetryAt - Date.now()) / 1000));
+        onProgress?.(45, `Đang chờ retry sau ${retrySeconds}s...`);
+      } else {
+        const etaSeconds = data.etaMs ? Math.round(data.etaMs / 1000) : undefined;
+        onProgress?.(50, etaSeconds ? `Đang chờ trong hàng đợi GPU (~${etaSeconds}s)...` : 'Đang chờ trong hàng đợi GPU...');
+      }
     }
     if (data.status === 'processing') {
-      onProgress?.(75, 'Đang xử lý AI...');
+      const etaSeconds = data.etaMs ? Math.round(data.etaMs / 1000) : undefined;
+      onProgress?.(75, etaSeconds ? `AI đang xử lý trên GPU (~${etaSeconds}s)...` : 'AI đang xử lý trên GPU...');
     }
     if (data.status === 'completed') {
       return data;
     }
     if (data.status === 'failed') {
-      throw new Error(data.errorMessage || 'Job xử lý thất bại');
+      throw new Error(`REMOTE_FAILED: ${data.errorMessage || 'Job xử lý thất bại'}`);
+    }
+    if (data.status === 'expired') {
+      throw new Error(`REMOTE_EXPIRED: ${data.errorMessage || 'Job đã hết hạn'}`);
     }
 
     await sleep(intervalMs, options.signal);
   }
 
-  throw new Error('AI đang xử lý quá lâu. Vui lòng thử lại sau.');
+  throw new Error('REMOTE_TIMEOUT: AI đang xử lý quá lâu. Vui lòng thử lại sau.');
 }
 
 async function processVirtualTryOnAsyncCloud(
@@ -326,11 +334,15 @@ async function processVirtualTryOnAsyncCloud(
 
   const [personUpload, garmentUpload] = await Promise.all([
     requestSignedUploadUrl(
-      { contentType: request.personImage.type || 'image/jpeg', category: 'person' },
+      {
+        contentType: request.personImage.type || 'image/jpeg',
+        category: 'person',
+        contentLength: request.personImage.size,
+      },
       { signal }
     ),
     requestSignedUploadUrl(
-      { contentType: garmentContentType, category: 'garment' },
+      { contentType: garmentContentType, category: 'garment', contentLength: garmentBlob.size },
       { signal }
     ),
   ]);
@@ -370,7 +382,7 @@ async function processVirtualTryOnAsyncCloud(
     { signal }
   );
 
-  onProgress?.(45, 'Đang xếp hàng xử lý...');
+  onProgress?.(45, 'Đang xếp hàng GPU xử lý...');
   await triggerTryOnJob(job.jobId, { signal });
 
   const originalImage = await blobToBase64(request.personImage);
@@ -402,66 +414,11 @@ export async function processVirtualTryOn(
   signal?: AbortSignal
 ): Promise<TryOnResult> {
   const remoteEnabled = await isRemoteTryOnEnabled();
-  if (remoteEnabled) {
-    return processVirtualTryOnAsyncCloud(request, onProgress, signal);
+  if (!remoteEnabled) {
+    throw new Error('REMOTE_DISABLED');
   }
 
-  onProgress?.(10, 'Đang chuẩn bị hình ảnh...');
-
-  const personImageBase64 = await blobToBase64(request.personImage);
-  const garmentImageBase64 = await urlToBase64(request.garmentImageUrl);
-
-  onProgress?.(30, 'Đang gửi đến hệ thống AI...');
-
-  const response = await fetch(`${API_BASE_URL}/virtual-tryon/process`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      personImage: personImageBase64,
-      garmentImage: garmentImageBase64,
-    }),
-    signal,
-  });
-
-  onProgress?.(80, 'Đang xử lý kết quả...');
-
-  if (!response.ok) {
-    const error = (await response.json().catch(() => ({ message: 'Lỗi kết nối' }))) as TryOnErrorPayload;
-    const mapped = mapTryOnErrorCode(error.errorCode, error.message || error.error);
-    throw new Error(mapped);
-  }
-
-  const result = await response.json() as {
-    success?: boolean;
-    data?: { resultImage?: string; provider?: string };
-    error?: string;
-    message?: string;
-    errorCode?: TryOnErrorCode;
-  };
-
-  if (!result.success) {
-    const mapped = mapTryOnErrorCode(result.errorCode as TryOnErrorCode | undefined, result.message || result.error);
-    throw new Error(mapped || 'Không thể xử lý hình ảnh');
-  }
-
-  onProgress?.(100, 'Hoàn thành!');
-
-  const resultData = result.data;
-  if (!resultData?.resultImage) {
-    throw new Error('Không nhận được ảnh kết quả từ hệ thống AI');
-  }
-
-  return {
-    originalImage: personImageBase64,
-    resultImage: resultData.resultImage,
-    productId: request.productId,
-    productName: request.productName,
-    timestamp: Date.now(),
-    provider: resultData.provider,
-    source: 'local',
-  };
+  return processVirtualTryOnAsyncCloud(request, onProgress, signal);
 }
  
  export async function checkServiceStatus(): Promise<{
@@ -497,6 +454,9 @@ export async function processVirtualTryOn(
   if (message.includes('rate') || message.includes('quota')) {
     return 'Hệ thống đang quá tải. Vui lòng thử lại sau.';
   }
+  if (message.includes('remote_disabled')) {
+    return 'Hệ thống AI đang tạm tắt. Vui lòng thử lại sau.';
+  }
    if (message.includes('network') || message.includes('fetch') || message.includes('kết nối')) {
      return 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet.';
    }
@@ -509,32 +469,4 @@ export async function processVirtualTryOn(
    return 'Đã xảy ra lỗi. Vui lòng thử lại sau.';
  }
 
-function mapTryOnErrorCode(
-  code?: TryOnErrorCode,
-  fallbackMessage?: string
-): string {
-  switch (code) {
-    case 'INPUT_GARMENT_MODEL_WORN':
-      return 'Ảnh sản phẩm phải là ảnh lingerie riêng (đã tách nền), không dùng ảnh người mẫu mặc đồ.';
-    case 'INPUT_GARMENT_TOO_SMALL':
-      return 'Ảnh sản phẩm quá nhỏ. Vui lòng dùng ảnh rõ nét, độ phân giải cao.';
-    case 'USER_IMAGE_TOO_SMALL':
-      return 'Ảnh người quá nhỏ. Vui lòng dùng ảnh rõ nét, toàn thân.';
-    case 'USER_IMAGE_ASPECT_RATIO':
-      return 'Tỷ lệ ảnh người không phù hợp. Vui lòng dùng ảnh toàn thân thẳng đứng.';
-    case 'INPUT_IMAGE_UNSUPPORTED':
-      return 'Định dạng ảnh không được hỗ trợ.';
-    case 'INPUT_GARMENT_INVALID':
-    case 'USER_IMAGE_INVALID':
-      return fallbackMessage || 'Không thể đọc ảnh đầu vào. Vui lòng thử ảnh khác.';
-    case 'PROVIDER_TIMEOUT':
-      return 'AI đang xử lý quá lâu. Vui lòng thử lại sau.';
-    case 'PROVIDER_RATE_LIMITED':
-      return 'Hệ thống đang quá tải. Vui lòng thử lại sau.';
-    case 'PROVIDER_UNAVAILABLE':
-      return 'AI đang bận. Vui lòng thử lại sau vài phút.';
-    default:
-      return fallbackMessage || 'Không thể xử lý hình ảnh.';
-  }
-}
  

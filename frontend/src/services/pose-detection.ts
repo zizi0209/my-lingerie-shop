@@ -139,9 +139,12 @@ export async function initPoseLandmarkerVideo(): Promise<PoseLandmarker | null> 
  ): Promise<NormalizedLandmark[] | null> {
   const landmarker = await initPoseLandmarker();
   if (!landmarker) return null;
-   
+
+  const source = normalizeImageSource(image);
+  if (!source) return null;
+
    try {
-     const result = landmarker.detect(image);
+     const result = landmarker.detect(source);
      
      if (result.landmarks && result.landmarks.length > 0) {
        return result.landmarks[0]; // Return first detected pose
@@ -426,6 +429,27 @@ export async function detectPoseFromVideo(
     console.error('[PoseDetection] Video detection failed:', error);
     return null;
   }
+}
+
+function normalizeImageSource(
+  image: HTMLImageElement | HTMLCanvasElement
+): HTMLCanvasElement | null {
+  if (image instanceof HTMLCanvasElement) {
+    if (image.width <= 0 || image.height <= 0) return null;
+    return image;
+  }
+
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  if (width <= 0 || height <= 0) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.drawImage(image, 0, 0, width, height);
+  return canvas;
 }
 
  /**

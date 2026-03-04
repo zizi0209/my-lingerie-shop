@@ -12,7 +12,9 @@ export type TryOnErrorCode =
   | 'INPUT_IMAGE_UNSUPPORTED'
   | 'PROVIDER_UNAVAILABLE'
   | 'PROVIDER_TIMEOUT'
-  | 'PROVIDER_RATE_LIMITED';
+  | 'PROVIDER_RATE_LIMITED'
+  | 'SYSTEM_OVERLOADED'
+  | 'REMOTE_DISABLED';
  
  export interface TryOnResult {
    originalImage: string;
@@ -39,7 +41,7 @@ export interface SignedUploadResponse {
   expiresInSeconds: number;
 }
 
-export type TryOnJobApiStatus = 'queued' | 'processing' | 'completed' | 'failed';
+export type TryOnJobApiStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'expired';
 
 export interface CreateTryOnJobResponse {
   jobId: string;
@@ -61,6 +63,11 @@ export interface TryOnJobStatusResponse {
   resultImageGcsUri?: string;
   resultVideo?: string;
   resultVideoGcsUri?: string;
+  etaMs?: number;
+  attemptCount?: number;
+  nextRetryAt?: number;
+  queuedDurationMs?: number;
+  processingDurationMs?: number;
 }
  
  export interface TryOnQueueInfo {
