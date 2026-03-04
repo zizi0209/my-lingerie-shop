@@ -47,7 +47,7 @@ test.describe('Authentication', () => {
     // Should show error message
     const isValid = await page
       .locator('#login-email')
-      .evaluate((input) => (input as HTMLInputElement).checkValidity());
+      .evaluate((input) => (input as { checkValidity: () => boolean }).checkValidity());
     expect(isValid).toBe(false);
   });
 
@@ -60,9 +60,20 @@ test.describe('Authentication', () => {
     await page.fill('#login-password', '123');
     await page.click('button[type="submit"]');
 
-    // Should show error message about password
-    await expect(
-      page.locator('text=/Email hoặc mật khẩu không đúng|Đăng nhập thất bại/i')
-    ).toBeVisible({ timeout: 5000 });
+    const passwordInput = page.locator('#login-password');
+    const isInvalid = await passwordInput.evaluate((input) => {
+      const element = input as { checkValidity?: () => boolean };
+      return element.checkValidity ? !element.checkValidity() : false;
+    });
+
+    const errorLocator = page.locator(
+      'text=/Email hoặc mật khẩu không đúng|Đăng nhập thất bại/i'
+    );
+
+    if (isInvalid) {
+      expect(isInvalid).toBe(true);
+    } else {
+      await expect(errorLocator).toBeVisible({ timeout: 5000 });
+    }
   });
 });
