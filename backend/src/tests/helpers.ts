@@ -106,6 +106,9 @@ export async function createTestUser(overrides: Partial<{
    // Check if region already exists
    let region = await prisma.region.findUnique({ where: { id } });
    if (!region) {
+     region = await prisma.region.findFirst({ where: { code } });
+   }
+   if (!region) {
      try {
        region = await prisma.region.create({
          data: {
@@ -116,10 +119,13 @@ export async function createTestUser(overrides: Partial<{
          },
        });
      } catch {
-       region = await prisma.region.findUnique({ where: { id } });
+      region = await prisma.region.findFirst({ where: { code } });
      }
    }
-   return region!;
+  if (!region) {
+    throw new Error(`Không tìm thấy region với code ${code}`);
+  }
+  return region;
  }
 
  // Create test size standard
@@ -135,6 +141,11 @@ export async function createTestUser(overrides: Partial<{
    
    let standard = await prisma.sizeStandard.findUnique({ where: { id } });
    if (!standard) {
+     standard = await prisma.sizeStandard.findFirst({
+       where: { regionId, category },
+     });
+   }
+   if (!standard) {
      try {
        standard = await prisma.sizeStandard.create({
          data: {
@@ -147,10 +158,18 @@ export async function createTestUser(overrides: Partial<{
          },
        });
      } catch {
-       standard = await prisma.sizeStandard.findUnique({ where: { id } });
+      standard = await prisma.sizeStandard.findFirst({
+        where: { regionId, category },
+      });
+      if (!standard) {
+        standard = await prisma.sizeStandard.findFirst({ where: { code } });
+      }
      }
    }
-   return standard!;
+  if (!standard) {
+    throw new Error(`Không tìm thấy size standard cho region ${regionId} - ${category}`);
+  }
+  return standard;
  }
 
  // Create test regional size

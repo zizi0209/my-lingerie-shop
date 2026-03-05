@@ -25,8 +25,10 @@ describe('SisterSizingService', () => {
   afterAll(async () => {
     // Cleanup test data
     await prisma.productVariant.deleteMany({});
-    await prisma.product.deleteMany({ where: { categoryId: testCategory.id } });
-    await prisma.category.deleteMany({ where: { id: testCategory.id } });
+    if (testCategory) {
+      await prisma.product.deleteMany({ where: { categoryId: testCategory.id } });
+      await prisma.category.deleteMany({ where: { id: testCategory.id } });
+    }
     await cleanupSisterSizeRecommendations();
   });
 
