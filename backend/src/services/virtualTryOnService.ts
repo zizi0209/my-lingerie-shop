@@ -21,6 +21,7 @@ const FALLBACK_PARALLEL_BATCH_SIZE = Number(process.env.TRYON_FALLBACK_PARALLEL_
 const QUICK_HEALTH_CHECK_TIMEOUT = 3000; // 3 seconds for quick health check
 const DEFAULT_PROVIDER_TIMEOUT_MS = Number(process.env.TRYON_PROVIDER_TIMEOUT_MS || '120000');
 const SELF_HOSTED_TIMEOUT_MS = Number(process.env.TRYON_SELF_HOSTED_TIMEOUT_MS || '180000');
+const DMVTON_TIMEOUT_MS = Number(process.env.TRYON_DMVTON_TIMEOUT_MS || '180000');
 const GEMINI_ENABLED = process.env.TRYON_USE_GEMINI === 'true';
 const MAX_CONCURRENT_TRYON = Number(process.env.TRYON_MAX_CONCURRENT || '2');
 const OVERLOAD_RETRY_SECONDS = Number(process.env.TRYON_OVERLOAD_RETRY_SECONDS || '30');
@@ -33,15 +34,20 @@ const SELF_HOSTED_READINESS_TTL_MS = Number(
 const HEALTH_WINDOW_MS = Number(process.env.TRYON_HEALTH_WINDOW_MS || String(15 * 60 * 1000));
 const FAIL_RATE_WARNING_THRESHOLD = Number(process.env.TRYON_FAIL_RATE_WARNING_THRESHOLD || '0.4');
 const TIMEOUT_WARNING_THRESHOLD = Number(process.env.TRYON_TIMEOUT_WARNING_THRESHOLD || '2');
+const TRYON_DEMO_LEARNING = process.env.TRYON_DEMO_LEARNING === 'true';
+const TRYON_PERMISSIVE_PROVIDERS = process.env.TRYON_PERMISSIVE_PROVIDERS || 'FASHN-VTON-1.5,DM-VTON-Local';
+const TRYON_NONCOMMERCIAL_PROVIDERS = process.env.TRYON_NONCOMMERCIAL_PROVIDERS || 'StableVITON,IDM-VTON';
 
 
 interface ProviderConfig {
   name: string;
   url: string;
   endpoint: string;
-  type: 'idm' | 'ootd' | 'outfitanyone' | 'kolors' | 'stableviton' | 'vtond';
+  type: 'idm' | 'ootd' | 'outfitanyone' | 'kolors' | 'stableviton' | 'vtond' | 'dmvton';
   enabled: boolean;
 }
+
+type ProviderLicense = 'permissive' | 'noncommercial' | 'unknown';
 
 export type TryOnErrorCode =
   | 'PROVIDER_UNAVAILABLE'
@@ -78,10 +84,33 @@ interface ProviderHealthSnapshot {
   stage: 'primary' | 'fallback';
 }
 
+interface DMVTONResponse {
+  result_image_url?: string;
+  result_image_base64?: string;
+  result_image?: string;
+  mime_type?: string;
+  quality_score?: number;
+  model_name?: string;
+  seed?: number;
+  latency_ms?: number;
+  provider?: string;
+}
+
 const SELF_HOSTED_PROVIDER_URL = process.env.TRYON_SELF_HOSTED_URL || '';
 const SELF_HOSTED_PROVIDER_ENDPOINT = process.env.TRYON_SELF_HOSTED_ENDPOINT || '/call/tryon';
 const SELF_HOSTED_PROVIDER_TYPE = (process.env.TRYON_SELF_HOSTED_TYPE || 'idm') as ProviderConfig['type'];
 const SELF_HOSTED_PROVIDER_NAME = process.env.TRYON_SELF_HOSTED_NAME || 'ZeroGPU-SelfHosted';
+const DMVTON_ENABLED = process.env.TRYON_DMVTON_ENABLED === 'true';
+const DMVTON_PROVIDER_URL = process.env.TRYON_DMVTON_URL || '';
+const DMVTON_PROVIDER_ENDPOINT = process.env.TRYON_DMVTON_ENDPOINT || '/tryon';
+
+const parseList = (value: string): string[] => value
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
+
+const PERMISSIVE_PROVIDER_SET = new Set(parseList(TRYON_PERMISSIVE_PROVIDERS));
+const NONCOMMERCIAL_PROVIDER_SET = new Set(parseList(TRYON_NONCOMMERCIAL_PROVIDERS));
 
 const SELF_HOSTED_PROVIDER: ProviderConfig | null = SELF_HOSTED_PROVIDER_URL
   ? {
@@ -93,7 +122,18 @@ const SELF_HOSTED_PROVIDER: ProviderConfig | null = SELF_HOSTED_PROVIDER_URL
     }
   : null;
 
+const DMVTON_PROVIDER: ProviderConfig | null = (DMVTON_ENABLED && DMVTON_PROVIDER_URL)
+  ? {
+      name: 'DM-VTON-Local',
+      url: DMVTON_PROVIDER_URL,
+      endpoint: DMVTON_PROVIDER_ENDPOINT,
+      type: 'dmvton',
+      enabled: true,
+    }
+  : null;
+
 const PROVIDERS: ProviderConfig[] = [
+  ...(DMVTON_PROVIDER ? [DMVTON_PROVIDER] : []),
   ...(SELF_HOSTED_PROVIDER ? [SELF_HOSTED_PROVIDER] : []),
   // FASHN VTON 1.5 - Priority provider (Apache-2.0, high quality)
   // Note: HuggingFace Space URL uses dashes, not dots for version
@@ -224,17 +264,37 @@ const PRIMARY_PROVIDER_NAMES = (process.env.TRYON_PRIMARY_PROVIDERS || '')
   .map((item) => item.trim())
   .filter(Boolean);
 
-const DEFAULT_PRIMARY_PROVIDERS = SELF_HOSTED_PROVIDER
-  ? [SELF_HOSTED_PROVIDER.name]
-  : ['FASHN-VTON-1.5', 'IDM-VTON'];
+const DEFAULT_PRIMARY_PROVIDERS = [
+  ...(DMVTON_PROVIDER ? [DMVTON_PROVIDER.name] : []),
+  ...(SELF_HOSTED_PROVIDER ? [SELF_HOSTED_PROVIDER.name] : []),
+  'FASHN-VTON-1.5',
+  'IDM-VTON',
+];
 
 function getPrimaryProviderNames(): string[] {
   return PRIMARY_PROVIDER_NAMES.length > 0 ? PRIMARY_PROVIDER_NAMES : DEFAULT_PRIMARY_PROVIDERS;
 }
 
+function getProviderLicense(providerName: string): ProviderLicense {
+  if (PERMISSIVE_PROVIDER_SET.has(providerName)) return 'permissive';
+  if (NONCOMMERCIAL_PROVIDER_SET.has(providerName)) return 'noncommercial';
+  return 'unknown';
+}
+
+function isProviderAllowedByLicense(providerName: string): boolean {
+  const license = getProviderLicense(providerName);
+  if (license === 'noncommercial') {
+    return TRYON_DEMO_LEARNING;
+  }
+  return true;
+}
+
 function getProviderTimeout(providerName: string): number {
   if (SELF_HOSTED_PROVIDER && providerName === SELF_HOSTED_PROVIDER.name) {
     return SELF_HOSTED_TIMEOUT_MS;
+  }
+  if (providerName === 'DM-VTON-Local') {
+    return DMVTON_TIMEOUT_MS;
   }
   return DEFAULT_PROVIDER_TIMEOUT_MS;
 }
@@ -377,12 +437,11 @@ function getActiveProviders(): ProviderConfig[] {
   if (PROVIDER_BLOCKLIST.length > 0) {
     providers = providers.filter((provider) => !PROVIDER_BLOCKLIST.includes(provider.name));
   }
-
   if (providers.length === 0) {
-    return PROVIDERS.filter((provider) => provider.enabled);
+    providers = PROVIDERS.filter((provider) => provider.enabled);
   }
 
-  return providers;
+  return providers.filter((provider) => isProviderAllowedByLicense(provider.name));
 }
 
 /**
@@ -625,6 +684,67 @@ async function pollForResult(
   }
 
   throw new Error('Timeout waiting for result');
+}
+
+function normalizeTryOnImage(resultImage: string, mimeType: string): string {
+  if (resultImage.startsWith('http')) {
+    return resultImage;
+  }
+  if (resultImage.startsWith('data:')) {
+    return resultImage;
+  }
+  return `data:${mimeType};base64,${resultImage}`;
+}
+
+async function tryDMVTONProvider(
+  providerName: string,
+  baseUrl: string,
+  endpoint: string,
+  personImageBase64: string,
+  garmentImageBase64: string
+): Promise<string> {
+  console.log(`[${providerName}] Starting request...`);
+
+  const [personUpload, garmentUpload] = await Promise.all([
+    uploadToTemporaryUrl(personImageBase64, 'person'),
+    uploadToTemporaryUrl(garmentImageBase64, 'garment'),
+  ]);
+
+  const payload = {
+    person_image_url: personUpload.url,
+    garment_image_url: garmentUpload.url,
+    person_image: personImageBase64,
+    garment_image: garmentImageBase64,
+  };
+
+  try {
+    const response = await fetchWithRetry(
+      `${baseUrl}${endpoint}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+      getProviderTimeout(providerName)
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.log(`[${providerName}] API error:`, response.status, text);
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json() as DMVTONResponse;
+    const resultImage = result.result_image_url || result.result_image_base64 || result.result_image;
+    if (!resultImage) {
+      throw new Error('No result_image returned');
+    }
+
+    const mimeType = result.mime_type || 'image/png';
+    return normalizeTryOnImage(resultImage, mimeType);
+  } finally {
+    await cleanupTemporaryUploads([personUpload, garmentUpload]);
+  }
 }
 
 async function tryIdmProvider(
@@ -1051,6 +1171,14 @@ async function tryProvider(
       return tryStableVITON(personImageBase64, garmentImageBase64);
     case 'vtond':
       return tryVTOND(personImageBase64, garmentImageBase64);
+    case 'dmvton':
+      return tryDMVTONProvider(
+        provider.name,
+        provider.url,
+        provider.endpoint,
+        personImageBase64,
+        garmentImageBase64
+      );
     default:
       throw new Error(`Unknown provider type: ${String(provider.type)}`);
   }

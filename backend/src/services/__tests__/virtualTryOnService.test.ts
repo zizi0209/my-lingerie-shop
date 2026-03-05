@@ -22,6 +22,8 @@ const setupFetchMock = (options?: {
   failSelfHostedReadiness?: boolean;
   timeoutSelfHosted?: boolean;
   failFashnAfterSelfHosted?: boolean;
+  failDmvton?: boolean;
+  timeoutDmvton?: boolean;
 }) => {
   mockFetch.mockImplementation(async (url: string | URL, init?: RequestInit) => {
     const requestUrl = typeof url === 'string' ? url : url.toString();
@@ -61,6 +63,23 @@ const setupFetchMock = (options?: {
           json: () => Promise.resolve({
             success: true,
             data: { url: 'https://example.com/mock-upload.jpg' },
+          }),
+          text: () => Promise.resolve('OK'),
+        };
+      }
+      if (requestUrl.includes('dmvton.local')) {
+        if (options?.timeoutDmvton) {
+          throw new Error('timeout');
+        }
+        if (options?.failDmvton) {
+          throw new Error('DM-VTON down');
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            result_image_url: 'https://example.com/dmvton-result.png',
+            mime_type: 'image/png',
           }),
           text: () => Promise.resolve('OK'),
         };
@@ -113,6 +132,12 @@ const setupFetchMock = (options?: {
     delete process.env.TRYON_SELF_HOSTED_ENDPOINT;
     delete process.env.TRYON_SELF_HOSTED_NAME;
     delete process.env.TRYON_PRIMARY_PROVIDERS;
+    delete process.env.TRYON_PROVIDER_ALLOWLIST;
+    delete process.env.TRYON_PROVIDER_BLOCKLIST;
+    delete process.env.TRYON_DMVTON_ENABLED;
+    delete process.env.TRYON_DMVTON_URL;
+    delete process.env.TRYON_DMVTON_ENDPOINT;
+    delete process.env.TRYON_DEMO_LEARNING;
     vi.resetModules();
     await loadService();
     service.resetProviderHealth();
@@ -182,6 +207,9 @@ const setupFetchMock = (options?: {
      it('should return status for all providers', async () => {
        // Mock successful health checks
       setupFetchMock();
+      process.env.TRYON_DEMO_LEARNING = 'true';
+      vi.resetModules();
+      await loadService();
  
       const statuses = await service.checkSpacesStatus();
  
@@ -258,6 +286,9 @@ const setupFetchMock = (options?: {
      it('should try next provider on first failure', async () => {
        // First provider fails, second succeeds
       setupFetchMock({ failFashn: true });
+      process.env.TRYON_DEMO_LEARNING = 'true';
+      vi.resetModules();
+      await loadService();
  
       const result = await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
  
@@ -265,6 +296,49 @@ const setupFetchMock = (options?: {
        expect(result.provider).toBe('IDM-VTON');
      });
    });
+
+  describe('DM-VTON local provider', () => {
+    it('should prefer DM-VTON when enabled', async () => {
+      process.env.TRYON_DMVTON_ENABLED = 'true';
+      process.env.TRYON_DMVTON_URL = 'https://dmvton.local';
+      setupFetchMock();
+      vi.resetModules();
+      await loadService();
+
+      const result = await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
+
+      expect(result.success).toBe(true);
+      expect(result.provider).toBe('DM-VTON-Local');
+    });
+
+    it('should fallback when DM-VTON times out', async () => {
+      process.env.TRYON_DMVTON_ENABLED = 'true';
+      process.env.TRYON_DMVTON_URL = 'https://dmvton.local';
+      setupFetchMock({ timeoutDmvton: true });
+      vi.resetModules();
+      await loadService();
+
+      const result = await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
+
+      expect(result.success).toBe(true);
+      expect(result.provider).toBe('FASHN-VTON-1.5');
+    });
+  });
+
+  describe('Provider license gating', () => {
+    it('should block noncommercial providers when demo learning is disabled', async () => {
+      process.env.TRYON_DEMO_LEARNING = 'false';
+      process.env.TRYON_PROVIDER_ALLOWLIST = 'IDM-VTON';
+      setupFetchMock();
+      vi.resetModules();
+      await loadService();
+
+      const result = await service.processVirtualTryOn(samplePersonImage, sampleGarmentImage);
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('PROVIDER_UNAVAILABLE');
+    });
+  });
 
   describe('Self-hosted readiness and fallback', () => {
     const originalSelfHostedUrl = process.env.TRYON_SELF_HOSTED_URL;
@@ -300,6 +374,7 @@ const setupFetchMock = (options?: {
       process.env.TRYON_SELF_HOSTED_NAME = 'Zy131-TryOn';
       process.env.TRYON_SELF_HOSTED_ENDPOINT = '/call/tryon';
       process.env.TRYON_PRIMARY_PROVIDERS = 'Zy131-TryOn,FASHN-VTON-1.5,IDM-VTON';
+      process.env.TRYON_DEMO_LEARNING = 'true';
 
       setupFetchMock({ failSelfHostedReadiness: true });
       vi.resetModules();
@@ -316,6 +391,7 @@ const setupFetchMock = (options?: {
       process.env.TRYON_SELF_HOSTED_NAME = 'Zy131-TryOn';
       process.env.TRYON_SELF_HOSTED_ENDPOINT = '/call/tryon';
       process.env.TRYON_PRIMARY_PROVIDERS = 'Zy131-TryOn,FASHN-VTON-1.5,IDM-VTON';
+      process.env.TRYON_DEMO_LEARNING = 'true';
 
       setupFetchMock({ timeoutSelfHosted: true, failFashnAfterSelfHosted: true });
       vi.resetModules();
