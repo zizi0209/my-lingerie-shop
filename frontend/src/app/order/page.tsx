@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
+const FALLBACK_IMAGE = "/images/seed/set/set-3.webp";
+
 interface OrderItem {
   id: number;
   productId: number;
@@ -378,9 +380,10 @@ function OrderTrackingContent() {
                 <div key={item.id} className="flex gap-4 items-start p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                   <div className="relative w-16 h-20 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden shrink-0">
                     <Image
-                      src={item.product.images[0]?.url || "https://via.placeholder.com/100x120"}
+                      src={item.product.images[0]?.url || FALLBACK_IMAGE}
                       alt={item.product.name}
                       fill
+                      sizes="64px"
                       className="object-cover"
                     />
                   </div>

@@ -92,6 +92,7 @@ export default function NewArrivals({ content }: NewArrivalsProps) {
                     src={product.images[0].url}
                     alt={product.name}
                     fill
+                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 )}

@@ -7,6 +7,8 @@ import { Minus, Plus, X, ShoppingBag, Loader2, Trash2, Edit2, Check } from "luci
 import { useCart, CartItem } from "@/context/CartContext";
 import CartRecommendations from "@/components/cart/CartRecommendations";
 
+const FALLBACK_IMAGE = "/images/seed/set/set-3.webp";
+
 interface ProductVariant {
   id: number;
   size: string;
@@ -219,9 +221,10 @@ export default function CartPage() {
                     className="relative w-20 h-28 md:w-24 md:h-32 bg-gray-50 dark:bg-gray-700 rounded overflow-hidden shrink-0"
                   >
                     <Image
-                      src={item.product.images[0]?.url || "https://via.placeholder.com/200x300"}
+                      src={item.product.images[0]?.url || FALLBACK_IMAGE}
                       alt={item.product.name}
                       fill
+                      sizes="(max-width: 768px) 80px, 96px"
                       className="object-cover"
                     />
                   </Link>

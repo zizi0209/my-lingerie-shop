@@ -6,11 +6,13 @@ import Image from "next/image";
 import { Phone, Mail, Instagram, Truck, RefreshCw, ShieldCheck, ChevronRight, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { useNewsletterVoucher } from "@/hooks/useNewsletterVoucher";
+import { getApiBaseUrl } from "@/lib/apiBase";
 import { useState } from "react";
 
 export default function Footer() {
   const { store_name, store_logo, store_description, social_facebook, social_instagram, social_tiktok, social_zalo } = useStore();
   const { config: voucherConfig } = useNewsletterVoucher();
+  const baseUrl = getApiBaseUrl();
   
   const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
   
@@ -27,7 +29,7 @@ export default function Footer() {
     setStatus('idle');
     
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/newsletter/subscribe`, {
+      const res = await fetch(`${baseUrl}/newsletter/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, source: 'footer' }),

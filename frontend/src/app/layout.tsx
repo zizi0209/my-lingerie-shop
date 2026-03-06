@@ -33,7 +33,7 @@ export default async function RootLayout({
   const themeCSS = generateThemeCSS(theme.primary_color);
 
   return (
-    <html lang="vi" suppressHydrationWarning>
+    <html lang="vi" suppressHydrationWarning data-scroll-behavior="smooth">
       <head suppressHydrationWarning>
         {/* Inject CSS variables directly from server */}
         <style

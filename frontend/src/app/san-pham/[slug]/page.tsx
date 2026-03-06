@@ -29,6 +29,8 @@ import Product3DViewer from "@/components/product/Product3DViewer";
 import { Box } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/apiBase";
 
+const FALLBACK_IMAGE = "/images/seed/set/set-3.webp";
+
 interface ProductImage {
   id: number;
   url: string;
@@ -387,7 +389,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   })();
   const productImages = productImageObjects.length > 0
     ? productImageObjects.map(img => img.url)
-    : ["https://via.placeholder.com/600x800"];
+    : [FALLBACK_IMAGE];
 
   // Find first available 3D model URL
   const model3dUrl = product.images.find(img => img.model3dUrl)?.model3dUrl ?? null;
@@ -424,6 +426,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 src={productImages[selectedImage]}
                 alt={product.name}
                 fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover"
               />
               {discount > 0 && (
@@ -465,6 +468,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                     src={image}
                     alt={`${product.name} ${index + 1}`}
                     fill
+                    sizes="(max-width: 768px) 25vw, 10vw"
                     className="object-cover"
                   />
                 </button>

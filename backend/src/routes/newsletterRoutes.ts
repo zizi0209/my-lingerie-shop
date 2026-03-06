@@ -35,6 +35,20 @@ const DEFAULT_COUPON_CONFIG = {
   expiryDays: 30,
 };
 
+// Public: Get newsletter coupon config
+router.get('/config', async (_req: Request, res: Response) => {
+  try {
+    const config = await getNewsletterCouponConfig();
+    res.json({ success: true, data: config });
+  } catch (error) {
+    console.error('Get newsletter config error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Có lỗi xảy ra, vui lòng thử lại sau',
+    });
+  }
+});
+
 // Get newsletter coupon config from PageSection
 async function getNewsletterCouponConfig(): Promise<typeof DEFAULT_COUPON_CONFIG> {
   try {

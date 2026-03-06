@@ -9,6 +9,8 @@ import { useAuth } from "@/context/AuthContext";
 import { userVoucherApi } from "@/lib/couponApi";
 import VoucherSelector from "@/components/checkout/VoucherSelector";
 
+const FALLBACK_IMAGE = "/images/seed/set/set-3.webp";
+
 export default function CheckoutPage() {
   const { cart, loading: cartLoading, subtotal, clearCart } = useCart();
   const { user, isAuthenticated } = useAuth();
@@ -565,9 +567,10 @@ export default function CheckoutPage() {
                   <div key={item.id} className="flex gap-3">
                     <div className="relative w-16 h-20 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden shrink-0">
                       <Image
-                        src={item.product.images[0]?.url || "https://via.placeholder.com/100x120"}
+                        src={item.product.images[0]?.url || FALLBACK_IMAGE}
                         alt={item.product.name}
                         fill
+                        sizes="64px"
                         className="object-cover"
                       />
                       <span className="absolute -top-1 -right-1 w-5 h-5 bg-black dark:bg-white text-white dark:text-black text-xs flex items-center justify-center rounded-full">

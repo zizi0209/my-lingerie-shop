@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 interface NewsletterVoucherConfig {
   discountValue: number;
@@ -24,8 +25,11 @@ export function useNewsletterVoucher() {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const response = await fetch(`${baseUrl}/page-sections/code/newsletter`);
+        const baseUrl = getApiBaseUrl();
+        const response = await fetch(`${baseUrl}/newsletter/config`);
+        if (!response.ok) {
+          throw new Error(`Newsletter config failed: ${response.status}`);
+        }
         const data = await response.json();
         
         if (data.success && data.data?.content) {
