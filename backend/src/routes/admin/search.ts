@@ -1,5 +1,7 @@
 import express from 'express';
 import { prisma } from '../../lib/prisma';
+import { checkEmbeddingHealth } from '../../services/embeddingClient';
+import { getSearchIndexStatus, indexProductById, reindexAllProducts } from '../../services/searchIndexing.service';
 
 const router = express.Router();
 
@@ -352,6 +354,72 @@ router.get('/analytics', async (req, res) => {
   } catch (error) {
     console.error('Get analytics error:', error);
     res.status(500).json({ success: false, error: 'Lỗi khi lấy thống kê' });
+  }
+});
+
+// ==========================================
+// SEARCH INDEX OPERATIONS
+// ==========================================
+
+// POST /api/admin/search/reindex - Reindex all products
+router.post('/reindex', async (_req, res) => {
+  try {
+    reindexAllProducts().catch((error) => {
+      console.error('Reindex failed:', error);
+    });
+
+    res.json({ success: true, message: 'Đã khởi chạy reindex toàn bộ sản phẩm' });
+  } catch (error) {
+    console.error('Reindex error:', error);
+    res.status(500).json({ success: false, error: 'Lỗi khi reindex sản phẩm' });
+  }
+});
+
+// POST /api/admin/search/reindex/:productId - Reindex single product
+router.post('/reindex/:productId', async (req, res) => {
+  try {
+    const productId = Number(req.params.productId);
+    if (!productId) {
+      return res.status(400).json({ success: false, error: 'ProductId không hợp lệ' });
+    }
+
+    await indexProductById(productId);
+    res.json({ success: true, message: 'Đã reindex sản phẩm' });
+  } catch (error) {
+    console.error('Reindex product error:', error);
+    res.status(500).json({ success: false, error: 'Lỗi khi reindex sản phẩm' });
+  }
+});
+
+// GET /api/admin/search/index-status - Index info
+router.get('/index-status', async (_req, res) => {
+  try {
+    const status = await getSearchIndexStatus();
+    res.json({ success: true, data: status });
+  } catch (error) {
+    console.error('Index status error:', error);
+    res.status(500).json({ success: false, error: 'Lỗi khi lấy trạng thái index' });
+  }
+});
+
+// GET /api/admin/search/engine-health - Redis + embedding health
+router.get('/engine-health', async (_req, res) => {
+  try {
+    const [indexStatus, embeddingOk] = await Promise.all([
+      getSearchIndexStatus(),
+      checkEmbeddingHealth(),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        redisSearch: indexStatus,
+        embeddingWorker: embeddingOk ? 'ok' : 'unavailable',
+      },
+    });
+  } catch (error) {
+    console.error('Engine health error:', error);
+    res.status(500).json({ success: false, error: 'Lỗi khi kiểm tra search engine' });
   }
 });
 

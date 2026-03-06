@@ -1,5 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
+import { embedTexts } from './embeddingClient';
+import { ensureProductIndex, searchHybrid, searchSuggestions as redisSearchSuggestions } from '../lib/redisSearch';
 
 interface SearchOptions {
   page?: number;
@@ -48,7 +50,8 @@ interface SearchResult {
     limit: number;
     totalPages: number;
     keyword: string;
-    searchType: 'navigation' | 'text' | 'fuzzy';
+    searchType: 'navigation' | 'text' | 'fuzzy' | 'hybrid';
+    searchEngine: 'postgres' | 'redis_hybrid';
   };
 }
 
@@ -56,6 +59,11 @@ interface SearchResult {
 function normalizeQuery(query: string): string {
   return query.toLowerCase().trim();
 }
+
+const getSearchEngine = (): 'postgres' | 'redis_hybrid' =>
+  process.env.SEARCH_ENGINE === 'redis_hybrid' ? 'redis_hybrid' : 'postgres';
+
+const shouldFallbackToPostgres = () => process.env.SEARCH_FALLBACK_TO_POSTGRES !== 'false';
 
 // Check if query is a navigation keyword
 async function checkNavigationKeyword(query: string) {
@@ -225,7 +233,7 @@ async function handleNavigationSearch(
 }
 
 // Main search function
-export async function smartSearch(
+async function postgresSearch(
   query: string,
   options: SearchOptions = {}
 ): Promise<SearchResult> {
@@ -435,8 +443,209 @@ export async function smartSearch(
       totalPages: Math.ceil(total / limit),
       keyword: query,
       searchType,
+      searchEngine: 'postgres',
     },
   };
+}
+
+async function redisHybridSearch(
+  query: string,
+  options: SearchOptions = {}
+): Promise<SearchResult> {
+  const {
+    page = 1,
+    limit = 20,
+    categoryId,
+    minPrice,
+    maxPrice,
+    colors,
+    sizes,
+    sortBy,
+    userId,
+    sessionId,
+  } = options;
+
+  const offset = (page - 1) * limit;
+  const normalizedQuery = normalizeQuery(query);
+
+  const navKeyword = await checkNavigationKeyword(normalizedQuery);
+  if (navKeyword) {
+    return postgresSearch(query, options);
+  }
+
+  const expandedQueries = await expandWithSynonyms(normalizedQuery);
+  const indexReady = await ensureProductIndex();
+  if (!indexReady && shouldFallbackToPostgres()) {
+    return postgresSearch(query, options);
+  }
+  const embeddings = await embedTexts([normalizedQuery]);
+  const embedding = embeddings[0];
+
+  if (!embedding || embedding.length === 0) {
+    if (shouldFallbackToPostgres()) {
+      return postgresSearch(query, options);
+    }
+    return {
+      products: [],
+      filters: {
+        categories: [],
+        priceRange: { min: 0, max: 0 },
+        colors: [],
+        sizes: [],
+      },
+      meta: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        keyword: query,
+        searchType: 'hybrid',
+        searchEngine: 'redis_hybrid',
+      },
+    };
+  }
+
+  const safeLimit = Math.min(100, Math.max(1, limit));
+  const requiredLimit = Math.max(safeLimit + offset, safeLimit);
+  const knnCandidates = Math.max(requiredLimit * 3, Number(process.env.SEARCH_KNN_CANDIDATES || 120));
+
+  const { total, ids } = await searchHybrid(
+    expandedQueries,
+    embedding || [],
+    {
+      categoryId,
+      minPrice,
+      maxPrice,
+      colors,
+      sizes,
+      isVisible: true,
+    },
+    requiredLimit,
+    knnCandidates
+  );
+
+  const pagedIds = ids.slice(offset, offset + safeLimit);
+
+  if (pagedIds.length === 0) {
+    await logSearch(query, 0, userId, sessionId);
+    return {
+      products: [],
+      filters: {
+        categories: [],
+        priceRange: { min: 0, max: 0 },
+        colors: [],
+        sizes: [],
+      },
+      meta: {
+        total: 0,
+        page,
+        limit: safeLimit,
+        totalPages: 0,
+        keyword: query,
+        searchType: 'hybrid',
+        searchEngine: 'redis_hybrid',
+      },
+    };
+  }
+
+  const products = await prisma.product.findMany({
+    where: { id: { in: pagedIds } },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      price: true,
+      salePrice: true,
+      categoryId: true,
+      isFeatured: true,
+      ratingAverage: true,
+      reviewCount: true,
+      createdAt: true,
+      category: {
+        select: { id: true, name: true, slug: true },
+      },
+      images: {
+        take: 1,
+        select: { url: true },
+      },
+      variants: {
+        where: { stock: { gt: 0 } },
+        select: {
+          colorId: true,
+          size: true,
+          stock: true,
+          color: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  const productMap = new Map<number, ProductResult>();
+  products.forEach((product) => {
+    productMap.set(product.id, product as ProductResult);
+  });
+
+  const orderedProducts = pagedIds
+    .map((id) => productMap.get(id))
+    .filter((product): product is ProductResult => Boolean(product));
+
+  let sortedProducts = orderedProducts;
+
+  if (sortBy) {
+    sortedProducts = [...orderedProducts].sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        case 'popular':
+          return b.reviewCount - a.reviewCount;
+        case 'rating':
+          return b.ratingAverage - a.ratingAverage;
+        case 'price_asc':
+          return (a.salePrice ?? a.price) - (b.salePrice ?? b.price);
+        case 'price_desc':
+          return (b.salePrice ?? b.price) - (a.salePrice ?? a.price);
+        default:
+          return 0;
+      }
+    });
+  }
+
+  const filterProductIds = ids.slice(0, 500);
+  const filters = await buildDynamicFilters(filterProductIds);
+  await logSearch(query, total, userId, sessionId);
+
+  return {
+    products: sortedProducts,
+    filters,
+    meta: {
+      total,
+      page,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+      keyword: query,
+      searchType: 'hybrid',
+      searchEngine: 'redis_hybrid',
+    },
+  };
+}
+
+export async function smartSearch(
+  query: string,
+  options: SearchOptions = {}
+): Promise<SearchResult> {
+  if (getSearchEngine() === 'redis_hybrid') {
+    try {
+      return await redisHybridSearch(query, options);
+    } catch (error) {
+      if (shouldFallbackToPostgres()) {
+        return postgresSearch(query, options);
+      }
+      throw error;
+    }
+  }
+
+  return postgresSearch(query, options);
 }
 
 // Get popular search keywords
@@ -493,6 +702,27 @@ export async function getSearchSuggestions(query: string, limit = 5) {
   
   if (normalizedQuery.length < 2) {
     return [];
+  }
+
+  if (getSearchEngine() === 'redis_hybrid') {
+    const ready = await ensureProductIndex();
+    const suggestions = ready
+      ? await redisSearchSuggestions(normalizedQuery, limit)
+      : { names: [] };
+    const categories = await prisma.category.findMany({
+      where: {
+        name: { contains: normalizedQuery, mode: 'insensitive' },
+      },
+      select: { name: true },
+      take: 3,
+    });
+
+    if (suggestions.names.length > 0) {
+      return {
+        products: suggestions.names,
+        categories: categories.map((c) => c.name),
+      };
+    }
   }
 
   // Get product name suggestions

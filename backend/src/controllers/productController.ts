@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { generateUniqueProductSlug } from '../utils/slugify';
 import { Prisma } from '@prisma/client';
 import { processProductImagesAsync } from '../services/imageProcessingService';
+import { indexProductById, removeProductFromIndex } from '../services/searchIndexing.service';
 
 type IncomingVariantPayload = {
   sku?: string;
@@ -95,6 +96,22 @@ const resolveVariantColorIds = async (
     resolved,
     missingColors: Array.from(missingColorSet),
   };
+};
+
+const syncProductIndex = (productId: number) => {
+  setImmediate(() => {
+    indexProductById(productId).catch((error) => {
+      console.warn('[SearchIndex] Sync failed:', error);
+    });
+  });
+};
+
+const deleteProductIndex = (productId: number) => {
+  setImmediate(() => {
+    removeProductFromIndex(productId).catch((error) => {
+      console.warn('[SearchIndex] Delete failed:', error);
+    });
+  });
 };
 
 // Helper function to group product data by colors
@@ -737,6 +754,8 @@ export const createProduct = async (req: Request, res: Response) => {
       },
     });
 
+    syncProductIndex(product.id);
+
     res.status(201).json({
       success: true,
       data: product,
@@ -823,6 +842,8 @@ export const updateProduct = async (req: Request, res: Response) => {
       },
     });
 
+    syncProductIndex(product.id);
+
     res.json({
       success: true,
       data: product,
@@ -851,6 +872,8 @@ export const deleteProduct = async (req: Request, res: Response) => {
     await prisma.product.delete({
       where: { id: Number(id) },
     });
+
+    deleteProductIndex(product.id);
 
     res.json({
       success: true,
@@ -950,6 +973,8 @@ export const updateProductImage = async (req: Request, res: Response) => {
       data: { url },
     });
 
+    syncProductIndex(image.productId);
+
     res.json({
       success: true,
       data: image,
@@ -1007,6 +1032,8 @@ export const addProductImages = async (req: Request, res: Response) => {
       console.error(`[Processing] Auto-processing failed for product ${id}:`, err);
     });
 
+    syncProductIndex(Number(id));
+
     res.status(201).json({
       success: true,
       message: `Đã thêm ${createdImages.count} ảnh thành công!`,
@@ -1035,6 +1062,8 @@ export const deleteProductImage = async (req: Request, res: Response) => {
     await prisma.productImage.delete({
       where: { id: Number(imageId) },
     });
+
+    syncProductIndex(image.productId);
 
     res.json({
       success: true,
@@ -1185,6 +1214,8 @@ export const addProductVariants = async (req: Request, res: Response) => {
       skipDuplicates: true,
     });
 
+    syncProductIndex(product.id);
+
     res.status(201).json({
       success: true,
       message: `Đã thêm ${createdVariants.count} biến thể thành công!`,
@@ -1309,6 +1340,8 @@ export const updateProductVariant = async (req: Request, res: Response) => {
       }
     }
 
+    syncProductIndex(variant.productId);
+
     res.json({
       success: true,
       data: {
@@ -1357,6 +1390,8 @@ export const deleteProductVariant = async (req: Request, res: Response) => {
         },
       });
     }
+
+    syncProductIndex(variant.productId);
 
     res.json({
       success: true,

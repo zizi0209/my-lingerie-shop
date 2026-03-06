@@ -1,18 +1,35 @@
 services:
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack-server:7.4.0-v2
     container_name: redis
     ports:
       - "6379:6379"
     restart: unless-stopped
     command: redis-server --appendonly yes
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "FT._LIST"]
       interval: 10s
       timeout: 5s
       retries: 5
     volumes:
       - redis_data:/data
+
+  embedding-worker:
+    build:
+      context: ./embedding-worker
+    container_name: embedding-worker
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    environment:
+      - EMBEDDING_MODEL_NAME=sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+      - EMBEDDING_BATCH_SIZE=32
+      - EMBEDDING_DEVICE=cpu
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
 volumes:
   redis_data:
