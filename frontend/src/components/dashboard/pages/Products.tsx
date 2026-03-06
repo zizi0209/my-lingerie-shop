@@ -310,6 +310,14 @@ const Products: React.FC = () => {
     fetchProducts();
   }, [fetchProducts, refreshTrigger]);
 
+  const refreshVariantsAfterMutation = useCallback(async (productId: number) => {
+    const res = await productApi.variants.list(productId);
+    if (res.success) {
+      setExistingVariants(res.data);
+    }
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   // Generate slug from name
   const generateSlug = (name: string): string => {
     return name
@@ -1566,7 +1574,7 @@ const Products: React.FC = () => {
                                         if (!confirm(t.confirmDeleteVariant)) return;
                                         try {
                                           await productApi.variants.delete(variant.id);
-                                          setExistingVariants(prev => prev.filter(v => v.id !== variant.id));
+                                          await refreshVariantsAfterMutation(editingProduct.id);
                                           setSuccessMessage(t.variantDeleted);
                                         } catch {
                                           setFormError('Không thể xóa biến thể');
@@ -1658,8 +1666,7 @@ const Products: React.FC = () => {
                                     stock: parseInt(v.stock) || 0,
                                   }))
                                 );
-                                const res = await productApi.variants.list(editingProduct.id);
-                                if (res.success) setExistingVariants(res.data);
+                                await refreshVariantsAfterMutation(editingProduct.id);
                                 setFormData(prev => ({ ...prev, variants: [{ size: '', color: '', stock: '' }] }));
                                 setSuccessMessage(t.variantAdded);
                               } catch (err) {
