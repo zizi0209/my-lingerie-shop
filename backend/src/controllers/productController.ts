@@ -784,6 +784,8 @@ export const updateProduct = async (req: Request, res: Response) => {
       }
     }
 
+    let nextProductType: string | null = null;
+
     // If category is being updated, check if it exists
     if (categoryId && categoryId !== existingProduct.categoryId) {
       const category = await prisma.category.findUnique({
@@ -793,6 +795,8 @@ export const updateProduct = async (req: Request, res: Response) => {
       if (!category) {
         return res.status(404).json({ error: 'Không tìm thấy danh mục!' });
       }
+
+      nextProductType = category.productType;
     }
 
     // Prepare update data
@@ -804,6 +808,7 @@ export const updateProduct = async (req: Request, res: Response) => {
     if (salePrice !== undefined)
       updateData.salePrice = salePrice ? Number(salePrice) : null;
     if (categoryId) updateData.categoryId = Number(categoryId);
+    if (nextProductType) updateData.productType = nextProductType;
     if (isFeatured !== undefined) updateData.isFeatured = isFeatured;
     if (isVisible !== undefined) updateData.isVisible = isVisible;
 

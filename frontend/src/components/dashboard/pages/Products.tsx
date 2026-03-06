@@ -46,7 +46,6 @@ interface ProductFormData {
   price: string;
   salePrice: string;
   categoryId: string;
-  productType: ProductType;
   isFeatured: boolean;
   isVisible: boolean;
   newImages: string[];
@@ -60,7 +59,6 @@ const initialFormData: ProductFormData = {
   price: '',
   salePrice: '',
   categoryId: '',
-  productType: 'SLEEPWEAR',
   isFeatured: false,
   isVisible: true,
   newImages: [],
@@ -76,6 +74,15 @@ const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string; labelVi: string
   { value: 'SHAPEWEAR', label: 'Shapewear', labelVi: 'Đồ định hình', icon: '🎀' },
   { value: 'ACCESSORY', label: 'Accessory', labelVi: 'Phụ kiện', icon: '✨' },
 ];
+
+const PRODUCT_TYPE_ICON_MAP: Record<ProductType, string> = {
+  BRA: '👙',
+  PANTY: '🩲',
+  SET: '💝',
+  SLEEPWEAR: '👗',
+  SHAPEWEAR: '🎀',
+  ACCESSORY: '✨',
+};
 
 const Products: React.FC = () => {
   const { language } = useLanguage();
@@ -122,6 +129,9 @@ const Products: React.FC = () => {
   // Size chart preview state
   const [sizeChartPreview, setSizeChartPreview] = useState<SizeChartData | null>(null);
   const [loadingSizeChart, setLoadingSizeChart] = useState(false);
+
+  const selectedCategory = categories.find(cat => cat.id.toString() === formData.categoryId);
+  const selectedProductType = selectedCategory?.productType;
 
   // Existing variants for edit mode
   const [existingVariants, setExistingVariants] = useState<Array<{
@@ -229,13 +239,13 @@ const Products: React.FC = () => {
   // Load size chart when product type changes
   useEffect(() => {
     const loadSizeChart = async () => {
-      if (!showModal || formData.productType === 'ACCESSORY') {
+      if (!showModal || !selectedProductType || selectedProductType === 'ACCESSORY') {
         setSizeChartPreview(null);
         return;
       }
       setLoadingSizeChart(true);
       try {
-        const data = await fetchSizeChartByType(formData.productType);
+        const data = await fetchSizeChartByType(selectedProductType);
         setSizeChartPreview(data);
       } catch {
         setSizeChartPreview(null);
@@ -244,7 +254,7 @@ const Products: React.FC = () => {
       }
     };
     loadSizeChart();
-  }, [showModal, formData.productType]);
+  }, [showModal, selectedProductType]);
 
   // Load categories and colors
   useEffect(() => {
@@ -358,7 +368,6 @@ const Products: React.FC = () => {
       price: product.price.toString(),
       salePrice: product.salePrice?.toString() || '',
       categoryId: product.categoryId.toString(),
-      productType: (product as Product & { productType?: ProductType }).productType || 'SLEEPWEAR',
       isFeatured: product.isFeatured,
       isVisible: product.isVisible,
       newImages: [],
@@ -468,7 +477,7 @@ const Products: React.FC = () => {
         }
 
         // For ACCESSORY, don't include variants with size
-        const isAccessory = formData.productType === 'ACCESSORY';
+        const isAccessory = selectedProductType === 'ACCESSORY';
         const validVariants = isAccessory 
           ? [] 
           : formData.variants.filter(v => v.size && v.color);
@@ -480,7 +489,6 @@ const Products: React.FC = () => {
           price: priceNum,
           salePrice: formData.salePrice ? parseFloat(formData.salePrice) : undefined,
           categoryId: categoryIdNum,
-          productType: formData.productType,
           isFeatured: formData.isFeatured,
           isVisible: formData.isVisible,
           images: allImages.length > 0 ? allImages : undefined,
@@ -1019,7 +1027,7 @@ const Products: React.FC = () => {
                   )}
                 </button>
                 {/* Hide variants tab for ACCESSORY */}
-                {formData.productType !== 'ACCESSORY' && (
+                {selectedProductType && selectedProductType !== 'ACCESSORY' && (
                   <button
                     type="button"
                     onClick={() => setActiveTab('variants')}
@@ -1097,7 +1105,7 @@ const Products: React.FC = () => {
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.price} (VND) *</label>
                         <input
@@ -1119,60 +1127,53 @@ const Products: React.FC = () => {
                           className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.category} *</label>
-                        <select
-                          value={formData.categoryId}
-                          onChange={(e) => setFormData(prev => ({ ...prev, categoryId: e.target.value }))}
-                          required
-                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 dark:text-slate-200 font-medium"
-                        >
-                          <option value="">{t.selectCategory}</option>
-                          {categories.map((cat) => (
-                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                          ))}
-                        </select>
-                      </div>
                     </div>
-
-                    {/* Product Type Selection */}
+                    {/* Category Selection */}
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.productType} *</label>
-                        {editingProduct && (
-                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                            {language === 'vi' ? '(Không thể thay đổi)' : '(Cannot change)'}
-                          </span>
-                        )}
+                      <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.category} *</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {categories.map((cat) => {
+                          const typeInfo = PRODUCT_TYPE_OPTIONS.find(opt => opt.value === cat.productType);
+                          const typeLabel = language === 'vi' ? typeInfo?.labelVi : typeInfo?.label;
+                          const isSelected = formData.categoryId === cat.id.toString();
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, categoryId: cat.id.toString() }))}
+                              className={`p-3 rounded-xl border-2 text-left transition-all ${
+                                isSelected
+                                  ? 'border-rose-500 bg-rose-50 dark:bg-rose-500/10'
+                                  : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xl">{PRODUCT_TYPE_ICON_MAP[cat.productType]}</span>
+                                {isSelected && (
+                                  <CheckCircle size={14} className="text-rose-500" />
+                                )}
+                              </div>
+                              <p className={`text-[12px] font-bold mt-2 ${
+                                isSelected
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : 'text-slate-700 dark:text-slate-200'
+                              }`}>
+                                {cat.name}
+                              </p>
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                {t.productType}: {typeLabel || cat.productType}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                        {PRODUCT_TYPE_OPTIONS.map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            disabled={!!editingProduct}
-                            onClick={() => setFormData(prev => ({ ...prev, productType: opt.value }))}
-                            className={`p-3 rounded-xl border-2 text-center transition-all ${
-                              formData.productType === opt.value
-                                ? 'border-rose-500 bg-rose-50 dark:bg-rose-500/10'
-                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                            } ${editingProduct ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-                          >
-                            <span className="text-xl">{opt.icon}</span>
-                            <p className={`text-[10px] font-bold mt-1 ${
-                              formData.productType === opt.value
-                                ? 'text-rose-600 dark:text-rose-400'
-                                : 'text-slate-600 dark:text-slate-400'
-                            }`}>
-                              {language === 'vi' ? opt.labelVi : opt.label}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                      {!editingProduct && (
-                        <p className="text-[10px] text-slate-400 italic">{t.productTypeNote}</p>
+                      {!categories.length && (
+                        <p className="text-[10px] text-slate-400 italic">{language === 'vi' ? 'Chưa có danh mục để chọn' : 'No categories available'}</p>
                       )}
-                      {formData.productType === 'ACCESSORY' && (
+                      {!formData.categoryId && categories.length > 0 && (
+                        <p className="text-[10px] text-slate-400 italic">{language === 'vi' ? 'Chọn danh mục để tiếp tục' : 'Select a category to continue'}</p>
+                      )}
+                      {selectedProductType === 'ACCESSORY' && (
                         <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
                           <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">{t.accessoryNote}</p>
                         </div>
@@ -1180,7 +1181,7 @@ const Products: React.FC = () => {
                     </div>
 
                     {/* Size Chart Preview */}
-                    {formData.productType !== 'ACCESSORY' && (
+                    {selectedProductType && selectedProductType !== 'ACCESSORY' && (
                       <div className="space-y-3">
                         <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.sizeChartPreview}</label>
                         {loadingSizeChart ? (
@@ -1377,7 +1378,7 @@ const Products: React.FC = () => {
                 )}
 
                 {/* TAB: Variants - Hide for ACCESSORY */}
-                {activeTab === 'variants' && formData.productType !== 'ACCESSORY' && (
+                {activeTab === 'variants' && selectedProductType && selectedProductType !== 'ACCESSORY' && (
                   <div className="space-y-6">
                     {/* Bulk Generate Section */}
                     <div className="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-500/10 dark:to-indigo-500/10 rounded-2xl border border-purple-200 dark:border-purple-500/20">
