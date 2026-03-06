@@ -562,11 +562,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                       onClick={() => {
                         setSelectedColorId(colorGroup.colorId);
                         const sizesForColor = colorGroup.sizes.map((s) => s.size);
-                        if (sizesForColor.length === 1) {
-                          setSelectedSize(sizesForColor[0]);
-                        } else {
-                          setSelectedSize("");
-                        }
+                        const inStockSizes = colorGroup.sizes.filter((s) => s.stock > 0).map((s) => s.size);
+                        const shouldKeepSize =
+                          selectedSize &&
+                          sizesForColor.includes(selectedSize) &&
+                          inStockSizes.includes(selectedSize);
+                        const nextSize = shouldKeepSize
+                          ? selectedSize
+                          : inStockSizes[0] || sizesForColor[0] || "";
+                        setSelectedSize(nextSize);
                       }}
                       className={`relative px-4 py-2 border rounded transition-all flex items-center gap-2 ${
                         isSelected
@@ -589,7 +593,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           )}
 
           {/* Size Selection - Hide if only 1 size (auto-selected) */}
-          {sizes.length > 1 && (
+          {sizes.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white">Kích cỡ</h3>
@@ -600,27 +604,49 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   Hướng dẫn chọn size
                 </button>
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                {sizes.map((size) => {
+              {sizes.length === 1 ? (
+                (() => {
+                  const size = sizes[0];
                   const available = isSizeAvailable(size);
                   return (
-                    <button
-                      key={size}
-                      onClick={() => available && setSelectedSize(selectedSize === size ? "" : size)}
-                      disabled={!available}
-                      className={`py-3 px-4 border rounded transition-all ${
-                        !available
-                          ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed line-through"
-                          : selectedSize === size
-                          ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black"
-                          : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white"
+                    <div
+                      className={`inline-flex items-center gap-2 py-2 px-4 border rounded-lg text-sm font-medium ${
+                        available
+                          ? "border-black/20 dark:border-white/20 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800"
+                          : "border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-600 bg-gray-100 dark:bg-gray-800"
                       }`}
+                      aria-disabled={!available}
                     >
-                      {size}
-                    </button>
+                      <span>{size}</span>
+                      <span className={`text-xs ${available ? "text-emerald-600" : "text-gray-400"}`}>
+                        {available ? "Còn hàng" : "Hết hàng"}
+                      </span>
+                    </div>
                   );
-                })}
-              </div>
+                })()
+              ) : (
+                <div className="grid grid-cols-4 gap-2">
+                  {sizes.map((size) => {
+                    const available = isSizeAvailable(size);
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => available && setSelectedSize(selectedSize === size ? "" : size)}
+                        disabled={!available}
+                        className={`py-3 px-4 border rounded transition-all ${
+                          !available
+                            ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed line-through"
+                            : selectedSize === size
+                            ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black"
+                            : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white"
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
