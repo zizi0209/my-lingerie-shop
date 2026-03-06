@@ -17,7 +17,9 @@ import { adminDashboardApi, type DashboardStats, type AuditLog, type LiveFeedIte
 import DateRangePicker, { type DateRange } from '../DateRangePicker';
 
 interface ChartDataPoint {
-  name: string;
+  label: string;
+  shortLabel: string;
+  rawDate: string;
   revenue: number;
   orders: number;
 }
@@ -107,6 +109,7 @@ const DashboardHome: React.FC = () => {
   const [recentActivities, setRecentActivities] = useState<AuditLog[]>([]);
   const [liveFeed, setLiveFeed] = useState<LiveFeedItem[]>([]);
   const [chartType, setChartType] = useState<'area' | 'bar' | 'line'>('area');
+  const [isMobile, setIsMobile] = useState(false);
   
   // Date Range State
   const [dateRange, setDateRange] = useState<DateRange>(() => {
@@ -138,11 +141,17 @@ const DashboardHome: React.FC = () => {
 
         if (analyticsRes.success) {
           // Use the date field from backend (already grouped)
-          const chartPoints: ChartDataPoint[] = analyticsRes.data.revenueByDay.map(item => ({
-            name: item.date,
-            revenue: Math.round(item.totalAmount),
-            orders: item.orderCount
-          }));
+          const chartPoints: ChartDataPoint[] = analyticsRes.data.revenueByDay.map(item => {
+            const label = formatChartLabel(item.date, false);
+            const shortLabel = formatChartLabel(item.date, true);
+            return {
+              rawDate: item.date,
+              label,
+              shortLabel,
+              revenue: Math.round(item.totalAmount),
+              orders: item.orderCount
+            };
+          });
 
           setChartData(chartPoints);
           setTopProducts(analyticsRes.data.topProducts);
@@ -166,6 +175,17 @@ const DashboardHome: React.FC = () => {
     fetchDashboardData();
   }, [dateRange]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window === 'undefined') return;
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
@@ -184,6 +204,64 @@ const DashboardHome: React.FC = () => {
       return `${(amount / 1000).toFixed(0)}K`;
     }
     return amount.toString();
+  };
+
+  const formatChartLabel = (input: string, compact: boolean): string => {
+    const trimmed = input.trim();
+    const hourPattern = /^\d{1,2}:\d{2}$/;
+    const dayMonthPattern = /^\d{1,2}\/\d{1,2}$/;
+    const weekPattern = /^Tuần\s+\d+\/\d+$/i;
+
+    if (hourPattern.test(trimmed)) {
+      return compact ? trimmed.replace(':00', 'h') : trimmed;
+    }
+
+    if (weekPattern.test(trimmed)) {
+      return compact ? trimmed.replace(/Tuần\s+/i, 'T') : trimmed;
+    }
+
+    if (dayMonthPattern.test(trimmed)) {
+      if (!compact) return trimmed;
+      const [day] = trimmed.split('/');
+      return day;
+    }
+
+    return trimmed;
+  };
+
+  const getTickInterval = (length: number, compact: boolean): number | 'preserveStartEnd' => {
+    if (length <= 6) return 0;
+    if (length <= 12) return compact ? 1 : 0;
+    if (length <= 24) return compact ? 2 : 1;
+    if (length <= 48) return compact ? 3 : 2;
+    return 'preserveStartEnd';
+  };
+
+  const getYAxisDomain = (values: number[]): [number, number] => {
+    const maxValue = Math.max(...values, 0);
+    if (maxValue <= 0) return [0, 1];
+    const buffer = Math.max(1, Math.round(maxValue * 0.15));
+    return [0, maxValue + buffer];
+  };
+
+  const CustomChartTooltip = ({
+    active,
+    payload
+  }: {
+    active?: boolean;
+    payload?: Array<{ value?: number; payload?: ChartDataPoint }>;
+  }) => {
+    if (!active || !payload || payload.length === 0) return null;
+    const data = payload[0]?.payload;
+    if (!data) return null;
+
+    return (
+      <div className={`rounded-xl border px-4 py-3 shadow-xl ${isDark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}>
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{data.rawDate}</p>
+        <p className="text-sm font-semibold text-slate-900 dark:text-white">{formatCurrency(data.revenue)}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{data.orders} đơn hàng</p>
+      </div>
+    );
   };
 
   const formatTime = (date: Date): string => {
@@ -221,6 +299,14 @@ const DashboardHome: React.FC = () => {
     value: item.count,
     color: ORDER_STATUS_CONFIG[item.status]?.color || '#94a3b8'
   }));
+
+  const hasRevenueData = chartData.some(item => item.revenue > 0);
+  const yAxisDomain = getYAxisDomain(chartData.map(item => item.revenue));
+  const tickInterval = getTickInterval(chartData.length, isMobile);
+  const axisAngle = isMobile && chartData.length > 8 ? -25 : 0;
+  const axisAnchor = axisAngle ? 'end' : 'middle';
+  const barSize = chartData.length <= 7 ? 32 : chartData.length <= 20 ? 20 : 12;
+  const showDots = chartData.length <= 14;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -320,38 +406,38 @@ const DashboardHome: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue Chart */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
             <div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Doanh thu</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">Biểu đồ doanh thu theo thời gian</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               {/* Chart Type Switcher */}
               <div className="flex items-center bg-slate-100 dark:bg-slate-700 rounded-lg p-1">
                 <button
                   onClick={() => setChartType('area')}
-                  className={`p-1.5 rounded-md transition-colors ${chartType === 'area' ? 'bg-white dark:bg-slate-600 shadow-sm' : 'hover:bg-slate-200 dark:hover:bg-slate-600'}`}
+                  className={`p-1.5 sm:p-2 rounded-md transition-colors ${chartType === 'area' ? 'bg-white dark:bg-slate-600 shadow-sm' : 'hover:bg-slate-200 dark:hover:bg-slate-600'}`}
                   title="Biểu đồ vùng"
                 >
                   <AreaChartIcon size={16} className={chartType === 'area' ? 'text-primary-500' : 'text-slate-500'} />
                 </button>
                 <button
                   onClick={() => setChartType('bar')}
-                  className={`p-1.5 rounded-md transition-colors ${chartType === 'bar' ? 'bg-white dark:bg-slate-600 shadow-sm' : 'hover:bg-slate-200 dark:hover:bg-slate-600'}`}
+                  className={`p-1.5 sm:p-2 rounded-md transition-colors ${chartType === 'bar' ? 'bg-white dark:bg-slate-600 shadow-sm' : 'hover:bg-slate-200 dark:hover:bg-slate-600'}`}
                   title="Biểu đồ cột"
                 >
                   <BarChart3 size={16} className={chartType === 'bar' ? 'text-primary-500' : 'text-slate-500'} />
                 </button>
                 <button
                   onClick={() => setChartType('line')}
-                  className={`p-1.5 rounded-md transition-colors ${chartType === 'line' ? 'bg-white dark:bg-slate-600 shadow-sm' : 'hover:bg-slate-200 dark:hover:bg-slate-600'}`}
+                  className={`p-1.5 sm:p-2 rounded-md transition-colors ${chartType === 'line' ? 'bg-white dark:bg-slate-600 shadow-sm' : 'hover:bg-slate-200 dark:hover:bg-slate-600'}`}
                   title="Biểu đồ đường"
                 >
                   <LineChartIcon size={16} className={chartType === 'line' ? 'text-primary-500' : 'text-slate-500'} />
                 </button>
               </div>
               <div className="text-right">
-                <p className="text-xl font-bold text-slate-900 dark:text-white">
+                <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
                   {formatCurrency(chartData.reduce((sum, item) => sum + item.revenue, 0))}
                 </p>
                 <p className="text-xs text-slate-500">Tổng trong kỳ</p>
@@ -360,49 +446,100 @@ const DashboardHome: React.FC = () => {
           </div>
           <div className="h-[300px]">
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                {chartType === 'area' ? (
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#e2e8f0'} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} tickFormatter={(v) => formatShortCurrency(v)} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: isDark ? '#1e293b' : '#ffffff', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
-                      formatter={(value: number) => [formatCurrency(value), 'Doanh thu']}
-                    />
-                    <Area type="monotone" dataKey="revenue" stroke="#f43f5e" strokeWidth={2} fill="url(#colorRevenue)" />
-                  </AreaChart>
-                ) : chartType === 'bar' ? (
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#e2e8f0'} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} tickFormatter={(v) => formatShortCurrency(v)} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: isDark ? '#1e293b' : '#ffffff', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
-                      formatter={(value: number) => [formatCurrency(value), 'Doanh thu']}
-                      cursor={{ fill: isDark ? '#334155' : '#f1f5f9' }}
-                    />
-                    <Bar dataKey="revenue" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                ) : (
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#e2e8f0'} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} tickFormatter={(v) => formatShortCurrency(v)} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: isDark ? '#1e293b' : '#ffffff', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
-                      formatter={(value: number) => [formatCurrency(value), 'Doanh thu']}
-                    />
-                    <Line type="monotone" dataKey="revenue" stroke="#f43f5e" strokeWidth={2} dot={{ fill: '#f43f5e', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
-                  </LineChart>
+              <div className="relative h-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  {chartType === 'area' ? (
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#e2e8f0'} />
+                      <XAxis
+                        dataKey={isMobile ? 'shortLabel' : 'label'}
+                        axisLine={false}
+                        tickLine={false}
+                        interval={tickInterval}
+                        minTickGap={12}
+                        angle={axisAngle}
+                        textAnchor={axisAnchor}
+                        tick={{ fill: '#64748b', fontSize: isMobile ? 10 : 11 }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#64748b', fontSize: isMobile ? 10 : 11 }}
+                        tickFormatter={(v) => formatShortCurrency(v)}
+                        domain={yAxisDomain}
+                      />
+                      <Tooltip content={<CustomChartTooltip />} />
+                      <Area type="monotone" dataKey="revenue" stroke="#f43f5e" strokeWidth={2} fill="url(#colorRevenue)" />
+                    </AreaChart>
+                  ) : chartType === 'bar' ? (
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#e2e8f0'} />
+                      <XAxis
+                        dataKey={isMobile ? 'shortLabel' : 'label'}
+                        axisLine={false}
+                        tickLine={false}
+                        interval={tickInterval}
+                        minTickGap={12}
+                        angle={axisAngle}
+                        textAnchor={axisAnchor}
+                        tick={{ fill: '#64748b', fontSize: isMobile ? 10 : 11 }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#64748b', fontSize: isMobile ? 10 : 11 }}
+                        tickFormatter={(v) => formatShortCurrency(v)}
+                        domain={yAxisDomain}
+                      />
+                      <Tooltip content={<CustomChartTooltip />} cursor={{ fill: isDark ? '#334155' : '#f1f5f9' }} />
+                      <Bar dataKey="revenue" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={barSize} />
+                    </BarChart>
+                  ) : (
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#e2e8f0'} />
+                      <XAxis
+                        dataKey={isMobile ? 'shortLabel' : 'label'}
+                        axisLine={false}
+                        tickLine={false}
+                        interval={tickInterval}
+                        minTickGap={12}
+                        angle={axisAngle}
+                        textAnchor={axisAnchor}
+                        tick={{ fill: '#64748b', fontSize: isMobile ? 10 : 11 }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#64748b', fontSize: isMobile ? 10 : 11 }}
+                        tickFormatter={(v) => formatShortCurrency(v)}
+                        domain={yAxisDomain}
+                      />
+                      <Tooltip content={<CustomChartTooltip />} />
+                      <Line
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="#f43f5e"
+                        strokeWidth={2}
+                        dot={showDots ? { fill: '#f43f5e', strokeWidth: 2, r: chartData.length === 1 ? 5 : 3 } : false}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  )}
+                </ResponsiveContainer>
+                {!hasRevenueData && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="rounded-xl bg-white/80 dark:bg-slate-900/80 px-4 py-2 text-xs text-slate-500 dark:text-slate-400">
+                      Không có doanh thu trong kỳ này
+                    </div>
+                  </div>
                 )}
-              </ResponsiveContainer>
+              </div>
             ) : (
               <div className="flex items-center justify-center h-full text-slate-400">
                 <div className="text-center">
