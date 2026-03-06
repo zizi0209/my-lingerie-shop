@@ -385,6 +385,15 @@ const Products: React.FC = () => {
     setSuccessMessage(null);
     setActiveTab('info');
     setShowModal(true);
+
+    try {
+      const variantsRes = await productApi.variants.list(product.id);
+      if (variantsRes.success) {
+        setExistingVariants(variantsRes.data);
+      }
+    } catch {
+      setFormError('Không thể tải biến thể hiện có');
+    }
   };
 
   // Submit form
