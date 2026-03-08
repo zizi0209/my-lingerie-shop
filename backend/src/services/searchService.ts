@@ -1,7 +1,12 @@
 import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 import { embedTexts } from './embeddingClient';
-import { ensureProductIndex, searchHybrid, searchSuggestions as redisSearchSuggestions } from '../lib/redisSearch';
+import {
+  ensureProductIndex,
+  ensureProductIndexDetailed,
+  searchHybrid,
+  searchSuggestions as redisSearchSuggestions,
+} from '../lib/redisSearch';
 
 interface SearchOptions {
   page?: number;
@@ -64,6 +69,12 @@ const getSearchEngine = (): 'postgres' | 'redis_hybrid' =>
   process.env.SEARCH_ENGINE === 'redis_hybrid' ? 'redis_hybrid' : 'postgres';
 
 const shouldFallbackToPostgres = () => process.env.SEARCH_FALLBACK_TO_POSTGRES !== 'false';
+
+const logRedisFallback = (reasonCode?: string, reason?: string) => {
+  const details = reasonCode ? ` reasonCode=${reasonCode}` : '';
+  const message = reason ? ` reason=${reason}` : '';
+  console.warn(`[Search] Redis fallback to Postgres.${details}${message}`);
+};
 
 // Check if query is a navigation keyword
 async function checkNavigationKeyword(query: string) {
@@ -474,8 +485,9 @@ async function redisHybridSearch(
   }
 
   const expandedQueries = await expandWithSynonyms(normalizedQuery);
-  const indexReady = await ensureProductIndex();
-  if (!indexReady && shouldFallbackToPostgres()) {
+  const indexStatus = await ensureProductIndexDetailed();
+  if (!indexStatus.ok && shouldFallbackToPostgres()) {
+    logRedisFallback(indexStatus.reasonCode, indexStatus.reason);
     return postgresSearch(query, options);
   }
   const embeddings = await embedTexts([normalizedQuery]);
@@ -483,6 +495,7 @@ async function redisHybridSearch(
 
   if (!embedding || embedding.length === 0) {
     if (shouldFallbackToPostgres()) {
+      logRedisFallback('redis_unavailable', 'Embedding worker unavailable');
       return postgresSearch(query, options);
     }
     return {
@@ -639,6 +652,8 @@ export async function smartSearch(
       return await redisHybridSearch(query, options);
     } catch (error) {
       if (shouldFallbackToPostgres()) {
+        const reason = error instanceof Error ? error.message : undefined;
+        logRedisFallback('redis_command_failed', reason);
         return postgresSearch(query, options);
       }
       throw error;

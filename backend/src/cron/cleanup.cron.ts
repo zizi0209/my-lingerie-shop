@@ -3,8 +3,8 @@
   * Scheduled database cleanup using Redis for distributed locking
   */
  
- import { cleanupService, CleanupSummary } from '../services/cleanup.service';
- import { getRedisClient, isRedisConnected } from '../lib/redis';
+import { cleanupService, CleanupSummary } from '../services/cleanup.service';
+import { ensureRedisReady } from '../lib/redis';
  
  const LOCK_KEY = 'cleanup:lock';
  const LOCK_TTL = 3600; // 1 hour max lock time
@@ -23,14 +23,11 @@
   * Acquire distributed lock using Redis
   */
  async function acquireLock(lockName: string): Promise<boolean> {
-   if (!isRedisConnected()) {
-     // If Redis is not available, proceed without locking (single instance assumption)
-     console.log('[Cleanup] Redis not available, proceeding without distributed lock');
-     return true;
-   }
- 
-   const redis = getRedisClient();
-   if (!redis) return true;
+  const redis = await ensureRedisReady();
+  if (!redis) {
+    console.warn('[Cleanup] Redis not available, proceeding without distributed lock');
+    return true;
+  }
  
    try {
      const lockKey = `${LOCK_KEY}:${lockName}`;
@@ -46,10 +43,8 @@
   * Release distributed lock
   */
  async function releaseLock(lockName: string): Promise<void> {
-   if (!isRedisConnected()) return;
- 
-   const redis = getRedisClient();
-   if (!redis) return;
+  const redis = await ensureRedisReady();
+  if (!redis) return;
  
    try {
      await redis.del(`${LOCK_KEY}:${lockName}`);
@@ -62,10 +57,8 @@
   * Save last run timestamp
   */
  async function saveLastRun(cleanupType: string, summary: CleanupSummary): Promise<void> {
-   if (!isRedisConnected()) return;
- 
-   const redis = getRedisClient();
-   if (!redis) return;
+  const redis = await ensureRedisReady();
+  if (!redis) return;
  
    try {
      await redis.hset(`${LAST_RUN_KEY}:${cleanupType}`, {
@@ -85,10 +78,8 @@
   * Get last run info
   */
  async function getLastRun(cleanupType: string): Promise<Record<string, string> | null> {
-   if (!isRedisConnected()) return null;
- 
-   const redis = getRedisClient();
-   if (!redis) return null;
+  const redis = await ensureRedisReady();
+  if (!redis) return null;
  
    try {
      const data = await redis.hgetall(`${LAST_RUN_KEY}:${cleanupType}`);

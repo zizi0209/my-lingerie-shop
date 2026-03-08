@@ -1,4 +1,4 @@
-import { getRedisClient } from './redis';
+import { ensureRedisReady, getRedisDiagnostics } from './redis';
 
 const DEFAULT_INDEX = 'idx:products';
 const DEFAULT_PREFIX = 'product:';
@@ -38,7 +38,18 @@ export interface RedisSearchIndexStatus {
   indexName: string;
   numDocs: number;
   status: string;
+  reason?: string;
+  reasonCode?: string;
+  moduleAvailable?: boolean;
+  diagnostics?: ReturnType<typeof getRedisDiagnostics>;
 }
+
+type RedisSearchReasonCode =
+  | 'redis_unavailable'
+  | 'redisearch_module_unavailable'
+  | 'index_missing'
+  | 'index_create_failed'
+  | 'redis_command_failed';
 
 const parseRedisArray = (value: unknown): string[] =>
   Array.isArray(value) ? value.map(String) : [];
@@ -127,9 +138,45 @@ const parseSuggestionResponse = (response: unknown): RedisSearchSuggestionResult
   return { names };
 };
 
-export const ensureProductIndex = async (): Promise<boolean> => {
-  const redis = getRedisClient();
-  if (!redis) return false;
+const classifyRedisError = (error: unknown): RedisSearchReasonCode => {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  if (message.includes('unknown command') || message.includes('not supported')) {
+    return 'redisearch_module_unavailable';
+  }
+  if (message.includes('econn') || message.includes('socket') || message.includes('connect')) {
+    return 'redis_unavailable';
+  }
+  return 'redis_command_failed';
+};
+
+const buildDiagnostics = () => getRedisDiagnostics();
+
+const formatRedisUnavailableReason = (diagnostics: ReturnType<typeof getRedisDiagnostics>): string => {
+  const endpoint = diagnostics.host && diagnostics.port
+    ? `${diagnostics.host}:${diagnostics.port}`
+    : diagnostics.host || 'unknown';
+  const statusPart = diagnostics.status ? `; status=${diagnostics.status}` : '';
+  const errorPart = diagnostics.lastError ? `; lastError=${diagnostics.lastError}` : '';
+  const hintPart = diagnostics.runtimeHint ? `; hint=${diagnostics.runtimeHint}` : '';
+  return `Redis không khả dụng tại ${endpoint}${statusPart}${errorPart}${hintPart}`;
+};
+
+export const ensureProductIndexDetailed = async (): Promise<{
+  ok: boolean;
+  reasonCode?: RedisSearchReasonCode;
+  reason?: string;
+  diagnostics?: ReturnType<typeof getRedisDiagnostics>;
+}> => {
+  const redis = await ensureRedisReady();
+  if (!redis) {
+    const diagnostics = buildDiagnostics();
+    return {
+      ok: false,
+      reasonCode: 'redis_unavailable',
+      reason: formatRedisUnavailableReason(diagnostics),
+      diagnostics,
+    };
+  }
 
   const indexName = getIndexName();
 
@@ -137,7 +184,7 @@ export const ensureProductIndex = async (): Promise<boolean> => {
     const list = await redis.call('FT._LIST');
     const existing = parseRedisArray(list);
     if (existing.includes(indexName)) {
-      return true;
+      return { ok: true };
     }
 
     const dimension = getEmbeddingDimension();
@@ -207,11 +254,24 @@ export const ensureProductIndex = async (): Promise<boolean> => {
       'COSINE'
     );
 
-    return true;
+    return { ok: true };
   } catch (error) {
-    console.warn('[RedisSearch] Ensure index failed:', error);
-    return false;
+    const reasonCode = classifyRedisError(error);
+    const reason = error instanceof Error ? error.message : 'Không thể tạo index';
+    return {
+      ok: false,
+      reasonCode: reasonCode === 'redis_command_failed' ? 'index_create_failed' : reasonCode,
+      reason,
+    };
   }
+};
+
+export const ensureProductIndex = async (): Promise<boolean> => {
+  const result = await ensureProductIndexDetailed();
+  if (!result.ok) {
+    console.warn('[RedisSearch] Ensure index failed:', result.reason);
+  }
+  return result.ok;
 };
 
 export const serializeEmbedding = (embedding: number[]): Buffer => {
@@ -220,7 +280,7 @@ export const serializeEmbedding = (embedding: number[]): Buffer => {
 };
 
 export const upsertProductDoc = async (payload: Record<string, string | number | Buffer>): Promise<void> => {
-  const redis = getRedisClient();
+  const redis = await ensureRedisReady();
   if (!redis) return;
   const idValue = typeof payload.id === 'number' || typeof payload.id === 'string'
     ? payload.id
@@ -237,7 +297,7 @@ export const upsertProductDoc = async (payload: Record<string, string | number |
 };
 
 export const deleteProductDoc = async (productId: number): Promise<void> => {
-  const redis = getRedisClient();
+  const redis = await ensureRedisReady();
   if (!redis) return;
 
   try {
@@ -254,7 +314,7 @@ export const searchHybrid = async (
   limit: number,
   knnCandidates: number
 ): Promise<RedisSearchResult> => {
-  const redis = getRedisClient();
+  const redis = await ensureRedisReady();
   if (!redis) return { total: 0, ids: [], scores: new Map() };
 
   const indexName = getIndexName();
@@ -353,7 +413,7 @@ export const searchSuggestions = async (
   prefix: string,
   limit: number
 ): Promise<RedisSearchSuggestionResult> => {
-  const redis = getRedisClient();
+  const redis = await ensureRedisReady();
   if (!redis) return { names: [] };
 
   const indexName = getIndexName();
@@ -383,22 +443,61 @@ export const searchSuggestions = async (
 };
 
 export const getIndexStatus = async (): Promise<RedisSearchIndexStatus> => {
-  const redis = getRedisClient();
+  const redis = await ensureRedisReady();
   if (!redis) {
-    return { indexName: getIndexName(), numDocs: 0, status: 'redis_unavailable' };
+    const diagnostics = buildDiagnostics();
+    return {
+      indexName: getIndexName(),
+      numDocs: 0,
+      status: 'redis_unavailable',
+      reason: formatRedisUnavailableReason(diagnostics),
+      reasonCode: 'redis_unavailable',
+      moduleAvailable: false,
+      diagnostics,
+    };
   }
 
+  const indexName = getIndexName();
+
   try {
-    const info = await redis.call('FT.INFO', getIndexName());
+    const list = await redis.call('FT._LIST');
+    const existing = parseRedisArray(list);
+    const moduleAvailable = true;
+
+    if (!existing.includes(indexName)) {
+      return {
+        indexName,
+        numDocs: 0,
+        status: 'missing',
+        reason: 'Index chưa được tạo',
+        reasonCode: 'index_missing',
+        moduleAvailable,
+        diagnostics: buildDiagnostics(),
+      };
+    }
+
+    const info = await redis.call('FT.INFO', indexName);
     const infoArray = Array.isArray(info) ? info : [];
     const numDocsIndex = infoArray.findIndex((value) => value === 'num_docs');
     const numDocsValue = numDocsIndex >= 0 ? String(infoArray[numDocsIndex + 1]) : '0';
     return {
-      indexName: getIndexName(),
+      indexName,
       numDocs: parseNumber(numDocsValue),
       status: 'ok',
+      moduleAvailable,
+      diagnostics: buildDiagnostics(),
     };
-  } catch {
-    return { indexName: getIndexName(), numDocs: 0, status: 'missing' };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Không đọc được trạng thái index';
+    const reasonCode = classifyRedisError(error);
+    return {
+      indexName,
+      numDocs: 0,
+      status: 'missing',
+      reason,
+      reasonCode,
+      moduleAvailable: reasonCode !== 'redisearch_module_unavailable',
+      diagnostics: buildDiagnostics(),
+    };
   }
 };

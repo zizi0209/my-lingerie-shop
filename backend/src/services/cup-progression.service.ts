@@ -20,6 +20,7 @@ import Redis from 'ioredis';
 const prisma = new PrismaClient();
 let redis: Redis | null = null;
 let redisAvailable = false;
+const REDIS_CACHE_TIMEOUT_MS = Number(process.env.REDIS_CACHE_TIMEOUT_MS || 200);
 
 try {
   redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -37,6 +38,14 @@ try {
     redisAvailable = true;
   });
 
+  redis.on('close', () => {
+    redisAvailable = false;
+  });
+
+  redis.on('end', () => {
+    redisAvailable = false;
+  });
+
   redis.connect().catch(() => {
     redisAvailable = false;
   });
@@ -49,7 +58,8 @@ try {
 async function safeRedisGet(key: string): Promise<string | null> {
   if (!redis || !redisAvailable) return null;
   try {
-    return await redis.get(key);
+    const result = await withRedisTimeout(redis.get(key));
+    return typeof result === 'string' ? result : null;
   } catch {
     return null;
   }
@@ -58,11 +68,26 @@ async function safeRedisGet(key: string): Promise<string | null> {
 async function safeRedisSetex(key: string, ttl: number, value: string): Promise<void> {
   if (!redis || !redisAvailable) return;
   try {
-    await redis.setex(key, ttl, value);
+    await withRedisTimeout(redis.setex(key, ttl, value));
   } catch {
     // Ignore cache write errors
   }
 }
+
+const withRedisTimeout = async <T>(promise: Promise<T>): Promise<T | null> => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    const timeoutPromise = new Promise<null>((resolve) => {
+      timeoutId = setTimeout(() => resolve(null), REDIS_CACHE_TIMEOUT_MS);
+    });
+    const result = await Promise.race([promise, timeoutPromise]);
+    return (result as T | null) ?? null;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
 
 // ============================================
 // HARDCODED CUP PROGRESSION TABLES
@@ -416,9 +441,13 @@ export class CupProgressionService {
    */
   async invalidateCache(): Promise<void> {
     if (!redis || !redisAvailable) return;
-    const keys = await redis.keys('cup-conversion:*');
-    if (keys.length > 0) {
-      await redis.del(...keys);
+    try {
+      const keys = await withRedisTimeout(redis.keys('cup-conversion:*'));
+      if (keys && keys.length > 0) {
+        await withRedisTimeout(redis.del(...keys));
+      }
+    } catch {
+      return;
     }
   }
 }

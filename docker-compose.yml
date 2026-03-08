@@ -5,9 +5,8 @@ services:
     ports:
       - "6379:6379"
     restart: unless-stopped
-    command: redis-server --appendonly yes
     healthcheck:
-      test: ["CMD", "redis-cli", "FT._LIST"]
+      test: ["CMD-SHELL", "redis-cli PING | grep -q PONG && redis-cli FT._LIST"]
       interval: 10s
       timeout: 5s
       retries: 5

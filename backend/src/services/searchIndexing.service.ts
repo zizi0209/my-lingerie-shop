@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma';
-import { getRedisClient } from '../lib/redis';
+import { ensureRedisReady, type RedisDiagnostics } from '../lib/redis';
 import {
-  ensureProductIndex,
+  ensureProductIndexDetailed,
   serializeEmbedding,
   upsertProductDoc,
   deleteProductDoc,
@@ -11,6 +11,24 @@ import { embedTexts } from './embeddingClient';
 
 const LOCK_KEY = 'search:index:lock';
 const EMBEDDING_DIMENSION = Number(process.env.EMBEDDING_DIM || 768);
+
+export class SearchIndexingError extends Error {
+  reasonCode?: string;
+  diagnostics?: RedisDiagnostics;
+
+  constructor(message: string, reasonCode?: string, diagnostics?: RedisDiagnostics) {
+    super(message);
+    this.name = 'SearchIndexingError';
+    this.reasonCode = reasonCode;
+    this.diagnostics = diagnostics;
+  }
+}
+
+const buildIndexingError = (result: Awaited<ReturnType<typeof ensureProductIndexDetailed>>): SearchIndexingError => {
+  const suffix = result.reasonCode ? ` (${result.reasonCode})` : '';
+  const detail = result.reason ? `: ${result.reason}` : '';
+  return new SearchIndexingError(`Không thể tạo Redis Search index${suffix}${detail}`, result.reasonCode, result.diagnostics);
+};
 
 type IndexProduct = {
   id: number;
@@ -114,8 +132,8 @@ const buildIndexPayload = (product: IndexProduct, embedding: number[]) => {
 };
 
 const acquireLock = async (): Promise<boolean> => {
-  const redis = getRedisClient();
-  if (!redis) return true;
+  const redis = await ensureRedisReady();
+  if (!redis) return false;
 
   try {
     const result = await redis.set(LOCK_KEY, Date.now().toString(), 'EX', 600, 'NX');
@@ -126,7 +144,7 @@ const acquireLock = async (): Promise<boolean> => {
 };
 
 const releaseLock = async (): Promise<void> => {
-  const redis = getRedisClient();
+  const redis = await ensureRedisReady();
   if (!redis) return;
 
   try {
@@ -137,8 +155,10 @@ const releaseLock = async (): Promise<void> => {
 };
 
 export const indexProductById = async (productId: number): Promise<void> => {
-  const ready = await ensureProductIndex();
-  if (!ready) return;
+  const result = await ensureProductIndexDetailed();
+  if (!result.ok) {
+    throw buildIndexingError(result);
+  }
 
   const product = await prisma.product.findUnique({
     where: { id: productId },
@@ -162,11 +182,15 @@ export const removeProductFromIndex = async (productId: number): Promise<void> =
 };
 
 export const reindexAllProducts = async (batchSize = 200): Promise<void> => {
-  const ready = await ensureProductIndex();
-  if (!ready) return;
+  const result = await ensureProductIndexDetailed();
+  if (!result.ok) {
+    throw buildIndexingError(result);
+  }
 
   const lockAcquired = await acquireLock();
-  if (!lockAcquired) return;
+  if (!lockAcquired) {
+    throw new Error('Không thể lấy lock Redis cho reindex');
+  }
 
   try {
     let lastId = 0;

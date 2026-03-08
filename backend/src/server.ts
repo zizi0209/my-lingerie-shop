@@ -7,6 +7,18 @@ import path from 'path';
 
 dotenv.config();
 
+const validateRedisEnv = () => {
+  if (process.env.SEARCH_ENGINE !== 'redis_hybrid') return;
+  const redisUrl = process.env.REDIS_URL || '';
+  if (!redisUrl) {
+    console.warn('[Config][High] SEARCH_ENGINE=redis_hybrid nhưng thiếu REDIS_URL');
+    return;
+  }
+  if (redisUrl.includes('localhost') || redisUrl.includes('127.0.0.1')) {
+    console.warn('[Config][High] REDIS_URL đang trỏ localhost; kiểm tra backend có cùng network với Redis');
+  }
+};
+
 // Import routes & config AFTER dotenv.config()
 import authRoutes from './routes/authRoutes';
 import mediaRoutes from './routes/mediaRoutes';
@@ -47,6 +59,8 @@ import { startTripoSrHealthMonitor } from './services/tripoSrHealth';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+validateRedisEnv();
 
 // Trust proxy - Required for Render deployment and rate limiting
 // This allows Express to trust the X-Forwarded-* headers from Render's proxy

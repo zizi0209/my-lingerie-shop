@@ -102,17 +102,7 @@ Khi giải quyết vấn đề phức tạp, áp dụng quy trình và format sa
    - Action: ...
    - Reflection: ✓ Valid / ✗ Retry
 
-## 6. Final Verification
-
-Trước khi hoàn tất, chạy các lệnh kiểm tra sau để đảm bảo không lỗi deploy:
-Type Check: 
-- bunx tsc --project frontend/tsconfig.json --noEmit 
-- bunx tsc --project backend/tsconfig.json --noEmit
-Linting: - bunx oxlint --type-aware --type-check --fix
-Bun Cache Troubleshooting:
-Nếu bunx lỗi: Remove-Item -Recurse -Force $env:LOCALAPPDATA\Temp\bunx-\* hoặc chạy bun install.
-
-## 7. Spec Mode Rules
+## 6. Spec Mode Rules
 
 Khi ở chế độ Spec (read-only planning):
 
@@ -132,3 +122,24 @@ Khi ở chế độ Spec (read-only planning):
 - Cuối spec phải có phần chốt lại thật dễ hiểu cho User, trình bài checklist, Best practice ra
 - Tự WebSearch và đọc kỹ codebase để đưa ra Best Practice với dự án cho User để tăng sức mạnh và trọng lượng khi ASK USER để khiến người dùng nhẹ nhàng hơn nhưng vẫn phải chuẩn chỉ Best Practice
 ```
+
+## 7. Audit-First Operating Rule
+
+- Luôn Audit trước khi fix/debug/đề xuất giải pháp: Audit → Root Cause → Fix/Proposal → Verify.
+- Mọi kết luận phải có evidence (log, code path, repro, metric, history). Thiếu evidence thì nêu rõ gap + cách lấy evidence.
+- Trigger Audit khi gặp các từ khóa: fix, bug, lỗi, root cause, spec, optimize, refactor.
+
+## 8. UX rule
+
+cut text in half, then half again
+
+## 9. Final Verification
+
+Trước khi hoàn tất, chạy các lệnh kiểm tra sau để đảm bảo không lỗi deploy:
+Type Check:
+
+- bunx tsc --project frontend/tsconfig.json --noEmit
+- bunx tsc --project backend/tsconfig.json --noEmit
+  Linting: - bunx oxlint --type-aware --type-check --fix
+  Bun Cache Troubleshooting:
+  Nếu bunx lỗi: Remove-Item -Recurse -Force $env:LOCALAPPDATA\Temp\bunx-\* hoặc chạy bun install.

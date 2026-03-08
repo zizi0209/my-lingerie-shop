@@ -1,7 +1,12 @@
 import express from 'express';
 import { prisma } from '../../lib/prisma';
 import { checkEmbeddingHealth } from '../../services/embeddingClient';
-import { getSearchIndexStatus, indexProductById, reindexAllProducts } from '../../services/searchIndexing.service';
+import {
+  SearchIndexingError,
+  getSearchIndexStatus,
+  indexProductById,
+  reindexAllProducts,
+} from '../../services/searchIndexing.service';
 
 const router = express.Router();
 
@@ -364,14 +369,21 @@ router.get('/analytics', async (req, res) => {
 // POST /api/admin/search/reindex - Reindex all products
 router.post('/reindex', async (_req, res) => {
   try {
-    reindexAllProducts().catch((error) => {
-      console.error('Reindex failed:', error);
-    });
+    await reindexAllProducts();
 
-    res.json({ success: true, message: 'Đã khởi chạy reindex toàn bộ sản phẩm' });
+    res.json({ success: true, message: 'Đã reindex toàn bộ sản phẩm' });
   } catch (error) {
     console.error('Reindex error:', error);
-    res.status(500).json({ success: false, error: 'Lỗi khi reindex sản phẩm' });
+    const message = error instanceof Error ? error.message : 'Lỗi khi reindex sản phẩm';
+    if (error instanceof SearchIndexingError) {
+      return res.status(500).json({
+        success: false,
+        error: message,
+        reasonCode: error.reasonCode,
+        diagnostics: error.diagnostics,
+      });
+    }
+    res.status(500).json({ success: false, error: message });
   }
 });
 
@@ -387,7 +399,16 @@ router.post('/reindex/:productId', async (req, res) => {
     res.json({ success: true, message: 'Đã reindex sản phẩm' });
   } catch (error) {
     console.error('Reindex product error:', error);
-    res.status(500).json({ success: false, error: 'Lỗi khi reindex sản phẩm' });
+    const message = error instanceof Error ? error.message : 'Lỗi khi reindex sản phẩm';
+    if (error instanceof SearchIndexingError) {
+      return res.status(500).json({
+        success: false,
+        error: message,
+        reasonCode: error.reasonCode,
+        diagnostics: error.diagnostics,
+      });
+    }
+    res.status(500).json({ success: false, error: message });
   }
 });
 
