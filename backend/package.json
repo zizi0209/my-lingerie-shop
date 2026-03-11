@@ -13,7 +13,10 @@
     "test:coverage": "vitest run --coverage",
     "test:security": "vitest run src/tests/security",
     "test:api": "vitest run src/tests/api",
-    "typecheck": "tsc --project tsconfig.json --noEmit"
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "reindex:embeddings": "ts-node src/scripts/reindexEmbeddings.ts",
+    "search:reconcile": "ts-node src/scripts/reconcileSearchIndex.ts",
+    "verify:embedding": "ts-node src/scripts/verifyEmbeddingProvider.ts"
   },
   "keywords": [],
   "author": "",

@@ -1,6 +1,6 @@
 import express from 'express';
 import { prisma } from '../../lib/prisma';
-import { checkEmbeddingHealth } from '../../services/embeddingClient';
+import { getEmbeddingHealth } from '../../services/embeddingClient';
 import {
   SearchIndexingError,
   getSearchIndexStatus,
@@ -426,16 +426,21 @@ router.get('/index-status', async (_req, res) => {
 // GET /api/admin/search/engine-health - Redis + embedding health
 router.get('/engine-health', async (_req, res) => {
   try {
-    const [indexStatus, embeddingOk] = await Promise.all([
+    const [indexStatus, embeddingHealth] = await Promise.all([
       getSearchIndexStatus(),
-      checkEmbeddingHealth(),
+      getEmbeddingHealth(),
     ]);
 
     res.json({
       success: true,
       data: {
-        redisSearch: indexStatus,
-        embeddingWorker: embeddingOk ? 'ok' : 'unavailable',
+        searchIndex: indexStatus,
+        embedding: {
+          provider: embeddingHealth.provider,
+          status: embeddingHealth.status,
+          model: embeddingHealth.model,
+          reason: embeddingHealth.reason,
+        },
       },
     });
   } catch (error) {

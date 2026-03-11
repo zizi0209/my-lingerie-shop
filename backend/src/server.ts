@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import path from 'path';
+import { Prisma } from '@prisma/client';
 
 dotenv.config();
 
@@ -16,6 +17,36 @@ const validateRedisEnv = () => {
   }
   if (redisUrl.includes('localhost') || redisUrl.includes('127.0.0.1')) {
     console.warn('[Config][High] REDIS_URL đang trỏ localhost; kiểm tra backend có cùng network với Redis');
+  }
+};
+
+const validateEmbeddingEnv = () => {
+  const searchEngine = process.env.SEARCH_ENGINE || 'postgres';
+  if (searchEngine !== 'redis_hybrid' && searchEngine !== 'pgvector') return;
+
+  const provider = process.env.EMBEDDING_PROVIDER || 'worker';
+  const apiKey = process.env.EMBEDDING_API_KEY || '';
+  const model = process.env.EMBEDDING_MODEL || '';
+  const serviceUrl = process.env.EMBEDDING_SERVICE_URL || 'http://localhost:8081';
+
+  if (provider === 'disabled') {
+    console.warn('[Config][High] EMBEDDING_PROVIDER=disabled nhưng SEARCH_ENGINE yêu cầu semantic search');
+    return;
+  }
+
+  if (provider === 'worker') {
+    if (!serviceUrl) {
+      console.warn('[Config][High] EMBEDDING_PROVIDER=worker nhưng thiếu EMBEDDING_SERVICE_URL');
+      return;
+    }
+    if (serviceUrl.includes('localhost') || serviceUrl.includes('127.0.0.1')) {
+      console.warn('[Config][High] EMBEDDING_SERVICE_URL đang trỏ localhost; cần service embedding khả dụng');
+    }
+    return;
+  }
+
+  if (!apiKey || !model) {
+    console.warn('[Config][High] EMBEDDING_PROVIDER=managed nhưng thiếu EMBEDDING_API_KEY hoặc EMBEDDING_MODEL');
   }
 };
 
@@ -56,11 +87,15 @@ import virtualTryOnRoutes from './routes/virtualTryOnRoutes';
 import { apiLimiter } from './middleware/rateLimiter';
 import aiConsultantRoutes from './routes/aiConsultantRoutes';
 import { startTripoSrHealthMonitor } from './services/tripoSrHealth';
+import { prisma } from './lib/prisma';
+import { getSearchIndexStatus } from './services/searchIndexing.service';
+import { getEmbeddingHealth } from './services/embeddingClient';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 validateRedisEnv();
+validateEmbeddingEnv();
 
 // Trust proxy - Required for Render deployment and rate limiting
 // This allows Express to trust the X-Forwarded-* headers from Render's proxy
@@ -69,6 +104,37 @@ app.set('trust proxy', 1);
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+app.get('/health/live', (_req, res) => {
+  res.status(200).json({ status: 'OK' });
+});
+
+app.get('/health/ready', async (_req, res) => {
+  try {
+    const [dbCheck, indexStatus, embeddingHealth] = await Promise.all([
+      prisma.$queryRaw<{ ok: number }[]>(Prisma.sql`SELECT 1 AS "ok"`),
+      getSearchIndexStatus(),
+      getEmbeddingHealth(),
+    ]);
+
+    const dbReady = Boolean(dbCheck[0]?.ok);
+    const searchReady = 'ok' in indexStatus
+      ? Boolean(indexStatus.ok)
+      : indexStatus.status === 'ok';
+    const embeddingReady = embeddingHealth.status === 'ok' || process.env.SEARCH_ENGINE === 'postgres';
+    const ready = dbReady && searchReady && embeddingReady;
+
+    res.status(ready ? 200 : 503).json({
+      status: ready ? 'OK' : 'NOT_READY',
+      dbReady,
+      searchReady,
+      embeddingReady,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Lỗi không xác định';
+    res.status(503).json({ status: 'NOT_READY', error: message });
+  }
 });
 
 // Security Middleware

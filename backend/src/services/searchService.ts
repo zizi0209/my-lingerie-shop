@@ -1,12 +1,14 @@
 import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
-import { embedTexts } from './embeddingClient';
+import { embedTextsDetailed } from './embeddingClient';
 import {
   ensureProductIndex,
   ensureProductIndexDetailed,
   searchHybrid,
   searchSuggestions as redisSearchSuggestions,
+  RedisSearchError,
 } from '../lib/redisSearch';
+import { ensurePgvectorReady, searchPgvector } from '../lib/pgvectorSearch';
 
 interface SearchOptions {
   page?: number;
@@ -56,7 +58,7 @@ interface SearchResult {
     totalPages: number;
     keyword: string;
     searchType: 'navigation' | 'text' | 'fuzzy' | 'hybrid';
-    searchEngine: 'postgres' | 'redis_hybrid';
+    searchEngine: 'postgres' | 'redis_hybrid' | 'pgvector';
   };
 }
 
@@ -65,15 +67,59 @@ function normalizeQuery(query: string): string {
   return query.toLowerCase().trim();
 }
 
-const getSearchEngine = (): 'postgres' | 'redis_hybrid' =>
-  process.env.SEARCH_ENGINE === 'redis_hybrid' ? 'redis_hybrid' : 'postgres';
+const EMBEDDING_DIMENSION = Number(process.env.EMBEDDING_DIM || 768);
+
+const normalizeEmbedding = (embedding: number[]): number[] => {
+  if (embedding.length === EMBEDDING_DIMENSION) {
+    return embedding;
+  }
+  return Array.from({ length: EMBEDDING_DIMENSION }, (_, index) => embedding[index] ?? 0);
+};
+
+const getSearchEngine = (): 'postgres' | 'redis_hybrid' | 'pgvector' => {
+  if (process.env.SEARCH_ENGINE === 'redis_hybrid') return 'redis_hybrid';
+  if (process.env.SEARCH_ENGINE === 'pgvector') return 'pgvector';
+  return 'postgres';
+};
 
 const shouldFallbackToPostgres = () => process.env.SEARCH_FALLBACK_TO_POSTGRES !== 'false';
 
-const logRedisFallback = (reasonCode?: string, reason?: string) => {
+class SearchTimeoutError extends Error {
+  reasonCode: string;
+
+  constructor(message: string, reasonCode = 'search_timeout') {
+    super(message);
+    this.name = 'SearchTimeoutError';
+    this.reasonCode = reasonCode;
+  }
+}
+
+const getSearchTimeoutMs = (): number => {
+  const parsed = Number(process.env.SEARCH_TIMEOUT_MS || 1500);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1500;
+};
+
+const withTimeout = async <T>(promise: Promise<T>, label: string): Promise<T> => {
+  const timeoutMs = getSearchTimeoutMs();
+  let timeoutId: NodeJS.Timeout | undefined;
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new SearchTimeoutError(`${label} timeout sau ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+const logSearchFallback = (engine: string, reasonCode?: string, reason?: string) => {
   const details = reasonCode ? ` reasonCode=${reasonCode}` : '';
   const message = reason ? ` reason=${reason}` : '';
-  console.warn(`[Search] Redis fallback to Postgres.${details}${message}`);
+  console.warn(`[Search] ${engine} fallback to Postgres.${details}${message}`);
 };
 
 // Check if query is a navigation keyword
@@ -487,15 +533,15 @@ async function redisHybridSearch(
   const expandedQueries = await expandWithSynonyms(normalizedQuery);
   const indexStatus = await ensureProductIndexDetailed();
   if (!indexStatus.ok && shouldFallbackToPostgres()) {
-    logRedisFallback(indexStatus.reasonCode, indexStatus.reason);
+    logSearchFallback('Redis', indexStatus.reasonCode, indexStatus.reason);
     return postgresSearch(query, options);
   }
-  const embeddings = await embedTexts([normalizedQuery]);
+  const { embeddings, status } = await embedTextsDetailed([normalizedQuery]);
   const embedding = embeddings[0];
 
-  if (!embedding || embedding.length === 0) {
+  if (status !== 'ok' || !embedding || embedding.length === 0) {
     if (shouldFallbackToPostgres()) {
-      logRedisFallback('redis_unavailable', 'Embedding worker unavailable');
+      logSearchFallback('Redis', `embedding_${status}`, 'Embedding provider unavailable');
       return postgresSearch(query, options);
     }
     return {
@@ -522,19 +568,22 @@ async function redisHybridSearch(
   const requiredLimit = Math.max(safeLimit + offset, safeLimit);
   const knnCandidates = Math.max(requiredLimit * 3, Number(process.env.SEARCH_KNN_CANDIDATES || 120));
 
-  const { total, ids } = await searchHybrid(
-    expandedQueries,
-    embedding || [],
-    {
-      categoryId,
-      minPrice,
-      maxPrice,
-      colors,
-      sizes,
-      isVisible: true,
-    },
-    requiredLimit,
-    knnCandidates
+  const { total, ids } = await withTimeout(
+    searchHybrid(
+      expandedQueries,
+      embedding || [],
+      {
+        categoryId,
+        minPrice,
+        maxPrice,
+        colors,
+        sizes,
+        isVisible: true,
+      },
+      requiredLimit,
+      knnCandidates
+    ),
+    'Redis hybrid search'
   );
 
   const pagedIds = ids.slice(offset, offset + safeLimit);
@@ -643,6 +692,210 @@ async function redisHybridSearch(
   };
 }
 
+async function pgvectorHybridSearch(
+  query: string,
+  options: SearchOptions = {}
+): Promise<SearchResult> {
+  const {
+    page = 1,
+    limit = 20,
+    categoryId,
+    minPrice,
+    maxPrice,
+    colors,
+    sizes,
+    sortBy,
+    userId,
+    sessionId,
+  } = options;
+
+  const offset = (page - 1) * limit;
+  const normalizedQuery = normalizeQuery(query);
+
+  const navKeyword = await checkNavigationKeyword(normalizedQuery);
+  if (navKeyword) {
+    return postgresSearch(query, options);
+  }
+
+  const indexStatus = await ensurePgvectorReady();
+  if (!indexStatus.ok) {
+    if (shouldFallbackToPostgres()) {
+      logSearchFallback('PGVector', indexStatus.reasonCode, indexStatus.reason);
+      return postgresSearch(query, options);
+    }
+    return {
+      products: [],
+      filters: {
+        categories: [],
+        priceRange: { min: 0, max: 0 },
+        colors: [],
+        sizes: [],
+      },
+      meta: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        keyword: query,
+        searchType: 'hybrid',
+        searchEngine: 'pgvector',
+      },
+    };
+  }
+
+  const { embeddings, status } = await embedTextsDetailed([normalizedQuery]);
+  const embedding = embeddings[0];
+
+  if (status !== 'ok' || !embedding || embedding.length === 0) {
+    if (shouldFallbackToPostgres()) {
+      logSearchFallback('PGVector', `embedding_${status}`, 'Embedding provider unavailable');
+      return postgresSearch(query, options);
+    }
+    return {
+      products: [],
+      filters: {
+        categories: [],
+        priceRange: { min: 0, max: 0 },
+        colors: [],
+        sizes: [],
+      },
+      meta: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        keyword: query,
+        searchType: 'hybrid',
+        searchEngine: 'pgvector',
+      },
+    };
+  }
+
+  const safeLimit = Math.min(100, Math.max(1, limit));
+  const safeOffset = Math.max(0, offset);
+  const normalizedEmbedding = normalizeEmbedding(embedding);
+
+  const filtersInput = {
+    categoryId,
+    minPrice,
+    maxPrice,
+    colors,
+    sizes,
+    isVisible: true,
+  };
+
+  const { total, ids } = await withTimeout(
+    searchPgvector(normalizedEmbedding, filtersInput, safeLimit, safeOffset),
+    'PGVector search'
+  );
+
+  if (ids.length === 0) {
+    await logSearch(query, 0, userId, sessionId);
+    return {
+      products: [],
+      filters: {
+        categories: [],
+        priceRange: { min: 0, max: 0 },
+        colors: [],
+        sizes: [],
+      },
+      meta: {
+        total: 0,
+        page,
+        limit: safeLimit,
+        totalPages: 0,
+        keyword: query,
+        searchType: 'hybrid',
+        searchEngine: 'pgvector',
+      },
+    };
+  }
+
+  const products = await prisma.product.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      price: true,
+      salePrice: true,
+      categoryId: true,
+      isFeatured: true,
+      ratingAverage: true,
+      reviewCount: true,
+      createdAt: true,
+      category: {
+        select: { id: true, name: true, slug: true },
+      },
+      images: {
+        take: 1,
+        select: { url: true },
+      },
+      variants: {
+        where: { stock: { gt: 0 } },
+        select: {
+          colorId: true,
+          size: true,
+          stock: true,
+          color: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  const productMap = new Map<number, ProductResult>();
+  products.forEach((product) => {
+    productMap.set(product.id, product as ProductResult);
+  });
+
+  const orderedProducts = ids
+    .map((id) => productMap.get(id))
+    .filter((product): product is ProductResult => Boolean(product));
+
+  let sortedProducts = orderedProducts;
+
+  if (sortBy) {
+    sortedProducts = [...orderedProducts].sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        case 'popular':
+          return b.reviewCount - a.reviewCount;
+        case 'rating':
+          return b.ratingAverage - a.ratingAverage;
+        case 'price_asc':
+          return (a.salePrice ?? a.price) - (b.salePrice ?? b.price);
+        case 'price_desc':
+          return (b.salePrice ?? b.price) - (a.salePrice ?? a.price);
+        default:
+          return 0;
+      }
+    });
+  }
+
+  const filterResult = await withTimeout(
+    searchPgvector(normalizedEmbedding, filtersInput, 500, 0),
+    'PGVector filter search'
+  );
+  const filters = await buildDynamicFilters(filterResult.ids);
+  await logSearch(query, total, userId, sessionId);
+
+  return {
+    products: sortedProducts,
+    filters,
+    meta: {
+      total,
+      page,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+      keyword: query,
+      searchType: 'hybrid',
+      searchEngine: 'pgvector',
+    },
+  };
+}
+
 export async function smartSearch(
   query: string,
   options: SearchOptions = {}
@@ -653,7 +906,28 @@ export async function smartSearch(
     } catch (error) {
       if (shouldFallbackToPostgres()) {
         const reason = error instanceof Error ? error.message : undefined;
-        logRedisFallback('redis_command_failed', reason);
+        const reasonCode = error instanceof RedisSearchError
+          ? error.reasonCode
+          : error instanceof SearchTimeoutError
+            ? error.reasonCode
+            : 'redis_command_failed';
+        logSearchFallback('Redis', reasonCode, reason);
+        return postgresSearch(query, options);
+      }
+      throw error;
+    }
+  }
+
+  if (getSearchEngine() === 'pgvector') {
+    try {
+      return await pgvectorHybridSearch(query, options);
+    } catch (error) {
+      if (shouldFallbackToPostgres()) {
+        const reason = error instanceof Error ? error.message : undefined;
+        const reasonCode = error instanceof SearchTimeoutError
+          ? error.reasonCode
+          : 'pgvector_failed';
+        logSearchFallback('PGVector', reasonCode, reason);
         return postgresSearch(query, options);
       }
       throw error;

@@ -44,6 +44,16 @@ export interface RedisSearchIndexStatus {
   diagnostics?: ReturnType<typeof getRedisDiagnostics>;
 }
 
+export type RedisIndexMetaItem = {
+  id: number;
+  updatedAtTs: number;
+};
+
+export type RedisIndexMetaPage = {
+  total: number;
+  items: RedisIndexMetaItem[];
+};
+
 type RedisSearchReasonCode =
   | 'redis_unavailable'
   | 'redisearch_module_unavailable'
@@ -51,12 +61,28 @@ type RedisSearchReasonCode =
   | 'index_create_failed'
   | 'redis_command_failed';
 
+export class RedisSearchError extends Error {
+  reasonCode: RedisSearchReasonCode;
+
+  constructor(message: string, reasonCode: RedisSearchReasonCode) {
+    super(message);
+    this.name = 'RedisSearchError';
+    this.reasonCode = reasonCode;
+  }
+}
+
 const parseRedisArray = (value: unknown): string[] =>
   Array.isArray(value) ? value.map(String) : [];
 
 const parseNumber = (value: string | undefined): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const parseEnvNumber = (value: string | undefined, fallback: number): number => {
+  if (value === undefined) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 };
 
 const buildFilterQuery = (filters: RedisSearchFilters): string => {
@@ -136,6 +162,32 @@ const parseSuggestionResponse = (response: unknown): RedisSearchSuggestionResult
   }
 
   return { names };
+};
+
+const parseMetaResponse = (response: unknown): RedisIndexMetaPage => {
+  if (!Array.isArray(response) || response.length === 0) {
+    return { total: 0, items: [] };
+  }
+
+  const total = parseNumber(String(response[0]));
+  const items: RedisIndexMetaItem[] = [];
+
+  for (let index = 1; index < response.length; index += 2) {
+    const key = String(response[index]);
+    const fields = response[index + 1];
+    const fieldList = Array.isArray(fields) ? fields : [];
+    const idIndex = fieldList.findIndex((value) => value === 'id');
+    const updatedAtIndex = fieldList.findIndex((value) => value === 'updatedAtTs');
+    const idValue = idIndex >= 0 ? String(fieldList[idIndex + 1] || '') : '';
+    const updatedAtValue = updatedAtIndex >= 0 ? String(fieldList[updatedAtIndex + 1] || '') : '';
+    const id = parseNumber(idValue || key.replace(DEFAULT_PREFIX, ''));
+
+    if (id > 0) {
+      items.push({ id, updatedAtTs: parseNumber(updatedAtValue) });
+    }
+  }
+
+  return { total, items };
 };
 
 const classifyRedisError = (error: unknown): RedisSearchReasonCode => {
@@ -242,6 +294,9 @@ export const ensureProductIndexDetailed = async (): Promise<{
       'createdAtTs',
       'NUMERIC',
       'SORTABLE',
+      'updatedAtTs',
+      'NUMERIC',
+      'SORTABLE',
       'embedding',
       'VECTOR',
       'HNSW',
@@ -307,6 +362,56 @@ export const deleteProductDoc = async (productId: number): Promise<void> => {
   }
 };
 
+const getHybridWeights = (): { textWeight: number; vectorWeight: number } => {
+  const defaultText = 0.6;
+  const defaultVector = 0.4;
+  const rawText = parseEnvNumber(process.env.HYBRID_TEXT_WEIGHT, defaultText);
+  const rawVector = parseEnvNumber(process.env.HYBRID_VECTOR_WEIGHT, defaultVector);
+  const textWeight = rawText >= 0 ? rawText : defaultText;
+  const vectorWeight = rawVector >= 0 ? rawVector : defaultVector;
+  const total = textWeight + vectorWeight;
+
+  if (!Number.isFinite(total) || total <= 0) {
+    return { textWeight: defaultText, vectorWeight: defaultVector };
+  }
+
+  return { textWeight, vectorWeight };
+};
+
+export const fetchIndexMetaPage = async (offset: number, limit: number): Promise<RedisIndexMetaPage> => {
+  const redis = await ensureRedisReady();
+  if (!redis) {
+    throw new RedisSearchError('Redis không khả dụng để scan index', 'redis_unavailable');
+  }
+
+  const indexName = getIndexName();
+  const safeOffset = Math.max(0, Math.floor(offset));
+  const safeLimit = Math.max(1, Math.floor(limit));
+
+  try {
+    const response = await redis.call(
+      'FT.SEARCH',
+      indexName,
+      '*',
+      'RETURN',
+      '2',
+      'id',
+      'updatedAtTs',
+      'LIMIT',
+      safeOffset.toString(),
+      safeLimit.toString(),
+      'DIALECT',
+      '2'
+    );
+
+    return parseMetaResponse(response);
+  } catch (error) {
+    const reasonCode = classifyRedisError(error);
+    const reason = error instanceof Error ? error.message : 'Không thể scan Redis index';
+    throw new RedisSearchError(reason, reasonCode);
+  }
+};
+
 export const searchHybrid = async (
   terms: string[],
   embedding: number[],
@@ -315,7 +420,9 @@ export const searchHybrid = async (
   knnCandidates: number
 ): Promise<RedisSearchResult> => {
   const redis = await ensureRedisReady();
-  if (!redis) return { total: 0, ids: [], scores: new Map() };
+  if (!redis) {
+    throw new RedisSearchError('Redis không khả dụng cho hybrid search', 'redis_unavailable');
+  }
 
   const indexName = getIndexName();
   const filterQuery = buildFilterQuery(filters);
@@ -328,7 +435,9 @@ export const searchHybrid = async (
 
   const baseQuery = [textQuery, filterQuery].filter(Boolean).join(' ');
   const vectorQuery = ['*', filterQuery].filter(Boolean).join(' ');
-  const candidateLimit = Math.max(knnCandidates, limit * 3);
+  const safeLimit = Math.max(1, Math.floor(limit));
+  const safeCandidates = Math.max(1, Math.floor(knnCandidates));
+  const candidateLimit = Math.max(safeCandidates, safeLimit * 3);
 
   try {
     const [textResponse, vectorResponse] = await Promise.all([
@@ -380,8 +489,7 @@ export const searchHybrid = async (
     vectorParsed.ids.forEach((id, index) => vectorRanks.set(id, index + 1));
 
     const k = 60;
-    const textWeight = Number(process.env.HYBRID_TEXT_WEIGHT || 0.6);
-    const vectorWeight = Number(process.env.HYBRID_VECTOR_WEIGHT || 0.4);
+    const { textWeight, vectorWeight } = getHybridWeights();
 
     const ids = new Set<number>([...textParsed.ids, ...vectorParsed.ids]);
 
@@ -395,7 +503,7 @@ export const searchHybrid = async (
 
     const sortedIds = Array.from(hybridScores.entries())
       .sort((a, b) => b[1] - a[1])
-      .slice(0, limit)
+      .slice(0, safeLimit)
       .map(([id]) => id);
 
     return {
@@ -404,8 +512,9 @@ export const searchHybrid = async (
       scores: hybridScores,
     };
   } catch (error) {
-    console.warn('[RedisSearch] Hybrid search failed:', error);
-    return { total: 0, ids: [], scores: new Map() };
+    const reasonCode = classifyRedisError(error);
+    const reason = error instanceof Error ? error.message : 'Hybrid search thất bại';
+    throw new RedisSearchError(reason, reasonCode);
   }
 };
 

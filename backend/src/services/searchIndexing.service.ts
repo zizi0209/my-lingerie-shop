@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 import { ensureRedisReady, type RedisDiagnostics } from '../lib/redis';
 import {
   ensureProductIndexDetailed,
@@ -7,16 +8,25 @@ import {
   deleteProductDoc,
   getIndexStatus,
 } from '../lib/redisSearch';
-import { embedTexts } from './embeddingClient';
+import {
+  ensurePgvectorReady,
+  deleteProductEmbedding,
+  type PgvectorDiagnostics,
+  upsertProductEmbedding,
+} from '../lib/pgvectorSearch';
+import { embedTextsDetailed } from './embeddingClient';
 
 const LOCK_KEY = 'search:index:lock';
+const PGVECTOR_LOCK_KEY = 987654321;
 const EMBEDDING_DIMENSION = Number(process.env.EMBEDDING_DIM || 768);
+
+type IndexDiagnostics = RedisDiagnostics | PgvectorDiagnostics;
 
 export class SearchIndexingError extends Error {
   reasonCode?: string;
-  diagnostics?: RedisDiagnostics;
+  diagnostics?: IndexDiagnostics;
 
-  constructor(message: string, reasonCode?: string, diagnostics?: RedisDiagnostics) {
+  constructor(message: string, reasonCode?: string, diagnostics?: IndexDiagnostics) {
     super(message);
     this.name = 'SearchIndexingError';
     this.reasonCode = reasonCode;
@@ -24,13 +34,32 @@ export class SearchIndexingError extends Error {
   }
 }
 
-const buildIndexingError = (result: Awaited<ReturnType<typeof ensureProductIndexDetailed>>): SearchIndexingError => {
+type IndexStatusResult =
+  | Awaited<ReturnType<typeof ensureProductIndexDetailed>>
+  | Awaited<ReturnType<typeof ensurePgvectorReady>>;
+
+const buildIndexingError = (result: IndexStatusResult, label: string): SearchIndexingError => {
   const suffix = result.reasonCode ? ` (${result.reasonCode})` : '';
   const detail = result.reason ? `: ${result.reason}` : '';
-  return new SearchIndexingError(`Không thể tạo Redis Search index${suffix}${detail}`, result.reasonCode, result.diagnostics);
+  return new SearchIndexingError(`Không thể tạo ${label}${suffix}${detail}`, result.reasonCode, result.diagnostics);
 };
 
-type IndexProduct = {
+const getSearchEngine = (): 'postgres' | 'redis_hybrid' | 'pgvector' => {
+  if (process.env.SEARCH_ENGINE === 'redis_hybrid') return 'redis_hybrid';
+  if (process.env.SEARCH_ENGINE === 'pgvector') return 'pgvector';
+  return 'postgres';
+};
+
+type SearchWriteMode = 'single' | 'dual';
+
+const getSearchWriteMode = (): SearchWriteMode => {
+  const raw = process.env.SEARCH_WRITE_MODE;
+  if (raw === 'single' || raw === 'dual') return raw;
+  const engine = getSearchEngine();
+  return engine === 'postgres' ? 'single' : 'dual';
+};
+
+export type IndexProduct = {
   id: number;
   name: string;
   description: string | null;
@@ -41,12 +70,13 @@ type IndexProduct = {
   ratingAverage: number;
   reviewCount: number;
   createdAt: Date;
+  updatedAt: Date;
   category: { name: string; slug: string } | null;
   productColors: { color: { name: string } }[];
   variants: { size: string; color: { name: string } | null }[];
 };
 
-const productIndexSelect = {
+export const productIndexSelect = {
   id: true,
   name: true,
   description: true,
@@ -57,12 +87,13 @@ const productIndexSelect = {
   ratingAverage: true,
   reviewCount: true,
   createdAt: true,
+  updatedAt: true,
   category: { select: { name: true, slug: true } },
   productColors: { select: { color: { select: { name: true } } } },
   variants: { select: { size: true, color: { select: { name: true } } } },
 };
 
-const buildEmbeddingText = (product: IndexProduct): string => {
+export const buildEmbeddingText = (product: IndexProduct): string => {
   const colors = new Set<string>();
   const sizes = new Set<string>();
 
@@ -90,14 +121,14 @@ const buildEmbeddingText = (product: IndexProduct): string => {
     .trim();
 };
 
-const normalizeEmbedding = (embedding: number[]): number[] => {
+export const normalizeEmbedding = (embedding: number[]): number[] => {
   if (embedding.length === EMBEDDING_DIMENSION) {
     return embedding;
   }
   return Array.from({ length: EMBEDDING_DIMENSION }, () => 0);
 };
 
-const buildIndexPayload = (product: IndexProduct, embedding: number[]) => {
+export const buildIndexPayload = (product: IndexProduct, embedding: number[]) => {
   const colors = new Set<string>();
   const sizes = new Set<string>();
 
@@ -127,6 +158,7 @@ const buildIndexPayload = (product: IndexProduct, embedding: number[]) => {
     ratingAverage: product.ratingAverage ?? 0,
     reviewCount: product.reviewCount ?? 0,
     createdAtTs: Math.floor(product.createdAt.getTime() / 1000),
+    updatedAtTs: Math.floor(product.updatedAt.getTime() / 1000),
     embedding: serializeEmbedding(normalizeEmbedding(embedding)),
   };
 };
@@ -143,6 +175,25 @@ const acquireLock = async (): Promise<boolean> => {
   }
 };
 
+const acquirePgvectorLock = async (): Promise<boolean> => {
+  try {
+    const rows = await prisma.$queryRaw<{ locked: boolean }[]>(
+      Prisma.sql`SELECT pg_try_advisory_lock(${PGVECTOR_LOCK_KEY}) AS "locked"`
+    );
+    return Boolean(rows[0]?.locked);
+  } catch {
+    return true;
+  }
+};
+
+const releasePgvectorLock = async (): Promise<void> => {
+  try {
+    await prisma.$queryRaw(Prisma.sql`SELECT pg_advisory_unlock(${PGVECTOR_LOCK_KEY})`);
+  } catch {
+    return;
+  }
+};
+
 const releaseLock = async (): Promise<void> => {
   const redis = await ensureRedisReady();
   if (!redis) return;
@@ -155,9 +206,30 @@ const releaseLock = async (): Promise<void> => {
 };
 
 export const indexProductById = async (productId: number): Promise<void> => {
-  const result = await ensureProductIndexDetailed();
-  if (!result.ok) {
-    throw buildIndexingError(result);
+  const engine = getSearchEngine();
+  const writeMode = getSearchWriteMode();
+  if (engine === 'postgres') return;
+
+  const errors: SearchIndexingError[] = [];
+  const enableRedis = engine === 'redis_hybrid' || writeMode === 'dual';
+  const enablePgvector = engine === 'pgvector' || writeMode === 'dual';
+  let redisReady = !enableRedis;
+  let pgvectorReady = !enablePgvector;
+
+  if (enableRedis) {
+    const result = await ensureProductIndexDetailed();
+    redisReady = result.ok;
+    if (!result.ok) {
+      errors.push(buildIndexingError(result, 'Redis Search index'));
+    }
+  }
+
+  if (enablePgvector) {
+    const result = await ensurePgvectorReady();
+    pgvectorReady = result.ok;
+    if (!result.ok) {
+      errors.push(buildIndexingError(result, 'PGVector index'));
+    }
   }
 
   const product = await prisma.product.findUnique({
@@ -166,31 +238,103 @@ export const indexProductById = async (productId: number): Promise<void> => {
   });
 
   if (!product) {
-    await deleteProductDoc(productId);
+    await removeProductFromIndex(productId);
     return;
   }
 
   const embeddingText = buildEmbeddingText(product as IndexProduct);
-  const embeddings = await embedTexts([embeddingText || product.name]);
+  const { embeddings, status } = await embedTextsDetailed([embeddingText || product.name]);
   const embedding = embeddings[0] || [];
-  const payload = buildIndexPayload(product as IndexProduct, normalizeEmbedding(embedding));
-  await upsertProductDoc(payload);
+
+  if (status !== 'ok' || embedding.length === 0) {
+    throw new SearchIndexingError('Không thể tạo embedding cho sản phẩm', `embedding_${status}`);
+  }
+
+  const normalizedEmbedding = normalizeEmbedding(embedding);
+
+  if (errors.length > 0 && errors.length === (Number(enableRedis) + Number(enablePgvector))) {
+    throw errors[0];
+  }
+
+  if (enableRedis && redisReady) {
+    const payload = buildIndexPayload(product as IndexProduct, normalizedEmbedding);
+    await upsertProductDoc(payload);
+  }
+
+  if (enablePgvector && pgvectorReady) {
+    await upsertProductEmbedding(product.id, normalizedEmbedding);
+  }
+
+  if (errors.length > 0) {
+    const combined = errors.map((error) => error.message).join('; ');
+    throw new SearchIndexingError(`Dual-write lỗi một phần: ${combined}`, 'index_write_partial_failure');
+  }
 };
 
 export const removeProductFromIndex = async (productId: number): Promise<void> => {
-  await deleteProductDoc(productId);
+  const engine = getSearchEngine();
+  const writeMode = getSearchWriteMode();
+  const enableRedis = engine === 'redis_hybrid' || writeMode === 'dual';
+  const enablePgvector = engine === 'pgvector' || writeMode === 'dual';
+
+  await Promise.all([
+    enableRedis ? deleteProductDoc(productId) : Promise.resolve(),
+    enablePgvector ? deleteProductEmbedding(productId) : Promise.resolve(),
+  ]);
 };
 
 export const reindexAllProducts = async (batchSize = 200): Promise<void> => {
-  const result = await ensureProductIndexDetailed();
-  if (!result.ok) {
-    throw buildIndexingError(result);
+  const engine = getSearchEngine();
+  const writeMode = getSearchWriteMode();
+  if (engine === 'postgres') return;
+
+  const enableRedis = engine === 'redis_hybrid' || writeMode === 'dual';
+  const enablePgvector = engine === 'pgvector' || writeMode === 'dual';
+  const errors: SearchIndexingError[] = [];
+  let redisReady = !enableRedis;
+  let pgvectorReady = !enablePgvector;
+
+  if (enableRedis) {
+    const result = await ensureProductIndexDetailed();
+    redisReady = result.ok;
+    if (!result.ok) {
+      errors.push(buildIndexingError(result, 'Redis Search index'));
+    }
   }
 
-  const lockAcquired = await acquireLock();
-  if (!lockAcquired) {
-    throw new Error('Không thể lấy lock Redis cho reindex');
+  if (enablePgvector) {
+    const result = await ensurePgvectorReady();
+    pgvectorReady = result.ok;
+    if (!result.ok) {
+      errors.push(buildIndexingError(result, 'PGVector index'));
+    }
   }
+
+  if (errors.length > 0 && errors.length === (Number(enableRedis) + Number(enablePgvector))) {
+    throw errors[0];
+  }
+
+  const lockAcquired = await (async () => {
+    if (enableRedis && enablePgvector && redisReady && pgvectorReady) {
+      const redisLock = await acquireLock();
+      const pgLock = await acquirePgvectorLock();
+      if (!redisLock || !pgLock) {
+        if (redisLock) await releaseLock();
+        if (pgLock) await releasePgvectorLock();
+        return false;
+      }
+      return true;
+    }
+    if (enableRedis && redisReady) return acquireLock();
+    if (enablePgvector && pgvectorReady) return acquirePgvectorLock();
+    return false;
+  })();
+
+  if (!lockAcquired) {
+    throw new Error('Không thể lấy lock cho reindex');
+  }
+
+  let skipped = 0;
 
   try {
     let lastId = 0;
@@ -205,21 +349,57 @@ export const reindexAllProducts = async (batchSize = 200): Promise<void> => {
       if (products.length === 0) break;
 
       const texts = products.map((product) => buildEmbeddingText(product as IndexProduct) || product.name);
-      const embeddings = await embedTexts(texts);
+      const { embeddings, status, reason } = await embedTextsDetailed(texts);
+
+      if (status !== 'ok') {
+        skipped += products.length;
+        const reasonText = reason ? ` reason=${reason}` : '';
+        console.warn(`[SearchIndex] Embedding unavailable: ${status}.${reasonText} Skip ${products.length} items.`);
+        lastId = products[products.length - 1].id;
+        continue;
+      }
 
       await Promise.all(
         products.map(async (product, index) => {
           const embedding = embeddings[index] || [];
-          const payload = buildIndexPayload(product as IndexProduct, normalizeEmbedding(embedding));
-          await upsertProductDoc(payload);
+          if (embedding.length === 0) {
+            skipped += 1;
+            return;
+          }
+          const normalizedEmbedding = normalizeEmbedding(embedding);
+          if (enableRedis && redisReady) {
+            const payload = buildIndexPayload(product as IndexProduct, normalizedEmbedding);
+            await upsertProductDoc(payload);
+          }
+          if (enablePgvector && pgvectorReady) {
+            await upsertProductEmbedding(product.id, normalizedEmbedding);
+          }
         })
       );
 
       lastId = products[products.length - 1].id;
     }
+    if (skipped > 0) {
+      console.warn(`[SearchIndex] Reindex skipped ${skipped} items do embedding unavailable.`);
+    }
   } finally {
-    await releaseLock();
+    if (enableRedis && redisReady) {
+      await releaseLock();
+    }
+    if (enablePgvector && pgvectorReady) {
+      await releasePgvectorLock();
+    }
+  }
+
+  if (errors.length > 0) {
+    const combined = errors.map((error) => error.message).join('; ');
+    throw new SearchIndexingError(`Dual-write lỗi một phần: ${combined}`, 'index_write_partial_failure');
   }
 };
 
-export const getSearchIndexStatus = async () => getIndexStatus();
+export const getSearchIndexStatus = async () => {
+  const engine = getSearchEngine();
+  if (engine === 'redis_hybrid') return getIndexStatus();
+  if (engine === 'pgvector') return ensurePgvectorReady();
+  return { ok: true };
+};
