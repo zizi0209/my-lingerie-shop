@@ -90,6 +90,8 @@ import { startTripoSrHealthMonitor } from './services/tripoSrHealth';
 import { prisma } from './lib/prisma';
 import { getSearchIndexStatus } from './services/searchIndexing.service';
 import { getEmbeddingHealth } from './services/embeddingClient';
+import { getProvidersHealth } from './services/llm/llmOrchestrator';
+import { ensureRedisReady } from './lib/redis';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -123,13 +125,18 @@ app.get('/health/ready', async (_req, res) => {
       ? Boolean(indexStatus.ok)
       : indexStatus.status === 'ok';
     const embeddingReady = embeddingHealth.status === 'ok' || process.env.SEARCH_ENGINE === 'postgres';
-    const ready = dbReady && searchReady && embeddingReady;
+    const providers = getProvidersHealth();
+    const aiProvidersReady = providers.some((provider) => provider.configured);
+    const redisReady = Boolean(await ensureRedisReady());
+    const ready = dbReady && searchReady && embeddingReady && aiProvidersReady;
 
     res.status(ready ? 200 : 503).json({
       status: ready ? 'OK' : 'NOT_READY',
       dbReady,
       searchReady,
       embeddingReady,
+      aiProvidersReady,
+      redisReady,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Lỗi không xác định';

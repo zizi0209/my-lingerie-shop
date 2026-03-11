@@ -1,27 +1,11 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PrismaClient } from '@prisma/client';
+import { clearSessionMessages, getSessionMessages, setSessionMessages } from './chatSessionStore';
+import { generateWithFallback } from './llm/llmOrchestrator';
+import type { ChatMessage, LLMProviderName } from './llm/types';
 
 const prisma = new PrismaClient();
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-
-const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
-
-const DEFAULT_GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
-const GEMINI_MODELS = (process.env.GEMINI_MODELS || '')
-  .split(',')
-  .map(model => model.trim())
-  .filter(Boolean);
-const RESOLVED_GEMINI_MODELS = GEMINI_MODELS.length > 0 ? GEMINI_MODELS : DEFAULT_GEMINI_MODELS;
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
-
 const AI_UNAVAILABLE_MESSAGE = 'Không thể kết nối trợ lý AI lúc này. Vui lòng thử lại sau.';
-
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
 
 interface ChatContext {
   currentProductSlug?: string;
@@ -33,6 +17,12 @@ interface ChatContext {
   conversationHistory?: ChatMessage[];
 }
 
+interface ChatOptions {
+  preferredProvider?: LLMProviderName;
+  preferredModel?: string;
+  clientMessages?: ChatMessage[];
+}
+
 interface ChatResponse {
   message: string;
   suggestedProducts?: Array<{
@@ -42,10 +32,8 @@ interface ChatResponse {
     price: number;
     imageUrl?: string;
   }>;
-}
-
-interface GroqResponse {
-  choices: Array<{ message: { content: string } }>;
+  providerUsed?: LLMProviderName;
+  modelUsed?: string;
 }
 
 const SYSTEM_PROMPT = `Bạn là Linh - tư vấn viên thời trang nội y chuyên nghiệp.
@@ -73,9 +61,21 @@ CONTEXT SẢN PHẨM:
 Hãy trả lời câu hỏi của khách hàng một cách chuyên nghiệp và hữu ích.`;
 
 export class AIConsultantService {
-  private conversationCache: Map<string, ChatMessage[]> = new Map();
-  private currentModelIndex: number = 0;
-  private groqFallbackActive: boolean = false;
+  private normalizeHistory(input: ChatMessage[]): ChatMessage[] {
+    return input
+      .filter(
+        (message) =>
+          message &&
+          typeof message.content === 'string' &&
+          (message.role === 'user' || message.role === 'assistant')
+      )
+      .map((message) => ({
+        role: message.role,
+        content: message.content.trim(),
+      }))
+      .filter((message) => message.content.length > 0)
+      .slice(-20);
+  }
 
   async getProductContext(productSlug?: string): Promise<string> {
     try {
@@ -121,12 +121,29 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
     }
   }
 
-  async chat(sessionId: string, userMessage: string, context?: ChatContext): Promise<ChatResponse> {
+  async chat(
+    sessionId: string,
+    userMessage: string,
+    context?: ChatContext,
+    options?: ChatOptions
+  ): Promise<ChatResponse> {
     const requestId = `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    let history = this.conversationCache.get(sessionId) || [];
+    let history: ChatMessage[] = [];
+    let historySource = 'redis';
 
-    if (context?.conversationHistory) {
-      history = context.conversationHistory;
+    if (options?.clientMessages && options.clientMessages.length > 0) {
+      history = this.normalizeHistory(options.clientMessages);
+      historySource = 'client';
+    } else if (context?.conversationHistory && context.conversationHistory.length > 0) {
+      history = this.normalizeHistory(context.conversationHistory);
+      historySource = 'context';
+    } else {
+      const stored = await getSessionMessages(sessionId);
+      if (stored === null) {
+        historySource = 'stateless';
+      } else {
+        history = this.normalizeHistory(stored);
+      }
     }
 
     const productContext = await this.getProductContext(context?.currentProductSlug);
@@ -141,150 +158,52 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
 
     const systemPromptWithContext = SYSTEM_PROMPT.replace('{productContext}', productContext + userContextStr);
 
+    const trimmedMessage = userMessage.trim();
     let aiMessage: string;
+    let providerUsed: LLMProviderName | undefined;
+    let modelUsed: string | undefined;
 
     try {
-      if (this.groqFallbackActive && GROQ_API_KEY) {
-        console.log(`[AIConsultant][${requestId}] provider=groq fallbackActive=true`);
-        aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history, requestId);
-      } else if (genAI) {
-        console.log(`[AIConsultant][${requestId}] provider=gemini models=${RESOLVED_GEMINI_MODELS.join(',')}`);
-        aiMessage = await this.callGemini(systemPromptWithContext, userMessage, history, requestId);
-      } else if (GROQ_API_KEY) {
-        console.log(`[AIConsultant][${requestId}] provider=groq fallbackActive=false`);
-        aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history, requestId);
-      } else {
-        console.error(`[AIConsultant][${requestId}] missing_api_keys gemini=${Boolean(GEMINI_API_KEY)} groq=${Boolean(GROQ_API_KEY)}`);
-        throw new Error(AI_UNAVAILABLE_MESSAGE);
-      }
+      const response = await generateWithFallback(
+        {
+          systemPrompt: systemPromptWithContext,
+          userMessage: trimmedMessage,
+          history,
+          requestId,
+          preferredModel: options?.preferredModel,
+        },
+        options?.preferredProvider,
+      );
+      aiMessage = response.message;
+      providerUsed = response.provider;
+      modelUsed = response.model;
+      console.log(
+        `[AIConsultant][${requestId}] provider=${response.provider} model=${response.model} historySource=${historySource}`
+      );
     } catch (error) {
-      console.error(`[AIConsultant][${requestId}] primary_provider_failed`, error);
-
-      if (!this.groqFallbackActive && GROQ_API_KEY) {
-        console.log(`[AIConsultant][${requestId}] switching_to_groq_fallback`);
-        this.groqFallbackActive = true;
-        try {
-          aiMessage = await this.callGroq(systemPromptWithContext, userMessage, history, requestId);
-        } catch (groqError) {
-          console.error(`[AIConsultant][${requestId}] groq_fallback_failed`, groqError);
-          throw new Error(AI_UNAVAILABLE_MESSAGE);
-        }
-      } else {
-        throw new Error(AI_UNAVAILABLE_MESSAGE);
-      }
+      console.error(`[AIConsultant][${requestId}] all_providers_failed`, error);
+      throw new Error(AI_UNAVAILABLE_MESSAGE);
     }
 
-    history.push({ role: 'user', content: userMessage });
-    history.push({ role: 'assistant', content: aiMessage });
+    const nextHistory = this.normalizeHistory([
+      ...history,
+      { role: 'user', content: trimmedMessage },
+      { role: 'assistant', content: aiMessage },
+    ]);
 
-    if (history.length > 20) {
-      history = history.slice(-20);
+    const stored = await setSessionMessages(sessionId, nextHistory);
+    if (!stored) {
+      console.warn(`[AIConsultant][${requestId}] session_store_unavailable`);
     }
-
-    this.conversationCache.set(sessionId, history);
 
     const suggestedProducts = await this.searchRelatedProducts(userMessage);
 
     return {
       message: aiMessage,
       suggestedProducts: suggestedProducts.length > 0 ? suggestedProducts : undefined,
+      providerUsed,
+      modelUsed,
     };
-  }
-
-  private async callGemini(
-    systemPrompt: string,
-    userMessage: string,
-    history: ChatMessage[],
-    requestId?: string,
-  ): Promise<string> {
-    if (!genAI) throw new Error('Gemini not configured');
-
-    let lastError: Error | null = null;
-    
-    const modelsLength = RESOLVED_GEMINI_MODELS.length;
-
-    for (let attempt = 0; attempt < modelsLength; attempt++) {
-      const modelIndex = (this.currentModelIndex + attempt) % modelsLength;
-      const modelName = RESOLVED_GEMINI_MODELS[modelIndex];
-
-      try {
-        console.log(`[AIConsultant][${requestId || 'n/a'}] trying_gemini_model=${modelName}`);
-
-        const model = genAI.getGenerativeModel({ model: modelName });
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const conversationParts: any[] = history.map(msg => ({
-          role: msg.role === 'user' ? 'user' : 'model',
-          parts: [{ text: msg.content }],
-        }));
-
-        const chat = model.startChat({
-          history: conversationParts,
-          generationConfig: {
-            maxOutputTokens: 500,
-            temperature: 0.7,
-          },
-        });
-
-        const fullPrompt = history.length === 0 
-          ? `${systemPrompt}\n\nKhách hàng: ${userMessage}`
-          : userMessage;
-
-        const result = await chat.sendMessage(fullPrompt);
-        const response = result.response;
-        
-        this.currentModelIndex = modelIndex;
-        return response.text();
-      } catch (error) {
-        console.error(`[AIConsultant][${requestId || 'n/a'}] gemini_model_failed=${modelName}`, error);
-        lastError = error as Error;
-      }
-    }
-
-    throw lastError || new Error('All Gemini models failed');
-  }
-
-  private async callGroq(
-    systemPrompt: string,
-    userMessage: string,
-    history: ChatMessage[],
-    requestId?: string,
-  ): Promise<string> {
-    if (!GROQ_API_KEY) throw new Error('Groq not configured');
-
-    console.log(`[AIConsultant][${requestId || 'n/a'}] using_groq_model=${GROQ_MODEL}`);
-
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      ...history.map(msg => ({
-        role: msg.role === 'user' ? 'user' : 'assistant',
-        content: msg.content,
-      })),
-      { role: 'user', content: userMessage },
-    ];
-
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages,
-        max_tokens: 500,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error(`[AIConsultant][${requestId || 'n/a'}] groq_api_error status=${response.status} model=${GROQ_MODEL}`, errorData);
-      throw new Error(`Groq API error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as GroqResponse;
-    return data.choices[0]?.message?.content || 'Xin lỗi, tôi không thể trả lời lúc này.';
   }
 
   private async searchRelatedProducts(query: string): Promise<Array<{
@@ -327,7 +246,7 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
   }
 
   clearSession(sessionId: string): void {
-    this.conversationCache.delete(sessionId);
+    void clearSessionMessages(sessionId);
   }
 }
 

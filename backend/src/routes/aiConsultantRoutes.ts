@@ -21,6 +21,12 @@
  // POST /api/ai-consultant/chat - Send message to AI consultant
  router.post('/chat', aiRateLimiter, aiConsultantController.chat);
  
+// GET /api/ai-consultant/providers - Provider health & metrics (no auth)
+router.get('/providers', aiConsultantController.getProviders);
+
+// GET /api/ai-consultant/models - Available model catalog
+router.get('/models', aiConsultantController.getModels);
+
  // DELETE /api/ai-consultant/session/:sessionId - Clear conversation session
  router.delete('/session/:sessionId', aiConsultantController.clearSession);
  

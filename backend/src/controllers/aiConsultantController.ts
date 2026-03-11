@@ -1,5 +1,7 @@
  import { Request, Response } from 'express';
- import { aiConsultantService } from '../services/aiConsultantService';
+import { aiConsultantService } from '../services/aiConsultantService';
+import { getProvidersHealth, listAllModels } from '../services/llm/llmOrchestrator';
+import { getAIMetricsSnapshot } from '../services/metrics/aiMetrics';
  import { v4 as uuidv4 } from 'uuid';
  
  interface ChatRequestBody {
@@ -12,7 +14,11 @@
        waist?: number;
        hip?: number;
      };
+    conversationHistory?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
    };
+  preferredProvider?: 'chatjpt' | 'workers_ai' | 'gemini' | 'groq';
+  preferredModel?: string;
+  messages?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
  }
  
  // Content moderation - filter inappropriate content
@@ -34,7 +40,8 @@
 
 export const chat = async (req: Request, res: Response): Promise<void> => {
    try {
-     const { message, sessionId, context } = req.body as ChatRequestBody;
+     const { message, sessionId, context, preferredProvider, preferredModel, messages } =
+       req.body as ChatRequestBody;
  
      // Validate message
      if (!message || typeof message !== 'string') {
@@ -67,10 +74,18 @@ export const chat = async (req: Request, res: Response): Promise<void> => {
      const currentSessionId = sessionId || uuidv4();
  
      // Call AI service
+    const resolvedProvider = preferredProvider === 'chatjpt' ? preferredProvider : undefined;
+     const resolvedModel = typeof preferredModel === 'string' ? preferredModel.trim() : undefined;
+
      const response = await aiConsultantService.chat(
        currentSessionId,
        message.trim(),
-       context
+       context,
+       {
+         preferredProvider: resolvedProvider,
+         preferredModel: resolvedModel,
+         clientMessages: Array.isArray(messages) ? messages : undefined,
+       }
      );
  
      res.json({
@@ -79,6 +94,8 @@ export const chat = async (req: Request, res: Response): Promise<void> => {
          message: response.message,
          sessionId: currentSessionId,
          suggestedProducts: response.suggestedProducts,
+         providerUsed: response.providerUsed,
+         modelUsed: response.modelUsed,
        },
      });
    } catch (error) {
@@ -122,3 +139,22 @@ export const chat = async (req: Request, res: Response): Promise<void> => {
      });
    }
  };
+
+export const getProviders = (_req: Request, res: Response): void => {
+  res.json({
+    success: true,
+    data: {
+      providers: getProvidersHealth(),
+      metrics: getAIMetricsSnapshot(),
+    },
+  });
+};
+
+export const getModels = (_req: Request, res: Response): void => {
+  res.json({
+    success: true,
+    data: {
+      models: listAllModels(),
+    },
+  });
+};
