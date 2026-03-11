@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, KeyboardEvent } from 'react';
 import { Send } from 'lucide-react';
 import { VoiceButton } from './VoiceButton';
 
@@ -11,6 +11,7 @@ interface ChatInputProps {
   onVoiceError?: (error: string) => void;
   isLoading: boolean;
   placeholder?: string;
+  focusSignal?: number;
 }
 
 const appendInputWithDelimiter = (prev: string, incoming: string) => {
@@ -32,9 +33,16 @@ export function ChatInput({
   onVoiceError,
   isLoading,
   placeholder = 'Nhập tin nhắn...',
+  focusSignal,
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const maxTextareaHeight = 128;
+
+  useEffect(() => {
+    if (!inputRef.current) return;
+    inputRef.current.focus();
+  }, [focusSignal]);
 
   const handleSend = () => {
     if (input.trim() && !isLoading) {
@@ -42,6 +50,7 @@ export function ChatInput({
       setInput('');
       if (inputRef.current) {
         inputRef.current.style.height = 'auto';
+        inputRef.current.style.overflowY = 'hidden';
       }
     }
   };
@@ -57,7 +66,10 @@ export function ChatInput({
     setInput(e.target.value);
     if (inputRef.current) {
       inputRef.current.style.height = 'auto';
-      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
+      const nextHeight = Math.min(inputRef.current.scrollHeight, maxTextareaHeight);
+      inputRef.current.style.height = `${nextHeight}px`;
+      inputRef.current.style.overflowY =
+        inputRef.current.scrollHeight > maxTextareaHeight ? 'auto' : 'hidden';
     }
   };
 
@@ -66,44 +78,39 @@ export function ChatInput({
   };
 
   return (
-    <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      <div className="flex items-end gap-2">
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={handleInput}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={isLoading}
-          rows={1}
-          className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-gray-600
-                     bg-gray-50 dark:bg-gray-700 px-4 py-2.5 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent
-                     disabled:opacity-50 disabled:cursor-not-allowed
-                     dark:text-white placeholder-gray-400"
-        />
-        <VoiceButton
-          onTranscript={(text) => setInput(prev => appendInputWithDelimiter(prev, text))}
-          onBeforeStartListening={onBeforeVoiceStart}
-          onListeningChange={handleVoiceListeningChange}
-          onError={onVoiceError}
-          disabled={isLoading}
-        />
-        <button
-          onClick={handleSend}
-          disabled={!input.trim() || isLoading}
-          className="flex-shrink-0 w-10 h-10 rounded-full bg-pink-500 text-white
-                     flex items-center justify-center
-                     hover:bg-pink-600 transition-colors
-                     disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <Send className="w-5 h-5" />
-          )}
-        </button>
-      </div>
+    <div className="grid min-h-11 w-full grid-cols-[1fr_auto_auto] items-center gap-2">
+      <textarea
+        ref={inputRef}
+        value={input}
+        onChange={handleInput}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        disabled={isLoading}
+        rows={1}
+        className="w-full resize-none rounded-2xl border border-pink-100 bg-white px-4 py-3 text-sm text-gray-900
+                   leading-5 placeholder:text-gray-400 focus:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-200
+                   disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-white
+                   max-h-32 min-h-11 overflow-y-hidden"
+      />
+      <VoiceButton
+        onTranscript={(text) => setInput((prev) => appendInputWithDelimiter(prev, text))}
+        onBeforeStartListening={onBeforeVoiceStart}
+        onListeningChange={handleVoiceListeningChange}
+        onError={onVoiceError}
+        disabled={isLoading}
+      />
+      <button
+        onClick={handleSend}
+        disabled={!input.trim() || isLoading}
+        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-pink-500 text-white
+                   transition-colors hover:bg-pink-600 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isLoading ? (
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+        ) : (
+          <Send className="h-5 w-5" />
+        )}
+      </button>
     </div>
   );
 }

@@ -219,7 +219,7 @@ export function VoiceButton({
         type="button"
         onClick={handleClick}
         disabled={disabled}
-        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center
+        className={`flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center
                     transition-all duration-200
                     ${isListening
                       ? 'bg-red-500 text-white animate-pulse'

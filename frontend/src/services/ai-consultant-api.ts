@@ -7,7 +7,18 @@
      waist?: number;
      hip?: number;
    };
+  conversationHistory?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
  }
+
+export type LLMProviderName = 'chatjpt' | 'workers_ai' | 'gemini' | 'groq';
+
+export interface ModelOption {
+  id: string;
+  label: string;
+  provider: LLMProviderName;
+  contextWindowTokens?: number;
+  featured?: boolean;
+}
  
  interface SuggestedProduct {
    id: number;
@@ -23,6 +34,8 @@
      message: string;
      sessionId: string;
      suggestedProducts?: SuggestedProduct[];
+    providerUsed?: LLMProviderName;
+    modelUsed?: string;
    };
    error?: string;
  }
@@ -30,7 +43,12 @@
  export async function sendChatMessage(
    message: string,
    sessionId?: string,
-   context?: ChatContext
+  context?: ChatContext,
+  options?: {
+    preferredProvider?: LLMProviderName;
+    preferredModel?: string;
+    messages?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
+  }
  ): Promise<ChatResponse> {
    try {
      const response = await fetch(`${API_BASE}/ai-consultant/chat`, {
@@ -42,6 +60,9 @@
          message,
          sessionId,
          context,
+        preferredProvider: options?.preferredProvider,
+        preferredModel: options?.preferredModel,
+        messages: options?.messages,
        }),
      });
  
@@ -65,3 +86,19 @@
      console.error('Failed to clear session:', error);
    }
  }
+
+export async function fetchChatModels(): Promise<ModelOption[]> {
+  try {
+    const response = await fetch(`${API_BASE}/ai-consultant/models`, {
+      method: 'GET',
+    });
+    const data = (await response.json()) as {
+      success?: boolean;
+      data?: { models?: ModelOption[] };
+    };
+    return data?.data?.models ?? [];
+  } catch (error) {
+    console.error('Failed to load chat models:', error);
+    return [];
+  }
+}

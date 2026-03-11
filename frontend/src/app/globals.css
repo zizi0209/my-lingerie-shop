@@ -131,6 +131,68 @@ body {
   overflow-x: hidden;
 }
 
+.message-body {
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.message-body pre.message-code {
+  position: relative;
+  margin: 0.6rem 0;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--secondary) 80%, transparent);
+  padding: 0.75rem 0.9rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 0.85rem;
+  border-radius: 0.75rem;
+}
+
+.message-body span.message-code-lang {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.message-body code.message-inline-code {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--secondary) 70%, transparent);
+  padding: 0.05rem 0.3rem;
+  border-radius: 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 0.88em;
+}
+
+.message-body div.message-table-wrap {
+  margin: 0.7rem 0;
+  overflow-x: auto;
+}
+
+.message-body table.message-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.message-body table.message-table th,
+.message-body table.message-table td {
+  border: 1px solid var(--border);
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.message-body table.message-table thead th {
+  background: color-mix(in srgb, var(--secondary) 80%, transparent);
+}
+
 /* Selection style - elegant with accent color */
 ::selection {
   background: color-mix(in srgb, var(--accent) 30%, transparent);
