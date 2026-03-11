@@ -12,6 +12,8 @@ interface ChatWidgetProps {
 export function ChatWidget({ productSlug }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const hasOpenedRef = useRef(false);
+  const scrollTopRef = useRef(0);
+  const activeChatIdRef = useRef('');
 
   const handleToggle = () => {
     if (!isOpen) {
@@ -25,19 +27,28 @@ export function ChatWidget({ productSlug }: ChatWidgetProps) {
   return (
     <>
       {isOpen && (
-        <div className="fixed bottom-20 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-96 h-[500px] max-h-[70vh]">
-          <ChatContainer onClose={() => setIsOpen(false)} productSlug={productSlug} />
+        <div className="fixed bottom-20 right-4 z-50 w-[calc(100vw-2rem)] sm:right-6 sm:w-[min(92vw,680px)] lg:right-8 lg:w-[min(88vw,960px)] xl:right-10 xl:w-[min(82vw,1120px)] h-[calc(100dvh-6.5rem)] max-h-[calc(100dvh-6.5rem)] sm:h-[580px] sm:max-h-[80vh] lg:h-[640px]">
+          <ChatContainer
+            onClose={() => setIsOpen(false)}
+            productSlug={productSlug}
+            initialScrollTop={scrollTopRef.current}
+            initialChatId={activeChatIdRef.current}
+            onScrollPositionChange={(value) => {
+              scrollTopRef.current = value;
+            }}
+            onActiveChatChange={(chatId) => {
+              activeChatIdRef.current = chatId;
+            }}
+          />
         </div>
       )}
 
       <button
         onClick={handleToggle}
-        className={`fixed bottom-4 right-4 sm:right-6 z-50 w-14 h-14 rounded-full 
-                    bg-gradient-to-r from-pink-500 to-rose-500 text-white
-                    shadow-lg hover:shadow-xl
-                    flex items-center justify-center
-                    transition-all duration-300 hover:scale-105
-                    ${showPulse ? 'animate-pulse' : ''}`}
+        className={`fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full 
+                    bg-linear-to-r from-pink-500 to-rose-500 text-white
+                    shadow-lg transition-transform duration-300 hover:scale-105 hover:shadow-xl
+                    sm:right-6 ${showPulse ? 'animate-pulse' : ''}`}
         aria-label={isOpen ? 'Đóng chat' : 'Mở chat tư vấn'}
       >
         {isOpen ? (
@@ -48,17 +59,12 @@ export function ChatWidget({ productSlug }: ChatWidgetProps) {
       </button>
 
       {!isOpen && (
-        <div className="fixed bottom-20 right-4 sm:right-6 z-40 
-                        bg-white dark:bg-gray-800 
-                        px-3 py-2 rounded-lg shadow-lg
-                        text-sm text-gray-700 dark:text-gray-300
-                        animate-bounce
-                        hidden sm:block">
+        <div className="fixed bottom-20 right-4 z-40 hidden rounded-2xl border border-pink-100 bg-white px-3 py-2 text-sm text-gray-700 shadow-md animate-bounce sm:right-6 sm:block dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
           <div className="flex items-center gap-2">
             <span>👋</span>
             <span>Cần tư vấn không?</span>
           </div>
-          <div className="absolute -bottom-1.5 right-5 w-3 h-3 bg-white dark:bg-gray-800 rotate-45" />
+          <div className="absolute -bottom-1.5 right-5 h-3 w-3 rotate-45 border border-pink-100 bg-white dark:border-gray-800 dark:bg-gray-900" />
         </div>
       )}
     </>
