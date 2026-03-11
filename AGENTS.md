@@ -1,145 +1,108 @@
-# System Instructions & Coding Guidelines
+# AGENTS.md - Bộ Quy Tắc & Nguyên Tắc Vận Hành Hệ Thống
 
-## 1. General Behavior & Workflow
+Tài liệu này định nghĩa các tiêu chuẩn cốt lõi, quy trình xử lý vấn đề và nguyên tắc kỹ thuật bắt buộc áp dụng trong toàn bộ dự án.
 
-- **Language:** Trả lời hoàn toàn bằng **Tiếng Việt**.
-- **Approach:** Luôn chọn giải pháp **Best Practice**, **Approved**, và phù hợp ngữ cảnh (**Contextual**).
-- **Git Workflow:**
-  - Mọi thay đổi phải được kiểm tra (Verify) trước khi Commit.
-  - ⛔ **CRITICAL:** Tuyệt đối **KHÔNG** được phép `push`. Chỉ tạo commit cục bộ.
-- **QA & Issues:**
-  - Gán nhãn vấn đề theo mức độ: `Critical`, `High`, `Medium`, `Low`.
+## 1. Nguyên Tắc Cốt Lõi (Core Principles)
 
-## 2. Core Principles
+- **Ngôn ngữ:** Trả lời bằng Tiếng Việt có dấu.
+- **Triết lý lập trình:**
+  - KISS (Keep It Simple, Stupid), YAGNI (You Ain't Gonna Need It), DRY (Don't Repeat Yourself).
+  - Convenient over Configuration & Explicit over Implicit.
+  - Readability > Cleverness: Ưu tiên mã nguồn dễ đọc hơn là các kỹ thuật "thông minh" khó hiểu.
+  - Correctness First: Đúng đắn trước, tối ưu sau.
+  - Minimize Blast Radius: Giới hạn phạm vi ảnh hưởng của thay đổi.
+- **Intentional I/O:**
+  - Không gọi API, đọc/ghi DB hoặc lưu trữ dữ liệu trừ khi phục vụ mục đích hiện tại rõ ràng.
+  - Băng thông, lưu trữ và I/O là chi phí thực tế. Dữ liệu không có người tiêu thụ là rác.
 
-Tuân thủ nghiêm ngặt các tư duy thiết kế sau:
+## 2. Tiêu Chuẩn Kỹ Thuật (Coding Standards)
 
-### Design Philosophy
+- **TypeScript & ESLint**
+  - KHÔNG dùng `any`: Sử dụng `unknown` kèm type guard hoặc Generic `<T>`.
+  - Xử lý lỗi (Catch Error):
+    ```typescript
+    try {
+      // code
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Lỗi không xác định";
+      alert(message); // Đảm bảo type safety
+    }
+    ```
+- **Next.js Rules**
+  - Sử dụng `<Link>` từ `next/link` thay vì `<a>` cho chuyển trang nội bộ.
+  - Sử dụng `next/image` để tối ưu hóa hình ảnh.
+- **Tailwind CSS (v4+)**
+  - Dùng `bg-linear-to-*` thay vì `bg-gradient-to-*`.
+  - Dùng `rounded-4xl` thay vì `rounded-[32px]`.
+  - Ưu tiên utility classes có sẵn, hạn chế tối đa arbitrary values `[...]`.
 
-- **Convenience over Configuration:** Ưu tiên cấu hình mặc định hợp lý.
-- **Explicit over Implicit:** Code tường minh, dễ hiểu, không "ma thuật".
-- **DRY (Don't Repeat Yourself) > WET:** Tái sử dụng code hợp lý.
-- **KISS & YAGNI:** Giữ đơn giản, không làm dư thừa.
-- **Single Responsibility:** Một module/hàm chỉ làm một việc.
-- **Readability > Cleverness:** Code dễ đọc quan trọng hơn code "thông minh" nhưng khó hiểu.
+## 3. Tối Ưu Hóa Database (7 Nguyên Tắc Vàng)
 
-### Intentional I/O (Resource Management)
+1. **Filter ở DB, không ở JS:** Không fetch ALL rồi mới filter/count bằng Javascript.
+2. **Không N+1:** Tuyệt đối không gọi DB trong vòng lặp. Sử dụng batch load (`Promise.all()`) và dùng `Map` để truy xuất O(1).
+3. **Luôn có Index:** Mọi filter/sort cần index. Compound index: equality trước, range/sort sau.
+4. **Limit + Pagination:** Mặc định 20, tối đa 100-500. Ưu tiên cursor-based pagination.
+5. **Chỉ lấy data cần thiết:** Select fields cụ thể (không `select *`), dùng projection.
+6. **Load song song:** Dùng `Promise.all()` cho các truy vấn độc lập.
+7. **Monitor trước deploy:** Ước lượng Records × Size × Requests/day. Theo dõi slow queries > 1s.
 
-- **Cost Awareness:** Coi băng thông, lưu trữ và I/O là chi phí thực tế ($), không phải tài nguyên miễn phí.
-- **Purpose Driven:** Không gọi API, DB hoặc lưu data nếu không phục vụ mục đích hiện tại rõ ràng.
-- **No Waste:** Data không có consumer là rác (Waste). Không log/audit những thứ không ai dùng.
+## 4. Problem-Solving Framework (DARE)
 
-### Safety & Stability
+Khi gặp vấn đề phức tạp, áp dụng quy trình:
 
-- **Correctness First:** Code phải đúng trước khi tối ưu.
-- **Minimize Blast Radius:** Hạn chế phạm vi ảnh hưởng của lỗi.
-- **No Hidden Changes:** Mọi thay đổi phải rõ ràng.
-- **Ask Before Assuming:** Nếu không chắc chắn, hãy hỏi lại hoặc verify.
-
-## 3. Technology Stack Rules
-
-### TypeScript / ESLint
-
-- ⛔ **NO `any`:** Tuyệt đối không dùng `any`.
-  - Thay thế bằng: `interface`, `type`, Generic `<T>`, hoặc `unknown` + Type Guard.
-- **Error Handling:**
-  ```typescript
-  // ✅ BEST PRACTICE
-  try {
-    // ... logic
-  } catch (err) {
-    // Luôn kiểm tra instance của Error
-    const message = err instanceof Error ? err.message : "Lỗi không xác định";
-    alert(message);
-  }
+- **Bước 1: Decompose (Phân rã)**
+  Vẽ Problem Graph, xác định ROOT CAUSE.
+  Format:
+  ```text
+  ## Problem Graph
+  1. [Main Problem] <- depends on 1.1, 1.2
+     1.1 [Sub-problem] <- depends on 1.1.1
+     1.1.1 [ROOT CAUSE] <- Giải quyết đầu tiên
   ```
+- **Bước 2: Analyze (Phân tích)**
+  Với mỗi sub-problem: Thought -> Action -> Observation.
+- **Bước 3: Reflect (Phản tư)**
+  Tự critique sau mỗi bước. Nếu lỗi thì backtrack và thử hướng khác.
+- **Bước 4: Execute (Thực thi)**
+  Giải quyết bottom-up từ ROOT CAUSE, validate từng bước.
 
-### Next.js Framework
+## 5. Audit & Root Cause Protocol
 
-- **Navigation:** Sử dụng `<Link>` từ `next/link` thay vì thẻ `<a>` cho internal links.
-- **Images:** Sử dụng `next/image` để tận dụng optimization.
+Kích hoạt khi fix bug, lỗi, hoặc refactor. Phải trả lời ít nhất 5/8 câu hỏi (Bắt buộc #1, #3, #6, #8):
 
-### Tailwind CSS (v4+)
+1. Triệu chứng quan sát được là gì (Expected vs Actual)?
+2. Phạm vi ảnh hưởng?
+3. Có tái hiện ổn định không? Điều kiện tái hiện tối thiểu?
+4. Mốc thay đổi gần nhất (Commit/Config)?
+5. Dữ liệu nào còn thiếu để kết luận?
+6. Giả thuyết thay thế là gì?
+7. Rủi ro nếu fix sai?
+8. Tiêu chí Pass/Fail sau khi sửa?
 
-- Dùng `bg-linear-to-*` (thay vì `bg-gradient-to-*`).
-- Dùng `rounded-4xl` (thay vì `rounded-[32px]`).
-- Ưu tiên **Utility Classes** có sẵn, hạn chế dùng arbitrary values `[value]`.
+## 6. UI/UX Design Guardrails (2026 Practical)
 
-## 4. Database Optimization (7 Rules)
+- **Clarity > Decoration:** Dễ hiểu quan trọng hơn đẹp.
+- **Text Economy:** Rút gọn 50% số chữ nếu vẫn giữ nguyên nghĩa.
+- **Responsive-first:** Thiết kế Mobile trước, scale lên Desktop sau.
+- **Accessibility (WCAG 2.2 AA):** Focus-visible rõ ràng, contrast đủ, touch target tối thiểu 44x44px.
+- **Consistency:** Sử dụng spacing scale nhất quán, ưu tiên pattern của Shadcn + Tailwind.
+- **5-Second Rule:** Người dùng phải hiểu chức năng trong vòng 5 giây.
 
-1.  **Filter tại DB:** Không fetch all rồi filter JS. Không dùng `.collect()` vô tội vạ.
-2.  **No N+1 Problems:**
-    - Không gọi DB trong vòng lặp.
-    - Dùng `Promise.all()` hoặc `Map` (lookup O(1)) để xử lý batch.
-3.  **Always Index:** Mọi field dùng filter/sort phải có index. Ưu tiên Selectivity cao.
-4.  **Limit & Pagination:** Mặc định limit 20 (max 100-500). Ưu tiên cursor-based pagination.
-5.  **Select Required Fields:** Chỉ `SELECT` cột cần thiết (Projection). Không `SELECT *`.
-6.  **Parallel Loading:** Dùng `Promise.all()` cho các query độc lập.
-7.  **Monitor:** Cảnh báo các query > 1s. Tính toán: Records × Size × Requests/day.
+## 7. Ra Quyết Định & Tương Tác (Decision & AskUser)
 
-## 5. Problem-Solving Framework (DARE)
+- **Evidence over Opinion:** Mọi kết luận phải dựa trên bằng chứng (log, file path, line, history). Tách bạch giữa Quan sát (Observation) và Suy luận (Inference).
+- **Chỉ dùng AskUser khi:** Quyết định ảnh hưởng đến Behavior, API, UX, Scope, Cost hoặc Risk.
+- **Format đề xuất (Option):**
+  - Option X (Recommend) — Confidence % (Lý do, tradeoff).
+  - Option Y — Confidence % (Phù hợp khi...).
 
-Khi giải quyết vấn đề phức tạp, áp dụng quy trình và format sau:
+## 8. Quy Trình Làm Việc & Kiểm Tra (Workflow)
 
-1.  **D**ecompose: Vẽ đồ thị vấn đề, tìm Root Cause.
-2.  **A**nalyze: Thought -> Action -> Observation.
-3.  **R**eflect: Tự phản biện (Critique) sau mỗi bước.
-4.  **E**xecute: Giải quyết từ dưới lên (Bottom-up).
-
-**Output Format:**
-
-```markdown
-## Problem Graph
-
-1. [Main] <- depends on 1.1, 1.2
-   1.1 [Sub] <- depends on 1.1.1
-   1.1.1 [ROOT CAUSE] <- Solve first
-
-## Execution (with reflection)
-
-1. Solving 1.1.1...
-   - Thought: ...
-   - Action: ...
-   - Reflection: ✓ Valid / ✗ Retry
-
-## 6. Spec Mode Rules
-
-Khi ở chế độ Spec (read-only planning):
-
-- Bắt buộc dùng DARE framework: Decompose → Analyze → Reflect → Execute plan.
-- Dùng AskUser để làm rõ mọi điểm mơ hồ TRƯỚC khi chốt spec; không đoán requirement.Đưa ra Option khi ASK USER với các (Recommend) ,... và lý do rõ ràng giúp người dùng dễ chọn và dễ hiểu lý do, feynman nếu thấy phức tạp.
-- Plan phải chi tiết từng bước (step-by-step actionable), đủ để implement xong trong 1 lần — KHÔNG chia phase/giai đoạn.
-- Mỗi bước ghi rõ: file nào, thay đổi gì, logic cụ thể; ai đọc plan cũng tự implement được.
-- Ưu tiên full implement > incremental; nếu scope quá lớn thì AskUser để user quyết cắt scope, không tự ý chia phase.
-- Cuối spec phải có phần chốt lại thật dễ hiểu cho User, trình bài checklist, Best practice ra
-- Tự WebSearch và đọc kỹ codebase để đưa ra Best Practice với dự án cho User để tăng sức mạnh và trọng lượng khi ASK USER để khiến người dùng nhẹ nhàng hơn nhưng vẫn phải chuẩn chỉ Best Practice# Spec Mode Rules
-  Khi ở chế độ Spec (read-only planning):
-- Bắt buộc dùng DARE framework: Decompose → Analyze → Reflect → Execute plan.
-- Dùng AskUser để làm rõ mọi điểm mơ hồ TRƯỚC khi chốt spec; không đoán requirement.Đưa ra Option khi ASK USER với các (Recommend) ,... và lý do rõ ràng giúp người dùng dễ chọn và dễ hiểu lý do, feynman nếu thấy phức tạp.
-- Plan phải chi tiết từng bước (step-by-step actionable), đủ để implement xong trong 1 lần — KHÔNG chia phase/giai đoạn.
-- Mỗi bước ghi rõ: file nào, thay đổi gì, logic cụ thể; ai đọc plan cũng tự implement được.
-- Ưu tiên full implement > incremental; nếu scope quá lớn thì AskUser để user quyết cắt scope, không tự ý chia phase.
-- Cuối spec phải có phần chốt lại thật dễ hiểu cho User, trình bài checklist, Best practice ra
-- Tự WebSearch và đọc kỹ codebase để đưa ra Best Practice với dự án cho User để tăng sức mạnh và trọng lượng khi ASK USER để khiến người dùng nhẹ nhàng hơn nhưng vẫn phải chuẩn chỉ Best Practice
-```
-
-## 7. Audit-First Operating Rule
-
-- Luôn Audit trước khi fix/debug/đề xuất giải pháp: Audit → Root Cause → Fix/Proposal → Verify.
-- Mọi kết luận phải có evidence (log, code path, repro, metric, history). Thiếu evidence thì nêu rõ gap + cách lấy evidence.
-- Trigger Audit khi gặp các từ khóa: fix, bug, lỗi, root cause, spec, optimize, refactor.
-
-## 8. UX rule
-
-cut text in half, then half again
-
-## 9. Final Verification
-
-Trước khi hoàn tất, chạy các lệnh kiểm tra sau để đảm bảo không lỗi deploy:
-Type Check:
-
-- bunx tsc --project frontend/tsconfig.json --noEmit
-- bunx tsc --project backend/tsconfig.json --noEmit
-  Linting: - bunx oxlint --type-aware --type-check --fix
-  Bun Cache Troubleshooting:
-  Nếu bunx lỗi: Remove-Item -Recurse -Force $env:LOCALAPPDATA\Temp\bunx-\* hoặc chạy bun install.
+- **Trước khi thực hiện:** Pre-Audit -> Root Cause -> Proposal.
+- **Kiểm tra lỗi (Verification):**
+  - `bunx tsc --project frontend/tsconfig.json --noEmit`
+  - `bunx tsc --project backend/tsconfig.json --noEmit`
+  - `bunx oxlint --type-aware --type-check --fix`
+- **Commit:** Sau khi kiểm tra xong, thực hiện git commit kèm theo `.factory/docs` (nếu có).
+  **TUYỆT ĐỐI KHÔNG ĐƯỢC PHÉP PUSH.**
+- **Lưu ý về Bunx:** Nếu cache lỗi, xóa bằng: `Remove-Item -Recurse -Force $env:LOCALAPPDATA\Temp\bunx-*` hoặc `bun install`.
