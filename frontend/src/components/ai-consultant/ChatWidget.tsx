@@ -27,7 +27,7 @@ export function ChatWidget({ productSlug }: ChatWidgetProps) {
   return (
     <>
       {isOpen && (
-        <div className="fixed bottom-20 right-4 z-50 w-[calc(100vw-2rem)] sm:right-6 sm:w-[min(92vw,680px)] lg:right-8 lg:w-[min(88vw,960px)] xl:right-10 xl:w-[min(82vw,1120px)] h-[calc(100dvh-6.5rem)] max-h-[calc(100dvh-6.5rem)] sm:h-[580px] sm:max-h-[80vh] lg:h-[640px]">
+        <div className="fixed bottom-20 right-4 z-50 w-[calc(100vw-2rem)] sm:right-6 sm:w-[min(92vw,680px)] lg:right-8 lg:w-[min(80vw,880px)] xl:right-10 xl:w-[min(76vw,1020px)] h-[calc(100dvh-6.5rem)] max-h-[calc(100dvh-6.5rem)] sm:h-[580px] sm:max-h-[80vh] lg:h-[600px]">
           <ChatContainer
             onClose={() => setIsOpen(false)}
             productSlug={productSlug}
