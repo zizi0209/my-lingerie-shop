@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { clearSessionMessages, getSessionMessages, setSessionMessages } from './chatSessionStore';
 import { generateWithFallback } from './llm/llmOrchestrator';
 import type { ChatMessage, LLMProviderName } from './llm/types';
+import { LLMProviderError } from './llm/types';
 
 const prisma = new PrismaClient();
 
@@ -182,6 +183,9 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
       );
     } catch (error) {
       console.error(`[AIConsultant][${requestId}] all_providers_failed`, error);
+      if (error instanceof LLMProviderError) {
+        throw error;
+      }
       throw new Error(AI_UNAVAILABLE_MESSAGE);
     }
 

@@ -82,6 +82,40 @@ const extractMessage = (payload: unknown): string => {
   return '';
 };
 
+const extractMessageFromStream = (raw: string): string => {
+  const normalized = raw.replace(/\r/g, '');
+  const matches = [...normalized.matchAll(/"response"\s*:\s*"((?:\\.|[^"\\])*)"/g)];
+  if (matches.length === 0) return '';
+  let output = '';
+  for (const match of matches) {
+    const piece = match[1];
+    if (!piece) continue;
+    try {
+      output += JSON.parse(`"${piece}"`);
+    } catch {
+      output += piece;
+    }
+  }
+  return output.trim();
+};
+
+const extractMessageFromRaw = (raw: string, contentType: string): string => {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (contentType.includes('application/json')) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      return extractMessage(parsed) || JSON.stringify(parsed);
+    } catch {
+      return '';
+    }
+  }
+  if (contentType.includes('text/event-stream')) {
+    return extractMessageFromStream(trimmed);
+  }
+  return trimmed;
+};
+
 export const chatjptProvider: LLMProvider = {
   name: 'chatjpt',
   isConfigured: () => Boolean(CHATJPT_ENDPOINT),
@@ -129,8 +163,9 @@ export const chatjptProvider: LLMProvider = {
       );
     }
 
-    const payload = (await response.json()) as unknown;
-    const message = extractMessage(payload);
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    const raw = await response.text();
+    const message = extractMessageFromRaw(raw, contentType);
     if (!message) {
       throw new LLMProviderError('ChatJPT response empty', 'chatjpt', false);
     }

@@ -24,6 +24,7 @@ interface ChatContainerProps {
 }
 
 const CHAT_STORAGE_KEY = 'ai-consultant:sessions:v2';
+const IS_CHATJPT_ONLY_MODE = process.env.NEXT_PUBLIC_AI_CHAT_TEST_FORCE_CHATJPT === 'true';
 
 const fallbackModels: ModelOption[] = [
   {
@@ -41,6 +42,8 @@ const fallbackModels: ModelOption[] = [
     featured: false,
   },
 ];
+
+const DEMO_DEFAULT_MODEL_ID = fallbackModels[0].id;
 
 const nowTime = () => {
   const date = new Date();
@@ -146,18 +149,28 @@ export function ChatContainer({
 
   useEffect(() => {
     const loaded = loadSessions();
-    setSessions(loaded);
-    if (loaded.length === 0) {
-      const defaultSession = createSession(fallbackModels[0].id, fallbackModels[0].provider);
+    const normalized = IS_CHATJPT_ONLY_MODE
+      ? loaded.map((session) => ({
+        ...session,
+        model: DEMO_DEFAULT_MODEL_ID,
+        provider: 'chatjpt',
+      }))
+      : loaded;
+    setSessions(normalized);
+    if (normalized.length === 0) {
+      const defaultSession = createSession(
+        IS_CHATJPT_ONLY_MODE ? DEMO_DEFAULT_MODEL_ID : fallbackModels[0].id,
+        IS_CHATJPT_ONLY_MODE ? 'chatjpt' : fallbackModels[0].provider
+      );
       setSessions([defaultSession]);
       setActiveChatId(defaultSession.id);
       return;
     }
-    if (initialChatId && loaded.some((session) => session.id === initialChatId)) {
+    if (initialChatId && normalized.some((session) => session.id === initialChatId)) {
       setActiveChatId(initialChatId);
       return;
     }
-    setActiveChatId([...loaded].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id ?? '');
+    setActiveChatId([...normalized].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id ?? '');
   }, [initialChatId]);
 
   useEffect(() => {
@@ -229,7 +242,10 @@ export function ChatContainer({
 
   const ensureSession = () => {
     if (activeSession) return activeSession;
-    const fresh = createSession(modelOptions[0]?.id || fallbackModels[0].id, modelOptions[0]?.provider);
+    const fresh = createSession(
+      IS_CHATJPT_ONLY_MODE ? DEMO_DEFAULT_MODEL_ID : modelOptions[0]?.id || fallbackModels[0].id,
+      IS_CHATJPT_ONLY_MODE ? 'chatjpt' : modelOptions[0]?.provider
+    );
     setSessions((prev) => [...prev, fresh]);
     setActiveChatId(fresh.id);
     return fresh;
@@ -244,7 +260,10 @@ export function ChatContainer({
   };
 
   const handleCreateChat = () => {
-    const session = createSession(selectedModelInfo?.id || fallbackModels[0].id, selectedModelInfo?.provider);
+    const session = createSession(
+      IS_CHATJPT_ONLY_MODE ? DEMO_DEFAULT_MODEL_ID : selectedModelInfo?.id || fallbackModels[0].id,
+      IS_CHATJPT_ONLY_MODE ? 'chatjpt' : selectedModelInfo?.provider
+    );
     setSessions((prev) => [...prev, session]);
     setActiveChatId(session.id);
     setErrorText('');
@@ -280,7 +299,7 @@ export function ChatContainer({
   };
 
   const handleSelectModel = (modelId: string) => {
-    if (!activeSession) return;
+    if (!activeSession || IS_CHATJPT_ONLY_MODE) return;
     const modelInfo = modelOptions.find((model) => model.id === modelId);
     if (!modelInfo) return;
     const next = { ...activeSession, model: modelId, provider: modelInfo.provider };
@@ -315,14 +334,19 @@ export function ChatContainer({
       title: session.title === 'Chat mới' ? makeSessionTitle(text) : session.title,
       messages: [...session.messages, userMessage, assistantMessage],
       model: session.model || selectedModelInfo?.id || fallbackModels[0].id,
-      provider: session.provider || selectedModelInfo?.provider,
+      provider: IS_CHATJPT_ONLY_MODE ? 'chatjpt' : session.provider || selectedModelInfo?.provider,
     };
     touchSession(updatedSession);
     updateSession(updatedSession);
 
     try {
       const response = await sendChatMessage(text, session.id, { currentProductSlug: productSlug }, {
-        preferredProvider: updatedSession.provider as 'chatjpt' | 'workers_ai' | 'gemini' | 'groq' | undefined,
+        preferredProvider: (IS_CHATJPT_ONLY_MODE ? 'chatjpt' : updatedSession.provider) as
+          | 'chatjpt'
+          | 'workers_ai'
+          | 'gemini'
+          | 'groq'
+          | undefined,
         preferredModel: updatedSession.model,
       });
 
@@ -335,7 +359,7 @@ export function ChatContainer({
         if (responseData.modelUsed && modelOptions.some((model) => model.id === responseData.modelUsed)) {
           updatedSession.model = responseData.modelUsed;
         }
-        if (responseData.providerUsed && responseData.providerUsed !== updatedSession.provider) {
+        if (!IS_CHATJPT_ONLY_MODE && responseData.providerUsed && responseData.providerUsed !== updatedSession.provider) {
           updatedSession.provider = responseData.providerUsed;
         }
       } else {
@@ -422,13 +446,15 @@ export function ChatContainer({
               >
                 Lịch sử chat
               </button>
-              <button
-                type="button"
-                className="rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:border-pink-200 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:text-white"
-                onClick={() => setShowModelModal(true)}
-              >
-                {selectedModelInfo?.label ?? 'Chọn model AI'}
-              </button>
+              {!IS_CHATJPT_ONLY_MODE && (
+                <button
+                  type="button"
+                  className="rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:border-pink-200 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:text-white"
+                  onClick={() => setShowModelModal(true)}
+                >
+                  {selectedModelInfo?.label ?? 'Chọn model AI'}
+                </button>
+              )}
               <button
                 type="button"
                 className="rounded-full border border-rose-200 bg-white px-3 py-2 text-xs font-medium text-rose-500 transition hover:border-rose-300 hover:text-rose-600 dark:border-rose-900/40 dark:bg-gray-900 dark:text-rose-300 dark:hover:text-rose-200"
@@ -603,13 +629,15 @@ export function ChatContainer({
         </div>
       )}
 
-      <ModelPickerModal
-        open={showModelModal}
-        models={modelOptions}
-        selectedModel={selectedModelInfo?.id}
-        onSelect={handleSelectModel}
-        onClose={() => setShowModelModal(false)}
-      />
+      {!IS_CHATJPT_ONLY_MODE && (
+        <ModelPickerModal
+          open={showModelModal}
+          models={modelOptions}
+          selectedModel={selectedModelInfo?.id}
+          onSelect={handleSelectModel}
+          onClose={() => setShowModelModal(false)}
+        />
+      )}
 
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">

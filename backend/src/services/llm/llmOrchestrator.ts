@@ -11,6 +11,7 @@ import { recordFallbackDepth, recordProviderAttempt, recordRequestResult } from 
 import { chatjptProvider } from './providers/chatjptProvider';
 import { geminiProvider } from './providers/geminiProvider';
 import { groqProvider } from './providers/groqProvider';
+import { workersAiProvider } from './providers/workersAiProvider';
 
 type CircuitState = {
   state: 'closed' | 'open' | 'half_open';
@@ -43,7 +44,9 @@ const circuitStates: Record<LLMProviderName, CircuitState> = {
   groq: buildState(),
 };
 
-const providers: LLMProvider[] = [chatjptProvider, geminiProvider, groqProvider];
+const providers: LLMProvider[] = [chatjptProvider, workersAiProvider, geminiProvider, groqProvider];
+
+const isChatjptOnlyMode = (): boolean => process.env.AI_CHAT_TEST_FORCE_CHATJPT === 'true';
 
 const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -61,6 +64,9 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T
 };
 
 const resolveProviders = (preferredProvider?: LLMProviderName): LLMProvider[] => {
+  if (isChatjptOnlyMode()) {
+    return [chatjptProvider];
+  }
   if (!preferredProvider) return providers;
   const preferred = providers.find((provider) => provider.name === preferredProvider);
   if (!preferred) return providers;
