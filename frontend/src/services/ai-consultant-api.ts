@@ -1,5 +1,6 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-const IS_CHATJPT_ONLY_MODE = process.env.NEXT_PUBLIC_AI_CHAT_TEST_FORCE_CHATJPT === 'true';
+const CHATJPT_BUSY_MESSAGE = 'ChatJPT hiện đang bận. Vui lòng thử lại sau ít phút.';
+const CHATJPT_UNREACHABLE_MESSAGE = 'Không thể kết nối với ChatJPT. Vui lòng thử lại sau.';
  
  interface ChatContext {
    currentProductSlug?: string;
@@ -69,13 +70,7 @@ export interface ModelOption {
 
     const data = (await response.json().catch(() => null)) as ChatResponse | null;
     if (!response.ok) {
-      const fallbackMessage = response.status === 429
-        ? IS_CHATJPT_ONLY_MODE
-          ? 'ChatJPT hiện đang bận. Vui lòng thử lại sau ít phút.'
-          : 'Trợ lý AI đang quá tải. Vui lòng thử lại sau ít phút.'
-        : IS_CHATJPT_ONLY_MODE
-          ? 'ChatJPT hiện đang bận. Vui lòng thử lại sau ít phút.'
-          : 'Trợ lý AI đang bận. Vui lòng thử lại sau ít phút.';
+      const fallbackMessage = CHATJPT_BUSY_MESSAGE;
       return {
         success: false,
         error: data?.error || fallbackMessage,
@@ -83,17 +78,13 @@ export interface ModelOption {
     }
     return data ?? {
       success: false,
-      error: IS_CHATJPT_ONLY_MODE
-        ? 'ChatJPT hiện đang bận. Vui lòng thử lại sau ít phút.'
-        : 'Trợ lý AI đang bận. Vui lòng thử lại sau ít phút.',
+      error: CHATJPT_BUSY_MESSAGE,
     };
    } catch (error) {
      console.error('AI Consultant API Error:', error);
      return {
        success: false,
-      error: IS_CHATJPT_ONLY_MODE
-        ? 'Không thể kết nối với ChatJPT. Vui lòng thử lại sau.'
-        : 'Không thể kết nối với server. Vui lòng thử lại sau.',
+      error: CHATJPT_UNREACHABLE_MESSAGE,
      };
    }
  }

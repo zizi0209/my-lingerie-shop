@@ -2,15 +2,15 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { useWebSpeechTTS } from '@/hooks/useWebSpeechTTS';
 import { ChatInput } from './ChatInput';
 import { QuickActions } from './QuickActions';
 import { SpeakerButton } from './SpeakerButton';
 import { MessageRenderer } from './chatjpt/MessageRenderer';
-import { ModelPickerModal } from './chatjpt/ModelPickerModal';
 import { SessionSidebar } from './chatjpt/SessionSidebar';
+import { ModelPickerModal } from './chatjpt/ModelPickerModal';
 import type { ChatMessage, ChatSession, ModelOption } from './chatjpt/chatTypes';
 import { fetchChatModels, sendChatMessage } from '@/services/ai-consultant-api';
 
@@ -25,25 +25,100 @@ interface ChatContainerProps {
 
 const CHAT_STORAGE_KEY = 'ai-consultant:sessions:v2';
 const IS_CHATJPT_ONLY_MODE = process.env.NEXT_PUBLIC_AI_CHAT_TEST_FORCE_CHATJPT === 'true';
-
-const fallbackModels: ModelOption[] = [
+const DEFAULT_CHATJPT_MODEL_ID = 'gpt-oss-120b';
+const DEFAULT_CHATJPT_PROVIDER = 'chatjpt';
+const FALLBACK_MODEL_OPTIONS: ModelOption[] = [
   {
-    id: 'chatjpt-default',
-    label: 'ChatJPT Default',
-    provider: 'chatjpt',
+    id: 'gpt-oss-120b',
+    label: 'GPT-OSS 120B',
+    provider: 'openai',
     contextWindow: '128K tokens',
+    contextWindowTokens: 128000,
     featured: true,
   },
   {
-    id: 'chatjpt-pro',
-    label: 'ChatJPT Pro',
-    provider: 'chatjpt',
+    id: 'llama-3.3-70b-fp8-fast',
+    label: 'Llama 3.3 70B FP8 Fast',
+    provider: 'meta',
     contextWindow: '128K tokens',
-    featured: false,
+    contextWindowTokens: 128000,
+  },
+  {
+    id: 'llama-4-scout-17b-16e',
+    label: 'Llama 4 Scout 17B 16E',
+    provider: 'meta',
+    contextWindow: '128K tokens',
+    contextWindowTokens: 128000,
+  },
+  {
+    id: 'gemma-3-12b-it',
+    label: 'Gemma 3 12B IT',
+    provider: 'google',
+    contextWindow: '128K tokens',
+    contextWindowTokens: 128000,
+  },
+  {
+    id: 'deepseek-r1-distill-qwen-32b',
+    label: 'DeepSeek R1 Distill Qwen 32B',
+    provider: 'deepseek-ai',
+    contextWindow: '128K tokens',
+    contextWindowTokens: 128000,
+  },
+  {
+    id: 'qwen3-30b-a3b-fp8',
+    label: 'Qwen3 30B A3B FP8',
+    provider: 'qwen',
+    contextWindow: '128K tokens',
+    contextWindowTokens: 128000,
+  },
+  {
+    id: 'qwq-32b',
+    label: 'QwQ 32B',
+    provider: 'qwen',
+    contextWindow: '128K tokens',
+    contextWindowTokens: 128000,
+  },
+  {
+    id: 'mistral-7b-instruct-v0.1',
+    label: 'Mistral 7B Instruct v0.1',
+    provider: 'mistral',
+    contextWindow: '32K tokens',
+    contextWindowTokens: 32000,
   },
 ];
 
-const DEMO_DEFAULT_MODEL_ID = fallbackModels[0].id;
+const resolveContextWindow = (tokens?: number): string | undefined => {
+  if (!tokens || tokens <= 0) return undefined;
+  if (tokens >= 1000) return `${Math.round(tokens / 1000)}K tokens`;
+  return `${tokens} tokens`;
+};
+
+const resolveModelVendor = (modelId: string): string => {
+  const normalized = modelId.toLowerCase();
+  if (normalized.includes('gpt-oss') || normalized.includes('openai')) return 'openai';
+  if (normalized.includes('llama')) return 'meta';
+  if (normalized.includes('gemma')) return 'google';
+  if (normalized.includes('deepseek')) return 'deepseek-ai';
+  if (normalized.includes('qwen') || normalized.includes('qwq')) return 'qwen';
+  if (normalized.includes('mistral')) return 'mistral';
+  return 'chatjpt';
+};
+
+const mapModels = (models: Array<{
+  id: string;
+  label: string;
+  provider: string;
+  contextWindowTokens?: number;
+  featured?: boolean;
+}>): ModelOption[] =>
+  models.map((model) => ({
+    id: model.id,
+    label: model.label,
+    provider: resolveModelVendor(model.id),
+    contextWindow: resolveContextWindow(model.contextWindowTokens),
+    contextWindowTokens: model.contextWindowTokens,
+    featured: model.featured,
+  }));
 
 const nowTime = () => {
   const date = new Date();
@@ -122,10 +197,11 @@ export function ChatContainer({
   const [sending, setSending] = useState<boolean>(false);
   const [errorText, setErrorText] = useState<string>('');
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  const [showModelModal, setShowModelModal] = useState<boolean>(false);
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>(FALLBACK_MODEL_OPTIONS);
+  const [modelsLoaded, setModelsLoaded] = useState<boolean>(false);
+  const [isModelModalOpen, setIsModelModalOpen] = useState<boolean>(false);
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [deleteTargetChatId, setDeleteTargetChatId] = useState<string>('');
-  const [modelOptions, setModelOptions] = useState<ModelOption[]>(fallbackModels);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const lastMessageIdRef = useRef<number | null>(null);
   const [isSttListening, setIsSttListening] = useState(false);
@@ -139,28 +215,28 @@ export function ChatContainer({
     [sessions]
   );
 
+  const defaultModelId = useMemo(
+    () => modelOptions[0]?.id ?? DEFAULT_CHATJPT_MODEL_ID,
+    [modelOptions]
+  );
+
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === activeChatId) ?? null,
     [sessions, activeChatId]
   );
 
-  const selectedModel = activeSession?.model ?? modelOptions[0]?.id;
-  const selectedModelInfo = modelOptions.find((model) => model.id === selectedModel) ?? null;
-
   useEffect(() => {
     const loaded = loadSessions();
-    const normalized = IS_CHATJPT_ONLY_MODE
-      ? loaded.map((session) => ({
-        ...session,
-        model: DEMO_DEFAULT_MODEL_ID,
-        provider: 'chatjpt',
-      }))
-      : loaded;
+    const normalized = loaded.map((session) => ({
+      ...session,
+      model: session.model || DEFAULT_CHATJPT_MODEL_ID,
+      provider: IS_CHATJPT_ONLY_MODE ? DEFAULT_CHATJPT_PROVIDER : session.provider,
+    }));
     setSessions(normalized);
     if (normalized.length === 0) {
       const defaultSession = createSession(
-        IS_CHATJPT_ONLY_MODE ? DEMO_DEFAULT_MODEL_ID : fallbackModels[0].id,
-        IS_CHATJPT_ONLY_MODE ? 'chatjpt' : fallbackModels[0].provider
+        DEFAULT_CHATJPT_MODEL_ID,
+        IS_CHATJPT_ONLY_MODE ? DEFAULT_CHATJPT_PROVIDER : undefined
       );
       setSessions([defaultSession]);
       setActiveChatId(defaultSession.id);
@@ -174,6 +250,21 @@ export function ChatContainer({
   }, [initialChatId]);
 
   useEffect(() => {
+    let isActive = true;
+    const loadModels = async () => {
+      const remote = await fetchChatModels();
+      const mapped = remote.length ? mapModels(remote) : FALLBACK_MODEL_OPTIONS;
+      if (!isActive) return;
+      setModelOptions(mapped);
+      setModelsLoaded(true);
+    };
+    loadModels();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     persistSessions(sessions);
   }, [sessions]);
 
@@ -182,24 +273,25 @@ export function ChatContainer({
     onActiveChatChange(activeChatId);
   }, [activeChatId, onActiveChatChange]);
 
+  const resolveModelId = useCallback(
+    (modelId?: string) => {
+      if (!modelOptions.length) return DEFAULT_CHATJPT_MODEL_ID;
+      const matched = modelOptions.find((model) => model.id === modelId);
+      return matched?.id ?? defaultModelId;
+    },
+    [modelOptions, defaultModelId]
+  );
+
   useEffect(() => {
-    const loadModels = async () => {
-      const remote = await fetchChatModels();
-      if (remote.length > 0) {
-        setModelOptions(
-          remote
-            .filter((model) => model.provider === 'chatjpt')
-            .map((model) => ({
-              ...model,
-              contextWindow: model.contextWindowTokens
-                ? `${Math.round(model.contextWindowTokens / 1000)}K tokens`
-                : undefined,
-            }))
-        );
-      }
-    };
-    void loadModels();
-  }, []);
+    if (!modelOptions.length) return;
+    setSessions((prev) =>
+      prev.map((session) => ({
+        ...session,
+        model: resolveModelId(session.model),
+        provider: IS_CHATJPT_ONLY_MODE ? DEFAULT_CHATJPT_PROVIDER : session.provider,
+      }))
+    );
+  }, [modelOptions, resolveModelId]);
 
   useEffect(() => {
     if (!activeSession) return;
@@ -243,8 +335,8 @@ export function ChatContainer({
   const ensureSession = () => {
     if (activeSession) return activeSession;
     const fresh = createSession(
-      IS_CHATJPT_ONLY_MODE ? DEMO_DEFAULT_MODEL_ID : modelOptions[0]?.id || fallbackModels[0].id,
-      IS_CHATJPT_ONLY_MODE ? 'chatjpt' : modelOptions[0]?.provider
+      defaultModelId,
+      IS_CHATJPT_ONLY_MODE ? DEFAULT_CHATJPT_PROVIDER : undefined
     );
     setSessions((prev) => [...prev, fresh]);
     setActiveChatId(fresh.id);
@@ -261,8 +353,8 @@ export function ChatContainer({
 
   const handleCreateChat = () => {
     const session = createSession(
-      IS_CHATJPT_ONLY_MODE ? DEMO_DEFAULT_MODEL_ID : selectedModelInfo?.id || fallbackModels[0].id,
-      IS_CHATJPT_ONLY_MODE ? 'chatjpt' : selectedModelInfo?.provider
+      defaultModelId,
+      IS_CHATJPT_ONLY_MODE ? DEFAULT_CHATJPT_PROVIDER : undefined
     );
     setSessions((prev) => [...prev, session]);
     setActiveChatId(session.id);
@@ -298,16 +390,6 @@ export function ChatContainer({
     setErrorText('');
   };
 
-  const handleSelectModel = (modelId: string) => {
-    if (!activeSession || IS_CHATJPT_ONLY_MODE) return;
-    const modelInfo = modelOptions.find((model) => model.id === modelId);
-    if (!modelInfo) return;
-    const next = { ...activeSession, model: modelId, provider: modelInfo.provider };
-    touchSession(next);
-    updateSession(next);
-    setShowModelModal(false);
-  };
-
   const handleSendMessage = async (content: string) => {
     const text = content.trim();
     if (!text || sending) return;
@@ -329,19 +411,22 @@ export function ChatContainer({
       time: nowTime(),
     };
 
+    const resolvedModelId = resolveModelId(session.model);
     const updatedSession: ChatSession = {
       ...session,
       title: session.title === 'Chat mới' ? makeSessionTitle(text) : session.title,
       messages: [...session.messages, userMessage, assistantMessage],
-      model: session.model || selectedModelInfo?.id || fallbackModels[0].id,
-      provider: IS_CHATJPT_ONLY_MODE ? 'chatjpt' : session.provider || selectedModelInfo?.provider,
+      model: resolvedModelId,
+      provider: IS_CHATJPT_ONLY_MODE
+        ? DEFAULT_CHATJPT_PROVIDER
+        : session.provider ?? DEFAULT_CHATJPT_PROVIDER,
     };
     touchSession(updatedSession);
     updateSession(updatedSession);
 
     try {
       const response = await sendChatMessage(text, session.id, { currentProductSlug: productSlug }, {
-        preferredProvider: (IS_CHATJPT_ONLY_MODE ? 'chatjpt' : updatedSession.provider) as
+        preferredProvider: (IS_CHATJPT_ONLY_MODE ? DEFAULT_CHATJPT_PROVIDER : updatedSession.provider) as
           | 'chatjpt'
           | 'workers_ai'
           | 'gemini'
@@ -356,9 +441,6 @@ export function ChatContainer({
         assistantMessage.suggestedProducts = responseData.suggestedProducts;
         assistantMessage.providerUsed = responseData.providerUsed;
         assistantMessage.modelUsed = responseData.modelUsed;
-        if (responseData.modelUsed && modelOptions.some((model) => model.id === responseData.modelUsed)) {
-          updatedSession.model = responseData.modelUsed;
-        }
         if (!IS_CHATJPT_ONLY_MODE && responseData.providerUsed && responseData.providerUsed !== updatedSession.provider) {
           updatedSession.provider = responseData.providerUsed;
         }
@@ -392,6 +474,21 @@ export function ChatContainer({
     const container = messagesContainerRef.current;
     if (!container) return;
     onScrollPositionChange(container.scrollTop);
+  };
+
+  const activeModelId = resolveModelId(activeSession?.model);
+  const activeModel = modelOptions.find((model) => model.id === activeModelId) ?? modelOptions[0];
+
+  const handleSelectModel = (modelId: string) => {
+    if (!activeSession) return;
+    const resolvedModelId = resolveModelId(modelId);
+    const updatedSession: ChatSession = {
+      ...activeSession,
+      model: resolvedModelId,
+      provider: IS_CHATJPT_ONLY_MODE ? DEFAULT_CHATJPT_PROVIDER : activeSession.provider,
+    };
+    updateSession(updatedSession);
+    setIsModelModalOpen(false);
   };
 
   return (
@@ -434,6 +531,14 @@ export function ChatContainer({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                className="rounded-full border border-pink-100 bg-white px-3 py-2 text-xs font-medium text-pink-600 transition hover:border-pink-200 hover:text-pink-700 dark:border-gray-800 dark:bg-gray-900 dark:text-pink-200 dark:hover:text-white"
+                onClick={() => setIsModelModalOpen(true)}
+                disabled={!modelsLoaded}
+              >
+                {activeModel ? `Model: ${activeModel.label}` : 'Chọn model'}
+              </button>
+              <button
+                type="button"
                 className="hidden rounded-full border border-pink-100 bg-pink-50 px-3 py-2 text-xs font-medium text-pink-600 transition hover:border-pink-200 hover:text-pink-700 dark:border-gray-800 dark:bg-gray-800 dark:text-pink-200 dark:hover:text-white lg:inline-flex"
                 onClick={() => setIsDesktopSidebarOpen(true)}
               >
@@ -446,15 +551,6 @@ export function ChatContainer({
               >
                 Lịch sử chat
               </button>
-              {!IS_CHATJPT_ONLY_MODE && (
-                <button
-                  type="button"
-                  className="rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:border-pink-200 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:text-white"
-                  onClick={() => setShowModelModal(true)}
-                >
-                  {selectedModelInfo?.label ?? 'Chọn model AI'}
-                </button>
-              )}
               <button
                 type="button"
                 className="rounded-full border border-rose-200 bg-white px-3 py-2 text-xs font-medium text-rose-500 transition hover:border-rose-300 hover:text-rose-600 dark:border-rose-900/40 dark:bg-gray-900 dark:text-rose-300 dark:hover:text-rose-200"
@@ -629,15 +725,6 @@ export function ChatContainer({
         </div>
       )}
 
-      {!IS_CHATJPT_ONLY_MODE && (
-        <ModelPickerModal
-          open={showModelModal}
-          models={modelOptions}
-          selectedModel={selectedModelInfo?.id}
-          onSelect={handleSelectModel}
-          onClose={() => setShowModelModal(false)}
-        />
-      )}
 
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -666,6 +753,14 @@ export function ChatContainer({
           </div>
         </div>
       )}
+
+      <ModelPickerModal
+        open={isModelModalOpen}
+        models={modelOptions}
+        selectedModel={activeModelId}
+        onSelect={handleSelectModel}
+        onClose={() => setIsModelModalOpen(false)}
+      />
     </div>
   );
 }

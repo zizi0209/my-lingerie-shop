@@ -54,6 +54,9 @@ router.get('/providers', aiConsultantController.getProviders);
 // GET /api/ai-consultant/models - Available model catalog
 router.get('/models', aiConsultantController.getModels);
 
+// GET /api/ai-consultant/health - ChatJPT health status
+router.get('/health', aiConsultantController.getHealth);
+
  // DELETE /api/ai-consultant/session/:sessionId - Clear conversation session
  router.delete('/session/:sessionId', aiConsultantController.clearSession);
  

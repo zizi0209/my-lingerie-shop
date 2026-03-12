@@ -6,7 +6,7 @@ import { LLMProviderError } from './llm/types';
 
 const prisma = new PrismaClient();
 
-const AI_UNAVAILABLE_MESSAGE = 'Không thể kết nối trợ lý AI lúc này. Vui lòng thử lại sau.';
+const CHATJPT_UNAVAILABLE_MESSAGE = 'Không thể kết nối với ChatJPT. Vui lòng thử lại sau.';
 
 interface ChatContext {
   currentProductSlug?: string;
@@ -62,6 +62,31 @@ CONTEXT SẢN PHẨM:
 Hãy trả lời câu hỏi của khách hàng một cách chuyên nghiệp và hữu ích.`;
 
 export class AIConsultantService {
+  private getContextCharLimit(): number {
+    const raw = Number(process.env.AI_CHAT_MAX_CONTEXT_CHARS || 12000);
+    if (Number.isFinite(raw) && raw > 1000) return Math.floor(raw);
+    return 12000;
+  }
+
+  private estimateContentSize(input: ChatMessage[]): number {
+    return input.reduce((total, message) => total + message.content.length, 0);
+  }
+
+  private trimHistory(
+    history: ChatMessage[],
+    systemPrompt: string,
+    userMessage: string,
+  ): ChatMessage[] {
+    const limit = this.getContextCharLimit();
+    let trimmed = [...history];
+    let total = systemPrompt.length + userMessage.length + this.estimateContentSize(trimmed);
+    while (total > limit && trimmed.length > 0) {
+      trimmed = trimmed.slice(1);
+      total = systemPrompt.length + userMessage.length + this.estimateContentSize(trimmed);
+    }
+    return trimmed;
+  }
+
   private normalizeHistory(input: ChatMessage[]): ChatMessage[] {
     return input
       .filter(
@@ -164,12 +189,14 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
     let providerUsed: LLMProviderName | undefined;
     let modelUsed: string | undefined;
 
+    const trimmedHistory = this.trimHistory(history, systemPromptWithContext, trimmedMessage);
+
     try {
       const response = await generateWithFallback(
         {
           systemPrompt: systemPromptWithContext,
           userMessage: trimmedMessage,
-          history,
+          history: trimmedHistory,
           requestId,
           preferredModel: options?.preferredModel,
         },
@@ -186,11 +213,11 @@ Màu sắc: ${product.variants?.map(v => v.color?.name).filter((v, i, a) => a.in
       if (error instanceof LLMProviderError) {
         throw error;
       }
-      throw new Error(AI_UNAVAILABLE_MESSAGE);
+      throw new Error(CHATJPT_UNAVAILABLE_MESSAGE);
     }
 
     const nextHistory = this.normalizeHistory([
-      ...history,
+      ...trimmedHistory,
       { role: 'user', content: trimmedMessage },
       { role: 'assistant', content: aiMessage },
     ]);

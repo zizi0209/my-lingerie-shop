@@ -10,21 +10,102 @@ type ChatJPTModelDefinition = {
 };
 
 const CHATJPT_ENDPOINT = (process.env.CHATJPT_ENDPOINT || 'https://chatjpt.rina.work/api/chat').trim();
+const CHATJPT_ENDPOINTS = (process.env.CHATJPT_ENDPOINTS || '').trim();
+const ENDPOINT_COOLDOWN_MS = Number(process.env.CHATJPT_ENDPOINT_COOLDOWN_MS || 30000);
+
+type EndpointState = {
+  url: string;
+  failures: number;
+  lastFailureAt: number | null;
+};
+
+const endpointStates: EndpointState[] = [];
+
+const resolveEndpoints = (): EndpointState[] => {
+  const endpoints = CHATJPT_ENDPOINTS
+    ? CHATJPT_ENDPOINTS.split(',').map((entry) => entry.trim()).filter(Boolean)
+    : [CHATJPT_ENDPOINT].filter(Boolean);
+  for (const url of endpoints) {
+    if (!endpointStates.some((state) => state.url === url)) {
+      endpointStates.push({ url, failures: 0, lastFailureAt: null });
+    }
+  }
+  return endpointStates.filter((state) => endpoints.includes(state.url));
+};
+
+const isEndpointAvailable = (state: EndpointState): boolean => {
+  if (!state.lastFailureAt) return true;
+  return Date.now() - state.lastFailureAt >= ENDPOINT_COOLDOWN_MS;
+};
+
+const markFailure = (state: EndpointState): void => {
+  state.failures += 1;
+  state.lastFailureAt = Date.now();
+};
+
+const markSuccess = (state: EndpointState): void => {
+  state.failures = 0;
+  state.lastFailureAt = null;
+};
+
+const pickEndpointOrder = (): EndpointState[] => {
+  const states = resolveEndpoints();
+  const available = states.filter((state) => isEndpointAvailable(state));
+  if (available.length > 0) {
+    return [...available].sort((a, b) => a.failures - b.failures);
+  }
+  return [...states].sort((a, b) => a.failures - b.failures);
+};
 
 const DEFAULT_MODELS: ChatJPTModelDefinition[] = [
   {
-    id: 'chatjpt-default',
-    label: 'ChatJPT Default',
-    model: 'gpt-4o-mini',
+    id: 'gpt-oss-120b',
+    label: 'GPT-OSS 120B',
+    model: '@cf/openai/gpt-oss-120b',
     contextWindowTokens: 128000,
     featured: true,
   },
   {
-    id: 'chatjpt-pro',
-    label: 'ChatJPT Pro',
-    model: 'gpt-4o',
+    id: 'llama-3.3-70b-fp8-fast',
+    label: 'Llama 3.3 70B FP8 Fast',
+    model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
     contextWindowTokens: 128000,
-    featured: false,
+  },
+  {
+    id: 'llama-4-scout-17b-16e',
+    label: 'Llama 4 Scout 17B 16E',
+    model: '@cf/meta/llama-4-scout-17b-16e-instruct',
+    contextWindowTokens: 128000,
+  },
+  {
+    id: 'gemma-3-12b-it',
+    label: 'Gemma 3 12B IT',
+    model: '@cf/google/gemma-3-12b-it',
+    contextWindowTokens: 128000,
+  },
+  {
+    id: 'deepseek-r1-distill-qwen-32b',
+    label: 'DeepSeek R1 Distill Qwen 32B',
+    model: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+    contextWindowTokens: 128000,
+  },
+  {
+    id: 'qwen3-30b-a3b-fp8',
+    label: 'Qwen3 30B A3B FP8',
+    model: '@cf/qwen/qwen3-30b-a3b-fp8',
+    contextWindowTokens: 128000,
+  },
+  {
+    id: 'qwq-32b',
+    label: 'QwQ 32B',
+    model: '@cf/qwen/qwq-32b',
+    contextWindowTokens: 128000,
+  },
+  {
+    id: 'mistral-7b-instruct-v0.1',
+    label: 'Mistral 7B Instruct v0.1',
+    model: '@cf/mistral/mistral-7b-instruct-v0.1',
+    contextWindowTokens: 32000,
   },
 ];
 
@@ -118,7 +199,7 @@ const extractMessageFromRaw = (raw: string, contentType: string): string => {
 
 export const chatjptProvider: LLMProvider = {
   name: 'chatjpt',
-  isConfigured: () => Boolean(CHATJPT_ENDPOINT),
+  isConfigured: () => resolveEndpoints().length > 0,
   listModels: (): LLMModelOption[] =>
     parseModelsFromEnv().map((model) => ({
       id: model.id,
@@ -128,7 +209,7 @@ export const chatjptProvider: LLMProvider = {
       featured: model.featured,
     })),
   generateResponse: async (request: LLMRequest): Promise<LLMResponse> => {
-    if (!CHATJPT_ENDPOINT) {
+    if (resolveEndpoints().length === 0) {
       throw new LLMProviderError('ChatJPT endpoint chưa cấu hình', 'chatjpt', false);
     }
 
@@ -139,42 +220,64 @@ export const chatjptProvider: LLMProvider = {
       { role: 'user', content: request.userMessage },
     ];
 
-    const startedAt = Date.now();
-    const response = await fetch(CHATJPT_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: resolvedModel.model,
-        messages,
-      }),
-    });
+    const endpoints = pickEndpointOrder();
+    let lastError: LLMProviderError | null = null;
 
-    const latencyMs = Date.now() - startedAt;
-    if (!response.ok) {
-      const errorText = await response.text();
-      const retryable = response.status === 429 || response.status >= 500;
-      throw new LLMProviderError(
-        `ChatJPT error ${response.status}: ${errorText.slice(0, 200)}`,
-        'chatjpt',
-        retryable,
-        response.status,
-      );
+    for (const endpoint of endpoints) {
+      const startedAt = Date.now();
+      try {
+        const response = await fetch(endpoint.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: resolvedModel.model,
+            messages,
+          }),
+        });
+
+        const latencyMs = Date.now() - startedAt;
+        if (!response.ok) {
+          const errorText = await response.text();
+          const retryable = response.status === 429 || response.status >= 500;
+          const error = new LLMProviderError(
+            `ChatJPT error ${response.status}: ${errorText.slice(0, 200)}`,
+            'chatjpt',
+            retryable,
+            response.status,
+          );
+          markFailure(endpoint);
+          lastError = error;
+          if (!retryable) break;
+          continue;
+        }
+
+        const contentType = (response.headers.get('content-type') || '').toLowerCase();
+        const raw = await response.text();
+        const message = extractMessageFromRaw(raw, contentType);
+        if (!message) {
+          const error = new LLMProviderError('ChatJPT response empty', 'chatjpt', false);
+          markFailure(endpoint);
+          lastError = error;
+          break;
+        }
+
+        markSuccess(endpoint);
+        return {
+          message,
+          provider: 'chatjpt',
+          model: resolvedModel.model,
+          latencyMs,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'ChatJPT request failed';
+        const providerError = new LLMProviderError(message, 'chatjpt', true);
+        markFailure(endpoint);
+        lastError = providerError;
+      }
     }
 
-    const contentType = (response.headers.get('content-type') || '').toLowerCase();
-    const raw = await response.text();
-    const message = extractMessageFromRaw(raw, contentType);
-    if (!message) {
-      throw new LLMProviderError('ChatJPT response empty', 'chatjpt', false);
-    }
-
-    return {
-      message,
-      provider: 'chatjpt',
-      model: resolvedModel.model,
-      latencyMs,
-    };
+    throw lastError || new LLMProviderError('ChatJPT request failed', 'chatjpt', true);
   },
 };
