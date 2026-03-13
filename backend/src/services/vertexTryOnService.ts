@@ -63,6 +63,10 @@ interface CachedToken {
 
 let cachedToken: CachedToken | null = null;
 
+export function isVertexTryOnAvailable(): boolean {
+  return Boolean(VERTEX_PROJECT_ID && VERTEX_LOCATION);
+}
+
 function ensureVertexConfig(): void {
   if (!VERTEX_PROJECT_ID) {
     throw new Error('VERTEX_AI_PROJECT_ID is required');

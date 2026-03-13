@@ -13,6 +13,7 @@
  * - Pre-flight health checks to skip unavailable providers
  */
 import { processGeminiTryOn, isGeminiAvailable } from './geminiVirtualTryOnService';
+import { isVertexTryOnAvailable, processVertexTryOn } from './vertexTryOnService';
 import { deleteTryOnAsset, TemporaryUpload, uploadToTemporaryUrl } from './virtualTryOnStorage';
 
 // Configuration constants
@@ -23,6 +24,12 @@ const DEFAULT_PROVIDER_TIMEOUT_MS = Number(process.env.TRYON_PROVIDER_TIMEOUT_MS
 const SELF_HOSTED_TIMEOUT_MS = Number(process.env.TRYON_SELF_HOSTED_TIMEOUT_MS || '180000');
 const DMVTON_TIMEOUT_MS = Number(process.env.TRYON_DMVTON_TIMEOUT_MS || '180000');
 const GEMINI_ENABLED = process.env.TRYON_USE_GEMINI === 'true';
+const VERTEX_ENABLED = process.env.TRYON_USE_VERTEX === 'true';
+const VERTEX_DAILY_BUDGET_USD = Number(process.env.TRYON_VERTEX_DAILY_BUDGET_USD || '0');
+const VERTEX_MAX_REQUESTS_PER_DAY = Number(process.env.TRYON_VERTEX_MAX_REQUESTS_PER_DAY || '0');
+const VERTEX_ESTIMATED_COST_PER_IMAGE_USD = Number(process.env.TRYON_VERTEX_ESTIMATED_COST_PER_IMAGE_USD || '0.04');
+const VERTEX_SAMPLE_COUNT = Number(process.env.TRYON_VERTEX_SAMPLE_COUNT || '1');
+const QUALITY_MODE = process.env.TRYON_QUALITY_MODE === 'true';
 const MAX_CONCURRENT_TRYON = Number(process.env.TRYON_MAX_CONCURRENT || '2');
 const OVERLOAD_RETRY_SECONDS = Number(process.env.TRYON_OVERLOAD_RETRY_SECONDS || '30');
 const SELF_HOSTED_READINESS_TIMEOUT_MS = Number(
@@ -37,6 +44,11 @@ const TIMEOUT_WARNING_THRESHOLD = Number(process.env.TRYON_TIMEOUT_WARNING_THRES
 const TRYON_DEMO_LEARNING = process.env.TRYON_DEMO_LEARNING === 'true';
 const TRYON_PERMISSIVE_PROVIDERS = process.env.TRYON_PERMISSIVE_PROVIDERS || 'FASHN-VTON-1.5,DM-VTON-Local';
 const TRYON_NONCOMMERCIAL_PROVIDERS = process.env.TRYON_NONCOMMERCIAL_PROVIDERS || 'StableVITON,IDM-VTON';
+const TRYON_FASHN_STEPS = Number(process.env.TRYON_FASHN_STEPS || (QUALITY_MODE ? '60' : '50'));
+const TRYON_FASHN_GUIDANCE = Number(process.env.TRYON_FASHN_GUIDANCE || (QUALITY_MODE ? '2' : '1.5'));
+const TRYON_FASHN_SEED = Number(process.env.TRYON_FASHN_SEED || '42');
+const TRYON_IDM_DENOISE_STEPS = Number(process.env.TRYON_IDM_DENOISE_STEPS || (QUALITY_MODE ? '40' : '30'));
+const TRYON_IDM_SEED = Number(process.env.TRYON_IDM_SEED || '42');
 
 
 interface ProviderConfig {
@@ -194,6 +206,12 @@ const PROVIDERS: ProviderConfig[] = [
 let currentProviderIndex = 0;
 let activeTryOnCount = 0;
 
+let vertexUsage = {
+  dateKey: '',
+  requestCount: 0,
+  spentUsd: 0,
+};
+
 // Health tracking for each provider
 const providerHealth: Map<string, ProviderHealth> = new Map();
 const providerReadiness: Map<string, { lastCheckedAt: number; ready: boolean; reason?: string }> = new Map();
@@ -264,12 +282,19 @@ const PRIMARY_PROVIDER_NAMES = (process.env.TRYON_PRIMARY_PROVIDERS || '')
   .map((item) => item.trim())
   .filter(Boolean);
 
-const DEFAULT_PRIMARY_PROVIDERS = [
-  ...(DMVTON_PROVIDER ? [DMVTON_PROVIDER.name] : []),
-  ...(SELF_HOSTED_PROVIDER ? [SELF_HOSTED_PROVIDER.name] : []),
-  'FASHN-VTON-1.5',
-  'IDM-VTON',
-];
+const DEFAULT_PRIMARY_PROVIDERS = (() => {
+  const providers = [
+    ...(DMVTON_PROVIDER ? [DMVTON_PROVIDER.name] : []),
+    ...(SELF_HOSTED_PROVIDER ? [SELF_HOSTED_PROVIDER.name] : []),
+    'FASHN-VTON-1.5',
+  ];
+  if (QUALITY_MODE) {
+    providers.push('StableVITON', 'VTON-D', 'IDM-VTON', 'Kolors-VTON');
+  } else {
+    providers.push('IDM-VTON');
+  }
+  return Array.from(new Set(providers));
+})();
 
 function getPrimaryProviderNames(): string[] {
   return PRIMARY_PROVIDER_NAMES.length > 0 ? PRIMARY_PROVIDER_NAMES : DEFAULT_PRIMARY_PROVIDERS;
@@ -381,6 +406,61 @@ function computeProviderScore(health: ProviderHealth): number | null {
   const { successRate, timeoutRate } = getHealthWindowStats(health);
   const latencyPenalty = health.avgResponseTime > 0 ? health.avgResponseTime / 1000 : 0;
   return successRate * 100 - timeoutRate * 50 - latencyPenalty;
+}
+
+function getTodayKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function resetVertexUsageIfNeeded(): void {
+  const today = getTodayKey();
+  if (vertexUsage.dateKey !== today) {
+    vertexUsage = {
+      dateKey: today,
+      requestCount: 0,
+      spentUsd: 0,
+    };
+  }
+}
+
+function getVertexSampleCount(remainingBudgetUsd: number | null): number {
+  const baseSampleCount = VERTEX_SAMPLE_COUNT > 0 ? VERTEX_SAMPLE_COUNT : 1;
+  if (remainingBudgetUsd === null) {
+    return baseSampleCount;
+  }
+  const estimatedCost = baseSampleCount * VERTEX_ESTIMATED_COST_PER_IMAGE_USD;
+  if (remainingBudgetUsd < estimatedCost) {
+    return 1;
+  }
+  return baseSampleCount;
+}
+
+function getVertexRemainingBudgetUsd(): number | null {
+  if (VERTEX_DAILY_BUDGET_USD <= 0) {
+    return null;
+  }
+  return Math.max(0, VERTEX_DAILY_BUDGET_USD - vertexUsage.spentUsd);
+}
+
+function canUseVertex(sampleCount: number): { allowed: boolean; reason?: string; estimatedCost: number } {
+  resetVertexUsageIfNeeded();
+  const estimatedCost = sampleCount * VERTEX_ESTIMATED_COST_PER_IMAGE_USD;
+
+  if (VERTEX_MAX_REQUESTS_PER_DAY > 0 && vertexUsage.requestCount >= VERTEX_MAX_REQUESTS_PER_DAY) {
+    return { allowed: false, reason: 'Đã vượt giới hạn số request Vertex mỗi ngày', estimatedCost };
+  }
+
+  if (VERTEX_DAILY_BUDGET_USD > 0 && vertexUsage.spentUsd + estimatedCost > VERTEX_DAILY_BUDGET_USD) {
+    return { allowed: false, reason: 'Vượt budget Vertex mỗi ngày', estimatedCost };
+  }
+
+  return { allowed: true, estimatedCost };
+}
+
+function recordVertexUsage(estimatedCost: number): void {
+  resetVertexUsageIfNeeded();
+  vertexUsage.requestCount += 1;
+  vertexUsage.spentUsd += estimatedCost;
 }
 
 async function probeProviderEndpoint(provider: ProviderConfig): Promise<boolean> {
@@ -774,8 +854,8 @@ async function tryIdmProvider(
       'clothing item',
       true, // auto mask
       true, // auto crop
-      30, // denoise steps
-      42, // seed
+      TRYON_IDM_DENOISE_STEPS,
+      TRYON_IDM_SEED,
     ],
   };
   try {
@@ -834,9 +914,9 @@ async function tryFASHNVTON(
       { path: garmentUpload.url, url: garmentUpload.url, meta: { _type: 'gradio.FileData' } },
       'tops',
       'flat-lay',
-      50,
-      1.5,
-      42,
+      TRYON_FASHN_STEPS,
+      TRYON_FASHN_GUIDANCE,
+      TRYON_FASHN_SEED,
       true,
     ],
   };
@@ -1184,6 +1264,60 @@ async function tryProvider(
   }
 }
 
+async function tryVertexFallback(
+  personImageBase64: string,
+  garmentImageBase64: string
+): Promise<TryOnResult | null> {
+  if (!VERTEX_ENABLED || !isVertexTryOnAvailable()) {
+    return null;
+  }
+
+  const remainingBudget = getVertexRemainingBudgetUsd();
+  const sampleCount = getVertexSampleCount(remainingBudget);
+  const allowance = canUseVertex(sampleCount);
+
+  if (!allowance.allowed) {
+    logTryOnEvent({ stage: 'vertex', event: 'budget_block', reason: allowance.reason });
+    return {
+      success: false,
+      error: allowance.reason || 'Vertex bị chặn do budget',
+      errorCode: 'PROVIDER_UNAVAILABLE',
+      errorStage: 'fallback',
+      providerHint: 'Vertex-AI',
+    };
+  }
+
+  const startTime = Date.now();
+  try {
+    logTryOnEvent({ stage: 'vertex', event: 'provider_attempt', sampleCount });
+    const result = await processVertexTryOn({
+      personImageBase64,
+      garmentImageBase64,
+      sampleCount,
+    });
+
+    recordVertexUsage(allowance.estimatedCost);
+
+    return {
+      success: true,
+      resultImage: normalizeTryOnImage(result.base64Image, result.mimeType),
+      provider: 'Vertex-AI',
+      processingTime: Date.now() - startTime,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown Vertex error';
+    logTryOnEvent({ stage: 'vertex', event: 'provider_failed', error: message });
+    return {
+      success: false,
+      error: message,
+      errorCode: 'PROVIDER_UNAVAILABLE',
+      errorStage: 'fallback',
+      providerHint: 'Vertex-AI',
+      processingTime: Date.now() - startTime,
+    };
+  }
+}
+
 async function fetchWithRetry(
   url: string,
   options: RequestInit,
@@ -1373,6 +1507,20 @@ export async function processVirtualTryOn(
       if (result?.success) {
         return result;
       }
+    }
+
+    const vertexResult = await tryVertexFallback(personImageBase64, garmentImageBase64);
+    if (vertexResult?.success) {
+      console.log(`=== Vertex SUCCESS (${vertexResult.processingTime}ms) ===`);
+      return {
+        success: true,
+        resultImage: vertexResult.resultImage,
+        provider: vertexResult.provider || 'Vertex-AI',
+        processingTime: Date.now() - startTime,
+      };
+    }
+    if (vertexResult && !vertexResult.success && vertexResult.error) {
+      errors.push(`Vertex: ${vertexResult.error}`);
     }
 
     if (GEMINI_ENABLED && isGeminiAvailable()) {
