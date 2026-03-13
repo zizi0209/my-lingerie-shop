@@ -1,7 +1,6 @@
 FROM python:3.11-slim AS builder
 
-ENV PIP_NO_CACHE_DIR=1 \
-  PIP_DISABLE_PIP_VERSION_CHECK=1 \
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
   PYTHONDONTWRITEBYTECODE=1 \
   TMPDIR=/var/tmp
 
@@ -14,10 +13,11 @@ RUN apt-get update \
 
 COPY requirements.txt .
 
-RUN python -m venv /opt/venv \
+RUN --mount=type=cache,target=/root/.cache/pip \
+  python -m venv /opt/venv \
   && /opt/venv/bin/pip install --upgrade pip \
-  && /opt/venv/bin/pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.2.2 \
-  && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+  && /opt/venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch==2.2.2 \
+  && /opt/venv/bin/pip install -r requirements.txt
 
 COPY app.py .
 
