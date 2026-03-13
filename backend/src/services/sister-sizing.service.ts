@@ -476,7 +476,7 @@ export class SisterSizingService {
       take: limit,
     });
 
-    return outOfStockRequests.map((req) => ({
+    return outOfStockRequests.map((req: typeof outOfStockRequests[number]) => ({
       size: req.requestedSize,
       productId: req.productId,
       outOfStockRequests: req._count.id,

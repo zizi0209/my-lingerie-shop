@@ -74,7 +74,7 @@ export async function generateUniqueProductSlug(
   }
 
   // Kiểm tra xem baseSlug có được sử dụng chưa
-  const slugsSet = new Set(existingProducts.map(p => p.slug));
+  const slugsSet = new Set(existingProducts.map((p: { slug: string }) => p.slug));
   
   if (!slugsSet.has(baseSlug)) {
     return baseSlug;
@@ -115,7 +115,7 @@ export async function generateUniqueCategorySlug(
     return baseSlug;
   }
 
-  const slugsSet = new Set(existingCategories.map(c => c.slug));
+  const slugsSet = new Set(existingCategories.map((c: { slug: string }) => c.slug));
   
   if (!slugsSet.has(baseSlug)) {
     return baseSlug;

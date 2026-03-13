@@ -216,7 +216,7 @@ export class SizeResolutionService {
       },
     });
 
-    return regionalSizes.map((rs) => ({
+    return regionalSizes.map((rs: typeof regionalSizes[number]) => ({
       region: rs.region.code,
       regionName: rs.region.name,
       size: rs.displaySize,
@@ -534,16 +534,18 @@ export class SizeResolutionService {
     // Build matrix
     const matrix: any = {
       category,
-      regions: regions.map((r) => ({ code: r.code, name: r.name })),
+      regions: regions.map((r: typeof regions[number]) => ({ code: r.code, name: r.name })),
       sizes: {},
     };
 
     for (const standard of standards) {
-      matrix.sizes[standard.region.code] = standard.sizes.map((s) => ({
-        displaySize: s.displaySize,
-        universalCode: s.universalCode,
-        measurements: s.measurements,
-      }));
+      matrix.sizes[standard.region.code] = standard.sizes.map(
+        (s: typeof standard.sizes[number]) => ({
+          displaySize: s.displaySize,
+          universalCode: s.universalCode,
+          measurements: s.measurements,
+        })
+      );
     }
 
     // Cache for 24 hours

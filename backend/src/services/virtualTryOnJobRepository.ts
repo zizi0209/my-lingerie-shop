@@ -687,8 +687,8 @@ export async function claimNextQueuedJobs(limit: number, now = Date.now()): Prom
       LIMIT ${safeLimit}
     `;
     return rows
-      .map((row) => toTryOnJobRecordFromRow(row))
-      .filter((record): record is TryOnJobRecord => Boolean(record));
+      .map((row: PostgresTryOnJobRow) => toTryOnJobRecordFromRow(row))
+      .filter((record: TryOnJobRecord | null): record is TryOnJobRecord => Boolean(record));
   }
 
   return [];
