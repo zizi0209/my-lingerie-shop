@@ -37,6 +37,13 @@ const TRYON_WORKER_WEBHOOK_URL = process.env.TRYON_WORKER_WEBHOOK_URL || '';
 const TRYON_WORKER_TOKEN = process.env.TRYON_WORKER_TOKEN;
 const TRYON_METRICS_TOKEN = process.env.TRYON_METRICS_TOKEN;
 
+function logTryOnTelemetry(event: Record<string, unknown>): void {
+  console.log('[TryOn][Telemetry]', JSON.stringify({
+    timestamp: Date.now(),
+    ...event,
+  }));
+}
+
 function buildJobStatusPayload(job: Awaited<ReturnType<typeof getTryOnJob>>) {
   if (!job) return null;
   const etaMs = job.status === 'queued'
@@ -334,6 +341,11 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
       if (existing.status === 'queued') {
         await enqueueTryOnJob(existing.jobId);
       }
+      logTryOnTelemetry({
+        event: 'job_reused',
+        jobId: existing.jobId,
+        status: existing.status,
+      });
       return res.json({
         success: true,
         data: existing,
@@ -360,6 +372,13 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
         error: 'Không thể tạo job',
       });
     }
+
+    logTryOnTelemetry({
+      event: 'job_created',
+      jobId: jobRecord.jobId,
+      wantsVideo: Boolean(wantsVideo),
+      storageProvider,
+    });
 
     await enqueueTryOnJob(jobRecord.jobId);
 
@@ -482,6 +501,13 @@ export async function processTryOnJob(req: Request, res: Response) {
       processingStartedAt,
     });
 
+    logTryOnTelemetry({
+      event: 'job_processing_start',
+      jobId,
+      attemptCount,
+      provider: 'vertex-ai-tryon',
+    });
+
     shouldCleanup = false;
 
     const startTime = Date.now();
@@ -536,6 +562,16 @@ export async function processTryOnJob(req: Request, res: Response) {
       processingStartedAt,
     });
 
+    logTryOnTelemetry({
+      event: 'job_completed',
+      jobId,
+      provider: 'vertex-ai-tryon',
+      modelName: VERTEX_TRYON_MODEL_ID,
+      latencyMs: processingTime,
+      wantsVideo: Boolean(jobRecord.wantsVideo),
+      videoDisabled,
+    });
+
     shouldCleanup = true;
 
     return res.json({
@@ -576,6 +612,16 @@ export async function processTryOnJob(req: Request, res: Response) {
         });
         shouldCleanup = true;
       }
+
+      logTryOnTelemetry({
+        event: canRetry ? 'job_retry_scheduled' : 'job_failed',
+        jobId,
+        provider: 'vertex-ai-tryon',
+        modelName: VERTEX_TRYON_MODEL_ID,
+        latencyMs,
+        error: message,
+        nextRetryAt: retryAt ?? undefined,
+      });
     }
     if (retryAt) {
       return res.status(202).json({
