@@ -92,12 +92,14 @@ import { getSearchIndexStatus } from './services/searchIndexing.service';
 import { getEmbeddingHealth } from './services/embeddingClient';
 import { getProvidersHealth } from './services/llm/llmOrchestrator';
 import { ensureRedisReady } from './lib/redis';
+import { validateTryOnConfig } from './config/tryOnConfig';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 validateRedisEnv();
 validateEmbeddingEnv();
+validateTryOnConfig();
 
 // Trust proxy - Required for Render deployment and rate limiting
 // This allows Express to trust the X-Forwarded-* headers from Render's proxy

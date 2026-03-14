@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { checkSpacesStatus, resetProviderHealth, getProviderHealthStats } from '../services/virtualTryOnService';
+import { getTryOnHealthSnapshot } from '../config/tryOnConfig';
 import {
   acquireTryOnJobLease,
   createTryOnJob,
@@ -530,7 +530,10 @@ export async function processTryOnJob(req: Request, res: Response) {
     let resultVideoSignedUrl: string | undefined;
 
     const storageProvider = getTryOnStorageProvider();
-    const videoDisabled = process.env.FREE_MODE_DISABLE_VIDEO === 'true' || storageProvider !== 'gcs';
+    const localVideoDisabled = process.env.NODE_ENV === 'development';
+    const videoDisabled = localVideoDisabled
+      || process.env.FREE_MODE_DISABLE_VIDEO === 'true'
+      || storageProvider !== 'gcs';
 
     if (jobRecord.wantsVideo && !videoDisabled) {
       try {
@@ -570,6 +573,7 @@ export async function processTryOnJob(req: Request, res: Response) {
       latencyMs: processingTime,
       wantsVideo: Boolean(jobRecord.wantsVideo),
       videoDisabled,
+      localVideoDisabled,
     });
 
     shouldCleanup = true;
@@ -649,11 +653,9 @@ export async function processTryOnJob(req: Request, res: Response) {
 
 export async function resetHealth(_req: Request, res: Response) {
   try {
-    resetProviderHealth();
-    
     return res.json({
       success: true,
-      message: 'All provider health stats have been reset',
+      message: 'Vertex-only mode: no provider health state to reset',
     });
   } catch (error) {
     console.error('Reset health error:', error);
@@ -666,11 +668,13 @@ export async function resetHealth(_req: Request, res: Response) {
 
 export async function getHealthStats(_req: Request, res: Response) {
   try {
-    const stats = getProviderHealthStats();
+    const stats = getTryOnHealthSnapshot();
     
     return res.json({
       success: true,
-      data: stats,
+      data: {
+        vertex: stats,
+      },
     });
   } catch (error) {
     console.error('Health stats error:', error);
@@ -693,11 +697,13 @@ export async function getTryOnMetrics(req: Request, res: Response) {
       }
     }
 
-    const stats = getProviderHealthStats();
+    const stats = getTryOnHealthSnapshot();
     return res.json({
       success: true,
       data: {
-        providerHealth: stats,
+        providerHealth: {
+          vertex: stats,
+        },
       },
     });
   } catch (error) {
@@ -711,15 +717,19 @@ export async function getTryOnMetrics(req: Request, res: Response) {
  
  export async function getStatus(_req: Request, res: Response) {
    try {
-     const statuses = await checkSpacesStatus();
- 
-     const available = statuses.some((s) => s.available);
+    const status = getTryOnHealthSnapshot();
  
      return res.json({
        success: true,
        data: {
-         available,
-         providers: statuses,
+        available: status.available,
+        providers: [
+          {
+            name: status.provider,
+            available: status.available,
+            reason: status.reasons.join('; '),
+          },
+        ],
        },
      });
    } catch (error) {

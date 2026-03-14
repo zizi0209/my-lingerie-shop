@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
-import app from '../../server';
+import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import { prisma } from '../../tests/setup';
 
 vi.mock('../../services/vertexTryOnService', () => ({
@@ -21,12 +21,18 @@ vi.mock('../../services/vertexTryOnService', () => ({
 }));
 
 describe('Virtual Try-On async routes', () => {
-  beforeAll(() => {
+  let app: typeof import('../../server').default;
+
+  beforeAll(async () => {
     process.env.TRYON_JOB_STORE = 'postgres';
     process.env.TRYON_STORAGE_PROVIDER = 'cloudinary';
     process.env.CLOUDINARY_CLOUD_NAME = 'test';
     process.env.CLOUDINARY_API_KEY = 'test';
     process.env.CLOUDINARY_API_SECRET = 'test';
+    process.env.TRYON_WORKER_TOKEN = 'test-worker-token';
+    delete process.env.TRYON_WORKER_WEBHOOK_URL;
+    const module = await import('../../server');
+    app = module.default;
   });
 
   afterAll(async () => {
@@ -58,6 +64,7 @@ describe('Virtual Try-On async routes', () => {
 
     const processResponse = await request(app)
       .post(`/api/virtual-tryon/jobs/${jobId}/process`)
+      .set('x-worker-token', 'test-worker-token')
       .send();
 
     expect(processResponse.status).toBe(200);

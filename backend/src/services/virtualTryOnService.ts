@@ -12,9 +12,11 @@
  * - Smart circuit breaker with quick recovery
  * - Pre-flight health checks to skip unavailable providers
  */
+/* eslint-disable no-unused-vars */
 import { processGeminiTryOn, isGeminiAvailable } from './geminiVirtualTryOnService';
 import { isVertexTryOnAvailable, processVertexTryOn } from './vertexTryOnService';
 import { deleteTryOnAsset, TemporaryUpload, uploadToTemporaryUrl } from './virtualTryOnStorage';
+import { getTryOnHealthSnapshot } from '../config/tryOnConfig';
 
 // Configuration constants
 const PRIMARY_PARALLEL_BATCH_SIZE = Number(process.env.TRYON_PRIMARY_PARALLEL_BATCH_SIZE || '1');
@@ -244,23 +246,7 @@ PROVIDERS.forEach(p => {
  * Reset all provider health stats (useful for testing or after server issues)
  */
 export function resetProviderHealth(): void {
-  PROVIDERS.forEach(p => {
-    providerHealth.set(p.name, {
-      lastSuccess: 0,
-      lastFailure: 0,
-      lastErrorAt: 0,
-      lastErrorMessage: null,
-      successCount: 0,
-      failureCount: 0,
-      consecutiveFailures: 0,
-      consecutiveTimeouts: 0,
-      avgResponseTime: 0,
-      recentEvents: [],
-    });
-  });
-  currentProviderIndex = 0;
-  providerReadiness.clear();
-  console.log('[Health] All provider health stats reset');
+  console.warn('[TryOn] resetProviderHealth deprecated (Vertex-only mode)');
 }
 
 const POLL_INTERVAL = 2000; // 2 seconds (reduced from 3)
@@ -1364,284 +1350,45 @@ export async function processVirtualTryOn(
   personImageBase64: string,
   garmentImageBase64: string
 ): Promise<TryOnResult> {
-  const startTime = Date.now();
-  const errors: string[] = [];
-
-  if (activeTryOnCount >= MAX_CONCURRENT_TRYON) {
-    return {
-      success: false,
-      error: 'Hệ thống đang quá tải. Vui lòng thử lại sau.',
-      errorCode: 'SYSTEM_OVERLOADED',
-      retryAfterSeconds: OVERLOAD_RETRY_SECONDS,
-      processingTime: Date.now() - startTime,
-      errorStage: 'admission',
-    };
-  }
-
-  activeTryOnCount += 1;
-  try {
-    console.log('=== Starting Virtual Try-On ===');
-    console.log(`[Config] Gemini enabled: ${GEMINI_ENABLED && isGeminiAvailable() ? 'YES' : 'NO'}`);
-    console.log('Person image size:', Math.round(personImageBase64.length / 1024), 'KB');
-    console.log('Garment image size:', Math.round(garmentImageBase64.length / 1024), 'KB');
-
-  const activeProviders = getActiveProviders();
-  const { primary, fallback } = splitProvidersByPriority(activeProviders);
-  const fallbackCandidates = fallback.length > 0 ? fallback : activeProviders;
-  const orderedFallback = getProvidersInOrder(fallbackCandidates);
-  const primaryNames = primary.map((provider) => provider.name);
-  console.log(`[Config] Primary providers: ${primaryNames.length > 0 ? primaryNames.join(', ') : 'none'}`);
-
-  const stages: Array<{ label: string; providers: ProviderConfig[]; batchSize: number }> = [
-    { label: 'Primary', providers: primary, batchSize: PRIMARY_PARALLEL_BATCH_SIZE },
-    { label: 'Fallback', providers: orderedFallback, batchSize: FALLBACK_PARALLEL_BATCH_SIZE },
-  ];
-
-  const tryStage = async (
-    label: string,
-    providers: ProviderConfig[],
-    batchSize: number
-  ): Promise<TryOnResult | null> => {
-    if (providers.length === 0) return null;
-    console.log(`\n=== Trying ${label} providers ===`);
-    console.log(`[${label}] Provider order: ${providers.map((p) => p.name).join(' → ')}`);
-
-    for (let batchStart = 0; batchStart < providers.length; batchStart += batchSize) {
-      const batch = providers.slice(batchStart, batchStart + batchSize);
-      console.log(`\n[${label} Batch ${Math.floor(batchStart / batchSize) + 1}] Trying: ${batch.map(p => p.name).join(', ')}`);
-
-      logTryOnEvent({ stage: label.toLowerCase(), event: 'batch_start', providers: batch.map((p) => p.name) });
-
-      const healthChecks = await Promise.all(
-        batch.map(async (provider) => {
-          if (isSelfHostedProvider(provider)) {
-            const readiness = await checkSelfHostedReadiness(provider);
-            if (!readiness.ready) {
-              const reason = readiness.reason || 'Readiness check failed';
-              console.log(`[${provider.name}] Readiness failed - skipping: ${reason}`);
-              errors.push(`${provider.name}: readiness failed (${reason})`);
-              return { provider, isHealthy: false };
-            }
-            return { provider, isHealthy: true };
-          }
-
-          const isHealthy = await quickHealthCheck(provider.url);
-          if (!isHealthy) {
-            console.log(`[${provider.name}] Health check failed - skipping`);
-            errors.push(`${provider.name}: health check failed`);
-          }
-          return { provider, isHealthy };
-        })
-      );
-
-      const healthyProviders = healthChecks.filter(h => h.isHealthy).map(h => h.provider);
-
-      if (healthyProviders.length === 0) {
-        console.log(`[${label}] No healthy providers in batch, moving to next...`);
-        continue;
-      }
-
-      const attempts = healthyProviders.map(async (provider) => {
-        const providerStartTime = Date.now();
-
-        try {
-          console.log(`[${provider.name}] Trying... (stage=${label})`);
-          logTryOnEvent({ stage: label.toLowerCase(), event: 'provider_attempt', provider: provider.name });
-          const resultImage = await tryProvider(provider, personImageBase64, garmentImageBase64);
-
-          const responseTime = Date.now() - providerStartTime;
-          updateProviderHealth(provider.name, true, responseTime);
-          logTryOnEvent({ stage: label.toLowerCase(), event: 'provider_success', provider: provider.name, latencyMs: responseTime });
-
-          return {
-            success: true as const,
-            resultImage,
-            provider: provider.name,
-            responseTime,
-          };
-        } catch (error) {
-          const responseTime = Date.now() - providerStartTime;
-          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-          const timeout = isTimeoutError(error);
-
-          updateProviderHealth(provider.name, false, responseTime, {
-            errorMessage: errorMsg,
-            timeout,
-          });
-          console.log(`[${provider.name}] Failed: ${errorMsg}`);
-          logTryOnEvent({ stage: label.toLowerCase(), event: 'provider_failed', provider: provider.name, latencyMs: responseTime, error: errorMsg, timeout });
-
-          return {
-            success: false as const,
-            provider: provider.name,
-            error: errorMsg,
-          };
-        }
-      });
-
-      const results = await Promise.allSettled(attempts);
-
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value.success) {
-          console.log(`=== Success with ${result.value.provider} (${result.value.responseTime}ms) ===`);
-          logTryOnEvent({ stage: label.toLowerCase(), event: 'stage_success', provider: result.value.provider, latencyMs: result.value.responseTime });
-          return {
-            success: true,
-            resultImage: result.value.resultImage,
-            provider: result.value.provider,
-            processingTime: Date.now() - startTime,
-          };
-        }
-
-        if (result.status === 'fulfilled' && !result.value.success) {
-          errors.push(`${result.value.provider}: ${result.value.error}`);
-        }
-      }
-    }
-
-    return null;
-  };
-
-    for (const stage of stages) {
-      const result = await tryStage(stage.label, stage.providers, stage.batchSize);
-      if (result?.success) {
-        return result;
-      }
-    }
-
-    const vertexResult = await tryVertexFallback(personImageBase64, garmentImageBase64);
-    if (vertexResult?.success) {
-      console.log(`=== Vertex SUCCESS (${vertexResult.processingTime}ms) ===`);
-      return {
-        success: true,
-        resultImage: vertexResult.resultImage,
-        provider: vertexResult.provider || 'Vertex-AI',
-        processingTime: Date.now() - startTime,
-      };
-    }
-    if (vertexResult && !vertexResult.success && vertexResult.error) {
-      errors.push(`Vertex: ${vertexResult.error}`);
-    }
-
-    if (GEMINI_ENABLED && isGeminiAvailable()) {
-      console.log('\n=== Trying Gemini API (Optional) ===');
-      try {
-        const geminiResult = await processGeminiTryOn(personImageBase64, garmentImageBase64);
-        if (geminiResult.success && geminiResult.resultImage) {
-          console.log(`=== Gemini SUCCESS (${geminiResult.processingTime}ms) ===`);
-          return {
-            success: true,
-            resultImage: geminiResult.resultImage,
-            provider: 'Gemini',
-            processingTime: Date.now() - startTime,
-          };
-        }
-
-        const geminiError = geminiResult.error || 'Unknown error';
-        console.log(`[Gemini] Failed: ${geminiError}`);
-        errors.push(`Gemini: ${geminiError}`);
-      } catch (geminiError) {
-        const errorMsg = geminiError instanceof Error ? geminiError.message : 'Unknown error';
-        console.error('[Gemini] Error:', errorMsg);
-        errors.push(`Gemini: ${errorMsg}`);
-      }
-    } else if (isGeminiAvailable()) {
-      console.log('[Gemini] Disabled by TRYON_USE_GEMINI');
-    }
-
-    console.log('=== All HuggingFace providers failed ===');
-    console.log('Errors:', errors);
-
-    console.log('=== All providers (Gemini + HF) failed ===');
-    const errorCode: TryOnErrorCode = errors.some((error) => error.toLowerCase().includes('timeout'))
-      ? 'PROVIDER_TIMEOUT'
-      : errors.some((error) => error.toLowerCase().includes('rate') || error.includes('429'))
-        ? 'PROVIDER_RATE_LIMITED'
-        : 'PROVIDER_UNAVAILABLE';
-    logTryOnEvent({ event: 'all_failed', errorCode, errors });
-    return {
-      success: false,
-      error: `Tất cả hệ thống AI đang bận. Chi tiết: ${errors.join('; ')}`,
-      errorCode,
-      processingTime: Date.now() - startTime,
-      errorStage: 'fallback',
-      retryAfterSeconds: errorCode === 'PROVIDER_RATE_LIMITED' ? 60 : undefined,
-    };
-  } finally {
-    activeTryOnCount = Math.max(0, activeTryOnCount - 1);
-  }
+  void personImageBase64;
+  void garmentImageBase64;
+  throw new Error('Luồng sync đã bị ngưng. Vui lòng dùng /virtual-tryon/jobs để xử lý qua Vertex AI.');
 }
  
 /**
  * Check status of all providers
  */
 export async function checkSpacesStatus(): Promise<SpaceStatus[]> {
-  const results: SpaceStatus[] = [];
-  const activeProviders = getActiveProviders();
-
-  for (const provider of activeProviders) {
-    const health = providerHealth.get(provider.name);
-
-    try {
-      const readiness = isSelfHostedProvider(provider)
-        ? await checkSelfHostedReadiness(provider)
-        : { ready: true };
-      const response = await fetchWithTimeout(
-        provider.url,
-        { method: 'GET' },
-        10000
-      );
-
-      results.push({
-        available: response.ok
-          && readiness.ready
-          && (!health || health.consecutiveFailures < MAX_CONSECUTIVE_FAILURES),
-        name: provider.name,
-        queueSize: health?.consecutiveFailures,
-      });
-    } catch {
-      results.push({
-        available: false,
-        name: provider.name,
-        queueSize: health?.consecutiveFailures,
-      });
-    }
-  }
-
-  return results;
+  const health = getTryOnHealthSnapshot();
+  return [
+    {
+      available: health.available,
+      name: health.provider,
+    },
+  ];
 }
 
 /**
  * Get current health stats for monitoring
  */
 export function getProviderHealthStats(): Record<string, ProviderHealthSnapshot> {
-  const stats: Record<string, ProviderHealthSnapshot> = {};
-  const primaryNames = new Set(getPrimaryProviderNames());
-  const now = Date.now();
-
-  providerHealth.forEach((health, name) => {
-    pruneRecentEvents(health, now);
-    const { successRate, timeoutRate } = getHealthWindowStats(health);
-    const coolingDownUntil = health.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES
-      ? Math.max(health.lastFailure + RECOVERY_TIME, now)
-      : null;
-
-    stats[name] = {
-      lastSuccess: health.lastSuccess,
-      lastFailure: health.lastFailure,
-      lastErrorAt: health.lastErrorAt,
-      lastErrorMessage: health.lastErrorMessage,
-      successCount: health.successCount,
-      failureCount: health.failureCount,
-      consecutiveFailures: health.consecutiveFailures,
-      consecutiveTimeouts: health.consecutiveTimeouts,
-      avgResponseTime: health.avgResponseTime,
-      successRate,
-      timeoutRate,
-      coolingDownUntil,
-      stage: primaryNames.has(name) ? 'primary' : 'fallback',
-    };
-  });
-  return stats;
+  const health = getTryOnHealthSnapshot();
+  return {
+    [health.provider]: {
+      lastSuccess: 0,
+      lastFailure: 0,
+      lastErrorAt: 0,
+      lastErrorMessage: health.reasons.join('; ') || null,
+      successCount: 0,
+      failureCount: 0,
+      consecutiveFailures: 0,
+      consecutiveTimeouts: 0,
+      avgResponseTime: 0,
+      successRate: health.available ? 1 : 0,
+      timeoutRate: 0,
+      coolingDownUntil: null,
+      stage: 'primary',
+    },
+  };
 }
  
