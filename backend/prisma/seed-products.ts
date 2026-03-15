@@ -22,6 +22,48 @@ const CONFIG = {
   variantsPerProduct: 3,  // 3 màu x 3 sizes = ~9 variants
 };
 
+const SEED_RESET_PRODUCTS = process.env.SEED_RESET_PRODUCTS === 'true';
+const SEED_RESET_CONFIRM = process.env.SEED_RESET_CONFIRM === 'YES';
+const SEED_RESET_ALLOW_REMOTE = process.env.SEED_RESET_ALLOW_REMOTE === 'true';
+
+const getDbLabel = (url?: string): string => {
+  if (!url) return 'unknown';
+  try {
+    const parsed = new URL(url);
+    const host = parsed.host || 'unknown-host';
+    const db = parsed.pathname?.replace('/', '') || 'unknown-db';
+    return `${host}/${db}`;
+  } catch {
+    return 'invalid-url';
+  }
+};
+
+const isLocalDbHost = (url?: string): boolean => {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname;
+    return host === 'localhost' || host === '127.0.0.1';
+  } catch {
+    return false;
+  }
+};
+
+const assertResetAllowed = (): boolean => {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!SEED_RESET_PRODUCTS) {
+    return false;
+  }
+  if (!SEED_RESET_CONFIRM) {
+    throw new Error('SEED_RESET_CONFIRM=YES là bắt buộc khi bật SEED_RESET_PRODUCTS=true');
+  }
+  if (!isLocalDbHost(dbUrl) && !SEED_RESET_ALLOW_REMOTE) {
+    throw new Error('Chặn reset DB remote. Đặt SEED_RESET_ALLOW_REMOTE=true nếu đã chắc chắn.');
+  }
+  console.log(`⚠️  Reset seed products enabled for DB: ${getDbLabel(dbUrl)}`);
+  return true;
+};
+
 type SeedProductSetColor = {
   colorSlug: string;
   isDefault?: boolean;
@@ -675,8 +717,13 @@ async function main() {
 
   const startTime = Date.now();
 
-  // Cleanup old products first
-  await cleanupOldProducts();
+  // Cleanup old products only when explicitly enabled
+  const shouldReset = assertResetAllowed();
+  if (shouldReset) {
+    await cleanupOldProducts();
+  } else {
+    console.log('ℹ️  Skip cleanupOldProducts (SEED_RESET_PRODUCTS=false)');
+  }
 
   // Seed categories
   const categories = await seedCategories();

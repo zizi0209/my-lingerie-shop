@@ -9,9 +9,31 @@ if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET không được cấu hình trong file .env cho test!');
 }
 
-if (!process.env.TEST_DATABASE_URL && process.env.DATABASE_URL) {
-  process.env.TEST_DATABASE_URL = process.env.DATABASE_URL;
-}
+const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+const DATABASE_URL = process.env.DATABASE_URL;
+
+const getDbLabel = (url?: string): string => {
+  if (!url) return 'unknown';
+  try {
+    const parsed = new URL(url);
+    const host = parsed.host || 'unknown-host';
+    const db = parsed.pathname?.replace('/', '') || 'unknown-db';
+    return `${host}/${db}`;
+  } catch {
+    return 'invalid-url';
+  }
+};
+
+const assertSafeTestDatabase = (): void => {
+  if (!TEST_DATABASE_URL) {
+    throw new Error('TEST_DATABASE_URL là bắt buộc để chạy test. Không được dùng DATABASE_URL mặc định.');
+  }
+  if (DATABASE_URL && TEST_DATABASE_URL === DATABASE_URL) {
+    throw new Error('TEST_DATABASE_URL không được trùng DATABASE_URL để tránh xóa nhầm dữ liệu thật.');
+  }
+};
+
+assertSafeTestDatabase();
 
 // Set NODE_ENV to test for all test runs
 process.env.NODE_ENV = 'test';
@@ -20,7 +42,7 @@ process.env.NODE_ENV = 'test';
 export const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.TEST_DATABASE_URL || process.env.DATABASE_URL,
+      url: TEST_DATABASE_URL,
     },
   },
 });
@@ -28,7 +50,7 @@ export const prisma = new PrismaClient({
 beforeAll(async () => {
   // Connect to test database
   await prisma.$connect();
-  console.log('✅ Test database connected');
+  console.log(`✅ Test database connected (${getDbLabel(TEST_DATABASE_URL)})`);
 });
 
 afterEach(async () => {
