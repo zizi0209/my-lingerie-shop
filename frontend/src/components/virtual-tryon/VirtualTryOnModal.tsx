@@ -408,7 +408,7 @@ export function VirtualTryOnModal({
                   <div className="mt-4 space-y-2">
                     <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
                       <ImageIcon className="w-4 h-4 text-purple-600 flex-shrink-0" />
-                      <p className="text-xs text-purple-700">Ưu tiên AI server chất lượng cao, tự fallback khi cần</p>
+                      <p className="text-xs text-purple-700">Xử lý trên Google Cloud/Vertex AI để đảm bảo chất lượng</p>
                     </div>
                     <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
                       <Shield className="w-4 h-4 text-green-600 flex-shrink-0" />

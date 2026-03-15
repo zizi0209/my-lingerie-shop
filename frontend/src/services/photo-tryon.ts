@@ -38,7 +38,7 @@ interface PhotoTryOnRequest {
 type ProgressCallback = (progress: number, message?: string) => void;
 
 const DEBUG_TRYON_OVERLAY = process.env.NEXT_PUBLIC_TRYON_DEBUG_OVERLAY === 'true';
-const ALLOW_LOCAL_FALLBACK = process.env.NEXT_PUBLIC_ENABLE_LOCAL_TRYON !== 'false';
+const ALLOW_LOCAL_FALLBACK = false;
 
 interface BodyMetrics {
   shoulderWidth: number;
@@ -492,31 +492,32 @@ export async function processPhotoTryOn(
   options?: { signal?: AbortSignal }
 ): Promise<TryOnResult> {
   const remoteEnabled = await isRemoteTryOnEnabled();
-  if (remoteEnabled) {
-    try {
-      const remoteResult = await processVirtualTryOn(
-        {
-          personImage: request.personImage,
-          garmentImageUrl: request.garmentImageUrl,
-          productId: request.productId,
-          productName: request.productName,
-          wantsVideo: request.wantsVideo,
-          videoDurationSeconds: request.videoDurationSeconds,
-        },
-        onProgress,
-        options?.signal
-      );
-      if (DEBUG_TRYON_OVERLAY) {
-        console.debug('[TryOn][DebugFit]', { source: 'remote' });
-      }
-      return remoteResult;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể xử lý từ AI server.';
-      console.warn('[TryOn][Remote] Fallback về xử lý cục bộ:', message);
-      onProgress?.(12, 'AI server đang bận, chuyển sang xử lý trên thiết bị...');
-      if (!ALLOW_LOCAL_FALLBACK) {
-        throw error;
-      }
+  if (!remoteEnabled) {
+    throw new Error('REMOTE_DISABLED');
+  }
+
+  try {
+    const remoteResult = await processVirtualTryOn(
+      {
+        personImage: request.personImage,
+        garmentImageUrl: request.garmentImageUrl,
+        productId: request.productId,
+        productName: request.productName,
+        wantsVideo: request.wantsVideo,
+        videoDurationSeconds: request.videoDurationSeconds,
+      },
+      onProgress,
+      options?.signal
+    );
+
+    if (DEBUG_TRYON_OVERLAY) {
+      console.debug('[TryOn][DebugFit]', { source: 'remote' });
+    }
+
+    return remoteResult;
+  } catch (error) {
+    if (!ALLOW_LOCAL_FALLBACK) {
+      throw error;
     }
   }
 

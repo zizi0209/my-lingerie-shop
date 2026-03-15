@@ -114,6 +114,7 @@ export interface TryOnHealthSnapshot {
 export function getTryOnHealthSnapshot(): TryOnHealthSnapshot {
   const storageProvider = getTryOnStorageProvider();
   const vertexConfigured = Boolean(VERTEX_PROJECT_ID && VERTEX_LOCATION);
+  const modelConfigured = Boolean(VERTEX_TRYON_MODEL_ID);
   const storageConfigured = Boolean(storageProvider);
   const localVideoDisabled = process.env.NODE_ENV === 'development';
   const videoEnabled = !localVideoDisabled
@@ -124,10 +125,11 @@ export function getTryOnHealthSnapshot(): TryOnHealthSnapshot {
 
   if (!VERTEX_PROJECT_ID) reasons.push('Thiếu VERTEX_AI_PROJECT_ID');
   if (!VERTEX_LOCATION) reasons.push('Thiếu VERTEX_AI_LOCATION');
+  if (!modelConfigured) reasons.push('Thiếu VERTEX_TRYON_MODEL_ID');
   if (!storageConfigured) reasons.push('Chưa cấu hình storage cho try-on');
 
   return {
-    available: vertexConfigured && storageConfigured,
+    available: vertexConfigured && storageConfigured && modelConfigured,
     provider: 'Vertex-AI',
     modelId: VERTEX_TRYON_MODEL_ID,
     location: VERTEX_LOCATION,

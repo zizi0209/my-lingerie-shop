@@ -14,7 +14,10 @@ export type TryOnErrorCode =
   | 'PROVIDER_TIMEOUT'
   | 'PROVIDER_RATE_LIMITED'
   | 'SYSTEM_OVERLOADED'
-  | 'REMOTE_DISABLED';
+  | 'REMOTE_DISABLED'
+  | 'TRYON_CLOUD_NOT_READY'
+  | 'DEAD_LETTER'
+  | 'RETRY_SCHEDULED';
  
  export interface TryOnResult {
    originalImage: string;
@@ -46,11 +49,18 @@ export interface SignedUploadResponse {
   expiresInSeconds: number;
 }
 
-export type TryOnJobApiStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'expired';
+export type TryOnJobApiStatus =
+  | 'queued'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'expired'
+  | 'retry_scheduled'
+  | 'dead_letter'
+  | 'failed_config'
+  | 'failed_provider';
 
-export interface CreateTryOnJobResponse {
-  jobId: string;
-  status: TryOnJobApiStatus;
+export interface CreateTryOnJobResponse extends TryOnJobStatusResponse {
   wantsVideo?: boolean;
   videoDurationSeconds?: number;
   productId?: string;
@@ -61,9 +71,15 @@ export interface CreateTryOnJobResponse {
 export interface TryOnJobStatusResponse {
   jobId: string;
   status: TryOnJobApiStatus;
+  errorCode?: TryOnErrorCode;
   errorMessage?: string;
   processingTime?: number;
   provider?: string;
+  providerHint?: string;
+  errorStage?: 'config' | 'provider' | 'retry' | 'system';
+  retryable?: boolean;
+  maxAttempts?: number;
+  statusReason?: string;
   resultImage?: string;
   resultImageGcsUri?: string;
   resultVideo?: string;

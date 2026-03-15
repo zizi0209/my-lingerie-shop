@@ -252,7 +252,8 @@ async function createAsyncTryOnJob(
 
   if (!response.ok) {
     const error = (await response.json().catch(() => ({ error: 'Lỗi kết nối' }))) as TryOnErrorPayload;
-    throw new Error(error.message || error.error || 'Không thể tạo job');
+    const errorCode = error.errorCode ? `${error.errorCode}: ` : '';
+    throw new Error(`${errorCode}${error.message || error.error || 'Không thể tạo job'}`);
   }
 
   const result = (await response.json()) as { success?: boolean; data?: CreateTryOnJobResponse; error?: string };
@@ -270,7 +271,8 @@ async function fetchTryOnJob(jobId: string, options?: Abortable): Promise<TryOnJ
 
   if (!response.ok) {
     const error = (await response.json().catch(() => ({ error: 'Lỗi kết nối' }))) as TryOnErrorPayload;
-    throw new Error(error.message || error.error || 'Không thể lấy trạng thái job');
+    const errorCode = error.errorCode ? `${error.errorCode}: ` : '';
+    throw new Error(`${errorCode}${error.message || error.error || 'Không thể lấy trạng thái job'}`);
   }
 
   const result = (await response.json()) as { success?: boolean; data?: TryOnJobStatusResponse; error?: string };
@@ -292,6 +294,14 @@ async function pollTryOnJob(
 
   while (Date.now() - start < timeoutMs) {
     const data = await fetchTryOnJob(jobId, { signal: options.signal });
+    if (data.status === 'retry_scheduled') {
+      if (data.nextRetryAt && data.nextRetryAt > Date.now()) {
+        const retrySeconds = Math.max(1, Math.round((data.nextRetryAt - Date.now()) / 1000));
+        onProgress?.(45, `Đang chờ retry sau ${retrySeconds}s...`);
+      } else {
+        onProgress?.(45, 'Đang chờ retry...');
+      }
+    }
     if (data.status === 'queued') {
       if (data.nextRetryAt && data.nextRetryAt > Date.now()) {
         const retrySeconds = Math.max(1, Math.round((data.nextRetryAt - Date.now()) / 1000));
@@ -308,8 +318,15 @@ async function pollTryOnJob(
     if (data.status === 'completed') {
       return data;
     }
-    if (data.status === 'failed') {
-      throw new Error(`REMOTE_FAILED: ${data.errorMessage || 'Job xử lý thất bại'}`);
+    if (data.status === 'failed_config') {
+      throw new Error(`TRYON_CLOUD_NOT_READY: ${data.errorMessage || 'Cấu hình Google Cloud chưa sẵn sàng'}`);
+    }
+    if (data.status === 'dead_letter') {
+      throw new Error(`DEAD_LETTER: ${data.errorMessage || 'Job đã thất bại sau nhiều lần retry'}`);
+    }
+    if (data.status === 'failed_provider' || data.status === 'failed') {
+      const errorCode = data.errorCode ? `${data.errorCode}: ` : 'PROVIDER_UNAVAILABLE: ';
+      throw new Error(`${errorCode}${data.errorMessage || 'Job xử lý thất bại'}`);
     }
     if (data.status === 'expired') {
       throw new Error(`REMOTE_EXPIRED: ${data.errorMessage || 'Job đã hết hạn'}`);
@@ -446,7 +463,18 @@ export async function processVirtualTryOn(
  }
  
  export function getErrorMessage(error: Error): string {
-   const message = error.message.toLowerCase();
+  const rawMessage = error.message;
+  const message = rawMessage.toLowerCase();
+
+  if (message.includes('tryon_cloud_not_ready')) {
+    return 'Google Cloud chưa sẵn sàng cho VTON. Vui lòng thử lại sau.';
+  }
+  if (message.includes('dead_letter')) {
+    return 'Job xử lý thất bại sau nhiều lần retry. Vui lòng thử lại sau.';
+  }
+  if (message.includes('retry_scheduled')) {
+    return 'Job đang được lên lịch retry. Vui lòng chờ thêm.';
+  }
    
    if (message.includes('busy') || message.includes('bận')) {
      return 'Hệ thống đang bận. Vui lòng thử lại sau vài phút.';
@@ -465,8 +493,8 @@ export async function processVirtualTryOn(
    }
    
    // Return original message if it's in Vietnamese
-   if (/[\u00C0-\u1EF9]/.test(error.message)) {
-     return error.message;
+  if (/[\u00C0-\u1EF9]/.test(rawMessage)) {
+    return rawMessage;
    }
    
    return 'Đã xảy ra lỗi. Vui lòng thử lại sau.';

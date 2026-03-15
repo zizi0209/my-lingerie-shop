@@ -44,8 +44,59 @@ function logTryOnTelemetry(event: Record<string, unknown>): void {
   }));
 }
 
+function isConfigFailure(errorCode?: string, message?: string): boolean {
+  if (errorCode === 'TRYON_CLOUD_NOT_READY') return true;
+  const normalized = (message || '').toLowerCase();
+  return normalized.includes('config')
+    || normalized.includes('cấu hình')
+    || normalized.includes('thiếu')
+    || normalized.includes('not configured');
+}
+
+function deriveJobApiStatus(job: Awaited<ReturnType<typeof getTryOnJob>>) {
+  if (!job) return null;
+  const now = Date.now();
+  const maxAttempts = getTryOnJobMaxAttempts();
+  let status: typeof job.status | 'retry_scheduled' | 'dead_letter' | 'failed_config' | 'failed_provider' = job.status;
+  let retryable = false;
+  let errorStage: 'config' | 'provider' | 'retry' | 'system' | undefined;
+  let statusReason: string | undefined;
+  const providerHint = job.provider || 'Vertex-AI';
+
+  if (status === 'queued' && job.nextRetryAt && job.nextRetryAt > now) {
+    status = 'retry_scheduled';
+    retryable = true;
+    errorStage = 'retry';
+    statusReason = 'Job đang chờ retry';
+  } else if (status === 'failed') {
+    if (job.deadLetteredAt) {
+      status = 'dead_letter';
+      errorStage = 'provider';
+      statusReason = 'Job đã vào dead-letter';
+    } else if (isConfigFailure(job.errorCode, job.errorMessage)) {
+      status = 'failed_config';
+      errorStage = 'config';
+      statusReason = 'Thiếu hoặc sai cấu hình cloud';
+    } else {
+      status = 'failed_provider';
+      errorStage = 'provider';
+      statusReason = 'Lỗi xử lý từ provider';
+    }
+  }
+
+  return {
+    status,
+    retryable,
+    errorStage,
+    statusReason,
+    providerHint,
+    maxAttempts,
+  };
+}
+
 function buildJobStatusPayload(job: Awaited<ReturnType<typeof getTryOnJob>>) {
   if (!job) return null;
+  const derived = deriveJobApiStatus(job);
   const etaMs = job.status === 'queued'
     ? QUEUE_ESTIMATE_MS
     : job.status === 'processing'
@@ -65,6 +116,12 @@ function buildJobStatusPayload(job: Awaited<ReturnType<typeof getTryOnJob>>) {
       : undefined;
   return {
     ...job,
+    status: derived?.status ?? job.status,
+    retryable: derived?.retryable ?? false,
+    maxAttempts: derived?.maxAttempts,
+    errorStage: derived?.errorStage,
+    statusReason: derived?.statusReason,
+    providerHint: derived?.providerHint,
     etaMs,
     queuedDurationMs,
     processingDurationMs,
@@ -258,6 +315,16 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
       });
     }
 
+    const health = getTryOnHealthSnapshot();
+    if (!health.available) {
+      return res.status(503).json({
+        success: false,
+        error: 'Google Cloud chưa sẵn sàng cho VTON',
+        errorCode: 'TRYON_CLOUD_NOT_READY',
+        data: { reasons: health.reasons },
+      });
+    }
+
     const {
       personImageGcsUri,
       garmentImageGcsUri,
@@ -350,9 +417,10 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
         jobId: existing.jobId,
         status: existing.status,
       });
+      const payload = buildJobStatusPayload(existing);
       return res.json({
         success: true,
-        data: existing,
+        data: payload,
       });
     }
 
@@ -386,9 +454,11 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
 
     await enqueueTryOnJob(jobRecord.jobId, baseUrl);
 
+    const payload = buildJobStatusPayload(jobRecord);
+
     return res.json({
       success: true,
-      data: jobRecord,
+      data: payload,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Lỗi không xác định';
@@ -453,6 +523,24 @@ export async function processTryOnJob(req: Request, res: Response) {
           resultVideoGcsUri: jobRecord.resultVideoGcsUri,
           processingTime: jobRecord.processingTime,
         },
+      });
+    }
+
+    const health = getTryOnHealthSnapshot();
+    if (!health.available) {
+      const message = `Google Cloud chưa sẵn sàng: ${health.reasons.join(', ') || 'Thiếu cấu hình'}`;
+      if (jobId) {
+        await markTryOnJobDeadLetter(jobId, {
+          errorMessage: message,
+          errorCode: 'TRYON_CLOUD_NOT_READY',
+          modelName: VERTEX_TRYON_MODEL_ID,
+        });
+      }
+      return res.status(503).json({
+        success: false,
+        error: message,
+        errorCode: 'TRYON_CLOUD_NOT_READY',
+        data: { reasons: health.reasons },
       });
     }
 
@@ -601,6 +689,7 @@ export async function processTryOnJob(req: Request, res: Response) {
       const currentAttempt = attemptCount || jobRecord.attemptCount || 0;
       const maxAttempts = getTryOnJobMaxAttempts();
       const canRetry = isRetryableJobError(message) && currentAttempt < maxAttempts;
+      const configFailure = isConfigFailure(jobRecord.errorCode, message);
 
       if (canRetry) {
         const nextRetryAt = computeNextRetryAt(currentAttempt + 1);
@@ -609,12 +698,14 @@ export async function processTryOnJob(req: Request, res: Response) {
           nextRetryAt,
           attemptCount: currentAttempt + 1,
           errorMessage: message,
+          errorCode: 'RETRY_SCHEDULED',
           modelName: VERTEX_TRYON_MODEL_ID,
           latencyMs,
         });
       } else {
         await markTryOnJobDeadLetter(jobId, {
           errorMessage: message,
+          errorCode: configFailure ? 'TRYON_CLOUD_NOT_READY' : 'PROVIDER_UNAVAILABLE',
           modelName: VERTEX_TRYON_MODEL_ID,
           latencyMs,
         });
