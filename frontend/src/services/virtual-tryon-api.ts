@@ -263,17 +263,6 @@ async function createAsyncTryOnJob(
   return result.data;
 }
 
-async function triggerTryOnJob(jobId: string, options?: Abortable): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/virtual-tryon/jobs/${jobId}/process`, {
-    method: 'POST',
-    signal: options?.signal,
-  });
-
-  if (!response.ok) {
-    console.warn('[TryOn][Cloud] Trigger job thất bại:', response.status);
-  }
-}
-
 async function fetchTryOnJob(jobId: string, options?: Abortable): Promise<TryOnJobStatusResponse> {
   const response = await fetch(`${API_BASE_URL}/virtual-tryon/jobs/${jobId}`, {
     signal: options?.signal,
@@ -393,7 +382,6 @@ async function processVirtualTryOnAsyncCloud(
   );
 
   onProgress?.(45, 'Đang xếp hàng GPU xử lý...');
-  await triggerTryOnJob(job.jobId, { signal });
 
   const originalImage = await blobToBase64(request.personImage);
   const jobStatus = await pollTryOnJob(

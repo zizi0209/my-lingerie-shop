@@ -127,20 +127,22 @@ function isRetryableJobError(message: string): boolean {
   return true;
 }
 
-async function enqueueTryOnJob(jobId: string): Promise<void> {
-  if (!TRYON_WORKER_WEBHOOK_URL) {
+async function enqueueTryOnJob(jobId: string, baseUrl?: string): Promise<void> {
+  const targetBaseUrl = TRYON_WORKER_WEBHOOK_URL || baseUrl;
+  if (!targetBaseUrl) {
     return;
   }
 
-  try {
-    await fetch(TRYON_WORKER_WEBHOOK_URL.replace(/\/$/, '') + `/virtual-tryon/jobs/${jobId}/process`, {
-      method: 'POST',
-      headers: TRYON_WORKER_TOKEN ? { 'x-worker-token': TRYON_WORKER_TOKEN } : undefined,
-    });
-  } catch (error) {
+  const endpoint = targetBaseUrl.replace(/\/$/, '') + `/virtual-tryon/jobs/${jobId}/process`;
+  const headers = TRYON_WORKER_TOKEN ? { 'x-worker-token': TRYON_WORKER_TOKEN } : undefined;
+
+  void fetch(endpoint, {
+    method: 'POST',
+    headers,
+  }).catch((error) => {
     const message = error instanceof Error ? error.message : 'Lỗi không xác định';
     console.warn('[TryOn][Worker] Enqueue thất bại:', message);
-  }
+  });
 }
  
  export async function tryOn(req: Request, res: Response) {
@@ -336,10 +338,12 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
       productId,
     });
 
+    const host = req.get('host');
+    const baseUrl = host ? `${req.protocol}://${host}/api` : undefined;
     const existing = await getTryOnJobByIdempotencyKey(idempotencyKey);
     if (existing && existing.status !== 'failed' && existing.status !== 'expired') {
       if (existing.status === 'queued') {
-        await enqueueTryOnJob(existing.jobId);
+        await enqueueTryOnJob(existing.jobId, baseUrl);
       }
       logTryOnTelemetry({
         event: 'job_reused',
@@ -380,7 +384,7 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
       storageProvider,
     });
 
-    await enqueueTryOnJob(jobRecord.jobId);
+    await enqueueTryOnJob(jobRecord.jobId, baseUrl);
 
     return res.json({
       success: true,
