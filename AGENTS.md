@@ -103,6 +103,15 @@ Kích hoạt khi fix bug, lỗi, hoặc refactor. Phải trả lời ít nhất 
   - `bunx tsc --project frontend/tsconfig.json --noEmit`
   - `bunx tsc --project backend/tsconfig.json --noEmit`
   - `bunx oxlint --type-aware --type-check --fix`
+
+  - bun --cwd backend run test:run
+  - bun run --cwd ./backend build
+  - bun run --cwd ./frontend build
+
+Nếu backend deploy bằng Docker/Cloud Run/Railway Dockerfile thì thêm: (chạy lại /backend không phải tại /root)
+
+  - docker build -t lingerie-backend-check .
+
 - **Commit:** Sau khi kiểm tra xong, thực hiện git commit kèm theo `.factory/docs` (nếu có).
   **TUYỆT ĐỐI KHÔNG ĐƯỢC PHÉP PUSH.**
 - **Lưu ý về Bunx:** Nếu cache lỗi, xóa bằng: `Remove-Item -Recurse -Force $env:LOCALAPPDATA\Temp\bunx-*` hoặc `bun install`.

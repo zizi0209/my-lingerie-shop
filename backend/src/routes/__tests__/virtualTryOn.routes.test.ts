@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
-import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import { prisma } from '../../tests/setup';
 
 vi.mock('../../services/vertexTryOnService', () => ({
