@@ -137,7 +137,6 @@ model Product {
   wishlistItems   WishlistItem[]
   relatedPosts    ProductOnPost[]
   productColors   ProductColor[]
-  embedding       ProductEmbedding?
 
   @@index([categoryId])
   @@index([brandId])
@@ -145,16 +144,6 @@ model Product {
   @@index([isFeatured, isVisible])
   @@index([createdAt])
   @@index([slug])
-}
-
-model ProductEmbedding {
-  productId Int                  @id
-  embedding Unsupported("vector")
-  createdAt DateTime             @default(now())
-  updatedAt DateTime             @updatedAt
-  product   Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([updatedAt])
 }
 
 model ProductImage {

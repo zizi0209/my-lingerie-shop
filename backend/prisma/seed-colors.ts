@@ -75,6 +75,30 @@ async function main() {
     }
   }
 
+  console.log('Seeding Color master data...');
+  for (let i = 0; i < colors.length; i++) {
+    const color = colors[i];
+
+    await prisma.color.upsert({
+      where: { slug: color.slug },
+      update: {
+        name: color.name,
+        hexCode: color.hexCode,
+        order: i,
+        isActive: true,
+      },
+      create: {
+        name: color.name,
+        slug: color.slug,
+        hexCode: color.hexCode,
+        order: i,
+        isActive: true,
+      },
+    });
+  }
+
+  console.log('Color master data ready.');
+
   console.log('Done!');
 }
 
