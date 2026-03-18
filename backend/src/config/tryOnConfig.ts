@@ -9,6 +9,10 @@ const VERTEX_LOCATION = process.env.VERTEX_AI_LOCATION
   || process.env.GOOGLE_CLOUD_LOCATION
   || '';
 const VERTEX_TRYON_MODEL_ID = process.env.VERTEX_TRYON_MODEL_ID || 'virtual-try-on-001';
+const VERTEX_AUTH_MODE = process.env.VERTEX_AUTH_MODE || 'auto';
+const VERTEX_ACCESS_TOKEN = process.env.VERTEX_AI_ACCESS_TOKEN || process.env.GCP_ACCESS_TOKEN || '';
+const VERTEX_CLIENT_EMAIL = process.env.GCP_CLIENT_EMAIL || process.env.GCS_CLIENT_EMAIL || '';
+const VERTEX_PRIVATE_KEY = process.env.GCP_PRIVATE_KEY || process.env.GCS_PRIVATE_KEY || '';
 
 const TRYON_STORAGE_PROVIDER = process.env.TRYON_STORAGE_PROVIDER || 'auto';
 const GCS_TRYON_BUCKET = process.env.GCS_TRYON_BUCKET || '';
@@ -39,6 +43,10 @@ const tryOnEnvSchema = z.object({
   vertexProjectId: z.string().min(1, 'VERTEX_AI_PROJECT_ID là bắt buộc'),
   vertexLocation: z.string().min(1, 'VERTEX_AI_LOCATION là bắt buộc'),
   vertexModelId: z.string().min(1, 'VERTEX_TRYON_MODEL_ID là bắt buộc'),
+  vertexAuthMode: z.enum(['auto', 'access_token', 'service_account', 'adc']).optional(),
+  vertexAccessToken: z.string().optional(),
+  vertexClientEmail: z.string().optional(),
+  vertexPrivateKey: z.string().optional(),
   storageProvider: z.enum(['gcs', 'cloudinary', 'auto']),
   gcsBucket: z.string().optional(),
   cloudinaryCloudName: z.string().optional(),
@@ -68,6 +76,14 @@ const tryOnEnvSchema = z.object({
   if (values.vertexSampleCount !== undefined && (!Number.isFinite(values.vertexSampleCount) || values.vertexSampleCount <= 0)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'VERTEX_TRYON_SAMPLE_COUNT phải > 0' });
   }
+
+  const authMode = values.vertexAuthMode || 'auto';
+  if (authMode === 'access_token' && !values.vertexAccessToken) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'VERTEX_AUTH_MODE=access_token yêu cầu VERTEX_AI_ACCESS_TOKEN/GCP_ACCESS_TOKEN' });
+  }
+  if (authMode === 'service_account' && (!values.vertexClientEmail || !values.vertexPrivateKey)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'VERTEX_AUTH_MODE=service_account yêu cầu GCP_CLIENT_EMAIL/GCP_PRIVATE_KEY' });
+  }
 });
 
 export function validateTryOnConfig(): void {
@@ -77,6 +93,10 @@ export function validateTryOnConfig(): void {
     vertexProjectId: VERTEX_PROJECT_ID,
     vertexLocation: VERTEX_LOCATION,
     vertexModelId: VERTEX_TRYON_MODEL_ID,
+    vertexAuthMode: VERTEX_AUTH_MODE || 'auto',
+    vertexAccessToken: VERTEX_ACCESS_TOKEN || undefined,
+    vertexClientEmail: VERTEX_CLIENT_EMAIL || undefined,
+    vertexPrivateKey: VERTEX_PRIVATE_KEY || undefined,
     storageProvider: TRYON_STORAGE_PROVIDER as 'gcs' | 'cloudinary' | 'auto',
     gcsBucket: GCS_TRYON_BUCKET || undefined,
     cloudinaryCloudName: CLOUDINARY_CLOUD_NAME || undefined,
@@ -116,7 +136,8 @@ export function getTryOnHealthSnapshot(): TryOnHealthSnapshot {
   const vertexConfigured = Boolean(VERTEX_PROJECT_ID && VERTEX_LOCATION);
   const modelConfigured = Boolean(VERTEX_TRYON_MODEL_ID);
   const storageConfigured = Boolean(storageProvider);
-  const localVideoDisabled = process.env.NODE_ENV === 'development';
+  const devVideoEnabled = process.env.TRYON_DEV_ENABLE_VIDEO === 'true';
+  const localVideoDisabled = process.env.NODE_ENV === 'development' && !devVideoEnabled;
   const videoEnabled = !localVideoDisabled
     && process.env.FREE_MODE_DISABLE_VIDEO !== 'true'
     && storageProvider === 'gcs'
