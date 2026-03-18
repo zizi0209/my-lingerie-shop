@@ -28,7 +28,6 @@ import { sanitizeForPublic } from "@/lib/sanitize";
 import Product3DViewer from "@/components/product/Product3DViewer";
 import { Box } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/apiBase";
-import { isValidTryOnGarmentUrl } from "@/lib/tryon-image";
 
 const FALLBACK_IMAGE = "/images/seed/set/set-3.webp";
 
@@ -79,7 +78,6 @@ interface Product {
   brandId?: string; // Size System V2
   category: Category;
   images: ProductImage[];
-  defaultImage?: string | null;
   variants: ProductVariant[];
   colorGroups?: ColorGroup[];
   ratingAverage: number;
@@ -202,16 +200,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   );
   const selectedModel3dUrl = selectedImageObject?.model3dUrl ?? model3dUrl;
   const model3dPosterUrl = selectedImageObject?.noBgUrl ?? productImages[selectedImage];
-  const tryOnImageCandidates = [
-    selectedImageObject?.noBgUrl,
-    selectedImageObject?.url,
-    productImageObjects[0]?.noBgUrl,
-    productImageObjects[0]?.url,
-    product?.defaultImage ?? undefined,
-    product?.images[0]?.url,
-  ].filter((value): value is string => Boolean(value));
-  const tryOnGarmentImage = tryOnImageCandidates.find(isValidTryOnGarmentUrl);
-  const tryOnModalImage = tryOnGarmentImage || productImages[selectedImage] || productImages[0] || '';
 
   useEffect(() => {
     if (!product || tryOnModalOpen) return;
@@ -875,7 +863,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           product={{
             id: String(product.id),
             name: product.name,
-            imageUrl: tryOnModalImage,
+            imageUrl: productImages[selectedImage] || productImages[0],
             noBgUrl: productImageObjects[selectedImage]?.noBgUrl ?? null,
             model3dUrl: selectedModel3dUrl,
             productType: product.productType,
