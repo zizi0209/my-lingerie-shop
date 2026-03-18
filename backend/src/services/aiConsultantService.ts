@@ -1,10 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { clearSessionMessages, getSessionMessages, setSessionMessages } from './chatSessionStore';
 import { generateWithFallback } from './llm/llmOrchestrator';
 import type { ChatMessage, LLMProviderName } from './llm/types';
 import { LLMProviderError } from './llm/types';
-
-const prisma = new PrismaClient();
 
 const CHATJPT_UNAVAILABLE_MESSAGE = 'Không thể kết nối với ChatJPT. Vui lòng thử lại sau.';
 

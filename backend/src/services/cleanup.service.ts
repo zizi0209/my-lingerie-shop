@@ -4,10 +4,9 @@
   * Best practices for e-commerce data retention
   */
  
- import { PrismaClient } from '@prisma/client';
  import { getRedisClient, isRedisConnected } from '../lib/redis';
+ import { prisma } from '../lib/prisma';
  
- const prisma = new PrismaClient();
  
  // Cleanup configuration (days)
  const CLEANUP_CONFIG = {

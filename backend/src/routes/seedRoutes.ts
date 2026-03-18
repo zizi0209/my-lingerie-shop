@@ -1,9 +1,8 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { prisma } from '../lib/prisma';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 /**
  * POST /api/seed/system-config

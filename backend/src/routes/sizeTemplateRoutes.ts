@@ -1,9 +1,9 @@
 import express, { Request, Response } from 'express';
-import { PrismaClient, ProductType } from '@prisma/client';
+import { ProductType } from '@prisma/client';
 import { isValidProductType } from '../schemas/sizeChart.schema';
+import { prisma } from '../lib/prisma';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 /**
  * @route   GET /api/size-templates

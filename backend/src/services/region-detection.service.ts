@@ -13,10 +13,9 @@
  */
 
 import { Request } from 'express';
-import { PrismaClient } from '@prisma/client';
 import geoip from 'geoip-lite';
+import { prisma } from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 // Region code mapping
 const COUNTRY_TO_REGION: Record<string, string> = {

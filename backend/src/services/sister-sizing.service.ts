@@ -13,10 +13,9 @@
  * - Sister Up:   36B (looser band, same cup volume)
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
- import Redis from 'ioredis';
-
-const prisma = new PrismaClient();
+import { Prisma } from '@prisma/client';
+import Redis from 'ioredis';
+import { prisma } from '../lib/prisma';
  
  // Redis with fallback - don't crash if Redis is unavailable
  let redis: Redis | null = null;

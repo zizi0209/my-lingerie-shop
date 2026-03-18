@@ -14,10 +14,9 @@
  * - US 34DDD = UK 34E  = EU 75F  (volume 6)
  */
 
-import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
+import { prisma } from '../lib/prisma';
 
-const prisma = new PrismaClient();
 let redis: Redis | null = null;
 let redisAvailable = false;
 const REDIS_CACHE_TIMEOUT_MS = Number(process.env.REDIS_CACHE_TIMEOUT_MS || 200);

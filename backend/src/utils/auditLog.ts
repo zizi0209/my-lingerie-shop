@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { Request } from 'express';
 import { AuditSeverityType } from './constants';
-
-const prisma = new PrismaClient();
 
 // Alerting configuration from environment
 const ALERT_CONFIG = {

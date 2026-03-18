@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 // GET /wishlist - Lấy danh sách yêu thích của user
 export const getWishlist = async (req: Request, res: Response) => {
