@@ -1,3 +1,4 @@
+import { JWT } from 'google-auth-library';
 import { downloadGcsUriAsBase64, getTryOnStorageProvider, isGcsUri, uploadBase64ToTryOnStorage } from './virtualTryOnStorage';
 
 const VERTEX_PROJECT_ID = process.env.VERTEX_AI_PROJECT_ID
@@ -15,12 +16,21 @@ const VERTEX_TRYON_SAMPLE_COUNT = Number(process.env.VERTEX_TRYON_SAMPLE_COUNT |
 const VERTEX_VEO_DURATION_SECONDS = Number(process.env.VERTEX_VEO_DURATION_SECONDS || 8);
 const VERTEX_VEO_POLL_INTERVAL_MS = Number(process.env.VERTEX_VEO_POLL_INTERVAL_MS || 3000);
 const VERTEX_VEO_MAX_POLL_ATTEMPTS = Number(process.env.VERTEX_VEO_MAX_POLL_ATTEMPTS || 40);
+const VERTEX_TRYON_TIMEOUT_MS = Number(process.env.VERTEX_TRYON_TIMEOUT_MS || '90000');
+const VERTEX_VEO_POLL_BUDGET_MS = Number(process.env.VERTEX_VEO_POLL_BUDGET_MS || '90000');
 const FREE_MODE_DISABLE_VIDEO = process.env.FREE_MODE_DISABLE_VIDEO === 'true';
+const VERTEX_AUTH_MODE = (process.env.VERTEX_AUTH_MODE || 'auto').toLowerCase();
 
 const ACCESS_TOKEN_ENV = process.env.VERTEX_AI_ACCESS_TOKEN || process.env.GCP_ACCESS_TOKEN || '';
+const SERVICE_ACCOUNT_EMAIL = process.env.GCP_CLIENT_EMAIL || process.env.GCS_CLIENT_EMAIL || '';
+const SERVICE_ACCOUNT_PRIVATE_KEY = process.env.GCP_PRIVATE_KEY || process.env.GCS_PRIVATE_KEY || '';
 const METADATA_TOKEN_URL =
   process.env.GCP_METADATA_TOKEN_URL
   || 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token';
+const VERTEX_READINESS_TTL_MS = Number(process.env.VERTEX_TRYON_READINESS_TTL_MS || '60000');
+
+type VertexAuthMode = 'auto' | 'access_token' | 'service_account' | 'adc';
+type ResolvedAuthMode = Exclude<VertexAuthMode, 'auto'>;
 
 interface AccessTokenResponse {
   access_token: string;
@@ -61,10 +71,66 @@ interface CachedToken {
   expiresAt: number;
 }
 
+export class VertexApiError extends Error {
+  code: string;
+  status: number;
+
+  constructor(code: string, message: string, status: number) {
+    super(message);
+    this.code = code;
+    this.status = status;
+  }
+}
+
 let cachedToken: CachedToken | null = null;
+let readinessCache: { available: boolean; checkedAt: number; errorMessage?: string; errorCode?: string } | null = null;
+
+export type VertexReadinessResult = {
+  available: boolean;
+  errorMessage?: string;
+  errorCode?: string;
+};
 
 export function isVertexTryOnAvailable(): boolean {
   return Boolean(VERTEX_PROJECT_ID && VERTEX_LOCATION);
+}
+
+function parseAuthMode(): VertexAuthMode {
+  if (!VERTEX_AUTH_MODE || VERTEX_AUTH_MODE === 'auto') return 'auto';
+  if (VERTEX_AUTH_MODE === 'access_token') return 'access_token';
+  if (VERTEX_AUTH_MODE === 'service_account') return 'service_account';
+  if (VERTEX_AUTH_MODE === 'adc') return 'adc';
+  throw new Error(`VERTEX_AUTH_MODE không hợp lệ: ${VERTEX_AUTH_MODE}`);
+}
+
+function resolveAuthMode(): ResolvedAuthMode {
+  const parsed = parseAuthMode();
+  if (parsed === 'access_token') {
+    if (!ACCESS_TOKEN_ENV) {
+      throw new Error('VERTEX_AUTH_MODE=access_token nhưng thiếu VERTEX_AI_ACCESS_TOKEN/GCP_ACCESS_TOKEN');
+    }
+    return 'access_token';
+  }
+  if (parsed === 'service_account') {
+    if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
+      throw new Error('VERTEX_AUTH_MODE=service_account nhưng thiếu GCP_CLIENT_EMAIL/GCP_PRIVATE_KEY');
+    }
+    return 'service_account';
+  }
+  if (parsed === 'adc') {
+    return 'adc';
+  }
+  if (ACCESS_TOKEN_ENV) return 'access_token';
+  if (SERVICE_ACCOUNT_EMAIL && SERVICE_ACCOUNT_PRIVATE_KEY) return 'service_account';
+  return 'adc';
+}
+
+function getAuthModeSafe(): ResolvedAuthMode | 'unknown' {
+  try {
+    return resolveAuthMode();
+  } catch {
+    return 'unknown';
+  }
 }
 
 function ensureVertexConfig(): void {
@@ -84,11 +150,25 @@ function normalizeBase64(input: string): string {
   return input;
 }
 
-async function getAccessToken(): Promise<string> {
-  if (ACCESS_TOKEN_ENV) {
-    return ACCESS_TOKEN_ENV;
+async function getServiceAccountAccessToken(): Promise<string | null> {
+  if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
+    return null;
   }
 
+  const jwtClient = new JWT({
+    email: SERVICE_ACCOUNT_EMAIL,
+    key: SERVICE_ACCOUNT_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+  });
+
+  const tokens = await jwtClient.authorize();
+  if (!tokens.access_token) {
+    throw new Error('Service account token response thiếu access_token');
+  }
+  return tokens.access_token;
+}
+
+async function getMetadataAccessToken(): Promise<string> {
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt - now > 60_000) {
     return cachedToken.token;
@@ -118,9 +198,27 @@ async function getAccessToken(): Promise<string> {
   return data.access_token;
 }
 
+async function getAccessTokenWithMode(): Promise<{ token: string; mode: ResolvedAuthMode }> {
+  const mode = resolveAuthMode();
+  if (mode === 'access_token') {
+    return { token: ACCESS_TOKEN_ENV, mode };
+  }
+
+  if (mode === 'service_account') {
+    const serviceAccountToken = await getServiceAccountAccessToken();
+    if (!serviceAccountToken) {
+      throw new Error('Không lấy được access token từ service account');
+    }
+    return { token: serviceAccountToken, mode };
+  }
+
+  const metadataToken = await getMetadataAccessToken();
+  return { token: metadataToken, mode };
+}
+
 async function callVertexApi(path: string, body: Record<string, unknown>): Promise<Response> {
   ensureVertexConfig();
-  const token = await getAccessToken();
+  const { token } = await getAccessTokenWithMode();
   const url = `https://${VERTEX_LOCATION}-aiplatform.googleapis.com/v1/projects/${VERTEX_PROJECT_ID}/locations/${VERTEX_LOCATION}/${path}`;
 
   return fetch(url, {
@@ -130,7 +228,60 @@ async function callVertexApi(path: string, body: Record<string, unknown>): Promi
       'Content-Type': 'application/json; charset=utf-8',
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(VERTEX_TRYON_TIMEOUT_MS),
   });
+}
+
+function parseVertexError(status: number, text: string): { errorCode: string; errorMessage: string } {
+  const normalized = text.trim();
+  if (status === 401) {
+    return { errorCode: 'VERTEX_UNAUTHENTICATED', errorMessage: `Vertex auth failed (${status}) ${normalized}` };
+  }
+  if (status === 403) {
+    return { errorCode: 'VERTEX_PERMISSION_DENIED', errorMessage: `Vertex permission denied (${status}) ${normalized}` };
+  }
+  if (status === 404) {
+    return { errorCode: 'VERTEX_MODEL_NOT_FOUND', errorMessage: `Vertex model not found (${status}) ${normalized}` };
+  }
+  return { errorCode: 'VERTEX_UNAVAILABLE', errorMessage: `Vertex error (${status}) ${normalized}` };
+}
+
+export async function checkVertexTryOnReadiness(): Promise<VertexReadinessResult> {
+  if (!isVertexTryOnAvailable() || !VERTEX_TRYON_MODEL_ID) {
+    return {
+      available: false,
+      errorCode: 'TRYON_CLOUD_NOT_READY',
+      errorMessage: 'Thiếu cấu hình Vertex cho try-on',
+    };
+  }
+
+  const now = Date.now();
+  if (readinessCache && now - readinessCache.checkedAt < VERTEX_READINESS_TTL_MS) {
+    return {
+      available: readinessCache.available,
+      errorCode: readinessCache.errorCode,
+      errorMessage: readinessCache.errorMessage,
+    };
+  }
+
+  try {
+    await getAccessTokenWithMode();
+    readinessCache = { available: true, checkedAt: now };
+    return { available: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Vertex readiness check failed';
+    readinessCache = {
+      available: false,
+      checkedAt: now,
+      errorCode: 'VERTEX_AUTH_FAILED',
+      errorMessage: `${message} (auth:${getAuthModeSafe()})`,
+    };
+    return {
+      available: false,
+      errorCode: 'VERTEX_AUTH_FAILED',
+      errorMessage: `${message} (auth:${getAuthModeSafe()})`,
+    };
+  }
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -185,7 +336,8 @@ export async function processVertexTryOn(params: {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Vertex Try-On lỗi: ${response.status} ${text}`);
+    const parsed = parseVertexError(response.status, text);
+    throw new VertexApiError(parsed.errorCode, parsed.errorMessage, response.status);
   }
 
   const data = (await response.json()) as VertexTryOnResponse;
@@ -300,7 +452,11 @@ export async function generateVeoVideoFromImage(params: {
     throw new Error('Veo không trả về operation name');
   }
 
+  const pollStartedAt = Date.now();
   for (let attempt = 0; attempt < VERTEX_VEO_MAX_POLL_ATTEMPTS; attempt += 1) {
+    if (Date.now() - pollStartedAt > VERTEX_VEO_POLL_BUDGET_MS) {
+      throw new Error('Veo xử lý quá thời gian chờ');
+    }
     await sleep(VERTEX_VEO_POLL_INTERVAL_MS);
 
     const pollResponse = await callVertexApi(

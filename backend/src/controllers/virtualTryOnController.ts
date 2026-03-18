@@ -20,10 +20,12 @@ import {
   isGcsUri,
 } from '../services/virtualTryOnStorage';
 import {
+  checkVertexTryOnReadiness,
   generateVeoVideoFromImage,
   processVertexTryOnFromGcs,
   processVertexTryOnFromUrl,
   storeTryOnResult,
+  VertexApiError,
 } from '../services/vertexTryOnService';
 import { createHash, randomUUID } from 'crypto';
 
@@ -32,10 +34,37 @@ const PROCESS_ESTIMATE_MS = Number(process.env.TRYON_PROCESS_ESTIMATE_MS || '120
 const TRYON_JOB_RETRY_BASE_SECONDS = Number(process.env.TRYON_JOB_RETRY_BASE_SECONDS || '30');
 const TRYON_JOB_RETRY_MAX_SECONDS = Number(process.env.TRYON_JOB_RETRY_MAX_SECONDS || '300');
 const TRYON_MAX_VIDEO_DURATION_SECONDS = Number(process.env.TRYON_MAX_VIDEO_DURATION_SECONDS || '10');
+const TRYON_FAIL_FAST_MS = Number(process.env.TRYON_FAIL_FAST_MS || '90000');
+const TRYON_STRICT_FAIL_FAST = process.env.TRYON_STRICT_FAIL_FAST !== 'false';
 const VERTEX_TRYON_MODEL_ID = process.env.VERTEX_TRYON_MODEL_ID || 'virtual-try-on-001';
 const TRYON_WORKER_WEBHOOK_URL = process.env.TRYON_WORKER_WEBHOOK_URL || '';
 const TRYON_WORKER_TOKEN = process.env.TRYON_WORKER_TOKEN;
 const TRYON_METRICS_TOKEN = process.env.TRYON_METRICS_TOKEN;
+const TRYON_PROCESS_MAX_CONCURRENCY_RAW = process.env.TRYON_PROCESS_MAX_CONCURRENCY;
+const TRYON_LOCAL_INLINE_PROCESS = process.env.TRYON_LOCAL_INLINE_PROCESS === 'true';
+
+let activeTryOnProcesses = 0;
+
+function resolveTryOnProcessLimit(): number {
+  const fallback = process.env.NODE_ENV === 'development' ? '1' : '0';
+  const raw = TRYON_PROCESS_MAX_CONCURRENCY_RAW ?? fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function tryAcquireTryOnProcessSlot(): boolean {
+  const limit = resolveTryOnProcessLimit();
+  if (limit <= 0) return true;
+  if (activeTryOnProcesses >= limit) return false;
+  activeTryOnProcesses += 1;
+  return true;
+}
+
+function releaseTryOnProcessSlot(): void {
+  if (activeTryOnProcesses > 0) {
+    activeTryOnProcesses -= 1;
+  }
+}
 
 function logTryOnTelemetry(event: Record<string, unknown>): void {
   console.log('[TryOn][Telemetry]', JSON.stringify({
@@ -44,12 +73,21 @@ function logTryOnTelemetry(event: Record<string, unknown>): void {
   }));
 }
 
+function shouldInlineTryOnProcessing(): boolean {
+  return TRYON_LOCAL_INLINE_PROCESS || process.env.NODE_ENV === 'development';
+}
+
 function isConfigFailure(errorCode?: string, message?: string): boolean {
   if (errorCode === 'TRYON_CLOUD_NOT_READY') return true;
+  if (errorCode && errorCode.startsWith('VERTEX_')) return true;
   const normalized = (message || '').toLowerCase();
   return normalized.includes('config')
     || normalized.includes('cấu hình')
     || normalized.includes('thiếu')
+    || normalized.includes('permission')
+    || normalized.includes('unauthenticated')
+    || normalized.includes('not found')
+    || normalized.includes('vertex')
     || normalized.includes('not configured');
 }
 
@@ -173,7 +211,12 @@ function computeNextRetryAt(attempt: number): number {
   return Date.now() + Math.round((delaySeconds + jitter) * 1000);
 }
 
-function isRetryableJobError(message: string): boolean {
+function isRetryableJobError(message: string, errorCode?: string): boolean {
+  if (TRYON_STRICT_FAIL_FAST) return false;
+  if (errorCode) {
+    if (errorCode === 'VERTEX_UNAVAILABLE') return true;
+    if (errorCode.startsWith('VERTEX_')) return false;
+  }
   const normalized = message.toLowerCase();
   if (normalized.includes('thiếu') || normalized.includes('invalid') || normalized.includes('không hợp lệ')) {
     return false;
@@ -182,6 +225,42 @@ function isRetryableJobError(message: string): boolean {
     return false;
   }
   return true;
+}
+
+function resolveFailFastElapsedMs(job: Awaited<ReturnType<typeof getTryOnJob>>, now: number): number | null {
+  if (!job) return null;
+  if (job.status === 'queued') {
+    return now - job.createdAt;
+  }
+  if (job.status === 'processing') {
+    const startedAt = job.processingStartedAt || job.updatedAt;
+    return now - startedAt;
+  }
+  return null;
+}
+
+async function enforceFailFast(job: Awaited<ReturnType<typeof getTryOnJob>>): Promise<Awaited<ReturnType<typeof getTryOnJob>>> {
+  if (!job || !TRYON_STRICT_FAIL_FAST) return job;
+  const now = Date.now();
+  const elapsed = resolveFailFastElapsedMs(job, now);
+  if (elapsed === null || elapsed <= TRYON_FAIL_FAST_MS) {
+    return job;
+  }
+
+  const message = `Quá thời gian chờ ${Math.round(TRYON_FAIL_FAST_MS / 1000)}s`;
+  await markTryOnJobDeadLetter(job.jobId, {
+    errorMessage: message,
+    errorCode: 'PROVIDER_TIMEOUT',
+    modelName: VERTEX_TRYON_MODEL_ID,
+    latencyMs: elapsed,
+  });
+  logTryOnTelemetry({
+    event: 'job_fail_fast_timeout',
+    jobId: job.jobId,
+    elapsedMs: elapsed,
+    status: job.status,
+  });
+  return getTryOnJob(job.jobId);
 }
 
 async function enqueueTryOnJob(jobId: string, baseUrl?: string): Promise<void> {
@@ -196,9 +275,395 @@ async function enqueueTryOnJob(jobId: string, baseUrl?: string): Promise<void> {
   void fetch(endpoint, {
     method: 'POST',
     headers,
+  }).then(() => {
+    logTryOnTelemetry({
+      event: 'job_webhook_enqueued',
+      jobId,
+      targetBaseUrl,
+    });
   }).catch((error) => {
     const message = error instanceof Error ? error.message : 'Lỗi không xác định';
     console.warn('[TryOn][Worker] Enqueue thất bại:', message);
+    logTryOnTelemetry({
+      event: 'job_enqueue_failed',
+      jobId,
+      error: message,
+      targetBaseUrl,
+    });
+  });
+}
+
+async function processTryOnJobInternal(jobId: string): Promise<{ status: number; payload: Record<string, unknown> }> {
+  let jobRecord: Awaited<ReturnType<typeof getTryOnJob>> | null = null;
+  let attemptCount = 0;
+  let leaseOwner: string | null = null;
+  let leaseAcquired = false;
+  let shouldCleanup = false;
+  let concurrencyAcquired = false;
+  let processingStartedAt: number | undefined;
+  try {
+    if (!isTryOnJobStoreEnabled()) {
+      return {
+        status: 501,
+        payload: {
+          success: false,
+          error: 'Try-on job tracking is not configured',
+        },
+      };
+    }
+
+    if (!tryAcquireTryOnProcessSlot()) {
+      return {
+        status: 429,
+        payload: {
+          success: false,
+          error: 'Worker đang bận, vui lòng thử lại sau',
+        },
+      };
+    }
+    concurrencyAcquired = true;
+
+    const job = await getTryOnJob(jobId);
+    jobRecord = await enforceFailFast(job);
+    if (!jobRecord) {
+      return {
+        status: 404,
+        payload: {
+          success: false,
+          error: 'Job not found',
+        },
+      };
+    }
+
+    if (jobRecord.status === 'expired') {
+      return {
+        status: 410,
+        payload: {
+          success: false,
+          error: jobRecord.errorMessage || 'Job đã hết hạn',
+        },
+      };
+    }
+
+    if (jobRecord.status === 'failed' && jobRecord.errorCode === 'PROVIDER_TIMEOUT') {
+      return {
+        status: 408,
+        payload: {
+          success: false,
+          error: jobRecord.errorMessage || 'Quá thời gian chờ xử lý',
+          errorCode: 'PROVIDER_TIMEOUT',
+        },
+      };
+    }
+
+    if (jobRecord.status === 'completed') {
+      return {
+        status: 200,
+        payload: {
+          success: true,
+          data: {
+            jobId,
+            resultImage: jobRecord.resultImage,
+            resultImageGcsUri: jobRecord.resultImageGcsUri,
+            resultVideo: jobRecord.resultVideo,
+            resultVideoGcsUri: jobRecord.resultVideoGcsUri,
+            processingTime: jobRecord.processingTime,
+          },
+        },
+      };
+    }
+
+    const health = getTryOnHealthSnapshot();
+    if (!health.available) {
+      const message = `Google Cloud chưa sẵn sàng: ${health.reasons.join(', ') || 'Thiếu cấu hình'}`;
+      await markTryOnJobDeadLetter(jobId, {
+        errorMessage: message,
+        errorCode: 'TRYON_CLOUD_NOT_READY',
+        modelName: VERTEX_TRYON_MODEL_ID,
+      });
+      return {
+        status: 503,
+        payload: {
+          success: false,
+          error: message,
+          errorCode: 'TRYON_CLOUD_NOT_READY',
+          data: { reasons: health.reasons },
+        },
+      };
+    }
+
+    const readiness = await checkVertexTryOnReadiness();
+    if (!readiness.available) {
+      const message = readiness.errorMessage || 'Google Cloud chưa sẵn sàng cho VTON';
+      const errorCode = readiness.errorCode || 'TRYON_CLOUD_NOT_READY';
+      await markTryOnJobDeadLetter(jobId, {
+        errorMessage: message,
+        errorCode,
+        modelName: VERTEX_TRYON_MODEL_ID,
+      });
+      return {
+        status: 503,
+        payload: {
+          success: false,
+          error: message,
+          errorCode,
+        },
+      };
+    }
+
+    if (!jobRecord.personImageGcsUri && !jobRecord.personImageUrl) {
+      return {
+        status: 422,
+        payload: {
+          success: false,
+          error: 'Thiếu dữ liệu ảnh người trong job',
+        },
+      };
+    }
+
+    if (!jobRecord.garmentImageGcsUri && !jobRecord.garmentImageUrl) {
+      return {
+        status: 422,
+        payload: {
+          success: false,
+          error: 'Thiếu dữ liệu ảnh sản phẩm trong job',
+        },
+      };
+    }
+
+    if (jobRecord.status === 'processing') {
+      return {
+        status: 409,
+        payload: {
+          success: false,
+          error: 'Job đang xử lý',
+        },
+      };
+    }
+
+    if (jobRecord.nextRetryAt && jobRecord.nextRetryAt > Date.now()) {
+      return {
+        status: 409,
+        payload: {
+          success: false,
+          error: 'Job đang chờ retry',
+          data: { nextRetryAt: jobRecord.nextRetryAt },
+        },
+      };
+    }
+
+    leaseOwner = randomUUID();
+    leaseAcquired = await acquireTryOnJobLease(jobId, leaseOwner);
+    if (!leaseAcquired) {
+      return {
+        status: 409,
+        payload: {
+          success: false,
+          error: 'Job đang được worker khác xử lý',
+        },
+      };
+    }
+
+    attemptCount = (jobRecord.attemptCount ?? 0) + 1;
+    processingStartedAt = Date.now();
+    await updateTryOnJob(jobId, {
+      status: 'processing',
+      provider: 'vertex-ai-tryon',
+      attemptCount,
+      lastAttemptAt: processingStartedAt,
+      nextRetryAt: undefined,
+      processingStartedAt,
+    });
+
+    logTryOnTelemetry({
+      event: 'job_processing_start',
+      jobId,
+      attemptCount,
+      provider: 'vertex-ai-tryon',
+    });
+
+    shouldCleanup = false;
+
+    const startTime = Date.now();
+    const tryOnResult = jobRecord.personImageGcsUri && jobRecord.garmentImageGcsUri
+      ? await processVertexTryOnFromGcs({
+        personImageGcsUri: jobRecord.personImageGcsUri,
+        garmentImageGcsUri: jobRecord.garmentImageGcsUri,
+      })
+      : await processVertexTryOnFromUrl({
+        personImageUrl: jobRecord.personImageUrl || '',
+        garmentImageUrl: jobRecord.garmentImageUrl || '',
+      });
+
+    const storedImage = await storeTryOnResult({
+      base64Image: tryOnResult.base64Image,
+      mimeType: tryOnResult.mimeType,
+    });
+
+    let resultVideoGcsUri: string | undefined;
+    let resultVideoSignedUrl: string | undefined;
+
+    const storageProvider = getTryOnStorageProvider();
+    const devVideoEnabled = process.env.TRYON_DEV_ENABLE_VIDEO === 'true';
+    const localVideoDisabled = process.env.NODE_ENV === 'development' && !devVideoEnabled;
+    const videoDisabled = localVideoDisabled
+      || process.env.FREE_MODE_DISABLE_VIDEO === 'true'
+      || storageProvider !== 'gcs';
+
+    if (jobRecord.wantsVideo) {
+      if (videoDisabled) {
+        throw new Error('Video yêu cầu GCS và bật cấu hình video');
+      }
+
+      const veoResult = await generateVeoVideoFromImage({
+        imageGcsUri: storedImage.storageUri || '',
+        durationSeconds: jobRecord.videoDurationSeconds,
+        mimeType: tryOnResult.mimeType,
+      });
+      resultVideoGcsUri = veoResult.gcsUri;
+      resultVideoSignedUrl = await getSignedReadUrlForGcsUri(veoResult.gcsUri);
+    }
+
+    const processingTime = Date.now() - startTime;
+
+    await updateTryOnJob(jobId, {
+      status: 'completed',
+      provider: 'vertex-ai-tryon',
+      modelName: VERTEX_TRYON_MODEL_ID,
+      latencyMs: processingTime,
+      processingTime,
+      resultImage: storedImage.signedUrl,
+      resultImageGcsUri: storedImage.storageUri,
+      resultVideo: resultVideoSignedUrl,
+      resultVideoGcsUri,
+      processingStartedAt,
+    });
+
+    logTryOnTelemetry({
+      event: 'job_completed',
+      jobId,
+      provider: 'vertex-ai-tryon',
+      modelName: VERTEX_TRYON_MODEL_ID,
+      latencyMs: processingTime,
+      wantsVideo: Boolean(jobRecord.wantsVideo),
+      videoDisabled,
+      localVideoDisabled,
+    });
+
+    shouldCleanup = true;
+
+    return {
+      status: 200,
+      payload: {
+        success: true,
+        data: {
+          jobId,
+          resultImage: storedImage.signedUrl,
+          resultImageGcsUri: storedImage.storageUri,
+          resultVideo: resultVideoSignedUrl,
+          resultVideoGcsUri,
+          processingTime,
+        },
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Lỗi không xác định';
+    const vertexErrorCode = error instanceof VertexApiError ? error.code : undefined;
+    let retryAt: number | null = null;
+    if (jobId && jobRecord) {
+      const latencyMs = processingStartedAt ? Date.now() - processingStartedAt : undefined;
+      const currentAttempt = attemptCount || jobRecord.attemptCount || 0;
+      const maxAttempts = getTryOnJobMaxAttempts();
+      const canRetry = isRetryableJobError(message, vertexErrorCode) && currentAttempt < maxAttempts;
+      const configFailure = isConfigFailure(vertexErrorCode || jobRecord.errorCode, message);
+      const resolvedErrorCode = vertexErrorCode || (configFailure ? 'TRYON_CLOUD_NOT_READY' : 'PROVIDER_UNAVAILABLE');
+
+      if (canRetry) {
+        const nextRetryAt = computeNextRetryAt(currentAttempt + 1);
+        retryAt = nextRetryAt;
+        await markTryOnJobRetryScheduled(jobId, {
+          nextRetryAt,
+          attemptCount: currentAttempt + 1,
+          errorMessage: message,
+          errorCode: 'RETRY_SCHEDULED',
+          modelName: VERTEX_TRYON_MODEL_ID,
+          latencyMs,
+        });
+      } else {
+        await markTryOnJobDeadLetter(jobId, {
+          errorMessage: message,
+          errorCode: resolvedErrorCode,
+          modelName: VERTEX_TRYON_MODEL_ID,
+          latencyMs,
+        });
+        shouldCleanup = true;
+      }
+
+      logTryOnTelemetry({
+        event: canRetry ? 'job_retry_scheduled' : 'job_failed',
+        jobId,
+        provider: 'vertex-ai-tryon',
+        modelName: VERTEX_TRYON_MODEL_ID,
+        latencyMs,
+        error: message,
+        nextRetryAt: retryAt ?? undefined,
+      });
+    }
+    if (retryAt) {
+      return {
+        status: 202,
+        payload: {
+          success: false,
+          error: message,
+          data: { nextRetryAt: retryAt },
+        },
+      };
+    }
+    return {
+      status: 500,
+      payload: {
+        success: false,
+        error: message,
+        errorCode: vertexErrorCode,
+      },
+    };
+  } finally {
+    if (leaseAcquired && leaseOwner && jobId) {
+      await releaseTryOnJobLease(jobId, leaseOwner);
+    }
+    if (concurrencyAcquired) {
+      releaseTryOnProcessSlot();
+    }
+    if (shouldCleanup && jobId) {
+      const job = await getTryOnJob(jobId);
+      if (job) {
+        await cleanupTryOnInputs(job);
+      }
+    }
+  }
+}
+
+function triggerInlineTryOn(jobId: string, source: 'job_created' | 'job_reused'): void {
+  logTryOnTelemetry({
+    event: 'job_inline_processing_started',
+    jobId,
+    source,
+  });
+  void processTryOnJobInternal(jobId).then((result) => {
+    if (result.status >= 400) {
+      logTryOnTelemetry({
+        event: 'job_inline_processing_failed',
+        jobId,
+        status: result.status,
+      });
+    }
+  }).catch((error) => {
+    const message = error instanceof Error ? error.message : 'Lỗi không xác định';
+    logTryOnTelemetry({
+      event: 'job_inline_processing_failed',
+      jobId,
+      error: message,
+    });
   });
 }
  
@@ -240,7 +705,15 @@ export async function getJobStatus(req: Request, res: Response) {
       });
     }
 
-    const payload = buildJobStatusPayload(job);
+    const enforcedJob = await enforceFailFast(job);
+    if (!enforcedJob) {
+      return res.status(404).json({
+        success: false,
+        error: 'Job not found',
+      });
+    }
+
+    const payload = buildJobStatusPayload(enforcedJob);
 
     return res.json({
       success: true,
@@ -322,6 +795,15 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
         error: 'Google Cloud chưa sẵn sàng cho VTON',
         errorCode: 'TRYON_CLOUD_NOT_READY',
         data: { reasons: health.reasons },
+      });
+    }
+
+    const readiness = await checkVertexTryOnReadiness();
+    if (!readiness.available) {
+      return res.status(503).json({
+        success: false,
+        error: readiness.errorMessage || 'Google Cloud chưa sẵn sàng cho VTON',
+        errorCode: readiness.errorCode || 'TRYON_CLOUD_NOT_READY',
       });
     }
 
@@ -410,7 +892,11 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
     const existing = await getTryOnJobByIdempotencyKey(idempotencyKey);
     if (existing && existing.status !== 'failed' && existing.status !== 'expired') {
       if (existing.status === 'queued') {
-        await enqueueTryOnJob(existing.jobId, baseUrl);
+        if (shouldInlineTryOnProcessing()) {
+          triggerInlineTryOn(existing.jobId, 'job_reused');
+        } else {
+          await enqueueTryOnJob(existing.jobId, baseUrl);
+        }
       }
       logTryOnTelemetry({
         event: 'job_reused',
@@ -452,7 +938,11 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
       storageProvider,
     });
 
-    await enqueueTryOnJob(jobRecord.jobId, baseUrl);
+    if (shouldInlineTryOnProcessing()) {
+      triggerInlineTryOn(jobRecord.jobId, 'job_created');
+    } else {
+      await enqueueTryOnJob(jobRecord.jobId, baseUrl);
+    }
 
     const payload = buildJobStatusPayload(jobRecord);
 
@@ -471,12 +961,6 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
 
 export async function processTryOnJob(req: Request, res: Response) {
   let jobId: string | undefined;
-  let jobRecord: Awaited<ReturnType<typeof getTryOnJob>> | null = null;
-  let attemptCount = 0;
-  let leaseOwner: string | null = null;
-  let leaseAcquired = false;
-  let shouldCleanup = false;
-  let processingStartedAt: number | undefined;
   try {
     if (!isTryOnJobStoreEnabled()) {
       return res.status(501).json({
@@ -496,253 +980,15 @@ export async function processTryOnJob(req: Request, res: Response) {
     }
 
     jobId = req.params.id;
-    const job = await getTryOnJob(jobId);
-    jobRecord = job;
-    if (!jobRecord) {
-      return res.status(404).json({
-        success: false,
-        error: 'Job not found',
-      });
-    }
-
-    if (jobRecord.status === 'expired') {
-      return res.status(410).json({
-        success: false,
-        error: jobRecord.errorMessage || 'Job đã hết hạn',
-      });
-    }
-
-    if (jobRecord.status === 'completed') {
-      return res.json({
-        success: true,
-        data: {
-          jobId,
-          resultImage: jobRecord.resultImage,
-          resultImageGcsUri: jobRecord.resultImageGcsUri,
-          resultVideo: jobRecord.resultVideo,
-          resultVideoGcsUri: jobRecord.resultVideoGcsUri,
-          processingTime: jobRecord.processingTime,
-        },
-      });
-    }
-
-    const health = getTryOnHealthSnapshot();
-    if (!health.available) {
-      const message = `Google Cloud chưa sẵn sàng: ${health.reasons.join(', ') || 'Thiếu cấu hình'}`;
-      if (jobId) {
-        await markTryOnJobDeadLetter(jobId, {
-          errorMessage: message,
-          errorCode: 'TRYON_CLOUD_NOT_READY',
-          modelName: VERTEX_TRYON_MODEL_ID,
-        });
-      }
-      return res.status(503).json({
-        success: false,
-        error: message,
-        errorCode: 'TRYON_CLOUD_NOT_READY',
-        data: { reasons: health.reasons },
-      });
-    }
-
-    if (!jobRecord.personImageGcsUri && !jobRecord.personImageUrl) {
-      return res.status(422).json({
-        success: false,
-        error: 'Thiếu dữ liệu ảnh người trong job',
-      });
-    }
-
-    if (!jobRecord.garmentImageGcsUri && !jobRecord.garmentImageUrl) {
-      return res.status(422).json({
-        success: false,
-        error: 'Thiếu dữ liệu ảnh sản phẩm trong job',
-      });
-    }
-
-    if (jobRecord.status === 'processing') {
-      return res.status(409).json({
-        success: false,
-        error: 'Job đang xử lý',
-      });
-    }
-
-    if (jobRecord.nextRetryAt && jobRecord.nextRetryAt > Date.now()) {
-      return res.status(409).json({
-        success: false,
-        error: 'Job đang chờ retry',
-        data: { nextRetryAt: jobRecord.nextRetryAt },
-      });
-    }
-
-    leaseOwner = randomUUID();
-    leaseAcquired = await acquireTryOnJobLease(jobId, leaseOwner);
-    if (!leaseAcquired) {
-      return res.status(409).json({
-        success: false,
-        error: 'Job đang được worker khác xử lý',
-      });
-    }
-
-    attemptCount = (jobRecord.attemptCount ?? 0) + 1;
-    processingStartedAt = Date.now();
-    await updateTryOnJob(jobId, {
-      status: 'processing',
-      provider: 'vertex-ai-tryon',
-      attemptCount,
-      lastAttemptAt: processingStartedAt,
-      nextRetryAt: undefined,
-      processingStartedAt,
-    });
-
-    logTryOnTelemetry({
-      event: 'job_processing_start',
-      jobId,
-      attemptCount,
-      provider: 'vertex-ai-tryon',
-    });
-
-    shouldCleanup = false;
-
-    const startTime = Date.now();
-    const tryOnResult = jobRecord.personImageGcsUri && jobRecord.garmentImageGcsUri
-      ? await processVertexTryOnFromGcs({
-        personImageGcsUri: jobRecord.personImageGcsUri,
-        garmentImageGcsUri: jobRecord.garmentImageGcsUri,
-      })
-      : await processVertexTryOnFromUrl({
-        personImageUrl: jobRecord.personImageUrl || '',
-        garmentImageUrl: jobRecord.garmentImageUrl || '',
-      });
-
-    const storedImage = await storeTryOnResult({
-      base64Image: tryOnResult.base64Image,
-      mimeType: tryOnResult.mimeType,
-    });
-
-    let resultVideoGcsUri: string | undefined;
-    let resultVideoSignedUrl: string | undefined;
-
-    const storageProvider = getTryOnStorageProvider();
-    const localVideoDisabled = process.env.NODE_ENV === 'development';
-    const videoDisabled = localVideoDisabled
-      || process.env.FREE_MODE_DISABLE_VIDEO === 'true'
-      || storageProvider !== 'gcs';
-
-    if (jobRecord.wantsVideo && !videoDisabled) {
-      try {
-        const veoResult = await generateVeoVideoFromImage({
-          imageGcsUri: storedImage.storageUri || '',
-          durationSeconds: jobRecord.videoDurationSeconds,
-          mimeType: tryOnResult.mimeType,
-        });
-        resultVideoGcsUri = veoResult.gcsUri;
-        resultVideoSignedUrl = await getSignedReadUrlForGcsUri(veoResult.gcsUri);
-      } catch (videoError) {
-        const message = videoError instanceof Error ? videoError.message : 'Lỗi video không xác định';
-        console.warn('[TryOn][Video] Bỏ qua video do lỗi:', message);
-      }
-    }
-
-    const processingTime = Date.now() - startTime;
-
-    await updateTryOnJob(jobId, {
-      status: 'completed',
-      provider: 'vertex-ai-tryon',
-      modelName: VERTEX_TRYON_MODEL_ID,
-      latencyMs: processingTime,
-      processingTime,
-      resultImage: storedImage.signedUrl,
-      resultImageGcsUri: storedImage.storageUri,
-      resultVideo: resultVideoSignedUrl,
-      resultVideoGcsUri,
-      processingStartedAt,
-    });
-
-    logTryOnTelemetry({
-      event: 'job_completed',
-      jobId,
-      provider: 'vertex-ai-tryon',
-      modelName: VERTEX_TRYON_MODEL_ID,
-      latencyMs: processingTime,
-      wantsVideo: Boolean(jobRecord.wantsVideo),
-      videoDisabled,
-      localVideoDisabled,
-    });
-
-    shouldCleanup = true;
-
-    return res.json({
-      success: true,
-      data: {
-        jobId,
-        resultImage: storedImage.signedUrl,
-        resultImageGcsUri: storedImage.storageUri,
-        resultVideo: resultVideoSignedUrl,
-        resultVideoGcsUri,
-        processingTime,
-      },
-    });
+    const result = await processTryOnJobInternal(jobId);
+    return res.status(result.status).json(result.payload);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Lỗi không xác định';
-    let retryAt: number | null = null;
-    if (jobId && jobRecord) {
-      const latencyMs = processingStartedAt ? Date.now() - processingStartedAt : undefined;
-      const currentAttempt = attemptCount || jobRecord.attemptCount || 0;
-      const maxAttempts = getTryOnJobMaxAttempts();
-      const canRetry = isRetryableJobError(message) && currentAttempt < maxAttempts;
-      const configFailure = isConfigFailure(jobRecord.errorCode, message);
-
-      if (canRetry) {
-        const nextRetryAt = computeNextRetryAt(currentAttempt + 1);
-        retryAt = nextRetryAt;
-        await markTryOnJobRetryScheduled(jobId, {
-          nextRetryAt,
-          attemptCount: currentAttempt + 1,
-          errorMessage: message,
-          errorCode: 'RETRY_SCHEDULED',
-          modelName: VERTEX_TRYON_MODEL_ID,
-          latencyMs,
-        });
-      } else {
-        await markTryOnJobDeadLetter(jobId, {
-          errorMessage: message,
-          errorCode: configFailure ? 'TRYON_CLOUD_NOT_READY' : 'PROVIDER_UNAVAILABLE',
-          modelName: VERTEX_TRYON_MODEL_ID,
-          latencyMs,
-        });
-        shouldCleanup = true;
-      }
-
-      logTryOnTelemetry({
-        event: canRetry ? 'job_retry_scheduled' : 'job_failed',
-        jobId,
-        provider: 'vertex-ai-tryon',
-        modelName: VERTEX_TRYON_MODEL_ID,
-        latencyMs,
-        error: message,
-        nextRetryAt: retryAt ?? undefined,
-      });
-    }
-    if (retryAt) {
-      return res.status(202).json({
-        success: false,
-        error: message,
-        data: { nextRetryAt: retryAt },
-      });
-    }
     return res.status(500).json({
       success: false,
       error: message,
+      errorCode: error instanceof VertexApiError ? error.code : undefined,
     });
-  } finally {
-    if (leaseAcquired && leaseOwner && jobId) {
-      await releaseTryOnJobLease(jobId, leaseOwner);
-    }
-    if (shouldCleanup && jobId) {
-      const job = await getTryOnJob(jobId);
-      if (job) {
-        await cleanupTryOnInputs(job);
-      }
-    }
   }
 }
 

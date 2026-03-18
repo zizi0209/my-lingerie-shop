@@ -98,7 +98,7 @@ export async function isRemoteTryOnEnabled(): Promise<boolean> {
  }
  
 const DEFAULT_POLL_INTERVAL_MS = 2000;
-const DEFAULT_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+const DEFAULT_POLL_TIMEOUT_MS = 90 * 1000;
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -474,6 +474,9 @@ export async function processVirtualTryOn(
   }
   if (message.includes('retry_scheduled')) {
     return 'Job đang được lên lịch retry. Vui lòng chờ thêm.';
+  }
+  if (message.includes('provider_timeout') || message.includes('quá thời gian')) {
+    return 'Vượt quá thời gian chờ 90 giây. Vui lòng thử lại.';
   }
    
    if (message.includes('busy') || message.includes('bận')) {
