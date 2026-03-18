@@ -6,18 +6,12 @@
 interface VirtualTryOnButtonProps {
   onClick: () => void;
   disabled?: boolean;
-  disabledReason?: string;
    checkStatus?: boolean; // Enable service status check
 }
 
  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
  
-export function VirtualTryOnButton({
-  onClick,
-  disabled,
-  disabledReason,
-  checkStatus = false,
-}: VirtualTryOnButtonProps) {
+ export function VirtualTryOnButton({ onClick, disabled, checkStatus = false }: VirtualTryOnButtonProps) {
    const [isChecking, setIsChecking] = useState(false);
    const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
    const [providerCount, setProviderCount] = useState(0);
@@ -60,25 +54,20 @@ export function VirtualTryOnButton({
    }
  
   return (
-    <div className="space-y-2">
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={isDisabled}
-        className={`w-full flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 border-2 rounded-lg transition-colors text-sm sm:text-base ${
-          isDisabled
-            ? 'border-gray-300 text-gray-400 cursor-not-allowed'
-            : 'border-pink-500 text-pink-500 hover:bg-pink-50 active:bg-pink-100'
-        }`}
-        title={checkStatus && providerCount > 0 ? `${providerCount} provider(s) sẵn sàng` : undefined}
-      >
-        <Sparkles className="w-4 sm:w-5 h-4 sm:h-5" />
-        <span className="hidden sm:inline">Thử đồ ảo (AI) - Miễn phí</span>
-        <span className="sm:hidden">Thử đồ ảo (AI)</span>
-      </button>
-      {isDisabled && disabledReason && (
-        <p className="text-xs text-gray-500">{disabledReason}</p>
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+       disabled={isDisabled}
+       className={`w-full flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 border-2 rounded-lg transition-colors text-sm sm:text-base ${
+         isDisabled
+           ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+           : 'border-pink-500 text-pink-500 hover:bg-pink-50 active:bg-pink-100'
+       }`}
+       title={checkStatus && providerCount > 0 ? `${providerCount} provider(s) sẵn sàng` : undefined}
+    >
+      <Sparkles className="w-4 sm:w-5 h-4 sm:h-5" />
+      <span className="hidden sm:inline">Thử đồ ảo (AI) - Miễn phí</span>
+      <span className="sm:hidden">Thử đồ ảo (AI)</span>
+    </button>
   );
 }

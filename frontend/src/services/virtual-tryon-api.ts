@@ -470,9 +470,6 @@ export async function processVirtualTryOn(
   if (message.includes('tryon_cloud_not_ready')) {
     return 'Google Cloud chưa sẵn sàng cho VTON. Vui lòng thử lại sau.';
   }
-  if (message.includes('tryon_invalid_garment_url') || message.includes('tryon_invalid_input')) {
-    return 'Sản phẩm này chưa có ảnh phù hợp để thử đồ ảo.';
-  }
   if (message.includes('dead_letter')) {
     return 'Job xử lý thất bại sau nhiều lần retry. Vui lòng thử lại sau.';
   }
