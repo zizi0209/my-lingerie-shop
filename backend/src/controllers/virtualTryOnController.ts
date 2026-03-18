@@ -597,6 +597,29 @@ async function processTryOnJobInternal(jobId: string): Promise<{ status: number;
     const message = error instanceof Error ? error.message : 'Lỗi không xác định';
     const vertexErrorCode = error instanceof VertexApiError ? error.code : undefined;
     const supportCode = error instanceof VertexApiError ? error.supportCode : undefined;
+    if (vertexErrorCode === 'VERTEX_SAFETY_BLOCKED' && jobId && jobRecord) {
+      const personImageSource = jobRecord.personImageGcsUri
+        ? 'gcs'
+        : jobRecord.personImageUrl
+          ? 'url'
+          : 'unknown';
+      const garmentImageSource = jobRecord.garmentImageGcsUri
+        ? 'gcs'
+        : jobRecord.garmentImageUrl
+          ? 'url'
+          : 'unknown';
+      logTryOnTelemetry({
+        event: 'job_safety_blocked',
+        jobId,
+        provider: 'vertex-ai-tryon',
+        modelName: VERTEX_TRYON_MODEL_ID,
+        productId: jobRecord.productId,
+        userId: jobRecord.userId,
+        personImageSource,
+        garmentImageSource,
+        supportCode,
+      });
+    }
     let retryAt: number | null = null;
     if (jobId && jobRecord) {
       const latencyMs = processingStartedAt ? Date.now() - processingStartedAt : undefined;

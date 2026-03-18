@@ -10,6 +10,7 @@ import { PoseGuide, PoseGuideTips } from './PoseGuide';
 import { TryOnModeSelector, type TryOnMode } from './TryOnModeSelector';
 import { LiveTryOnModal } from './LiveTryOnModal';
 import { processPhotoTryOn } from '@/services/photo-tryon';
+import { getErrorMessage } from '@/services/virtual-tryon-api';
 import type { PoseValidationResult } from '@/services/pose-detection';
 import type { ProductType } from '@/services/clothing-overlay';
 import type { TryOnResult } from '@/types/virtual-tryon';
@@ -163,7 +164,9 @@ export function VirtualTryOnModal({
         setProgressMessage('Hoàn thành!');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Không thể xử lý ảnh thử đồ.';
+      const message = err instanceof Error
+        ? getErrorMessage(err)
+        : 'Đã xảy ra lỗi. Vui lòng thử lại sau.';
       if (cancelRef.current) {
         if (jobIdRef.current) {
           removeJob(jobIdRef.current);

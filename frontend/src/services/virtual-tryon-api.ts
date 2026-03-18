@@ -470,6 +470,9 @@ export async function processVirtualTryOn(
   if (message.includes('tryon_cloud_not_ready')) {
     return 'Google Cloud chưa sẵn sàng cho VTON. Vui lòng thử lại sau.';
   }
+  if (message.includes('vertex_safety_blocked') || message.includes('safety blocked') || message.includes('safety filter')) {
+    return 'Ảnh bị bộ lọc an toàn của dịch vụ AI chặn nên không thể xử lý. Vui lòng thử ảnh khác: khung hình rộng hơn, ít hở da hơn, nền đơn giản, hoặc ảnh sản phẩm dạng flat lay/mannequin.';
+  }
   if (message.includes('dead_letter')) {
     return 'Job xử lý thất bại sau nhiều lần retry. Vui lòng thử lại sau.';
   }
