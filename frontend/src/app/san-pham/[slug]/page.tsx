@@ -28,6 +28,7 @@ import { sanitizeForPublic } from "@/lib/sanitize";
 import Product3DViewer from "@/components/product/Product3DViewer";
 import { Box } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/apiBase";
+import { isValidTryOnGarmentUrl } from "@/lib/tryon-image";
 
 const FALLBACK_IMAGE = "/images/seed/set/set-3.webp";
 
@@ -200,13 +201,25 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   );
   const selectedModel3dUrl = selectedImageObject?.model3dUrl ?? model3dUrl;
   const model3dPosterUrl = selectedImageObject?.noBgUrl ?? productImages[selectedImage];
+  const tryOnImageCandidates = [
+    productImageObjects[selectedImage]?.noBgUrl,
+    productImageObjects[selectedImage]?.url,
+    productImageObjects[0]?.noBgUrl,
+    productImageObjects[0]?.url,
+  ].filter((value): value is string => Boolean(value));
+  const tryOnImageUrl = tryOnImageCandidates.find(isValidTryOnGarmentUrl);
+  const tryOnDisabledReason = tryOnImageUrl
+    ? undefined
+    : 'Sản phẩm này chưa có ảnh phù hợp để thử đồ ảo.';
+  const isTryOnDisabled = !tryOnImageUrl;
 
   useEffect(() => {
     if (!product || tryOnModalOpen) return;
+    if (!tryOnImageUrl) return;
     if (hasCompletedJob(String(product.id))) {
       setShowTryOnNotification(true);
     }
-  }, [hasCompletedJob, product, tryOnModalOpen]);
+  }, [hasCompletedJob, product, tryOnImageUrl, tryOnModalOpen]);
 
   const baseUrl = getApiBaseUrl();
 
@@ -392,6 +405,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
   const handleViewTryOnResult = () => {
     if (!product) return;
+    if (isTryOnDisabled) {
+      toast.error('Sản phẩm này chưa có ảnh phù hợp để xem kết quả thử đồ ảo.');
+      return;
+    }
     const result = consumeResult(String(product.id));
     if (result) {
       setPendingTryOnResult(result);
@@ -747,7 +764,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
           {/* Virtual Try-On Button */}
           <div className="mt-4">
-            <VirtualTryOnButton onClick={() => setTryOnModalOpen(true)} />
+            <VirtualTryOnButton
+              onClick={() => {
+                if (!isTryOnDisabled) {
+                  setTryOnModalOpen(true);
+                }
+              }}
+              disabled={isTryOnDisabled}
+              disabledReason={tryOnDisabledReason}
+            />
           </div>
 
           {/* Features */}
@@ -856,14 +881,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       />
 
       {/* Virtual Try-On Modal */}
-      {product && (
+      {product && tryOnImageUrl && (
         <VirtualTryOnModal
           isOpen={tryOnModalOpen}
           onClose={() => setTryOnModalOpen(false)}
           product={{
             id: String(product.id),
             name: product.name,
-            imageUrl: productImages[selectedImage] || productImages[0],
+            imageUrl: tryOnImageUrl,
             noBgUrl: productImageObjects[selectedImage]?.noBgUrl ?? null,
             model3dUrl: selectedModel3dUrl,
             productType: product.productType,
