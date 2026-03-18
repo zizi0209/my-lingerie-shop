@@ -322,7 +322,8 @@ async function pollTryOnJob(
       throw new Error(`TRYON_CLOUD_NOT_READY: ${data.errorMessage || 'Cấu hình Google Cloud chưa sẵn sàng'}`);
     }
     if (data.status === 'dead_letter') {
-      throw new Error(`DEAD_LETTER: ${data.errorMessage || 'Job đã thất bại sau nhiều lần retry'}`);
+      const errorCode = data.errorCode ? `${data.errorCode}: ` : 'DEAD_LETTER: ';
+      throw new Error(`${errorCode}${data.errorMessage || 'Job đã thất bại sau nhiều lần retry'}`);
     }
     if (data.status === 'failed_provider' || data.status === 'failed') {
       const errorCode = data.errorCode ? `${data.errorCode}: ` : 'PROVIDER_UNAVAILABLE: ';
