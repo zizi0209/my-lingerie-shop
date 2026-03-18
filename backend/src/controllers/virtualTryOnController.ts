@@ -79,6 +79,7 @@ function shouldInlineTryOnProcessing(): boolean {
 
 function isConfigFailure(errorCode?: string, message?: string): boolean {
   if (errorCode === 'TRYON_CLOUD_NOT_READY') return true;
+  if (errorCode === 'VERTEX_SAFETY_BLOCKED') return false;
   if (errorCode && errorCode.startsWith('VERTEX_')) return true;
   const normalized = (message || '').toLowerCase();
   return normalized.includes('config')
@@ -215,6 +216,7 @@ function isRetryableJobError(message: string, errorCode?: string): boolean {
   if (TRYON_STRICT_FAIL_FAST) return false;
   if (errorCode) {
     if (errorCode === 'VERTEX_UNAVAILABLE') return true;
+    if (errorCode === 'VERTEX_SAFETY_BLOCKED') return false;
     if (errorCode.startsWith('VERTEX_')) return false;
   }
   const normalized = message.toLowerCase();
@@ -569,6 +571,7 @@ async function processTryOnJobInternal(jobId: string): Promise<{ status: number;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Lỗi không xác định';
     const vertexErrorCode = error instanceof VertexApiError ? error.code : undefined;
+    const supportCode = error instanceof VertexApiError ? error.supportCode : undefined;
     let retryAt: number | null = null;
     if (jobId && jobRecord) {
       const latencyMs = processingStartedAt ? Date.now() - processingStartedAt : undefined;
@@ -606,6 +609,8 @@ async function processTryOnJobInternal(jobId: string): Promise<{ status: number;
         modelName: VERTEX_TRYON_MODEL_ID,
         latencyMs,
         error: message,
+        errorCode: vertexErrorCode,
+        supportCode,
         nextRetryAt: retryAt ?? undefined,
       });
     }

@@ -1,4 +1,5 @@
 import { JWT } from 'google-auth-library';
+import sharp from 'sharp';
 import { downloadGcsUriAsBase64, getTryOnStorageProvider, isGcsUri, uploadBase64ToTryOnStorage } from './virtualTryOnStorage';
 
 const VERTEX_PROJECT_ID = process.env.VERTEX_AI_PROJECT_ID
@@ -18,6 +19,7 @@ const VERTEX_VEO_POLL_INTERVAL_MS = Number(process.env.VERTEX_VEO_POLL_INTERVAL_
 const VERTEX_VEO_MAX_POLL_ATTEMPTS = Number(process.env.VERTEX_VEO_MAX_POLL_ATTEMPTS || 40);
 const VERTEX_TRYON_TIMEOUT_MS = Number(process.env.VERTEX_TRYON_TIMEOUT_MS || '90000');
 const VERTEX_VEO_POLL_BUDGET_MS = Number(process.env.VERTEX_VEO_POLL_BUDGET_MS || '90000');
+const VERTEX_TRYON_MAX_IMAGE_SIZE = Number(process.env.VERTEX_TRYON_MAX_IMAGE_SIZE || '2000');
 const FREE_MODE_DISABLE_VIDEO = process.env.FREE_MODE_DISABLE_VIDEO === 'true';
 const VERTEX_AUTH_MODE = (process.env.VERTEX_AUTH_MODE || 'auto').toLowerCase();
 
@@ -74,11 +76,13 @@ interface CachedToken {
 export class VertexApiError extends Error {
   code: string;
   status: number;
+  supportCode?: string;
 
-  constructor(code: string, message: string, status: number) {
+  constructor(code: string, message: string, status: number, supportCode?: string) {
     super(message);
     this.code = code;
     this.status = status;
+    this.supportCode = supportCode;
   }
 }
 
@@ -148,6 +152,79 @@ function normalizeBase64(input: string): string {
     return parts[1] || '';
   }
   return input;
+}
+
+function normalizeVertexErrorText(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  try {
+    const parsed = JSON.parse(trimmed) as { error?: { message?: string } };
+    if (typeof parsed?.error?.message === 'string') {
+      return parsed.error.message;
+    }
+  } catch {
+    return trimmed;
+  }
+  return trimmed;
+}
+
+function extractSupportCode(message: string): string | undefined {
+  const match = message.match(/support\s*codes?:\s*(\d+)/i);
+  return match?.[1];
+}
+
+function isSafetyBlockedMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes('safety filter')
+    || normalized.includes('blocked by your current safety')
+    || (normalized.includes('image editing failed') && normalized.includes('blocked'))
+    || (normalized.includes('content that has been blocked') && normalized.includes('safety'));
+}
+
+async function sanitizeTryOnImage(base64: string, label: 'person' | 'garment'): Promise<{
+  base64: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  sizeBytes: number;
+}> {
+  const buffer = Buffer.from(base64, 'base64');
+  const metadata = await sharp(buffer).metadata();
+  if (!metadata.width || !metadata.height) {
+    throw new Error(`Thiếu kích thước ảnh ${label}`);
+  }
+
+  const maxSize = Number.isFinite(VERTEX_TRYON_MAX_IMAGE_SIZE) && VERTEX_TRYON_MAX_IMAGE_SIZE > 0
+    ? VERTEX_TRYON_MAX_IMAGE_SIZE
+    : 2000;
+
+  const pipeline = sharp(buffer)
+    .rotate()
+    .resize(maxSize, maxSize, { fit: 'inside', withoutEnlargement: true })
+    .withMetadata({ exif: {} });
+
+  const hasAlpha = Boolean(metadata.hasAlpha);
+  const output = hasAlpha
+    ? pipeline.png({ compressionLevel: 9 })
+    : pipeline.jpeg({ quality: 90, mozjpeg: true });
+
+  const { data, info } = await output.toBuffer({ resolveWithObject: true });
+
+  console.log('[TryOn][Input]', JSON.stringify({
+    label,
+    width: info.width,
+    height: info.height,
+    sizeBytes: data.length,
+    mimeType: hasAlpha ? 'image/png' : 'image/jpeg',
+  }));
+
+  return {
+    base64: data.toString('base64'),
+    mimeType: hasAlpha ? 'image/png' : 'image/jpeg',
+    width: info.width,
+    height: info.height,
+    sizeBytes: data.length,
+  };
 }
 
 async function getServiceAccountAccessToken(): Promise<string | null> {
@@ -232,18 +309,22 @@ async function callVertexApi(path: string, body: Record<string, unknown>): Promi
   });
 }
 
-function parseVertexError(status: number, text: string): { errorCode: string; errorMessage: string } {
-  const normalized = text.trim();
+function parseVertexError(status: number, text: string): { errorCode: string; errorMessage: string; supportCode?: string } {
+  const normalized = normalizeVertexErrorText(text);
+  const supportCode = extractSupportCode(normalized);
   if (status === 401) {
-    return { errorCode: 'VERTEX_UNAUTHENTICATED', errorMessage: `Vertex auth failed (${status}) ${normalized}` };
+    return { errorCode: 'VERTEX_UNAUTHENTICATED', errorMessage: `Vertex auth failed (${status}) ${normalized}`, supportCode };
   }
   if (status === 403) {
-    return { errorCode: 'VERTEX_PERMISSION_DENIED', errorMessage: `Vertex permission denied (${status}) ${normalized}` };
+    return { errorCode: 'VERTEX_PERMISSION_DENIED', errorMessage: `Vertex permission denied (${status}) ${normalized}`, supportCode };
   }
   if (status === 404) {
-    return { errorCode: 'VERTEX_MODEL_NOT_FOUND', errorMessage: `Vertex model not found (${status}) ${normalized}` };
+    return { errorCode: 'VERTEX_MODEL_NOT_FOUND', errorMessage: `Vertex model not found (${status}) ${normalized}`, supportCode };
   }
-  return { errorCode: 'VERTEX_UNAVAILABLE', errorMessage: `Vertex error (${status}) ${normalized}` };
+  if (status === 400 && isSafetyBlockedMessage(normalized)) {
+    return { errorCode: 'VERTEX_SAFETY_BLOCKED', errorMessage: `Vertex safety blocked (${status}) ${normalized}`, supportCode };
+  }
+  return { errorCode: 'VERTEX_UNAVAILABLE', errorMessage: `Vertex error (${status}) ${normalized}`, supportCode };
 }
 
 export async function checkVertexTryOnReadiness(): Promise<VertexReadinessResult> {
@@ -305,6 +386,8 @@ export async function processVertexTryOn(params: {
 }): Promise<{ base64Image: string; mimeType: string }> {
   const personImage = normalizeBase64(params.personImageBase64);
   const garmentImage = normalizeBase64(params.garmentImageBase64);
+  const sanitizedPerson = await sanitizeTryOnImage(personImage, 'person');
+  const sanitizedGarment = await sanitizeTryOnImage(garmentImage, 'garment');
   const sampleCount = params.sampleCount && params.sampleCount > 0 ? params.sampleCount : VERTEX_TRYON_SAMPLE_COUNT;
 
   const body = {
@@ -312,13 +395,13 @@ export async function processVertexTryOn(params: {
       {
         personImage: {
           image: {
-            bytesBase64Encoded: personImage,
+            bytesBase64Encoded: sanitizedPerson.base64,
           },
         },
         productImages: [
           {
             image: {
-              bytesBase64Encoded: garmentImage,
+              bytesBase64Encoded: sanitizedGarment.base64,
             },
           },
         ],
@@ -337,7 +420,7 @@ export async function processVertexTryOn(params: {
   if (!response.ok) {
     const text = await response.text();
     const parsed = parseVertexError(response.status, text);
-    throw new VertexApiError(parsed.errorCode, parsed.errorMessage, response.status);
+    throw new VertexApiError(parsed.errorCode, parsed.errorMessage, response.status, parsed.supportCode);
   }
 
   const data = (await response.json()) as VertexTryOnResponse;
