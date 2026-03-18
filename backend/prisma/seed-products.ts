@@ -131,7 +131,7 @@ function getProductImages(
   
   // Cố gắng load ảnh local từ /public/images/seed/{category}/
   // Naming convention: {category}-1.webp, {category}-2.webp, ...
-  const USE_LOCAL_IMAGES = process.env.USE_LOCAL_SEED_IMAGES !== 'false';
+  const USE_LOCAL_IMAGES = process.env.USE_LOCAL_SEED_IMAGES === 'true';
   
   if (USE_LOCAL_IMAGES) {
     // Rotate qua các ảnh available (giả sử có 8 ảnh mỗi category)

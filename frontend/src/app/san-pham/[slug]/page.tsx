@@ -28,6 +28,7 @@ import { sanitizeForPublic } from "@/lib/sanitize";
 import Product3DViewer from "@/components/product/Product3DViewer";
 import { Box } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/apiBase";
+import { isValidTryOnGarmentUrl } from "@/lib/tryon-image";
 
 const FALLBACK_IMAGE = "/images/seed/set/set-3.webp";
 
@@ -78,6 +79,7 @@ interface Product {
   brandId?: string; // Size System V2
   category: Category;
   images: ProductImage[];
+  defaultImage?: string | null;
   variants: ProductVariant[];
   colorGroups?: ColorGroup[];
   ratingAverage: number;
@@ -142,17 +144,83 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   }, []);
 
   useEffect(() => {
-    if (!product || tryOnModalOpen) return;
-    if (hasCompletedJob(String(product.id))) {
-      setShowTryOnNotification(true);
-    }
-  }, [hasCompletedJob, product, tryOnModalOpen]);
-
-  useEffect(() => {
     if (!tryOnModalOpen) {
       setPendingTryOnResult(null);
     }
   }, [tryOnModalOpen]);
+
+  // Get color groups and selected color
+  const colorGroups = product?.colorGroups || [];
+  const selectedColorGroup = colorGroups.find(cg => cg.colorId === selectedColorId) || colorGroups[0];
+
+  // Get sizes for selected color
+  const sizes = selectedColorGroup
+    ? selectedColorGroup.sizes.map(s => s.size)
+    : product?.variants
+      ? [...new Set(product.variants.map(v => v.size))]
+      : [];
+
+  // Kiểm tra xem có phải là freesize không (không cần hiển thị sister size cho freesize)
+  const isFreeSize = (size: string, allSizes: string[]) => {
+    const lowerSize = size.toLowerCase();
+    // Nếu size chứa "free" hoặc chỉ có 1 size và không phải là size bra/panty thông thường
+    if (lowerSize.includes('free') || lowerSize.includes('one size')) {
+      return true;
+    }
+    // Nếu chỉ có 1 size và không match pattern bra size (như 32A, 34B, 75C, etc.)
+    if (allSizes.length === 1) {
+      const braPattern = /^\d{2}[a-zA-Z]+$/; // 34C, 75D
+      const pantyPattern = /^(XS|S|M|L|XL|XXL|XXXL)$/i;
+      if (!braPattern.test(size) && !pantyPattern.test(size)) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  // Get images for selected color, or all images if no color selected
+  const productImageObjects = (() => {
+    if (!product) return [] as ProductImage[];
+    if (selectedColorGroup && selectedColorGroup.images.length > 0) {
+      return selectedColorGroup.images;
+    }
+    const generalImages = product.images.filter(img => img.colorId === null);
+    if (generalImages.length > 0) {
+      return generalImages;
+    }
+    return product.images.length > 0 ? product.images : [];
+  })();
+  const productImages = productImageObjects.length > 0
+    ? productImageObjects.map(img => img.url)
+    : [FALLBACK_IMAGE];
+
+  // Find first available 3D model URL
+  const model3dUrl = product?.images.find(img => img.model3dUrl)?.model3dUrl ?? null;
+  const selectedImageObject = product?.images.find(
+    (img) => img.url === productImages[selectedImage]
+  );
+  const selectedModel3dUrl = selectedImageObject?.model3dUrl ?? model3dUrl;
+  const model3dPosterUrl = selectedImageObject?.noBgUrl ?? productImages[selectedImage];
+  const tryOnImageCandidates = [
+    selectedImageObject?.noBgUrl,
+    selectedImageObject?.url,
+    productImageObjects[0]?.noBgUrl,
+    productImageObjects[0]?.url,
+    product?.defaultImage ?? undefined,
+    product?.images[0]?.url,
+  ].filter((value): value is string => Boolean(value));
+  const tryOnGarmentImage = tryOnImageCandidates.find(isValidTryOnGarmentUrl);
+  const tryOnModalImage = tryOnGarmentImage || productImages[selectedImage] || productImages[0] || '';
+  const productId = product ? String(product.id) : null;
+  const hasCompletedTryOnJob = productId ? hasCompletedJob(productId) : false;
+
+  useEffect(() => {
+    if (!productId || tryOnModalOpen) return;
+    if (hasCompletedTryOnJob) {
+      setShowTryOnNotification(true);
+    }
+  }, [hasCompletedTryOnJob, productId, tryOnModalOpen]);
 
   const baseUrl = getApiBaseUrl();
 
@@ -232,36 +300,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     }
   }, [product?.id, sessionId, user?.id]);
 
-  // Get color groups and selected color
-  const colorGroups = product?.colorGroups || [];
-  const selectedColorGroup = colorGroups.find(cg => cg.colorId === selectedColorId) || colorGroups[0];
-
-  // Get sizes for selected color
-  const sizes = selectedColorGroup
-    ? selectedColorGroup.sizes.map(s => s.size)
-    : product?.variants
-      ? [...new Set(product.variants.map(v => v.size))]
-      : [];
-
-   // Kiểm tra xem có phải là freesize không (không cần hiển thị sister size cho freesize)
-   const isFreeSize = (size: string, allSizes: string[]) => {
-     const lowerSize = size.toLowerCase();
-     // Nếu size chứa "free" hoặc chỉ có 1 size và không phải là size bra/panty thông thường
-     if (lowerSize.includes('free') || lowerSize.includes('one size')) {
-       return true;
-     }
-     // Nếu chỉ có 1 size và không match pattern bra size (như 32A, 34B, 75C, etc.)
-     if (allSizes.length === 1) {
-       const braPattern = /^\d{2}[a-zA-Z]+$/; // 34C, 75D
-       const pantyPattern = /^(XS|S|M|L|XL|XXL|XXXL)$/i;
-       if (!braPattern.test(size) && !pantyPattern.test(size)) {
-         return true;
-       }
-     }
-     return false;
-   };
- 
-  // Kiểm tra size có còn hàng không
   const isSizeAvailable = (size: string) => {
     if (selectedColorGroup) {
       const sizeInfo = selectedColorGroup.sizes.find(s => s.size === size);
@@ -344,16 +382,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const displayPrice = product?.salePrice || product?.price || 0;
   const originalPrice = product?.salePrice ? product.price : null;
 
-  const handleViewTryOnResult = () => {
-    if (!product) return;
-    const result = consumeResult(String(product.id));
-    if (result) {
-      setPendingTryOnResult(result);
-    }
-    setTryOnModalOpen(true);
-    setShowTryOnNotification(false);
-  };
-
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-20 flex items-center justify-center">
@@ -376,28 +404,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     );
   }
 
-  // Get images for selected color, or all images if no color selected
-  const productImageObjects = (() => {
-    if (selectedColorGroup && selectedColorGroup.images.length > 0) {
-      return selectedColorGroup.images;
+  const handleViewTryOnResult = () => {
+    if (!product) return;
+    const result = consumeResult(String(product.id));
+    if (result) {
+      setPendingTryOnResult(result);
     }
-    const generalImages = product.images.filter(img => img.colorId === null);
-    if (generalImages.length > 0) {
-      return generalImages;
-    }
-    return product.images.length > 0 ? product.images : [];
-  })();
-  const productImages = productImageObjects.length > 0
-    ? productImageObjects.map(img => img.url)
-    : [FALLBACK_IMAGE];
-
-  // Find first available 3D model URL
-  const model3dUrl = product.images.find(img => img.model3dUrl)?.model3dUrl ?? null;
-  const selectedImageObject = product.images.find(
-    (img) => img.url === productImages[selectedImage]
-  );
-  const selectedModel3dUrl = selectedImageObject?.model3dUrl ?? model3dUrl;
-  const model3dPosterUrl = selectedImageObject?.noBgUrl ?? productImages[selectedImage];
+    setTryOnModalOpen(true);
+    setShowTryOnNotification(false);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -862,7 +877,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           product={{
             id: String(product.id),
             name: product.name,
-            imageUrl: productImages[selectedImage] || productImages[0],
+            imageUrl: tryOnModalImage,
             noBgUrl: productImageObjects[selectedImage]?.noBgUrl ?? null,
             model3dUrl: selectedModel3dUrl,
             productType: product.productType,

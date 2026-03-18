@@ -43,6 +43,11 @@ const TRYON_METRICS_TOKEN = process.env.TRYON_METRICS_TOKEN;
 const TRYON_PROCESS_MAX_CONCURRENCY_RAW = process.env.TRYON_PROCESS_MAX_CONCURRENCY;
 const TRYON_LOCAL_INLINE_PROCESS = process.env.TRYON_LOCAL_INLINE_PROCESS === 'true';
 
+const INVALID_TRYON_HOSTS = new Set([
+  'via.placeholder.com',
+  'placeholder.com',
+]);
+
 let activeTryOnProcesses = 0;
 
 function resolveTryOnProcessLimit(): number {
@@ -227,6 +232,26 @@ function isRetryableJobError(message: string, errorCode?: string): boolean {
     return false;
   }
   return true;
+}
+
+function isValidExternalImageUrl(url: string): boolean {
+  if (!url) return false;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.toLowerCase().startsWith('data:')) return false;
+  try {
+    const parsed = new URL(trimmed);
+    const isHttp = parsed.protocol === 'http:';
+    const isHttps = parsed.protocol === 'https:';
+    if (!isHttp && !isHttps) return false;
+    if (process.env.NODE_ENV === 'production' && !isHttps) return false;
+    if (INVALID_TRYON_HOSTS.has(parsed.hostname.toLowerCase())) return false;
+    if (process.env.NODE_ENV === 'production' && parsed.pathname.toLowerCase().includes('/images/seed/')) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function resolveFailFastElapsedMs(job: Awaited<ReturnType<typeof getTryOnJob>>, now: number): number | null {
@@ -864,6 +889,22 @@ export async function createTryOnJobAsync(req: Request, res: Response) {
         return res.status(400).json({
           success: false,
           error: 'personImageUrl và garmentImageUrl là bắt buộc',
+        });
+      }
+
+      if (!isValidExternalImageUrl(personImageUrl)) {
+        return res.status(400).json({
+          success: false,
+          error: 'personImageUrl không hợp lệ',
+          errorCode: 'TRYON_INVALID_INPUT',
+        });
+      }
+
+      if (!isValidExternalImageUrl(garmentImageUrl)) {
+        return res.status(400).json({
+          success: false,
+          error: 'garmentImageUrl không hợp lệ',
+          errorCode: 'TRYON_INVALID_GARMENT_URL',
         });
       }
     }
