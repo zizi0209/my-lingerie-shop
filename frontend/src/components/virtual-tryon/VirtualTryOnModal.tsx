@@ -14,6 +14,7 @@ import type { PoseValidationResult } from '@/services/pose-detection';
 import type { ProductType } from '@/services/clothing-overlay';
 import type { TryOnResult } from '@/types/virtual-tryon';
 import { useVirtualTryOnContext } from '@/context/VirtualTryOnContext';
+import { isValidTryOnGarmentUrl } from '@/lib/tryon-image';
  
  interface Product {
    id: string;
@@ -96,6 +97,13 @@ export function VirtualTryOnModal({
  
    const handleStartTryOn = useCallback(async () => {
     if (!canProceed || !selectedPhoto) return;
+    if (!isValidTryOnGarmentUrl(product.imageUrl)) {
+      setTryOnError('Sản phẩm này chưa có ảnh phù hợp để thử đồ ảo.');
+      setStatus('error');
+      setProgress(0);
+      setProgressMessage(null);
+      return;
+    }
 
     cancelRef.current = false;
     abortRef.current?.abort();
