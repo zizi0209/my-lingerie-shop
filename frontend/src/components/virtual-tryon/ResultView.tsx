@@ -9,9 +9,29 @@
    onAddToCart?: () => void;
    onDownload: () => void;
   onDownloadVideo?: () => void;
+  onGenerateVideo?: (durationSeconds: number) => void;
+  videoGenerationPending?: boolean;
+  videoGenerationEnabled?: boolean;
+  videoGenerationReasons?: string[];
+  videoDurationSeconds?: number;
+  onVideoDurationChange?: (value: number) => void;
  }
  
-export function ResultView({ result, onTryAgain, onAddToCart, onDownload, onDownloadVideo }: ResultViewProps) {
+const VIDEO_DURATION_OPTIONS = [4, 6, 8, 10];
+
+export function ResultView({
+  result,
+  onTryAgain,
+  onAddToCart,
+  onDownload,
+  onDownloadVideo,
+  onGenerateVideo,
+  videoGenerationPending,
+  videoGenerationEnabled = true,
+  videoGenerationReasons = [],
+  videoDurationSeconds = 8,
+  onVideoDurationChange,
+}: ResultViewProps) {
   const qualityLabel = typeof result.qualityScore === 'number'
     ? `${Math.round(result.qualityScore * 100)}%`
     : undefined;
@@ -20,6 +40,10 @@ export function ResultView({ result, onTryAgain, onAddToCart, onDownload, onDown
     || (result.videoStatus === 'failed'
       ? 'Video thử đồ chưa tạo được, bạn vẫn có thể tải ảnh kết quả.'
       : 'Video thử đồ chưa sẵn sàng, bạn vẫn có thể tải ảnh kết quả.');
+  const shouldShowVideoCard = !result.resultVideo && onGenerateVideo;
+  const videoAvailabilityMessage = !videoGenerationEnabled
+    ? videoGenerationReasons[0] || 'Video thử đồ chưa sẵn sàng trên môi trường này.'
+    : undefined;
 
   const metadataItems = [
     result.provider ? { label: 'Provider', value: result.provider } : null,
@@ -49,9 +73,52 @@ export function ResultView({ result, onTryAgain, onAddToCart, onDownload, onDown
          </div>
        </div>
 
-      {showVideoWarning && (
+      {showVideoWarning && !shouldShowVideoCard && (
         <div className="p-3 sm:p-4 bg-amber-50 border border-amber-200 rounded-lg text-xs sm:text-sm text-amber-700">
           {videoWarningMessage}
+        </div>
+      )}
+
+      {shouldShowVideoCard && (
+        <div className="p-4 border border-gray-200 rounded-xl bg-white space-y-3">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Tạo video từ ảnh này</p>
+            <p className="text-xs text-gray-500">Video mất thêm thời gian xử lý và có thể không khả dụng với một số ảnh.</p>
+          </div>
+
+          {videoAvailabilityMessage && (
+            <div className="text-xs text-amber-600">{videoAvailabilityMessage}</div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {VIDEO_DURATION_OPTIONS.map((duration) => (
+              <button
+                key={duration}
+                type="button"
+                onClick={() => onVideoDurationChange?.(duration)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  videoDurationSeconds === duration
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-purple-300'
+                }`}
+              >
+                {duration}s
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onGenerateVideo?.(videoDurationSeconds)}
+            disabled={!videoGenerationEnabled || videoGenerationPending}
+            className="w-full rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:bg-purple-300"
+          >
+            {videoGenerationPending ? 'Đang tạo video từ ảnh đã render...' : 'Tạo video'}
+          </button>
+
+          {showVideoWarning && (
+            <div className="text-xs text-amber-700">{videoWarningMessage}</div>
+          )}
         </div>
       )}
 

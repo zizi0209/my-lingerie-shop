@@ -10,7 +10,7 @@ import { PoseGuide, PoseGuideTips } from './PoseGuide';
 import { TryOnModeSelector, type TryOnMode } from './TryOnModeSelector';
 import { LiveTryOnModal } from './LiveTryOnModal';
 import { processPhotoTryOn } from '@/services/photo-tryon';
-import { checkServiceStatus, getErrorMessage } from '@/services/virtual-tryon-api';
+import { checkServiceStatus, generateVideoFromExistingImage, getErrorMessage } from '@/services/virtual-tryon-api';
 import type { PoseValidationResult } from '@/services/pose-detection';
 import type { ProductType } from '@/services/clothing-overlay';
 import type { TryOnResult } from '@/types/virtual-tryon';
@@ -46,12 +46,13 @@ export function VirtualTryOnModal({
   const [poseValidation, setPoseValidation] = useState<PoseValidationResult | null>(null);
   const [selectedMode, setSelectedMode] = useState<TryOnMode | null>(null);
   const [showLiveTryOn, setShowLiveTryOn] = useState(false);
-  const [wantsVideo, setWantsVideo] = useState(false);
   const [videoAvailability, setVideoAvailability] = useState<{
     enabled: boolean;
     reasons: string[];
     checked: boolean;
   }>({ enabled: false, reasons: [], checked: false });
+  const [videoDurationSeconds, setVideoDurationSeconds] = useState(8);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
@@ -93,12 +94,6 @@ export function VirtualTryOnModal({
     };
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!videoAvailability.enabled && wantsVideo) {
-      setWantsVideo(false);
-    }
-  }, [videoAvailability.enabled, wantsVideo]);
- 
   // Check if pose is valid enough to proceed
   const canProceed = useMemo(() => {
     if (!selectedPhoto || !consent) return false;
@@ -125,7 +120,8 @@ export function VirtualTryOnModal({
     setProgressMessage(null);
     setResult(null);
     setTryOnError(null);
-    setWantsVideo(false);
+    setVideoDurationSeconds(8);
+    setIsGeneratingVideo(false);
   }, []);
 
   const handleBackToModeSelect = useCallback(() => {
@@ -165,7 +161,6 @@ export function VirtualTryOnModal({
           productId: product.id,
           productName: product.name,
           productType: product.productType || 'BRA',
-          wantsVideo,
         },
         (nextProgress, message) => {
           if (isOpenRef.current) {
@@ -260,6 +255,63 @@ export function VirtualTryOnModal({
     link.download = `tryon-${product.name}.mp4`;
     link.click();
   }, [result, product.name]);
+
+  const mergeVideoResult = useCallback((videoResult: TryOnResult) => {
+    setResult((current) => {
+      if (!current) return videoResult;
+      return {
+        ...current,
+        resultVideo: videoResult.resultVideo ?? current.resultVideo,
+        resultVideoGcsUri: videoResult.resultVideoGcsUri ?? current.resultVideoGcsUri,
+        videoStatus: videoResult.videoStatus ?? current.videoStatus,
+        videoErrorMessage: videoResult.videoErrorMessage ?? current.videoErrorMessage,
+      };
+    });
+  }, []);
+
+  const handleGenerateVideo = useCallback(async (durationSeconds: number) => {
+    const effectiveDurationSeconds = durationSeconds || videoDurationSeconds;
+    if (!result?.resultImageGcsUri || isGeneratingVideo || !videoAvailability.enabled) {
+      if (result && !result.resultImageGcsUri) {
+        setResult((current) => (current ? {
+          ...current,
+          videoStatus: 'failed',
+          videoErrorMessage: 'Thiếu resultImageGcsUri để tạo video.',
+        } : current));
+      }
+      return;
+    }
+
+    if (effectiveDurationSeconds !== videoDurationSeconds) {
+      setVideoDurationSeconds(effectiveDurationSeconds);
+    }
+
+    setIsGeneratingVideo(true);
+    setResult((current) => (current ? { ...current, videoStatus: 'pending', videoErrorMessage: undefined } : current));
+
+    try {
+      const response = await generateVideoFromExistingImage({
+        resultImageGcsUri: result.resultImageGcsUri,
+        videoDurationSeconds: effectiveDurationSeconds,
+        productId: product.id,
+        productName: product.name,
+      });
+
+      if (response.result) {
+        mergeVideoResult(response.result);
+      }
+
+      if (!response.success) {
+        const message = response.error || 'Không thể tạo video thử đồ.';
+        setResult((current) => (current ? { ...current, videoStatus: 'failed', videoErrorMessage: message } : current));
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Lỗi không xác định';
+      setResult((current) => (current ? { ...current, videoStatus: 'failed', videoErrorMessage: message } : current));
+    } finally {
+      setIsGeneratingVideo(false);
+    }
+  }, [isGeneratingVideo, mergeVideoResult, product.id, product.name, result, videoAvailability.enabled, videoDurationSeconds]);
  
    const personImagePreview = selectedPhoto ? URL.createObjectURL(selectedPhoto) : null;
  
@@ -361,6 +413,14 @@ export function VirtualTryOnModal({
                onAddToCart={onAddToCart}
                onDownload={handleDownload}
               onDownloadVideo={handleDownloadVideo}
+              onGenerateVideo={handleGenerateVideo}
+              videoGenerationPending={isGeneratingVideo}
+              videoGenerationEnabled={videoAvailability.checked && videoAvailability.enabled}
+              videoGenerationReasons={videoAvailability.checked
+                ? videoAvailability.reasons
+                : ['Đang kiểm tra trạng thái video...']}
+              videoDurationSeconds={videoDurationSeconds}
+              onVideoDurationChange={setVideoDurationSeconds}
              />
            )}
  
@@ -464,26 +524,11 @@ export function VirtualTryOnModal({
                 <ConsentCheckbox checked={consent} onChange={setConsent} />
               </div>
 
-              <div className="mb-6 p-4 bg-white border border-gray-200 rounded-xl">
-                <label className="flex items-center gap-3 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 text-purple-600 border-gray-300 rounded"
-                    checked={wantsVideo}
-                    disabled={!videoAvailability.checked || !videoAvailability.enabled}
-                    onChange={(event) => setWantsVideo(event.target.checked)}
-                  />
-                  Tạo video thử đồ (tốn thêm thời gian xử lý)
-                </label>
-                {!videoAvailability.checked && (
-                  <p className="mt-2 text-xs text-gray-500">Đang kiểm tra trạng thái video...</p>
-                )}
-                {videoAvailability.checked && !videoAvailability.enabled && (
-                  <p className="mt-2 text-xs text-amber-600">
-                    {videoAvailability.reasons[0] || 'Video thử đồ chưa sẵn sàng trên môi trường này.'}
-                  </p>
-                )}
-              </div>
+              {!videoAvailability.checked && (
+                <div className="mb-6 p-4 bg-white border border-gray-200 rounded-xl">
+                  <p className="text-xs text-gray-500">Đang kiểm tra trạng thái video...</p>
+                </div>
+              )}
  
               {/* Actions */}
               <div className="flex flex-col-reverse sm:flex-row gap-3">
