@@ -396,6 +396,8 @@ async function processTryOnJobInternal(jobId: string): Promise<{ status: number;
             resultImageGcsUri: jobRecord.resultImageGcsUri,
             resultVideo: jobRecord.resultVideo,
             resultVideoGcsUri: jobRecord.resultVideoGcsUri,
+            videoStatus: jobRecord.videoStatus,
+            videoErrorMessage: jobRecord.videoErrorMessage,
             processingTime: jobRecord.processingTime,
           },
         },
