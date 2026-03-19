@@ -99,6 +99,15 @@ export interface TryOnJobStatusResponse {
   queuedDurationMs?: number;
   processingDurationMs?: number;
 }
+
+export interface VideoFromImageResponse {
+  resultImage?: string;
+  resultImageGcsUri?: string;
+  resultVideo?: string;
+  resultVideoGcsUri?: string;
+  videoStatus?: 'pending' | 'completed' | 'failed' | 'skipped';
+  videoErrorMessage?: string;
+}
  
  export interface TryOnQueueInfo {
    position: number;

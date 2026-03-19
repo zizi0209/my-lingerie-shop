@@ -9,6 +9,7 @@ import {
   createTryOnJobAsync,
   processTryOnJob,
   getTryOnMetrics,
+  generateVideoFromExistingImage,
 } from '../controllers/virtualTryOnController';
 import { apiLimiter, tryOnLimiter } from '../middleware/rateLimiter';
  
@@ -25,6 +26,9 @@ router.post('/uploads/signed-url', tryOnLimiter, createUploadUrl);
 
 // Create async try-on job
 router.post('/jobs', tryOnLimiter, createTryOnJobAsync);
+
+// Generate video from existing try-on image
+router.post('/videos', tryOnLimiter, generateVideoFromExistingImage);
 
 // Get try-on job status
 router.get('/jobs/:id', tryOnLimiter, getJobStatus);

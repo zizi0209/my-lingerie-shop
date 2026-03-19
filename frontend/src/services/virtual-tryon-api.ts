@@ -5,6 +5,7 @@ import {
   SignedUploadResponse,
   CreateTryOnJobResponse,
   TryOnJobStatusResponse,
+  VideoFromImageResponse,
 } from '@/types/virtual-tryon';
  
  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -31,6 +32,13 @@ interface PublicConfigPayload {
 
 interface RemoteTryOnConfig {
   enabled: boolean;
+}
+
+interface GenerateVideoFromImageApiResponse {
+  success?: boolean;
+  data?: VideoFromImageResponse;
+  error?: string;
+  errorCode?: string;
 }
 
 interface SignedUploadPayload {
@@ -448,6 +456,74 @@ export async function processVirtualTryOn(
   }
 
   return processVirtualTryOnAsyncCloud(request, onProgress, signal);
+}
+
+export async function generateVideoFromExistingImage(params: {
+  resultImageGcsUri: string;
+  videoDurationSeconds?: number;
+  productId?: string;
+  productName?: string;
+}): Promise<{ success: boolean; result?: TryOnResult; error?: string }> {
+  const response = await fetch(`${API_BASE_URL}/virtual-tryon/videos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      resultImageGcsUri: params.resultImageGcsUri,
+      videoDurationSeconds: params.videoDurationSeconds,
+    }),
+  });
+
+  let payload: GenerateVideoFromImageApiResponse = {};
+  try {
+    payload = (await response.json()) as GenerateVideoFromImageApiResponse;
+  } catch {
+    payload = {};
+  }
+
+  const data = payload.data;
+  const productId = params.productId ?? 'video-test';
+  const productName = params.productName ?? 'Video test';
+
+  if (!response.ok || !payload.success) {
+    const message = payload.error || 'Không thể tạo video thử đồ';
+    if (data?.resultImage) {
+      return {
+        success: false,
+        error: message,
+        result: toTryOnResult({
+          originalImage: data.resultImage,
+          productId,
+          productName,
+          resultImage: data.resultImage,
+          resultVideo: data.resultVideo,
+          resultImageGcsUri: data.resultImageGcsUri,
+          resultVideoGcsUri: data.resultVideoGcsUri,
+          videoStatus: data.videoStatus ?? 'failed',
+          videoErrorMessage: data.videoErrorMessage ?? message,
+        }),
+      };
+    }
+    return { success: false, error: message };
+  }
+
+  if (!data?.resultImage) {
+    return { success: false, error: 'Không nhận được ảnh kết quả' };
+  }
+
+  return {
+    success: true,
+    result: toTryOnResult({
+      originalImage: data.resultImage,
+      productId,
+      productName,
+      resultImage: data.resultImage,
+      resultVideo: data.resultVideo,
+      resultImageGcsUri: data.resultImageGcsUri,
+      resultVideoGcsUri: data.resultVideoGcsUri,
+      videoStatus: data.videoStatus,
+      videoErrorMessage: data.videoErrorMessage,
+    }),
+  };
 }
  
  export async function checkServiceStatus(): Promise<{

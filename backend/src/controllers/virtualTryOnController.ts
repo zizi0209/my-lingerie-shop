@@ -1088,6 +1088,90 @@ export async function processTryOnJob(req: Request, res: Response) {
   }
 }
 
+export async function generateVideoFromExistingImage(req: Request, res: Response) {
+  let signedImageUrl: string | undefined;
+  let inputImageGcsUri: string | undefined;
+  try {
+    const { resultImageGcsUri, videoDurationSeconds } = req.body as {
+      resultImageGcsUri?: string;
+      videoDurationSeconds?: number;
+    };
+
+    inputImageGcsUri = resultImageGcsUri;
+
+    if (!resultImageGcsUri) {
+      return res.status(400).json({
+        success: false,
+        error: 'resultImageGcsUri là bắt buộc',
+      });
+    }
+
+    if (!isGcsUri(resultImageGcsUri)) {
+      return res.status(400).json({
+        success: false,
+        error: 'resultImageGcsUri không hợp lệ',
+      });
+    }
+
+    if (typeof videoDurationSeconds === 'number' && videoDurationSeconds > TRYON_MAX_VIDEO_DURATION_SECONDS) {
+      return res.status(400).json({
+        success: false,
+        error: `videoDurationSeconds tối đa ${TRYON_MAX_VIDEO_DURATION_SECONDS}s`,
+      });
+    }
+
+    const health = getTryOnHealthSnapshot();
+    signedImageUrl = await getSignedReadUrlForGcsUri(resultImageGcsUri);
+
+    if (!health.videoEnabled) {
+      const reason = health.videoReasons.join('; ') || 'Video chưa sẵn sàng';
+      return res.status(503).json({
+        success: false,
+        error: reason,
+        errorCode: 'TRYON_VIDEO_NOT_READY',
+        data: {
+          resultImage: signedImageUrl,
+          resultImageGcsUri,
+          videoStatus: 'skipped',
+          videoErrorMessage: reason,
+        },
+      });
+    }
+
+    const veoResult = await generateVeoVideoFromImage({
+      imageGcsUri: resultImageGcsUri,
+      durationSeconds: typeof videoDurationSeconds === 'number' ? videoDurationSeconds : undefined,
+    });
+    const resultVideo = await getSignedReadUrlForGcsUri(veoResult.gcsUri);
+
+    return res.json({
+      success: true,
+      data: {
+        resultImage: signedImageUrl,
+        resultImageGcsUri,
+        resultVideo,
+        resultVideoGcsUri: veoResult.gcsUri,
+        videoStatus: 'completed',
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Lỗi không xác định';
+    return res.status(502).json({
+      success: false,
+      error: message,
+      errorCode: error instanceof VertexApiError ? error.code : undefined,
+      data: signedImageUrl
+        ? {
+            resultImage: signedImageUrl,
+            resultImageGcsUri: inputImageGcsUri,
+            videoStatus: 'failed',
+            videoErrorMessage: message,
+          }
+        : undefined,
+    });
+  }
+}
+
 export async function resetHealth(_req: Request, res: Response) {
   try {
     return res.json({
