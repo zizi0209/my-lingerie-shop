@@ -17,6 +17,8 @@ const TRYON_JOB_MAX_ATTEMPTS = Number(process.env.TRYON_JOB_MAX_ATTEMPTS || '3')
 
 const TRYON_JOB_STATUSES = ['queued', 'processing', 'completed', 'failed', 'expired'] as const;
 export type TryOnJobStatus = (typeof TRYON_JOB_STATUSES)[number];
+const TRYON_VIDEO_STATUSES = ['pending', 'completed', 'failed', 'skipped'] as const;
+type TryOnVideoStatus = (typeof TRYON_VIDEO_STATUSES)[number];
 
 export interface TryOnJobRecord {
   jobId: string;
@@ -34,6 +36,8 @@ export interface TryOnJobRecord {
   resultImageGcsUri?: string;
   resultVideo?: string;
   resultVideoGcsUri?: string;
+  videoStatus?: TryOnVideoStatus;
+  videoErrorMessage?: string;
   personImageGcsUri?: string;
   garmentImageGcsUri?: string;
   personImageUrl?: string;
@@ -71,6 +75,8 @@ export interface CreateTryOnJobInput {
   resultImageGcsUri?: string;
   resultVideo?: string;
   resultVideoGcsUri?: string;
+  videoStatus?: TryOnVideoStatus;
+  videoErrorMessage?: string;
   personImageGcsUri?: string;
   garmentImageGcsUri?: string;
   personImageUrl?: string;
@@ -111,6 +117,8 @@ interface PostgresTryOnJobRow {
   result_image_gcs_uri: string | null;
   result_video: string | null;
   result_video_gcs_uri: string | null;
+  video_status: string | null;
+  video_error_message: string | null;
   person_image_gcs_uri: string | null;
   garment_image_gcs_uri: string | null;
   person_image_url: string | null;
@@ -179,6 +187,10 @@ function isTryOnJobStatus(value: unknown): value is TryOnJobStatus {
   return typeof value === 'string' && TRYON_JOB_STATUSES.includes(value as TryOnJobStatus);
 }
 
+function isTryOnVideoStatus(value: unknown): value is TryOnVideoStatus {
+  return typeof value === 'string' && TRYON_VIDEO_STATUSES.includes(value as TryOnVideoStatus);
+}
+
 function toTryOnJobRecord(jobId: string, data: DocumentData | undefined): TryOnJobRecord | null {
   if (!data || !isTryOnJobStatus(data.status)) {
     return null;
@@ -203,6 +215,8 @@ function toTryOnJobRecord(jobId: string, data: DocumentData | undefined): TryOnJ
     resultImageGcsUri: typeof data.resultImageGcsUri === 'string' ? data.resultImageGcsUri : undefined,
     resultVideo: typeof data.resultVideo === 'string' ? data.resultVideo : undefined,
     resultVideoGcsUri: typeof data.resultVideoGcsUri === 'string' ? data.resultVideoGcsUri : undefined,
+    videoStatus: isTryOnVideoStatus(data.videoStatus) ? data.videoStatus : undefined,
+    videoErrorMessage: typeof data.videoErrorMessage === 'string' ? data.videoErrorMessage : undefined,
     personImageGcsUri: typeof data.personImageGcsUri === 'string' ? data.personImageGcsUri : undefined,
     garmentImageGcsUri: typeof data.garmentImageGcsUri === 'string' ? data.garmentImageGcsUri : undefined,
     personImageUrl: typeof data.personImageUrl === 'string' ? data.personImageUrl : undefined,
@@ -256,6 +270,8 @@ function toTryOnJobRecordFromRow(row: PostgresTryOnJobRow): TryOnJobRecord | nul
     resultImageGcsUri: row.result_image_gcs_uri ?? undefined,
     resultVideo: row.result_video ?? undefined,
     resultVideoGcsUri: row.result_video_gcs_uri ?? undefined,
+    videoStatus: isTryOnVideoStatus(row.video_status) ? row.video_status : undefined,
+    videoErrorMessage: row.video_error_message ?? undefined,
     personImageGcsUri: row.person_image_gcs_uri ?? undefined,
     garmentImageGcsUri: row.garment_image_gcs_uri ?? undefined,
     personImageUrl: row.person_image_url ?? undefined,
@@ -300,6 +316,8 @@ async function ensurePostgresSchema(): Promise<void> {
       result_image_gcs_uri TEXT,
       result_video TEXT,
       result_video_gcs_uri TEXT,
+      video_status TEXT,
+      video_error_message TEXT,
       person_image_gcs_uri TEXT,
       garment_image_gcs_uri TEXT,
       person_image_url TEXT,
@@ -333,7 +351,9 @@ async function ensurePostgresSchema(): Promise<void> {
     ADD COLUMN IF NOT EXISTS model_name TEXT,
     ADD COLUMN IF NOT EXISTS seed INTEGER,
     ADD COLUMN IF NOT EXISTS latency_ms INTEGER,
-    ADD COLUMN IF NOT EXISTS fallback_reason TEXT;
+    ADD COLUMN IF NOT EXISTS fallback_reason TEXT,
+    ADD COLUMN IF NOT EXISTS video_status TEXT,
+    ADD COLUMN IF NOT EXISTS video_error_message TEXT;
   `);
 
   await prisma.$executeRawUnsafe(`
@@ -377,6 +397,8 @@ export async function createTryOnJob(input: CreateTryOnJobInput): Promise<TryOnJ
     resultImageGcsUri: input.resultImageGcsUri,
     resultVideo: input.resultVideo,
     resultVideoGcsUri: input.resultVideoGcsUri,
+    videoStatus: input.videoStatus,
+    videoErrorMessage: input.videoErrorMessage,
     personImageGcsUri: input.personImageGcsUri,
     garmentImageGcsUri: input.garmentImageGcsUri,
     personImageUrl: input.personImageUrl,
@@ -414,6 +436,7 @@ export async function createTryOnJob(input: CreateTryOnJobInput): Promise<TryOnJ
       INSERT INTO virtual_tryon_jobs (
         job_id, status, provider, quality_score, model_name, seed, latency_ms, fallback_reason, error_code, error_message, processing_time,
         result_image, result_image_gcs_uri, result_video, result_video_gcs_uri,
+        video_status, video_error_message,
         person_image_gcs_uri, garment_image_gcs_uri, person_image_url, garment_image_url,
         wants_video, video_duration_seconds, attempt_count, last_attempt_at,
         next_retry_at, processing_started_at, dead_lettered_at, created_at, updated_at,
@@ -422,6 +445,7 @@ export async function createTryOnJob(input: CreateTryOnJobInput): Promise<TryOnJ
       ) VALUES (
         ${record.jobId}, ${record.status}, ${record.provider}, ${record.qualityScore}, ${record.modelName}, ${record.seed}, ${record.latencyMs}, ${record.fallbackReason}, ${record.errorCode}, ${record.errorMessage}, ${record.processingTime},
         ${record.resultImage}, ${record.resultImageGcsUri}, ${record.resultVideo}, ${record.resultVideoGcsUri},
+        ${record.videoStatus}, ${record.videoErrorMessage},
         ${record.personImageGcsUri}, ${record.garmentImageGcsUri}, ${record.personImageUrl}, ${record.garmentImageUrl},
         ${record.wantsVideo}, ${record.videoDurationSeconds}, ${record.attemptCount}, ${record.lastAttemptAt},
         ${record.nextRetryAt}, ${record.processingStartedAt}, ${record.deadLetteredAt}, ${record.createdAt}, ${record.updatedAt},
@@ -443,6 +467,8 @@ export async function createTryOnJob(input: CreateTryOnJobInput): Promise<TryOnJ
         result_image_gcs_uri = EXCLUDED.result_image_gcs_uri,
         result_video = EXCLUDED.result_video,
         result_video_gcs_uri = EXCLUDED.result_video_gcs_uri,
+        video_status = EXCLUDED.video_status,
+        video_error_message = EXCLUDED.video_error_message,
         person_image_gcs_uri = EXCLUDED.person_image_gcs_uri,
         garment_image_gcs_uri = EXCLUDED.garment_image_gcs_uri,
         person_image_url = EXCLUDED.person_image_url,
@@ -505,6 +531,8 @@ export async function updateTryOnJob(jobId: string, patch: Partial<TryOnJobRecor
       resultImageGcsUri: patch.resultImageGcsUri ?? existing?.resultImageGcsUri,
       resultVideo: patch.resultVideo ?? existing?.resultVideo,
       resultVideoGcsUri: patch.resultVideoGcsUri ?? existing?.resultVideoGcsUri,
+      videoStatus: patch.videoStatus ?? existing?.videoStatus,
+      videoErrorMessage: patch.videoErrorMessage ?? existing?.videoErrorMessage,
       personImageGcsUri: patch.personImageGcsUri ?? existing?.personImageGcsUri,
       garmentImageGcsUri: patch.garmentImageGcsUri ?? existing?.garmentImageGcsUri,
       personImageUrl: patch.personImageUrl ?? existing?.personImageUrl,
@@ -530,6 +558,7 @@ export async function updateTryOnJob(jobId: string, patch: Partial<TryOnJobRecor
       INSERT INTO virtual_tryon_jobs (
         job_id, status, provider, quality_score, model_name, seed, latency_ms, fallback_reason, error_code, error_message, processing_time,
         result_image, result_image_gcs_uri, result_video, result_video_gcs_uri,
+        video_status, video_error_message,
         person_image_gcs_uri, garment_image_gcs_uri, person_image_url, garment_image_url,
         wants_video, video_duration_seconds, attempt_count, last_attempt_at,
         next_retry_at, processing_started_at, dead_lettered_at, created_at, updated_at,
@@ -538,6 +567,7 @@ export async function updateTryOnJob(jobId: string, patch: Partial<TryOnJobRecor
       ) VALUES (
         ${merged.jobId}, ${merged.status}, ${merged.provider}, ${merged.qualityScore}, ${merged.modelName}, ${merged.seed}, ${merged.latencyMs}, ${merged.fallbackReason}, ${merged.errorCode}, ${merged.errorMessage}, ${merged.processingTime},
         ${merged.resultImage}, ${merged.resultImageGcsUri}, ${merged.resultVideo}, ${merged.resultVideoGcsUri},
+        ${merged.videoStatus}, ${merged.videoErrorMessage},
         ${merged.personImageGcsUri}, ${merged.garmentImageGcsUri}, ${merged.personImageUrl}, ${merged.garmentImageUrl},
         ${merged.wantsVideo}, ${merged.videoDurationSeconds}, ${merged.attemptCount}, ${merged.lastAttemptAt},
         ${merged.nextRetryAt}, ${merged.processingStartedAt}, ${merged.deadLetteredAt}, ${merged.createdAt}, ${merged.updatedAt},
@@ -559,6 +589,8 @@ export async function updateTryOnJob(jobId: string, patch: Partial<TryOnJobRecor
         result_image_gcs_uri = EXCLUDED.result_image_gcs_uri,
         result_video = EXCLUDED.result_video,
         result_video_gcs_uri = EXCLUDED.result_video_gcs_uri,
+        video_status = EXCLUDED.video_status,
+        video_error_message = EXCLUDED.video_error_message,
         person_image_gcs_uri = EXCLUDED.person_image_gcs_uri,
         garment_image_gcs_uri = EXCLUDED.garment_image_gcs_uri,
         person_image_url = EXCLUDED.person_image_url,

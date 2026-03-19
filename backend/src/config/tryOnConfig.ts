@@ -129,6 +129,7 @@ export interface TryOnHealthSnapshot {
   videoEnabled: boolean;
   localVideoDisabled: boolean;
   reasons: string[];
+  videoReasons: string[];
 }
 
 export function getTryOnHealthSnapshot(): TryOnHealthSnapshot {
@@ -136,18 +137,32 @@ export function getTryOnHealthSnapshot(): TryOnHealthSnapshot {
   const vertexConfigured = Boolean(VERTEX_PROJECT_ID && VERTEX_LOCATION);
   const modelConfigured = Boolean(VERTEX_TRYON_MODEL_ID);
   const storageConfigured = Boolean(storageProvider);
-  const devVideoEnabled = process.env.TRYON_DEV_ENABLE_VIDEO === 'true';
-  const localVideoDisabled = process.env.NODE_ENV === 'development' && !devVideoEnabled;
-  const videoEnabled = !localVideoDisabled
-    && process.env.FREE_MODE_DISABLE_VIDEO !== 'true'
+  const localVideoDisabled = false;
+  const outputStorageReady = Boolean(process.env.VERTEX_VEO_OUTPUT_GCS_URI || process.env.GCS_TRYON_BUCKET);
+  const videoEnabled = process.env.FREE_MODE_DISABLE_VIDEO !== 'true'
     && storageProvider === 'gcs'
-    && isTryOnGcsConfigured();
+    && isTryOnGcsConfigured()
+    && outputStorageReady;
   const reasons: string[] = [];
+  const videoReasons: string[] = [];
 
   if (!VERTEX_PROJECT_ID) reasons.push('Thiếu VERTEX_AI_PROJECT_ID');
   if (!VERTEX_LOCATION) reasons.push('Thiếu VERTEX_AI_LOCATION');
   if (!modelConfigured) reasons.push('Thiếu VERTEX_TRYON_MODEL_ID');
   if (!storageConfigured) reasons.push('Chưa cấu hình storage cho try-on');
+
+  if (process.env.FREE_MODE_DISABLE_VIDEO === 'true') {
+    videoReasons.push('Video đang bị tắt theo cấu hình FREE_MODE_DISABLE_VIDEO');
+  }
+  if (storageProvider !== 'gcs') {
+    videoReasons.push('Video yêu cầu storage GCS');
+  }
+  if (!isTryOnGcsConfigured()) {
+    videoReasons.push('Chưa cấu hình GCS cho try-on');
+  }
+  if (!outputStorageReady) {
+    videoReasons.push('Thiếu VERTEX_VEO_OUTPUT_GCS_URI hoặc GCS_TRYON_BUCKET');
+  }
 
   return {
     available: vertexConfigured && storageConfigured && modelConfigured,
@@ -161,5 +176,6 @@ export function getTryOnHealthSnapshot(): TryOnHealthSnapshot {
     videoEnabled,
     localVideoDisabled,
     reasons,
+    videoReasons,
   };
 }

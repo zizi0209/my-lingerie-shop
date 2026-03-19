@@ -21,6 +21,8 @@ interface TryOnErrorPayload {
   retryAfterSeconds?: number;
   errorStage?: string;
   providerHint?: string;
+  videoStatus?: 'pending' | 'completed' | 'failed' | 'skipped';
+  videoErrorMessage?: string;
 }
 
 interface PublicConfigPayload {
@@ -128,6 +130,8 @@ function toTryOnResult(params: {
   resultVideo?: string;
   resultImageGcsUri?: string;
   resultVideoGcsUri?: string;
+  videoStatus?: 'pending' | 'completed' | 'failed' | 'skipped';
+  videoErrorMessage?: string;
   processingTime?: number;
   qualityScore?: number;
   modelName?: string;
@@ -145,6 +149,8 @@ function toTryOnResult(params: {
     resultVideo: params.resultVideo,
     resultImageGcsUri: params.resultImageGcsUri,
     resultVideoGcsUri: params.resultVideoGcsUri,
+    videoStatus: params.videoStatus,
+    videoErrorMessage: params.videoErrorMessage,
     processingTime: params.processingTime,
     jobId: params.jobId,
     source: 'cloud',
@@ -420,6 +426,8 @@ async function processVirtualTryOnAsyncCloud(
     resultVideo: jobStatus.resultVideo,
     resultImageGcsUri: jobStatus.resultImageGcsUri,
     resultVideoGcsUri: jobStatus.resultVideoGcsUri,
+    videoStatus: jobStatus.videoStatus,
+    videoErrorMessage: jobStatus.videoErrorMessage,
     processingTime: jobStatus.processingTime,
     qualityScore: jobStatus.qualityScore,
     modelName: jobStatus.modelName,
@@ -445,21 +453,25 @@ export async function processVirtualTryOn(
  export async function checkServiceStatus(): Promise<{
    available: boolean;
    providers: Array<{ name: string; available: boolean }>;
+   videoEnabled: boolean;
+   videoReasons: string[];
  }> {
    try {
      const response = await fetch(`${API_BASE_URL}/virtual-tryon/status`);
      
      if (!response.ok) {
-       return { available: false, providers: [] };
+       return { available: false, providers: [], videoEnabled: false, videoReasons: [] };
      }
  
      const result = await response.json();
      return {
        available: result.data?.available ?? false,
        providers: result.data?.providers ?? [],
+       videoEnabled: result.data?.videoEnabled ?? false,
+       videoReasons: result.data?.videoReasons ?? [],
      };
    } catch {
-     return { available: false, providers: [] };
+     return { available: false, providers: [], videoEnabled: false, videoReasons: [] };
    }
  }
  

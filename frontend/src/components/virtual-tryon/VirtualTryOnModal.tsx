@@ -10,7 +10,7 @@ import { PoseGuide, PoseGuideTips } from './PoseGuide';
 import { TryOnModeSelector, type TryOnMode } from './TryOnModeSelector';
 import { LiveTryOnModal } from './LiveTryOnModal';
 import { processPhotoTryOn } from '@/services/photo-tryon';
-import { getErrorMessage } from '@/services/virtual-tryon-api';
+import { checkServiceStatus, getErrorMessage } from '@/services/virtual-tryon-api';
 import type { PoseValidationResult } from '@/services/pose-detection';
 import type { ProductType } from '@/services/clothing-overlay';
 import type { TryOnResult } from '@/types/virtual-tryon';
@@ -47,6 +47,11 @@ export function VirtualTryOnModal({
   const [selectedMode, setSelectedMode] = useState<TryOnMode | null>(null);
   const [showLiveTryOn, setShowLiveTryOn] = useState(false);
   const [wantsVideo, setWantsVideo] = useState(false);
+  const [videoAvailability, setVideoAvailability] = useState<{
+    enabled: boolean;
+    reasons: string[];
+    checked: boolean;
+  }>({ enabled: false, reasons: [], checked: false });
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
@@ -60,6 +65,39 @@ export function VirtualTryOnModal({
   useEffect(() => {
     isOpenRef.current = isOpen;
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    const loadStatus = async () => {
+      try {
+        const status = await checkServiceStatus();
+        if (cancelled) return;
+        setVideoAvailability({
+          enabled: status.videoEnabled,
+          reasons: status.videoReasons,
+          checked: true,
+        });
+      } catch {
+        if (cancelled) return;
+        setVideoAvailability({
+          enabled: false,
+          reasons: ['Không thể kiểm tra trạng thái video'],
+          checked: true,
+        });
+      }
+    };
+    void loadStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!videoAvailability.enabled && wantsVideo) {
+      setWantsVideo(false);
+    }
+  }, [videoAvailability.enabled, wantsVideo]);
  
   // Check if pose is valid enough to proceed
   const canProceed = useMemo(() => {
@@ -432,10 +470,19 @@ export function VirtualTryOnModal({
                     type="checkbox"
                     className="h-4 w-4 text-purple-600 border-gray-300 rounded"
                     checked={wantsVideo}
+                    disabled={!videoAvailability.checked || !videoAvailability.enabled}
                     onChange={(event) => setWantsVideo(event.target.checked)}
                   />
                   Tạo video thử đồ (tốn thêm thời gian xử lý)
                 </label>
+                {!videoAvailability.checked && (
+                  <p className="mt-2 text-xs text-gray-500">Đang kiểm tra trạng thái video...</p>
+                )}
+                {videoAvailability.checked && !videoAvailability.enabled && (
+                  <p className="mt-2 text-xs text-amber-600">
+                    {videoAvailability.reasons[0] || 'Video thử đồ chưa sẵn sàng trên môi trường này.'}
+                  </p>
+                )}
               </div>
  
               {/* Actions */}

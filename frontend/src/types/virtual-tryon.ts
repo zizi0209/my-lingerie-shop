@@ -25,6 +25,8 @@ export type TryOnErrorCode =
   resultVideo?: string;
   resultImageGcsUri?: string;
   resultVideoGcsUri?: string;
+  videoStatus?: 'pending' | 'completed' | 'failed' | 'skipped';
+  videoErrorMessage?: string;
   processingTime?: number;
   jobId?: string;
   source?: 'cloud' | 'local';
@@ -84,6 +86,8 @@ export interface TryOnJobStatusResponse {
   resultImageGcsUri?: string;
   resultVideo?: string;
   resultVideoGcsUri?: string;
+  videoStatus?: 'pending' | 'completed' | 'failed' | 'skipped';
+  videoErrorMessage?: string;
   qualityScore?: number;
   modelName?: string;
   seed?: number;

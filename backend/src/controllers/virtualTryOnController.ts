@@ -166,6 +166,8 @@ function buildJobStatusPayload(job: Awaited<ReturnType<typeof getTryOnJob>>) {
     errorStage: derived?.errorStage,
     statusReason: derived?.statusReason,
     providerHint: derived?.providerHint,
+    videoStatus: job.videoStatus,
+    videoErrorMessage: job.videoErrorMessage,
     etaMs,
     queuedDurationMs,
     processingDurationMs,
@@ -529,26 +531,45 @@ async function processTryOnJobInternal(jobId: string): Promise<{ status: number;
 
     let resultVideoGcsUri: string | undefined;
     let resultVideoSignedUrl: string | undefined;
+    let videoStatus: 'completed' | 'failed' | 'skipped' | undefined;
+    let videoErrorMessage: string | undefined;
 
-    const storageProvider = getTryOnStorageProvider();
-    const devVideoEnabled = process.env.TRYON_DEV_ENABLE_VIDEO === 'true';
-    const localVideoDisabled = process.env.NODE_ENV === 'development' && !devVideoEnabled;
-    const videoDisabled = localVideoDisabled
-      || process.env.FREE_MODE_DISABLE_VIDEO === 'true'
-      || storageProvider !== 'gcs';
+    const healthSnapshot = getTryOnHealthSnapshot();
+    const videoEnabled = healthSnapshot.videoEnabled;
+    const videoReason = healthSnapshot.videoReasons.join('; ') || 'Video chưa sẵn sàng';
 
     if (jobRecord.wantsVideo) {
-      if (videoDisabled) {
-        throw new Error('Video yêu cầu GCS và bật cấu hình video');
+      if (!videoEnabled) {
+        videoStatus = 'skipped';
+        videoErrorMessage = videoReason;
+        logTryOnTelemetry({
+          event: 'video_skipped',
+          jobId,
+          provider: 'vertex-ai-tryon',
+          reason: videoReason,
+        });
+      } else {
+        try {
+          const veoResult = await generateVeoVideoFromImage({
+            imageGcsUri: storedImage.storageUri || '',
+            durationSeconds: jobRecord.videoDurationSeconds,
+            mimeType: tryOnResult.mimeType,
+          });
+          resultVideoGcsUri = veoResult.gcsUri;
+          resultVideoSignedUrl = await getSignedReadUrlForGcsUri(veoResult.gcsUri);
+          videoStatus = 'completed';
+        } catch (videoError) {
+          const message = videoError instanceof Error ? videoError.message : 'Tạo video thất bại';
+          videoStatus = 'failed';
+          videoErrorMessage = message;
+          logTryOnTelemetry({
+            event: 'video_failed',
+            jobId,
+            provider: 'vertex-ai-tryon',
+            error: message,
+          });
+        }
       }
-
-      const veoResult = await generateVeoVideoFromImage({
-        imageGcsUri: storedImage.storageUri || '',
-        durationSeconds: jobRecord.videoDurationSeconds,
-        mimeType: tryOnResult.mimeType,
-      });
-      resultVideoGcsUri = veoResult.gcsUri;
-      resultVideoSignedUrl = await getSignedReadUrlForGcsUri(veoResult.gcsUri);
     }
 
     const processingTime = Date.now() - startTime;
@@ -563,6 +584,8 @@ async function processTryOnJobInternal(jobId: string): Promise<{ status: number;
       resultImageGcsUri: storedImage.storageUri,
       resultVideo: resultVideoSignedUrl,
       resultVideoGcsUri,
+      videoStatus,
+      videoErrorMessage,
       processingStartedAt,
     });
 
@@ -573,8 +596,8 @@ async function processTryOnJobInternal(jobId: string): Promise<{ status: number;
       modelName: VERTEX_TRYON_MODEL_ID,
       latencyMs: processingTime,
       wantsVideo: Boolean(jobRecord.wantsVideo),
-      videoDisabled,
-      localVideoDisabled,
+      videoEnabled,
+      videoStatus,
     });
 
     shouldCleanup = true;
@@ -589,6 +612,8 @@ async function processTryOnJobInternal(jobId: string): Promise<{ status: number;
           resultImageGcsUri: storedImage.storageUri,
           resultVideo: resultVideoSignedUrl,
           resultVideoGcsUri,
+          videoStatus,
+          videoErrorMessage,
           processingTime,
         },
       },
@@ -1133,6 +1158,8 @@ export async function getTryOnMetrics(req: Request, res: Response) {
        success: true,
        data: {
         available: status.available,
+        videoEnabled: status.videoEnabled,
+        videoReasons: status.videoReasons,
         providers: [
           {
             name: status.provider,

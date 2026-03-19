@@ -15,6 +15,11 @@ export function ResultView({ result, onTryAgain, onAddToCart, onDownload, onDown
   const qualityLabel = typeof result.qualityScore === 'number'
     ? `${Math.round(result.qualityScore * 100)}%`
     : undefined;
+  const showVideoWarning = result.videoStatus === 'failed' || result.videoStatus === 'skipped';
+  const videoWarningMessage = result.videoErrorMessage
+    || (result.videoStatus === 'failed'
+      ? 'Video thử đồ chưa tạo được, bạn vẫn có thể tải ảnh kết quả.'
+      : 'Video thử đồ chưa sẵn sàng, bạn vẫn có thể tải ảnh kết quả.');
 
   const metadataItems = [
     result.provider ? { label: 'Provider', value: result.provider } : null,
@@ -43,6 +48,12 @@ export function ResultView({ result, onTryAgain, onAddToCart, onDownload, onDown
            />
          </div>
        </div>
+
+      {showVideoWarning && (
+        <div className="p-3 sm:p-4 bg-amber-50 border border-amber-200 rounded-lg text-xs sm:text-sm text-amber-700">
+          {videoWarningMessage}
+        </div>
+      )}
 
       {result.resultVideo && (
         <div>
