@@ -308,6 +308,11 @@ export const createOrder = async (req: Request, res: Response) => {
       // Coupon support
       couponCode,
       couponDiscount = 0,
+    // Voucher stacking
+    discountCouponCode,
+    discountCouponAmount = 0,
+    shippingCouponCode,
+    shippingCouponAmount = 0,
     } = req.body;
 
     // Validate required fields
@@ -345,20 +350,39 @@ export const createOrder = async (req: Request, res: Response) => {
       });
     }
 
+    const resolvedDiscountCouponCode = discountCouponCode || couponCode || null;
+    const resolvedDiscountCouponAmount = Number(discountCouponAmount ?? couponDiscount ?? 0) || 0;
+    const resolvedShippingCouponCode = shippingCouponCode || null;
+    const resolvedShippingCouponAmount = Number(shippingCouponAmount ?? 0) || 0;
+    const resolvedDiscount = discount !== undefined && discount !== null
+      ? Number(discount) || 0
+      : resolvedDiscountCouponAmount;
+
     // Validate and process coupon if provided
     let validatedCouponCode: string | null = null;
     let validatedCouponDiscount = 0;
-    let couponId: number | null = null;
+    let discountCouponId: number | null = null;
+    let shippingCouponId: number | null = null;
 
-    if (couponCode && userId) {
+    if (resolvedDiscountCouponCode && userId) {
       const coupon = await prisma.coupon.findUnique({
-        where: { code: couponCode.toUpperCase() },
+        where: { code: resolvedDiscountCouponCode.toUpperCase() },
       });
 
       if (coupon && coupon.isActive) {
         validatedCouponCode = coupon.code;
-        validatedCouponDiscount = Number(couponDiscount) || 0;
-        couponId = coupon.id;
+        validatedCouponDiscount = resolvedDiscountCouponAmount;
+        discountCouponId = coupon.id;
+      }
+    }
+
+    if (resolvedShippingCouponCode && userId) {
+      const coupon = await prisma.coupon.findUnique({
+        where: { code: resolvedShippingCouponCode.toUpperCase() },
+      });
+
+      if (coupon && coupon.isActive) {
+        shippingCouponId = coupon.id;
       }
     }
 
@@ -375,7 +399,7 @@ export const createOrder = async (req: Request, res: Response) => {
         paymentMethod: paymentMethod || 'COD',
         totalAmount: Number(totalAmount),
         shippingFee: Number(shippingFee),
-        discount: Number(discount) + validatedCouponDiscount,
+        discount: resolvedDiscount,
         couponCode: validatedCouponCode,
         couponDiscount: validatedCouponDiscount,
         notes: notes || null,
@@ -415,38 +439,49 @@ export const createOrder = async (req: Request, res: Response) => {
     });
 
     // Update coupon usage if coupon was applied
-    if (couponId && userId) {
+    const updateCouponUsage = async (couponId: number, discountAmount: number) => {
+      await prisma.userCoupon.updateMany({
+        where: {
+          userId: Number(userId),
+          couponId: couponId,
+          status: 'AVAILABLE',
+        },
+        data: {
+          status: 'USED',
+          usedAt: new Date(),
+          usedOrderId: order.id,
+        },
+      });
+
+      await prisma.coupon.update({
+        where: { id: couponId },
+        data: { usedCount: { increment: 1 } },
+      });
+
+      await prisma.couponUsage.create({
+        data: {
+          couponId: couponId,
+          userId: Number(userId),
+          orderId: order.id,
+          discountAmount: discountAmount,
+          orderTotal: Number(totalAmount),
+        },
+      });
+    };
+
+    if ((discountCouponId || shippingCouponId) && userId) {
       try {
-        // Update UserCoupon status
-        await prisma.userCoupon.updateMany({
-          where: {
-            userId: Number(userId),
-            couponId: couponId,
-            status: 'AVAILABLE',
-          },
-          data: {
-            status: 'USED',
-            usedAt: new Date(),
-            usedOrderId: order.id,
-          },
-        });
+        const updates: Promise<void>[] = [];
 
-        // Increment coupon usedCount
-        await prisma.coupon.update({
-          where: { id: couponId },
-          data: { usedCount: { increment: 1 } },
-        });
+        if (discountCouponId) {
+          updates.push(updateCouponUsage(discountCouponId, validatedCouponDiscount));
+        }
 
-        // Record coupon usage
-        await prisma.couponUsage.create({
-          data: {
-            couponId: couponId,
-            userId: Number(userId),
-            orderId: order.id,
-            discountAmount: validatedCouponDiscount,
-            orderTotal: Number(totalAmount),
-          },
-        });
+        if (shippingCouponId) {
+          updates.push(updateCouponUsage(shippingCouponId, resolvedShippingCouponAmount));
+        }
+
+        await Promise.all(updates);
       } catch (couponError) {
         // Log but don't fail the order
         console.error('Failed to update coupon usage:', couponError);
