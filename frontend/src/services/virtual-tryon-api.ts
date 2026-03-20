@@ -7,6 +7,7 @@ import {
   TryOnJobStatusResponse,
   VideoFromImageResponse,
 } from '@/types/virtual-tryon';
+import { compressImage } from '@/lib/imageUtils';
  
  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const ENV_ENABLE_REMOTE_TRYON = process.env.NEXT_PUBLIC_ENABLE_REMOTE_TRYON;
@@ -172,6 +173,26 @@ function toTryOnResult(params: {
     latencyMs: params.latencyMs,
     fallbackReason: params.fallbackReason,
   };
+}
+
+async function compressPersonImage(file: File | Blob): Promise<File> {
+  const sourceFile = file instanceof File
+    ? file
+    : new File([file], 'tryon-person.jpg', { type: file.type || 'image/jpeg' });
+  try {
+    const compressed = await compressImage(sourceFile, {
+      fileType: 'image/webp',
+      quality: 0.85,
+      maxWidthOrHeight: 1536,
+    });
+    if (compressed.preview) {
+      URL.revokeObjectURL(compressed.preview);
+    }
+    return compressed.file;
+  } catch (error) {
+    console.warn('[TryOn][Upload] Không thể nén ảnh, dùng file gốc:', error);
+    return sourceFile;
+  }
 }
 
 async function requestSignedUploadUrl(
@@ -360,15 +381,17 @@ async function processVirtualTryOnAsyncCloud(
 ): Promise<TryOnResult> {
   onProgress?.(8, 'Đang chuẩn bị upload ảnh...');
 
+  const personFile = await compressPersonImage(request.personImage);
   const garmentBlob = await (await fetch(request.garmentImageUrl, { signal })).blob();
   const garmentContentType = garmentBlob.type || 'image/jpeg';
+  const personContentType = personFile.type || 'image/jpeg';
 
   const [personUpload, garmentUpload] = await Promise.all([
     requestSignedUploadUrl(
       {
-        contentType: request.personImage.type || 'image/jpeg',
+        contentType: personContentType,
         category: 'person',
-        contentLength: request.personImage.size,
+        contentLength: personFile.size,
       },
       { signal }
     ),
@@ -381,8 +404,8 @@ async function processVirtualTryOnAsyncCloud(
   onProgress?.(18, 'Đang upload ảnh lên Cloud Storage...');
   const personUploadResult = await uploadFileToSignedUrl(
     personUpload,
-    request.personImage,
-    request.personImage.type || 'image/jpeg',
+    personFile,
+    personContentType,
     { signal }
   );
   const garmentUploadResult = await uploadFileToSignedUrl(
