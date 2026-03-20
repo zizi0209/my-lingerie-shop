@@ -14,6 +14,7 @@ import { useLanguage } from '../components/LanguageContext';
 import { useStoreConfig } from '../components/StoreConfigContext';
 import { compressImage, ACCEPTED_IMAGE_TYPES, formatFileSize, type CompressedImage } from '@/lib/imageUtils';
 import { LexicalEditor } from '@/components/editor';
+import { VIETQR_BANKS, getVietQrBankByCode } from '@/lib/vietqr';
 
 interface SystemConfig {
   // Store Info
@@ -51,6 +52,7 @@ interface SystemConfig {
   bank_name?: string;
   bank_account_number?: string;
   bank_account_holder?: string;
+  bank_vietqr_code?: string;
   
   // Marketing & Integrations
   facebook_pixel_id?: string;
@@ -93,6 +95,7 @@ const defaultConfig: SystemConfig = {
   bank_name: '',
   bank_account_number: '',
   bank_account_holder: '',
+  bank_vietqr_code: '',
   facebook_pixel_id: '',
   google_analytics_id: '',
   tiktok_pixel_id: '',
@@ -193,7 +196,8 @@ const Settings: React.FC = () => {
     defaultShippingFee: language === 'vi' ? 'Phí vận chuyển mặc định' : 'Default Shipping Fee',
     
     // Fields - Payment
-    bankName: language === 'vi' ? 'Tên ngân hàng' : 'Bank Name',
+    bankCode: language === 'vi' ? 'Ngân hàng VietQR' : 'VietQR Bank',
+    bankSelectPlaceholder: language === 'vi' ? 'Chọn ngân hàng' : 'Select bank',
     bankAccountNumber: language === 'vi' ? 'Số tài khoản' : 'Account Number',
     bankAccountHolder: language === 'vi' ? 'Chủ tài khoản' : 'Account Holder',
     
@@ -245,7 +249,12 @@ const Settings: React.FC = () => {
         setLoading(true);
         const response = await api.get<{ success: boolean; data: SystemConfig }>('/admin/system-config');
         if (response.success) {
-          setConfig({ ...defaultConfig, ...response.data });
+          const resolvedBank = getVietQrBankByCode(response.data.bank_vietqr_code);
+          setConfig({
+            ...defaultConfig,
+            ...response.data,
+            bank_name: resolvedBank?.name || response.data.bank_name,
+          });
         }
       } catch (err) {
         console.error('Failed to fetch config:', err);
@@ -260,6 +269,15 @@ const Settings: React.FC = () => {
   // Handle input change
   const handleChange = (key: keyof SystemConfig, value: string) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleBankCodeChange = (code: string) => {
+    const bank = getVietQrBankByCode(code);
+    setConfig(prev => ({
+      ...prev,
+      bank_vietqr_code: code,
+      bank_name: bank?.name || prev.bank_name,
+    }));
   };
 
   // Handle toggle change
@@ -1023,14 +1041,19 @@ const Settings: React.FC = () => {
               </div>
               <div className="p-6 space-y-5">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.bankName}</label>
-                  <input
-                    type="text"
-                    value={config.bank_name || ''}
-                    onChange={(e) => handleChange('bank_name', e.target.value)}
-                    placeholder="Vietcombank, Techcombank..."
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.bankCode}</label>
+                  <select
+                    value={config.bank_vietqr_code || ''}
+                    onChange={(e) => handleBankCodeChange(e.target.value)}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:text-slate-200 font-medium"
-                  />
+                  >
+                    <option value="">{t.bankSelectPlaceholder}</option>
+                    {VIETQR_BANKS.map((bank) => (
+                      <option key={bank.code} value={bank.code}>
+                        {bank.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t.bankAccountNumber}</label>

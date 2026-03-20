@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useStore } from "@/context/StoreContext";
 import { userVoucherApi } from "@/lib/couponApi";
 import VoucherSelector from "@/components/checkout/VoucherSelector";
-import { buildVietQrUrl, DEFAULT_VIETQR_CONFIG } from "@/lib/vietqr";
+import { buildVietQrUrl, DEFAULT_VIETQR_CONFIG, resolveVietQrBank } from "@/lib/vietqr";
 import { getApiBaseUrl } from "@/lib/apiBase";
 
 const FALLBACK_IMAGE = "/images/seed/set/set-3.webp";
@@ -55,9 +55,10 @@ export default function CheckoutPage() {
   });
 
   const baseUrl = getApiBaseUrl();
+  const resolvedBank = resolveVietQrBank(store.bank_vietqr_code, store.bank_name);
   const bankConfig = {
-    bankCode: store.bank_vietqr_code || DEFAULT_VIETQR_CONFIG.bankCode,
-    bankName: store.bank_name || DEFAULT_VIETQR_CONFIG.bankName,
+    bankCode: resolvedBank.code || DEFAULT_VIETQR_CONFIG.bankCode,
+    bankName: resolvedBank.name || store.bank_name || DEFAULT_VIETQR_CONFIG.bankName,
     accountNumber: store.bank_account_number || DEFAULT_VIETQR_CONFIG.accountNumber,
     accountName: store.bank_account_holder || DEFAULT_VIETQR_CONFIG.accountName,
   };
