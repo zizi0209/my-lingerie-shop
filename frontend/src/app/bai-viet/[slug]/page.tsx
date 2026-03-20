@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import PostContent from "@/components/blog/PostContent";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 interface Author {
   id: number;
@@ -68,7 +69,7 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
   const [likeCount, setLikeCount] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
 
   useEffect(() => {
     const fetchPost = async () => {

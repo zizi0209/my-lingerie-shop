@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Minus, Plus, X, ShoppingBag, Loader2, Trash2, Edit2, Check } from "lucide-react";
 import { useCart, CartItem } from "@/context/CartContext";
 import CartRecommendations from "@/components/cart/CartRecommendations";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 const FALLBACK_IMAGE = "/images/seed/set/set-3.webp";
 
@@ -44,7 +45,7 @@ export default function CartPage() {
   const [productVariants, setProductVariants] = useState<Record<number, ProductVariant[]>>({});
   const [loadingVariants, setLoadingVariants] = useState<Set<number>>(new Set());
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
 
   const fetchVariants = useCallback(async (productId: number) => {
     if (productVariants[productId]) return;

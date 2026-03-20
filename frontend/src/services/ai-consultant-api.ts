@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import { getApiBaseUrl } from '@/lib/apiBase';
+
+const API_BASE = getApiBaseUrl();
 const CHATJPT_BUSY_MESSAGE = 'ChatJPT hiện đang bận. Vui lòng thử lại sau ít phút.';
 const CHATJPT_UNREACHABLE_MESSAGE = 'Không thể kết nối với ChatJPT. Vui lòng thử lại sau.';
  

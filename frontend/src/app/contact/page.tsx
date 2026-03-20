@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Mail, Phone, MapPin, Clock, Send, MessageSquare, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 interface SocialConfig {
   facebook?: string;
@@ -62,7 +63,7 @@ export default function ContactPage() {
     setError(null);
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const API_URL = getApiBaseUrl();
       const res = await fetch(`${API_URL}/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

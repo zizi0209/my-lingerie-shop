@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 interface Synonym {
   id: number;
@@ -88,7 +89,7 @@ export default function SearchManagement() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsDays, setAnalyticsDays] = useState(7);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
 
   // Fetch synonyms
   const fetchSynonyms = useCallback(async () => {

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Calendar, Clock, User, ArrowRight, Search, Filter, Eye, Loader2 } from "lucide-react";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 interface Author {
   id: number;
@@ -42,7 +43,7 @@ export default function BlogPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
 
   // Fetch categories
   useEffect(() => {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { FileText, Calendar, Eye, ExternalLink, Sparkles } from 'lucide-react';
 import { trackContentCommerce } from '@/lib/tracking';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 interface Post {
   id: number;
@@ -29,7 +30,7 @@ export default function RelatedPosts({ productId, className = '' }: RelatedPosts
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const baseUrl = getApiBaseUrl();
 
   useEffect(() => {
     const fetchPosts = async () => {

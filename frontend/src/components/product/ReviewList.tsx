@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { getApiBaseUrl } from "@/lib/apiBase";
 import { Star, Image as ImageIcon, CheckCircle, Loader2 } from "lucide-react";
 import ReviewCard from "./ReviewCard";
 import ReviewStats from "./ReviewStats";
@@ -57,7 +58,7 @@ export default function ReviewList({ productSlug }: ReviewListProps) {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
 
   // Fetch stats
   useEffect(() => {

@@ -2,12 +2,14 @@
  * Utility function for fetching API with timeout and error handling
  * Returns null if fetch fails (graceful degradation)
  */
+import { getApiBaseUrl } from './apiBase';
+
 export async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit & { timeout?: number }
 ): Promise<T | null> {
   const { timeout = 5000, ...fetchOptions } = options || {};
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const baseUrl = getApiBaseUrl();
   const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
 
   try {

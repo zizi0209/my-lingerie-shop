@@ -21,6 +21,9 @@ import {
   Star,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { getApiBaseUrl } from "@/lib/apiBase";
+import { useStore } from "@/context/StoreContext";
+import { buildVietQrUrl, DEFAULT_VIETQR_CONFIG } from "@/lib/vietqr";
 
 const FALLBACK_IMAGE = "/images/seed/set/set-3.webp";
 
@@ -85,13 +88,20 @@ function OrderTrackingContent() {
   const searchParams = useSearchParams();
   const codeFromUrl = searchParams.get("code") || "";
   const { isAuthenticated } = useAuth();
+  const store = useStore();
 
   const [orderCode, setOrderCode] = useState(codeFromUrl);
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
+  const bankConfig = {
+    bankCode: store.bank_vietqr_code || DEFAULT_VIETQR_CONFIG.bankCode,
+    bankName: store.bank_name || DEFAULT_VIETQR_CONFIG.bankName,
+    accountNumber: store.bank_account_number || DEFAULT_VIETQR_CONFIG.accountNumber,
+    accountName: store.bank_account_holder || DEFAULT_VIETQR_CONFIG.accountName,
+  };
   
   // Check if order can be reviewed (DELIVERED or COMPLETED)
   const canReview = order && (order.status === "DELIVERED" || order.status === "COMPLETED");
@@ -174,6 +184,17 @@ function OrderTrackingContent() {
     if (order?.guestInfo?.email) return order.guestInfo.email;
     return null;
   };
+
+  const shouldShowVietQr = order?.paymentMethod === "BANK_TRANSFER" && order.paymentStatus !== "PAID";
+  const qrUrl = shouldShowVietQr && order
+    ? buildVietQrUrl({
+        bankCode: bankConfig.bankCode,
+        accountNumber: bankConfig.accountNumber,
+        accountName: bankConfig.accountName,
+        amount: order.totalAmount,
+        addInfo: order.orderNumber,
+      })
+    : null;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -451,7 +472,11 @@ function OrderTrackingContent() {
                 <p className="text-gray-500 dark:text-gray-400 mb-1">Thanh toán</p>
                 <p className="font-medium text-gray-900 dark:text-white flex items-center gap-1">
                   <CreditCard className="w-4 h-4" />
-                  {order.paymentMethod === "COD" ? "COD" : order.paymentMethod === "TRANSFER" ? "Chuyển khoản" : order.paymentMethod}
+                  {order.paymentMethod === "COD"
+                    ? "COD"
+                    : order.paymentMethod === "BANK_TRANSFER"
+                    ? "Chuyển khoản VietQR"
+                    : order.paymentMethod}
                 </p>
               </div>
               <div>
@@ -474,6 +499,30 @@ function OrderTrackingContent() {
               </div>
             )}
           </div>
+
+          {shouldShowVietQr && qrUrl && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-8">
+              <h3 className="font-medium text-gray-900 dark:text-white mb-3">Thanh toán chuyển khoản VietQR</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Quét mã QR để điền sẵn số tiền và nội dung chuyển khoản cho đơn hàng này.
+              </p>
+              <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                <div className="bg-white p-3 rounded-lg border border-gray-200">
+                  <Image src={qrUrl} alt="VietQR" width={200} height={200} />
+                </div>
+                <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+                  <p><span className="font-medium">Ngân hàng:</span> {bankConfig.bankName}</p>
+                  <p><span className="font-medium">Số tài khoản:</span> {bankConfig.accountNumber}</p>
+                  <p><span className="font-medium">Chủ tài khoản:</span> {bankConfig.accountName}</p>
+                  <p><span className="font-medium">Số tiền:</span> {order.totalAmount.toLocaleString("vi-VN")}₫</p>
+                  <p><span className="font-medium">Nội dung chuyển khoản:</span> {order.orderNumber}</p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs p-3">
+                Demo học tập: sau khi chuyển khoản, hệ thống sẽ xác nhận thủ công.
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

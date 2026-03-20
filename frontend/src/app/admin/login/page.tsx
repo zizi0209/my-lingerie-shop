@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { isAdmin, User } from '@/lib/adminApi';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function AdminLoginPage() {
   useEffect(() => {
     const fetchBranding = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        const baseUrl = getApiBaseUrl();
         const response = await fetch(`${baseUrl}/public/config`);
         const data = await response.json();
         if (data.success) {

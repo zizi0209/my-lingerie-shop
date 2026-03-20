@@ -3,6 +3,7 @@
  import { useMemo, useState, useEffect } from 'react';
  import ProductCardInPost from './ProductCardInPost';
  import { sanitizeForPublic } from '@/lib/sanitize';
+ import { getApiBaseUrl } from '@/lib/apiBase';
  
  interface Product {
    id: number;
@@ -30,7 +31,7 @@
  export default function ContentWithInlineProducts({ content, products, onRemove }: Props) {
    const [embeddedProducts, setEmbeddedProducts] = useState<Map<number, Product>>(new Map());
    const [loadingProducts, setLoadingProducts] = useState<Set<number>>(new Set());
-   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+   const baseUrl = getApiBaseUrl();
 
    // Fetch embedded products that are not in the products list
    useEffect(() => {

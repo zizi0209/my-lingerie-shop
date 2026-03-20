@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getApiBaseUrl } from '@/lib/apiBase';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronRight } from 'lucide-react';
@@ -39,7 +40,7 @@ export default function CategoriesSection({ content }: CategoriesSectionProps) {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        const baseUrl = getApiBaseUrl();
         const res = await fetch(`${baseUrl}/categories`);
         const data = await res.json();
         if (data.success) {

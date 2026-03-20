@@ -10,6 +10,7 @@ import ThemeToggle from "./ThemeToggle";
 import { useStore } from "@/context/StoreContext";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 interface PopularKeyword {
   keyword: string;
@@ -32,7 +33,7 @@ export default function Header() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { itemCount } = useCart();
   
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
 
   // Handle scroll for header style
   useEffect(() => {

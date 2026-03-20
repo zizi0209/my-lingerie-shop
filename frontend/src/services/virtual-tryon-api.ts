@@ -8,8 +8,9 @@ import {
   VideoFromImageResponse,
 } from '@/types/virtual-tryon';
 import { compressImage } from '@/lib/imageUtils';
+import { getApiBaseUrl } from '@/lib/apiBase';
  
- const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = getApiBaseUrl();
 const ENV_ENABLE_REMOTE_TRYON = process.env.NEXT_PUBLIC_ENABLE_REMOTE_TRYON;
  
  type ProgressCallback = (progress: number, message?: string) => void;

@@ -6,19 +6,28 @@ import Link from "next/link";
 import { Truck, Shield, CreditCard, ShoppingBag, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { useStore } from "@/context/StoreContext";
 import { userVoucherApi } from "@/lib/couponApi";
 import VoucherSelector from "@/components/checkout/VoucherSelector";
+import { buildVietQrUrl, DEFAULT_VIETQR_CONFIG } from "@/lib/vietqr";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 const FALLBACK_IMAGE = "/images/seed/set/set-3.webp";
 
 export default function CheckoutPage() {
   const { cart, loading: cartLoading, subtotal, clearCart } = useCart();
   const { user, isAuthenticated } = useAuth();
+  const store = useStore();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [createdOrder, setCreatedOrder] = useState<{
+    orderNumber: string;
+    totalAmount: number;
+    paymentMethod: string;
+  } | null>(null);
   
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [shippingMethod, setShippingMethod] = useState("standard");
@@ -45,7 +54,13 @@ export default function CheckoutPage() {
     notes: "",
   });
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
+  const bankConfig = {
+    bankCode: store.bank_vietqr_code || DEFAULT_VIETQR_CONFIG.bankCode,
+    bankName: store.bank_name || DEFAULT_VIETQR_CONFIG.bankName,
+    accountNumber: store.bank_account_number || DEFAULT_VIETQR_CONFIG.accountNumber,
+    accountName: store.bank_account_holder || DEFAULT_VIETQR_CONFIG.accountName,
+  };
 
   // Pre-fill user info if logged in
   useEffect(() => {
@@ -156,7 +171,7 @@ export default function CheckoutPage() {
         shippingCity: formData.city,
         shippingPhone: formData.phone,
         shippingMethod: shippingMethod === "express" ? "EXPRESS" : "STANDARD",
-        paymentMethod: paymentMethod.toUpperCase(),
+        paymentMethod: paymentMethod === "bank_transfer" ? "BANK_TRANSFER" : "COD",
         totalAmount: total,
         shippingFee: finalShipping,
         discount: discountAmount,
@@ -185,6 +200,11 @@ export default function CheckoutPage() {
       await clearCart();
       
       setOrderNumber(data.data.orderNumber);
+      setCreatedOrder({
+        orderNumber: data.data.orderNumber,
+        totalAmount: Number(data.data.totalAmount || total),
+        paymentMethod: data.data.paymentMethod || (paymentMethod === "bank_transfer" ? "BANK_TRANSFER" : "COD"),
+      });
       setOrderSuccess(true);
       
     } catch (err) {
@@ -197,6 +217,16 @@ export default function CheckoutPage() {
 
   // Success screen
   if (orderSuccess) {
+    const shouldShowVietQr = createdOrder?.paymentMethod === "BANK_TRANSFER";
+    const qrUrl = shouldShowVietQr && createdOrder
+      ? buildVietQrUrl({
+          bankCode: bankConfig.bankCode,
+          accountNumber: bankConfig.accountNumber,
+          accountName: bankConfig.accountName,
+          amount: createdOrder.totalAmount,
+          addInfo: createdOrder.orderNumber,
+        })
+      : null;
     return (
       <div className="container mx-auto px-4 py-12 md:py-20">
         <div className="max-w-lg mx-auto text-center">
@@ -215,6 +245,29 @@ export default function CheckoutPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
             Chúng tôi sẽ liên hệ với bạn qua số điện thoại để xác nhận đơn hàng.
           </p>
+          {shouldShowVietQr && qrUrl && (
+            <div className="text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 mb-8">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Thanh toán chuyển khoản VietQR</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Quét mã QR để thanh toán đúng số tiền và nội dung chuyển khoản theo đơn hàng.
+              </p>
+              <div className="flex flex-col items-center gap-4">
+                <div className="bg-white p-3 rounded-lg border border-gray-200">
+                  <Image src={qrUrl} alt="VietQR" width={200} height={200} />
+                </div>
+                <div className="w-full text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                  <p><span className="font-medium">Ngân hàng:</span> {bankConfig.bankName}</p>
+                  <p><span className="font-medium">Số tài khoản:</span> {bankConfig.accountNumber}</p>
+                  <p><span className="font-medium">Chủ tài khoản:</span> {bankConfig.accountName}</p>
+                  <p><span className="font-medium">Số tiền:</span> {createdOrder.totalAmount.toLocaleString("vi-VN")}₫</p>
+                  <p><span className="font-medium">Nội dung chuyển khoản:</span> {createdOrder.orderNumber}</p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs p-3">
+                Đây là luồng demo học tập. Sau khi chuyển khoản, vui lòng chờ hệ thống xác nhận thủ công.
+              </div>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href={`/order?code=${orderNumber}`}
@@ -524,14 +577,14 @@ export default function CheckoutPage() {
                   <input
                     type="radio"
                     name="payment"
-                    value="transfer"
-                    checked={paymentMethod === "transfer"}
+                    value="bank_transfer"
+                    checked={paymentMethod === "bank_transfer"}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className="w-4 h-4 accent-black dark:accent-white mr-3"
                   />
                   <div>
-                    <p className="font-medium text-black dark:text-white">Chuyển khoản ngân hàng</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Chuyển khoản qua Internet Banking</p>
+                  <p className="font-medium text-black dark:text-white">Chuyển khoản VietQR</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Quét QR để điền sẵn số tiền và nội dung</p>
                   </div>
                 </label>
               </div>

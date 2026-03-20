@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { getApiBaseUrl } from '@/lib/apiBase';
 import { Search, X, ShoppingBag, Tag } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -32,7 +33,7 @@ export default function ProductSearchModal({ onSelect, onClose }: ProductSearchM
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const baseUrl = getApiBaseUrl();
 
   // Fetch products
   const fetchProducts = useCallback(async (query: string) => {

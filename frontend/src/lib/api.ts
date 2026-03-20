@@ -1,6 +1,8 @@
 // API Service với JWT Authentication + Auto Refresh Token
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import { getApiBaseUrl } from './apiBase';
+
+const API_BASE_URL = getApiBaseUrl();
 
 interface RequestOptions extends RequestInit {
   requireAuth?: boolean;

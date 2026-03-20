@@ -1,7 +1,8 @@
 'use client';
 
- import { useState, useEffect } from 'react';
- import { Sparkles, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Sparkles, Loader2 } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 interface VirtualTryOnButtonProps {
   onClick: () => void;
@@ -9,7 +10,7 @@ interface VirtualTryOnButtonProps {
    checkStatus?: boolean; // Enable service status check
 }
 
- const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = getApiBaseUrl();
  
  export function VirtualTryOnButton({ onClick, disabled, checkStatus = false }: VirtualTryOnButtonProps) {
    const [isChecking, setIsChecking] = useState(false);

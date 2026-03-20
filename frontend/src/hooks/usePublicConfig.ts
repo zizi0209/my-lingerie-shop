@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '@/lib/apiBase';
+import { isNetworkError } from '@/lib/fetchUtils';
 
 interface PublicConfig {
   store_name?: string;
@@ -23,7 +25,7 @@ export function usePublicConfig() {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        const baseUrl = getApiBaseUrl();
         const response = await fetch(`${baseUrl}/public/config`);
         const data = await response.json();
         
@@ -31,7 +33,9 @@ export function usePublicConfig() {
           setConfig(data.data);
         }
       } catch (error) {
-        console.error('Failed to fetch public config:', error);
+        if (!isNetworkError(error)) {
+          console.error('Failed to fetch public config:', error);
+        }
         // Keep defaults on error
       } finally {
         setLoading(false);

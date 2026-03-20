@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
+import { getApiBaseUrl } from "@/lib/apiBase";
 import { trackCartEvent } from "@/lib/tracking";
+import { isNetworkError } from "@/lib/fetchUtils";
 
 interface CartProduct {
   id: number;
@@ -102,7 +104,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
 
   const fetchCart = useCallback(async () => {
     try {
@@ -125,8 +127,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setError(data.error || "Không thể tải giỏ hàng");
       }
     } catch (err) {
-      console.error("Fetch cart error:", err);
-      setError("Lỗi kết nối server");
+      if (!isNetworkError(err)) {
+        console.error("Fetch cart error:", err);
+      }
+      setError("Không thể kết nối server");
     } finally {
       setLoading(false);
     }

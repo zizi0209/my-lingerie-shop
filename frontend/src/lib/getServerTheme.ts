@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { getApiBaseUrl } from './apiBase';
 
 export interface StoreConfig {
   primary_color: string;
@@ -12,6 +13,10 @@ export interface StoreConfig {
   social_instagram?: string;
   social_tiktok?: string;
   social_zalo?: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_account_holder?: string;
+  bank_vietqr_code?: string;
 }
 
 /**
@@ -21,7 +26,7 @@ export interface StoreConfig {
 export const getServerTheme = cache(async (): Promise<StoreConfig> => {
   try {
     // Use environment variable - backend runs on port 5000
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    const baseUrl = getApiBaseUrl();
     const url = `${baseUrl}/public/config`;
 
     // Fetch with no-cache to always get fresh data, with timeout
@@ -56,6 +61,10 @@ export const getServerTheme = cache(async (): Promise<StoreConfig> => {
       social_instagram: config.social_instagram,
       social_tiktok: config.social_tiktok,
       social_zalo: config.social_zalo,
+      bank_name: config.bank_name,
+      bank_account_number: config.bank_account_number,
+      bank_account_holder: config.bank_account_holder,
+      bank_vietqr_code: config.bank_vietqr_code,
     };
   } catch (error) {
     // Database down or network error - use fallback defaults

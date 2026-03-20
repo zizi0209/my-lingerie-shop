@@ -3,7 +3,9 @@
  * Connects frontend actions to /api/tracking endpoints
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+import { getApiBaseUrl } from './apiBase';
+
+const BASE_URL = getApiBaseUrl();
 
 // Get or create session ID
 export function getSessionId(): string {

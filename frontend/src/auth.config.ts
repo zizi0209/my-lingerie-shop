@@ -2,6 +2,7 @@ import type { NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
 import Credentials from "next-auth/providers/credentials";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 /**
  * Auth.js Configuration
@@ -40,7 +41,7 @@ export default {
 
         try {
           // Call Express backend for authentication
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+          const res = await fetch(`${getApiBaseUrl()}/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -82,7 +83,7 @@ export default {
       if (account?.provider === "google" || account?.provider === "github") {
         try {
           // Call backend API to create/update social user
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/social-login`, {
+          const response = await fetch(`${getApiBaseUrl()}/auth/social-login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

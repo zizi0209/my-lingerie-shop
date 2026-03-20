@@ -4,6 +4,7 @@
  import ProductCardInPost from './ProductCardInPost';
  import ContentWithInlineProducts from './ContentWithInlineProducts';
  import { sanitizeForPublic } from '@/lib/sanitize';
+ import { getApiBaseUrl } from '@/lib/apiBase';
  
  interface Product {
    id: number;
@@ -34,7 +35,7 @@
    const [manualProducts, setManualProducts] = useState<ProductOnPost[]>([]);
    const [loading, setLoading] = useState(true);
  
-   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+   const baseUrl = getApiBaseUrl();
  
    // Handle product removal
    const handleRemoveProduct = async (productId: number) => {

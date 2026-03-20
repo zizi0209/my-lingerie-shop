@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle, XCircle, Loader2, Gift, ShoppingBag, Clock } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 function VerifyContent() {
   const searchParams = useSearchParams();
@@ -22,7 +23,7 @@ function VerifyContent() {
 
     const verifyEmail = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/newsletter/verify/${token}`);
+        const res = await fetch(`${getApiBaseUrl()}/newsletter/verify/${token}`);
         const data = await res.json();
 
         if (data.success) {

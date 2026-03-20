@@ -14,6 +14,7 @@ import {
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { Suspense, useState, useEffect, type ReactElement } from 'react';
 import { X } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 export type SerializedProductNode = Spread<
   {
@@ -229,7 +230,7 @@ function ProductNodeComponent({
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        const baseUrl = getApiBaseUrl();
         const res = await fetch(`${baseUrl}/products/${productId}`);
         if (!res.ok) throw new Error('Product not found');
         const data = await res.json();

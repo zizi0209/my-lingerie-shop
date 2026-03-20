@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getApiBaseUrl } from '@/lib/apiBase';
 import HeroSection from './HeroSection';
 import FeaturedProducts from './FeaturedProducts';
 import NewArrivals from './NewArrivals';
@@ -26,7 +27,7 @@ export default function DynamicSections() {
   useEffect(() => {
     const fetchSections = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        const baseUrl = getApiBaseUrl();
         const res = await fetch(`${baseUrl}/page-sections`);
         const data = await res.json();
         if (data.success) {

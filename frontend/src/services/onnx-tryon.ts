@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from '@/lib/apiBase';
+
 export type ProgressCallback = (progress: number, message?: string) => void;
 
 type InputLayout = 'NCHW' | 'NHWC';
@@ -64,7 +66,7 @@ interface OnnxRuntimeConfig {
   wasmBaseUrl: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = getApiBaseUrl();
 const FALLBACK_MANIFEST_URL = '/static/onnx/tryon/manifest.json';
 const FALLBACK_WASM_BASE_URL = '/onnxruntime/';
 const ENV_ENABLE_ONNX_TRYON = process.env.NEXT_PUBLIC_ENABLE_ONNX_TRYON;

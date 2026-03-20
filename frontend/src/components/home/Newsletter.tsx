@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Loader2, CheckCircle, ChevronRight, AlertCircle, Mail } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 interface NewsletterContent {
   title?: string;
@@ -38,7 +39,7 @@ export default function Newsletter({ content }: NewsletterProps) {
     setStatus('idle');
     
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/newsletter/subscribe`, {
+      const res = await fetch(`${getApiBaseUrl()}/newsletter/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, source: 'website' }),

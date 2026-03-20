@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
+import { getApiBaseUrl } from "@/lib/apiBase";
 import { trackWishlistEvent } from "@/lib/tracking";
 
 interface WishlistProduct {
@@ -42,7 +43,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const baseUrl = getApiBaseUrl();
 
   const fetchWishlist = useCallback(async () => {
     if (!isAuthenticated || !token) {
