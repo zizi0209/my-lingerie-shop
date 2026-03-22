@@ -153,15 +153,34 @@ app.use(helmet({
 }));
 
 // CORS
+const allowedOrigins = new Set([
+  "https://my-lingerie-shop.vercel.app",
+  "https://lingerie.zyth.id.vn",
+]);
+
+const isLocalDevOrigin = (origin?: string): boolean => {
+  if (!origin) return false;
+  try {
+    const parsed = new URL(origin);
+    const host = parsed.hostname;
+    return host === 'localhost' || host === '127.0.0.1';
+  } catch {
+    return false;
+  }
+};
+
 app.use(
   cors({
-    // Cho phép Localhost (để bạn test) VÀ Domain trên Vercel
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:5000",
-      "https://my-lingerie-shop.vercel.app",
-      "https://lingerie.zyth.id.vn",
-    ],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (process.env.NODE_ENV !== 'production' && isLocalDevOrigin(origin)) {
+        return callback(null, true);
+      }
+      if (allowedOrigins.has(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   })
 );

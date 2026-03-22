@@ -50,6 +50,13 @@ interface SignedUploadPayload {
   contentLength?: number;
 }
 
+const getAuthHeaders = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
+  const token = localStorage.getItem('accessToken');
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+};
+
 const normalizeBoolean = (value?: string): boolean | null => {
   if (value === undefined) return null;
   if (value === 'true') return true;
@@ -202,7 +209,7 @@ async function requestSignedUploadUrl(
 ): Promise<SignedUploadResponse> {
   const response = await fetch(`${API_BASE_URL}/virtual-tryon/uploads/signed-url`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payload),
     signal: options?.signal,
   });
@@ -281,7 +288,7 @@ async function createAsyncTryOnJob(
 ): Promise<CreateTryOnJobResponse> {
   const response = await fetch(`${API_BASE_URL}/virtual-tryon/jobs`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payload),
     signal: options?.signal,
   });
@@ -302,6 +309,7 @@ async function createAsyncTryOnJob(
 
 async function fetchTryOnJob(jobId: string, options?: Abortable): Promise<TryOnJobStatusResponse> {
   const response = await fetch(`${API_BASE_URL}/virtual-tryon/jobs/${jobId}`, {
+    headers: { ...getAuthHeaders() },
     signal: options?.signal,
   });
 
@@ -490,7 +498,7 @@ export async function generateVideoFromExistingImage(params: {
 }): Promise<{ success: boolean; result?: TryOnResult; error?: string }> {
   const response = await fetch(`${API_BASE_URL}/virtual-tryon/videos`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({
       resultImageGcsUri: params.resultImageGcsUri,
       videoDurationSeconds: params.videoDurationSeconds,

@@ -101,6 +101,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { isAuthenticated, user } = useAuth();
   const { hasCompletedJob, consumeResult } = useVirtualTryOnContext();
+
+  const adminEmail = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@mylingerie.com').toLowerCase();
   
   const [product, setProduct] = useState<Product | null>(null);
   const [_relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
@@ -406,12 +408,36 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
   const handleViewTryOnResult = () => {
     if (!product) return;
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để dùng thử đồ ảo');
+      router.push('/login-register');
+      return;
+    }
+    if (user?.email?.toLowerCase() !== adminEmail) {
+      toast.error('Tính năng chỉ dành cho super admin');
+      return;
+    }
     const result = consumeResult(String(product.id));
     if (result) {
       setPendingTryOnResult(result);
     }
     setTryOnModalOpen(true);
     setShowTryOnNotification(false);
+  };
+
+  const handleOpenTryOn = () => {
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để dùng thử đồ ảo');
+      router.push('/login-register');
+      return;
+    }
+
+    if (user?.email?.toLowerCase() !== adminEmail) {
+      toast.error('Tính năng chỉ dành cho super admin');
+      return;
+    }
+
+    setTryOnModalOpen(true);
   };
 
   return (
@@ -761,7 +787,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
           {/* Virtual Try-On Button */}
           <div className="mt-4">
-            <VirtualTryOnButton onClick={() => setTryOnModalOpen(true)} />
+            <VirtualTryOnButton onClick={handleOpenTryOn} />
           </div>
 
           {/* Features */}

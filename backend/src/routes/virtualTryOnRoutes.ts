@@ -12,6 +12,7 @@ import {
   generateVideoFromExistingImage,
 } from '../controllers/virtualTryOnController';
 import { apiLimiter, tryOnLimiter } from '../middleware/rateLimiter';
+import { requireVtonAdmin } from '../middleware/requireVtonAdmin';
  
  const router = express.Router();
  
@@ -22,16 +23,16 @@ import { apiLimiter, tryOnLimiter } from '../middleware/rateLimiter';
 router.post('/process', apiLimiter, tryOn);
 
 // Create signed upload URL (GCS)
-router.post('/uploads/signed-url', tryOnLimiter, createUploadUrl);
+router.post('/uploads/signed-url', tryOnLimiter, requireVtonAdmin, createUploadUrl);
 
 // Create async try-on job
-router.post('/jobs', tryOnLimiter, createTryOnJobAsync);
+router.post('/jobs', tryOnLimiter, requireVtonAdmin, createTryOnJobAsync);
 
 // Generate video from existing try-on image
-router.post('/videos', tryOnLimiter, generateVideoFromExistingImage);
+router.post('/videos', tryOnLimiter, requireVtonAdmin, generateVideoFromExistingImage);
 
 // Get try-on job status
-router.get('/jobs/:id', tryOnLimiter, getJobStatus);
+router.get('/jobs/:id', tryOnLimiter, requireVtonAdmin, getJobStatus);
 
 // Worker: process try-on job (Cloud Tasks/Run)
 router.post('/jobs/:id/process', processTryOnJob);

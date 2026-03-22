@@ -6,6 +6,7 @@
 import { getApiBaseUrl } from './apiBase';
 
 const BASE_URL = getApiBaseUrl();
+const isDev = process.env.NODE_ENV !== 'production';
 
 // Get or create session ID
 export function getSessionId(): string {
@@ -52,6 +53,28 @@ interface TrackSearchParams {
   userId?: number | null;
 }
 
+const trackRequest = async (endpoint: string, payload: Record<string, unknown>): Promise<void> => {
+  if (!BASE_URL) return;
+  if (typeof window !== 'undefined' && navigator.onLine === false) return;
+
+  try {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok && isDev) {
+      console.warn(`[Tracking] ${endpoint} failed:`, response.status);
+    }
+  } catch (error) {
+    if (isDev) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[Tracking] ${endpoint} failed:`, message);
+    }
+  }
+};
+
 /**
  * Track page view
  */
@@ -60,19 +83,17 @@ export async function trackPageView(params: TrackPageViewParams): Promise<void> 
     const sessionId = getSessionId();
     if (!sessionId) return;
 
-    await fetch(`${BASE_URL}/tracking/page-views`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: params.path,
-        userId: params.userId || null,
-        sessionId,
-        referer: params.referer || (typeof document !== "undefined" ? document.referrer : null),
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-      }),
+    await trackRequest('/tracking/page-views', {
+      path: params.path,
+      userId: params.userId || null,
+      sessionId,
+      referer: params.referer || (typeof document !== "undefined" ? document.referrer : null),
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
     });
   } catch (error) {
-    console.error("Track page view error:", error);
+    if (isDev) {
+      console.warn("Track page view error:", error);
+    }
   }
 }
 
@@ -84,18 +105,16 @@ export async function trackProductView(params: TrackProductViewParams): Promise<
     const sessionId = getSessionId();
     if (!sessionId) return;
 
-    await fetch(`${BASE_URL}/tracking/product-views`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        productId: params.productId,
-        userId: params.userId || null,
-        sessionId,
-        source: params.source || 'direct',
-      }),
+    await trackRequest('/tracking/product-views', {
+      productId: params.productId,
+      userId: params.userId || null,
+      sessionId,
+      source: params.source || 'direct',
     });
   } catch (error) {
-    console.error("Track product view error:", error);
+    if (isDev) {
+      console.warn("Track product view error:", error);
+    }
   }
 }
 
@@ -107,23 +126,21 @@ export async function trackCartEvent(params: TrackCartEventParams): Promise<void
     const sessionId = getSessionId();
     if (!sessionId) return;
 
-    await fetch(`${BASE_URL}/tracking/cart-events`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        event: params.event,
-        productId: params.productId || null,
-        cartId: params.cartId || null,
-        userId: params.userId || null,
-        sessionId,
-        data: {
-          variantId: params.variantId,
-          quantity: params.quantity,
-        },
-      }),
+    await trackRequest('/tracking/cart-events', {
+      event: params.event,
+      productId: params.productId || null,
+      cartId: params.cartId || null,
+      userId: params.userId || null,
+      sessionId,
+      data: {
+        variantId: params.variantId,
+        quantity: params.quantity,
+      },
     });
   } catch (error) {
-    console.error("Track cart event error:", error);
+    if (isDev) {
+      console.warn("Track cart event error:", error);
+    }
   }
 }
 
@@ -135,20 +152,17 @@ export async function trackWishlistEvent(params: TrackWishlistEventParams): Prom
     const sessionId = getSessionId();
     if (!sessionId) return;
 
-    // Use cart-events endpoint with wishlist event type
-    await fetch(`${BASE_URL}/tracking/cart-events`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        event: params.event,
-        productId: params.productId,
-        userId: params.userId || null,
-        sessionId,
-        data: { type: 'wishlist' },
-      }),
+    await trackRequest('/tracking/cart-events', {
+      event: params.event,
+      productId: params.productId,
+      userId: params.userId || null,
+      sessionId,
+      data: { type: 'wishlist' },
     });
   } catch (error) {
-    console.error("Track wishlist event error:", error);
+    if (isDev) {
+      console.warn("Track wishlist event error:", error);
+    }
   }
 }
 
@@ -160,18 +174,16 @@ export async function trackSearch(params: TrackSearchParams): Promise<void> {
     const sessionId = getSessionId();
     if (!sessionId) return;
 
-    await fetch(`${BASE_URL}/tracking/page-views`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: `/search?q=${encodeURIComponent(params.keyword)}`,
-        userId: params.userId || null,
-        sessionId,
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-      }),
+    await trackRequest('/tracking/page-views', {
+      path: `/search?q=${encodeURIComponent(params.keyword)}`,
+      userId: params.userId || null,
+      sessionId,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
     });
   } catch (error) {
-    console.error("Track search error:", error);
+    if (isDev) {
+      console.warn("Track search error:", error);
+    }
   }
 }
 
@@ -195,24 +207,19 @@ export async function trackContentCommerce(params: TrackContentCommerceParams): 
     const sessionId = getSessionId();
     if (!sessionId) return;
 
-    // Track via cart-events endpoint with content-commerce type
-    await fetch(`${BASE_URL}/tracking/cart-events`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        event: params.event,
-        productId: params.productId || null,
-        userId: params.userId || null,
-        sessionId,
-        data: {
-          type: 'content-commerce',
-          postId: params.postId,
-          postSlug: params.postSlug,
-          productSlug: params.productSlug,
-          displayType: params.displayType,
-          positionIndex: params.positionIndex,
-        },
-      }),
+    await trackRequest('/tracking/cart-events', {
+      event: params.event,
+      productId: params.productId || null,
+      userId: params.userId || null,
+      sessionId,
+      data: {
+        type: 'content-commerce',
+        postId: params.postId,
+        postSlug: params.postSlug,
+        productSlug: params.productSlug,
+        displayType: params.displayType,
+        positionIndex: params.positionIndex,
+      },
     });
 
     // Also send to Google Analytics if available
@@ -225,6 +232,8 @@ export async function trackContentCommerce(params: TrackContentCommerceParams): 
       });
     }
   } catch (error) {
-    console.error("Track content-commerce error:", error);
+    if (isDev) {
+      console.warn("Track content-commerce error:", error);
+    }
   }
 }
