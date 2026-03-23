@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Moon, Sun, Languages, User, LogOut, ChevronDown } from 'lucide-react';
+import { Moon, Sun, Languages, User, LogOut, ChevronDown } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import { useLanguage } from './LanguageContext';
 import SearchInput from './SearchInput';
@@ -105,30 +105,6 @@ const Header: React.FC<HeaderProps> = ({ isDark = false }) => {
             {isDark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
           </button>
           
-          <button 
-            aria-label="Thông báo - Có 1 thông báo mới"
-            className="p-2 rounded-xl relative min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
-            style={{ color: isDark ? '#94a3b8' : '#64748b' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = isDark ? 'rgba(var(--primary-500-rgb, 244, 63, 94), 0.2)' : 'var(--primary-50)';
-              e.currentTarget.style.color = 'var(--primary-500)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = isDark ? '#94a3b8' : '#64748b';
-            }}
-          >
-            <Bell size={18} aria-hidden="true" />
-            <span 
-              className="absolute top-2 right-2 w-2 h-2 rounded-full border-2" 
-              style={{ 
-                backgroundColor: 'var(--primary-500)',
-                borderColor: isDark ? '#0f172a' : '#ffffff'
-              }}
-              aria-label="Có thông báo mới"
-            ></span>
-          </button>
-
           {/* Profile Dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
