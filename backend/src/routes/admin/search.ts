@@ -323,8 +323,8 @@ router.get('/analytics', async (req, res) => {
     });
 
     // Searches per day
-    const searchesPerDay = await prisma.$queryRaw`
-      SELECT DATE("createdAt") as date, COUNT(*) as count
+    const searchesPerDay = await prisma.$queryRaw<Array<{ date: Date; count: number }>>`
+      SELECT DATE("createdAt") as date, COUNT(*)::int as count
       FROM "SearchLog"
       WHERE "createdAt" >= ${daysAgo}
       GROUP BY DATE("createdAt")
@@ -352,7 +352,10 @@ router.get('/analytics', async (req, res) => {
           keyword: k.keyword,
           count: k._count.keyword,
         })),
-        searchesPerDay,
+        searchesPerDay: searchesPerDay.map((row) => ({
+          date: row.date,
+          count: Number(row.count),
+        })),
         topSynonyms,
       },
     });

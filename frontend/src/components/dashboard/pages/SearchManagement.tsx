@@ -92,6 +92,8 @@ export default function SearchManagement() {
   // Analytics state
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsDays, setAnalyticsDays] = useState(7);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
   const baseUrl = getApiBaseUrl();
 
@@ -154,17 +156,24 @@ export default function SearchManagement() {
   const fetchAnalytics = useCallback(async () => {
     const authToken = ensureToken();
     if (!authToken) return;
-    setLoading(true);
+    setAnalyticsError(null);
+    setAnalyticsLoading(true);
     try {
       const res = await fetch(`${baseUrl}/admin/search/analytics?days=${analyticsDays}`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       const data = await res.json();
-      if (data.success) setAnalytics(data.data);
+      if (data.success) {
+        setAnalytics(data.data);
+      } else {
+        setAnalyticsError(data.error || "Không thể tải thống kê");
+      }
     } catch (err) {
       console.error("Fetch analytics error:", err);
+      const message = err instanceof Error ? err.message : "Không thể tải thống kê";
+      setAnalyticsError(message);
     } finally {
-      setLoading(false);
+      setAnalyticsLoading(false);
     }
   }, [baseUrl, analyticsDays, ensureToken]);
 
@@ -601,7 +610,7 @@ export default function SearchManagement() {
       )}
 
       {/* Analytics Tab */}
-      {activeTab === "analytics" && !loading && analytics && (
+      {activeTab === "analytics" && !analyticsLoading && analytics && (
         <div className="space-y-6">
           <div className="flex justify-end">
             <select
@@ -712,6 +721,45 @@ export default function SearchManagement() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === "analytics" && !analyticsLoading && !analytics && !analyticsError && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+              Chưa có dữ liệu thống kê
+            </h3>
+            <button
+              onClick={fetchAnalytics}
+              className="px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+            >
+              Tải lại
+            </button>
+          </div>
+          <p className="text-gray-500 dark:text-gray-400">
+            Dữ liệu sẽ xuất hiện sau khi có lượt tìm kiếm trong hệ thống.
+          </p>
+        </div>
+      )}
+
+      {activeTab === "analytics" && analyticsLoading && (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+        </div>
+      )}
+
+      {activeTab === "analytics" && analyticsError && !analyticsLoading && (
+        <div className="space-y-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-400">
+            {analyticsError}
+          </div>
+          <button
+            onClick={fetchAnalytics}
+            className="px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+          >
+            Thử lại
+          </button>
         </div>
       )}
 
