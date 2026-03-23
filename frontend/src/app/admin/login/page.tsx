@@ -78,12 +78,13 @@ export default function AdminLoginPage() {
       const response = await api.post<{
         success: boolean;
         data: {
-          token: string;
+          accessToken: string;
+          expiresIn: number;
           user: User;
         };
-      }>('/users/login', formData, false);
+      }>('/auth/login', formData, false);
 
-      if (!response.success || !response.data?.token) {
+      if (!response.success || !response.data?.accessToken) {
         throw new Error('Login failed');
       }
 
@@ -94,7 +95,8 @@ export default function AdminLoginPage() {
       }
 
       // Save token
-      api.setToken(response.data.token);
+      api.setToken(response.data.accessToken);
+      api.setTokenExpiry(response.data.expiresIn);
 
       // Redirect to dashboard
       router.push('/dashboard');

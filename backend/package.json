@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "ts-node prisma/seed.ts",
+    "seed:search": "ts-node prisma/seed-search.ts",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",

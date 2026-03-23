@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Plus,
@@ -65,12 +66,15 @@ const KEYWORD_TYPES = [
 
 export default function SearchManagement() {
   const { token } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("synonyms");
   const [loading, setLoading] = useState(false);
+  const [synonymsLoading, setSynonymsLoading] = useState(false);
 
   // Synonyms state
   const [synonyms, setSynonyms] = useState<Synonym[]>([]);
   const [synonymSearch, setSynonymSearch] = useState("");
+  const [debouncedSynonymSearch, setDebouncedSynonymSearch] = useState("");
   const [synonymModal, setSynonymModal] = useState<{
     open: boolean;
     mode: "create" | "edit";
@@ -91,31 +95,51 @@ export default function SearchManagement() {
 
   const baseUrl = getApiBaseUrl();
 
+  const resolveToken = useCallback(() => {
+    if (token) return token;
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("accessToken");
+  }, [token]);
+
+  const ensureToken = useCallback(() => {
+    const authToken = resolveToken();
+    if (!authToken) {
+      alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+      router.push("/admin/login");
+      return null;
+    }
+    return authToken;
+  }, [resolveToken, router]);
+
   // Fetch synonyms
   const fetchSynonyms = useCallback(async () => {
-    setLoading(true);
+    const authToken = ensureToken();
+    if (!authToken) return;
+    setSynonymsLoading(true);
     try {
       const params = new URLSearchParams({ limit: "100" });
-      if (synonymSearch) params.append("search", synonymSearch);
+      if (debouncedSynonymSearch) params.append("search", debouncedSynonymSearch);
 
       const res = await fetch(`${baseUrl}/admin/search/synonyms?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       const data = await res.json();
       if (data.success) setSynonyms(data.data);
     } catch (err) {
       console.error("Fetch synonyms error:", err);
     } finally {
-      setLoading(false);
+      setSynonymsLoading(false);
     }
-  }, [baseUrl, token, synonymSearch]);
+  }, [baseUrl, debouncedSynonymSearch, ensureToken]);
 
   // Fetch keywords
   const fetchKeywords = useCallback(async () => {
+    const authToken = ensureToken();
+    if (!authToken) return;
     setLoading(true);
     try {
       const res = await fetch(`${baseUrl}/admin/search/keywords?limit=100`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       const data = await res.json();
       if (data.success) setKeywords(data.data);
@@ -124,14 +148,16 @@ export default function SearchManagement() {
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, token]);
+  }, [baseUrl, ensureToken]);
 
   // Fetch analytics
   const fetchAnalytics = useCallback(async () => {
+    const authToken = ensureToken();
+    if (!authToken) return;
     setLoading(true);
     try {
       const res = await fetch(`${baseUrl}/admin/search/analytics?days=${analyticsDays}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       const data = await res.json();
       if (data.success) setAnalytics(data.data);
@@ -140,7 +166,7 @@ export default function SearchManagement() {
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, token, analyticsDays]);
+  }, [baseUrl, analyticsDays, ensureToken]);
 
   useEffect(() => {
     if (activeTab === "synonyms") fetchSynonyms();
@@ -148,8 +174,18 @@ export default function SearchManagement() {
     else if (activeTab === "analytics") fetchAnalytics();
   }, [activeTab, fetchSynonyms, fetchKeywords, fetchAnalytics]);
 
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      setDebouncedSynonymSearch(synonymSearch.trim());
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [synonymSearch]);
+
   // CRUD Synonyms
   const saveSynonym = async () => {
+    const authToken = ensureToken();
+    if (!authToken) return;
     try {
       const method = synonymModal.mode === "create" ? "POST" : "PUT";
       const url =
@@ -161,7 +197,7 @@ export default function SearchManagement() {
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(synonymModal.data),
       });
@@ -181,9 +217,11 @@ export default function SearchManagement() {
   const deleteSynonym = async (id: number) => {
     if (!confirm("Bạn có chắc muốn xóa từ đồng nghĩa này?")) return;
     try {
+      const authToken = ensureToken();
+      if (!authToken) return;
       await fetch(`${baseUrl}/admin/search/synonyms/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       fetchSynonyms();
     } catch (err) {
@@ -193,11 +231,13 @@ export default function SearchManagement() {
 
   const toggleSynonymActive = async (synonym: Synonym) => {
     try {
+      const authToken = ensureToken();
+      if (!authToken) return;
       await fetch(`${baseUrl}/admin/search/synonyms/${synonym.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ isActive: !synonym.isActive }),
       });
@@ -209,6 +249,8 @@ export default function SearchManagement() {
 
   // CRUD Keywords
   const saveKeyword = async () => {
+    const authToken = ensureToken();
+    if (!authToken) return;
     try {
       const method = keywordModal.mode === "create" ? "POST" : "PUT";
       const url =
@@ -220,7 +262,7 @@ export default function SearchManagement() {
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(keywordModal.data),
       });
@@ -240,9 +282,11 @@ export default function SearchManagement() {
   const deleteKeyword = async (id: number) => {
     if (!confirm("Bạn có chắc muốn xóa từ khóa này?")) return;
     try {
+      const authToken = ensureToken();
+      if (!authToken) return;
       await fetch(`${baseUrl}/admin/search/keywords/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       fetchKeywords();
     } catch (err) {
@@ -252,11 +296,13 @@ export default function SearchManagement() {
 
   const toggleKeywordActive = async (keyword: Keyword) => {
     try {
+      const authToken = ensureToken();
+      if (!authToken) return;
       await fetch(`${baseUrl}/admin/search/keywords/${keyword.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ isActive: !keyword.isActive }),
       });
@@ -268,11 +314,13 @@ export default function SearchManagement() {
 
   const toggleKeywordPinned = async (keyword: Keyword) => {
     try {
+      const authToken = ensureToken();
+      if (!authToken) return;
       await fetch(`${baseUrl}/admin/search/keywords/${keyword.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ isPinned: !keyword.isPinned }),
       });
@@ -327,7 +375,7 @@ export default function SearchManagement() {
       )}
 
       {/* Synonyms Tab */}
-      {activeTab === "synonyms" && !loading && (
+      {activeTab === "synonyms" && (
         <div>
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1 relative">
@@ -350,6 +398,11 @@ export default function SearchManagement() {
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {synonymsLoading && (
+              <div className="flex justify-center py-6">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              </div>
+            )}
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-900">
                 <tr>
