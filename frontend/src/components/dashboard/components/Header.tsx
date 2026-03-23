@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Moon, Sun, Languages, Settings as SettingsIcon, User, LogOut, ChevronDown } from 'lucide-react';
+import { Bell, Moon, Sun, Languages, User, LogOut, ChevronDown } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import { useLanguage } from './LanguageContext';
 import SearchInput from './SearchInput';
@@ -61,30 +61,12 @@ const Header: React.FC<HeaderProps> = ({ isDark = false }) => {
       }}
     >
       <div className="flex items-center justify-between gap-3 md:gap-4">
-        <div className="hidden md:flex items-center gap-2 flex-1 max-w-md">
+        <div className="hidden md:flex items-center flex-1 max-w-md">
           <SearchInput 
             placeholder={t('common.search')}
             className="flex-1"
             isDark={isDark}
           />
-          <button 
-            aria-label="Cài đặt tìm kiếm"
-            className="p-2 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-all"
-            style={{
-              backgroundColor: isDark ? 'rgba(30, 41, 59, 0.5)' : '#f8fafc',
-              color: isDark ? '#94a3b8' : '#64748b'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = isDark ? 'rgba(var(--primary-500-rgb, 244, 63, 94), 0.2)' : 'var(--primary-50)';
-              e.currentTarget.style.color = 'var(--primary-500)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = isDark ? 'rgba(30, 41, 59, 0.5)' : '#f8fafc';
-              e.currentTarget.style.color = isDark ? '#94a3b8' : '#64748b';
-            }}
-          >
-            <SettingsIcon size={16} aria-hidden="true" />
-          </button>
         </div>
 
         <div className="flex items-center gap-2 md:space-x-2">
