@@ -1,13 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { useDropzone } from 'react-dropzone';
 import {
   Plus,
-  Edit2,
   Trash2,
-  Wand2,
   Filter,
   Loader2,
   AlertCircle,
@@ -19,14 +16,12 @@ import {
   Star,
   Package,
   Upload,
-  Box,
 } from 'lucide-react';
 import { productApi, type Product, type ProductImage, type CreateProductData, type UpdateProductData } from '@/lib/productApi';
 import { categoryApi, type Category } from '@/lib/categoryApi';
 import { colorApi, type Color } from '@/lib/colorApi';
 import { api } from '@/lib/api';
 import { type ProductType, type SizeChartData, fetchSizeChartByType } from '@/lib/sizeTemplateApi';
-import { generateProductDescription } from '../services/geminiService';
 import SearchInput from '../components/SearchInput';
 import Pagination from '../components/Pagination';
 import { useLanguage } from '../components/LanguageContext';
@@ -107,13 +102,6 @@ const Products: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // AI states
-  const [showAIModal, setShowAIModal] = useState(false);
-  const [aiProduct, setAIProduct] = useState<Product | null>(null);
-  const [aiDescription, setAIDescription] = useState('');
-  const [aiLoading, setAILoading] = useState(false);
-  const [aiError, setAIError] = useState<string | null>(null);
-
   // Deleting image state
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
 
@@ -150,6 +138,7 @@ const Products: React.FC = () => {
     subtitle: language === 'vi' ? 'Quản lý danh mục sản phẩm của bạn' : 'Manage your product catalog',
     addNew: language === 'vi' ? 'Thêm sản phẩm' : 'Add Product',
     edit: language === 'vi' ? 'Sửa sản phẩm' : 'Edit Product',
+    editAction: language === 'vi' ? 'Sửa' : 'Edit',
     name: language === 'vi' ? 'Tên sản phẩm' : 'Product Name',
     slug: language === 'vi' ? 'Slug (URL)' : 'Slug (URL)',
     description: language === 'vi' ? 'Mô tả' : 'Description',
@@ -164,6 +153,7 @@ const Products: React.FC = () => {
     imageUrl: language === 'vi' ? 'URL hình ảnh' : 'Image URL',
     addImage: language === 'vi' ? 'Thêm ảnh' : 'Add Image',
     deleteImage: language === 'vi' ? 'Xóa ảnh' : 'Delete Image',
+    deleteAction: language === 'vi' ? 'Xóa' : 'Delete',
     noImages: language === 'vi' ? 'Chưa có hình ảnh' : 'No images yet',
     variants: language === 'vi' ? 'Biến thể sản phẩm' : 'Product Variants',
     size: language === 'vi' ? 'Kích thước' : 'Size',
@@ -192,12 +182,6 @@ const Products: React.FC = () => {
     next: language === 'vi' ? 'Sau' : 'Next',
     page: language === 'vi' ? 'Trang' : 'Page',
     search: language === 'vi' ? 'Tìm theo tên, mô tả...' : 'Search by name, description...',
-    aiTitle: language === 'vi' ? 'AI Mô tả sản phẩm' : 'AI Product Description',
-    aiGenerate: language === 'vi' ? 'Tạo mô tả' : 'Generate Description',
-    aiGenerating: language === 'vi' ? 'Đang tạo...' : 'Generating...',
-    aiUse: language === 'vi' ? 'Sử dụng mô tả này' : 'Use this description',
-    aiRegenerate: language === 'vi' ? 'Tạo lại' : 'Regenerate',
-    aiNoKey: language === 'vi' ? 'Chưa cấu hình API key. Vui lòng thêm NEXT_PUBLIC_GOOGLE_API_KEY vào file .env' : 'API key not configured. Please add NEXT_PUBLIC_GOOGLE_API_KEY to .env file',
     saveSuccess: language === 'vi' ? 'Lưu thành công!' : 'Saved successfully!',
     imageAdded: language === 'vi' ? 'Đã thêm hình ảnh' : 'Image added',
     imageDeleted: language === 'vi' ? 'Đã xóa hình ảnh' : 'Image deleted',
@@ -230,10 +214,6 @@ const Products: React.FC = () => {
     existingVariants: language === 'vi' ? 'Biến thể hiện có' : 'Existing Variants',
     newVariants: language === 'vi' ? 'Biến thể mới' : 'New Variants',
     noVariants: language === 'vi' ? 'Chưa có biến thể nào' : 'No variants yet',
-    processing3d: language === 'vi' ? 'Đang xử lý 3D' : 'Processing 3D',
-    failed3d: language === 'vi' ? 'Lỗi 3D' : '3D Failed',
-    ready3d: language === 'vi' ? '3D sẵn sàng' : '3D Ready',
-    viewProcessing: language === 'vi' ? 'Theo dõi xử lý 3D' : 'View 3D processing',
   };
 
   // Load size chart when product type changes
@@ -708,50 +688,6 @@ const Products: React.FC = () => {
     setFormData(prev => ({ ...prev, variants: newVariants }));
   };
 
-  // AI Description
-  const handleOpenAI = (product: Product) => {
-    setAIProduct(product);
-    setAIDescription('');
-    setAIError(null);
-    setShowAIModal(true);
-  };
-
-  const handleGenerateAI = async () => {
-    if (!aiProduct) return;
-
-    // Check API key
-    if (!process.env.NEXT_PUBLIC_GOOGLE_API_KEY) {
-      setAIError(t.aiNoKey);
-      return;
-    }
-
-    setAILoading(true);
-    setAIError(null);
-
-    try {
-      const features = `${aiProduct.category?.name || ''}, giá ${formatCurrency(aiProduct.price)}`;
-      const result = await generateProductDescription(aiProduct.name, features);
-      setAIDescription(result);
-    } catch (err) {
-      console.error('AI generation error:', err);
-      setAIError(err instanceof Error ? err.message : 'Không thể tạo mô tả');
-    } finally {
-      setAILoading(false);
-    }
-  };
-
-  const handleUseAIDescription = async () => {
-    if (!aiProduct || !aiDescription) return;
-
-    try {
-      await productApi.update(aiProduct.id, { description: aiDescription });
-      setShowAIModal(false);
-      setRefreshTrigger(prev => prev + 1);
-    } catch {
-      setAIError('Không thể lưu mô tả');
-    }
-  };
-
   // Helpers
   const getTotalStock = (product: Product): number => {
     return product.variants?.reduce((sum, v) => sum + v.stock, 0) || 0;
@@ -859,10 +795,6 @@ const Products: React.FC = () => {
                   const stock = getTotalStock(product);
                   const status = getProductStatus(product);
                   const mainImage = product.images?.[0]?.url;
-                  const has3dModel = product.images?.some((img) => !!img.model3dUrl);
-                  const hasProcessing = product.images?.some((img) => img.processingStatus === 'processing');
-                  const hasFailed = product.images?.some((img) => img.processingStatus === 'failed');
-
                   return (
                     <tr key={product.id} className="hover:bg-rose-50/30 dark:hover:bg-rose-500/5 transition-colors group">
                       <td className="px-6 py-4">
@@ -934,52 +866,21 @@ const Products: React.FC = () => {
                           }`}>
                             {status === 'active' ? t.active : status === 'out_of_stock' ? t.outOfStock : t.draft}
                           </span>
-                          <div className="flex flex-wrap gap-1">
-                            {hasProcessing && (
-                              <span className="px-2 py-1 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
-                                {t.processing3d}
-                              </span>
-                            )}
-                            {hasFailed && (
-                              <span className="px-2 py-1 rounded-full text-[9px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">
-                                {t.failed3d}
-                              </span>
-                            )}
-                            {has3dModel && (
-                              <span className="px-2 py-1 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
-                                {t.ready3d}
-                              </span>
-                            )}
-                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end space-x-1">
-                          <Link
-                            href={`/dashboard/products/${product.id}/processing`}
-                            className="p-2 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg transition-all"
-                            title={t.viewProcessing}
-                          >
-                            <Box size={16} />
-                          </Link>
-                          <button
-                            onClick={() => handleOpenAI(product)}
-                            className="p-2 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10 rounded-lg transition-all"
-                            title="AI Description"
-                          >
-                            <Wand2 size={16} />
-                          </button>
+                        <div className="flex items-center justify-end space-x-2">
                           <button
                             onClick={() => handleOpenEdit(product)}
-                            className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-all"
+                            className="px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-all"
                           >
-                            <Edit2 size={16} />
+                            {t.editAction}
                           </button>
                           <button
                             onClick={() => handleDelete(product.id)}
-                            className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all"
+                            className="px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all"
                           >
-                            <Trash2 size={16} />
+                            {t.deleteAction}
                           </button>
                         </div>
                       </td>
@@ -1400,9 +1301,6 @@ const Products: React.FC = () => {
                     {/* Bulk Generate Section */}
                     <div className="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-500/10 dark:to-indigo-500/10 rounded-2xl border border-purple-200 dark:border-purple-500/20">
                       <div className="flex items-center gap-2 mb-4">
-                        <div className="p-2 bg-purple-100 dark:bg-purple-800/50 rounded-lg">
-                          <Wand2 size={16} className="text-purple-600 dark:text-purple-400" />
-                        </div>
                         <div>
                           <h4 className="font-bold text-slate-900 dark:text-white text-sm">
                             {language === 'vi' ? 'Tạo biến thể hàng loạt' : 'Bulk Generate Variants'}
@@ -1542,7 +1440,6 @@ const Products: React.FC = () => {
                               }}
                               className="w-full py-2.5 bg-purple-500 hover:bg-purple-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors"
                             >
-                              <Wand2 size={16} />
                               {language === 'vi' ? 'Tạo biến thể' : 'Generate Variants'}
                             </button>
                           </div>
@@ -1772,79 +1669,6 @@ const Products: React.FC = () => {
         </div>
       )}
 
-      {/* AI Modal */}
-      {showAIModal && aiProduct && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg shadow-2xl">
-            <div className="border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <Wand2 size={20} className="text-purple-500" />
-                {t.aiTitle}
-              </h2>
-              <button onClick={() => setShowAIModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
-                <X size={20} className="text-slate-500" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4">
-                <p className="text-sm font-bold text-slate-900 dark:text-white">{aiProduct.name}</p>
-                <p className="text-xs text-slate-500">{aiProduct.category?.name} - {formatCurrency(aiProduct.price)}</p>
-              </div>
-
-              {aiError && (
-                <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl p-4">
-                  <p className="text-rose-700 dark:text-rose-400 text-sm">{aiError}</p>
-                </div>
-              )}
-
-              {aiDescription ? (
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mô tả được tạo:</label>
-                  <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 rounded-xl p-4">
-                    <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{aiDescription}</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleGenerateAI}
-                      disabled={aiLoading}
-                      className="flex-1 px-4 py-2.5 text-sm font-bold text-purple-600 border border-purple-200 hover:bg-purple-50 dark:border-purple-500/30 dark:hover:bg-purple-500/10 rounded-xl flex items-center justify-center gap-2"
-                    >
-                      {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                      {t.aiRegenerate}
-                    </button>
-                    <button
-                      onClick={handleUseAIDescription}
-                      className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-purple-500 hover:bg-purple-600 rounded-xl flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle size={16} />
-                      {t.aiUse}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={handleGenerateAI}
-                  disabled={aiLoading}
-                  className="w-full px-4 py-3 text-sm font-bold text-white bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 rounded-xl flex items-center justify-center gap-2"
-                >
-                  {aiLoading ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      {t.aiGenerating}
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 size={16} />
-                      {t.aiGenerate}
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -45,43 +45,6 @@ export interface ProductVariant {
   productId: number;
 }
 
-export interface ProcessingStatusImage {
-  id: number;
-  url: string;
-  noBgUrl?: string | null;
-  model3dUrl?: string | null;
-  processingStatus: string;
-}
-
-export interface ProcessingStatusSummary {
-  total: number;
-  pending: number;
-  processing: number;
-  completed: number;
-  partial: number;
-  failed: number;
-}
-
-export interface ProcessingStatusData {
-  images: ProcessingStatusImage[];
-  summary: ProcessingStatusSummary;
-}
-
-export interface ImageProcessingResult {
-  imageId: number;
-  success: boolean;
-  noBgUrl?: string;
-  model3dUrl?: string;
-  error?: string;
-}
-
-export interface TripoSrStatusResponse {
-  success: boolean;
-  available: boolean;
-  lastCheckedAt: string | null;
-  lastError: string | null;
-  lastLatencyMs: number | null;
-}
 
 export interface ProductListParams {
   page?: number;
@@ -251,29 +214,4 @@ export const productApi = {
     },
   },
 
-  processing: {
-    async getStatus(productId: number): Promise<{ success: boolean; data: ProcessingStatusData }> {
-      return api.get(`/products/${productId}/processing-status`);
-    },
-
-    async getTripoSrStatus(): Promise<TripoSrStatusResponse> {
-      return api.get('/products/processing/triposr-status');
-    },
-
-    async processAll(productId: number): Promise<{ success: boolean; message: string }> {
-      return api.post(`/products/${productId}/process-images`, {});
-    },
-
-    async retryFailed(productId: number): Promise<{ success: boolean; message: string; data: ImageProcessingResult[] }> {
-      return api.post(`/products/${productId}/retry-processing`, {});
-    },
-
-    async processImage(imageId: number): Promise<{ success: boolean; data: ImageProcessingResult }> {
-      return api.post(`/products/images/${imageId}/process`, {});
-    },
-
-    async retry3D(imageId: number): Promise<{ success: boolean; data: ImageProcessingResult }> {
-      return api.post(`/products/images/${imageId}/retry-3d`, {});
-    },
-  },
 };

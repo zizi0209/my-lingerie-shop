@@ -86,7 +86,6 @@ import sizeSystemV2Routes from './routes/size-system-v2.routes';
 import virtualTryOnRoutes from './routes/virtualTryOnRoutes';
 import { apiLimiter } from './middleware/rateLimiter';
 import aiConsultantRoutes from './routes/aiConsultantRoutes';
-import { startTripoSrHealthMonitor } from './services/tripoSrHealth';
 import { prisma } from './lib/prisma';
 import { getSearchIndexStatus } from './services/searchIndexing.service';
 import { getEmbeddingHealth } from './services/embeddingClient';
@@ -254,7 +253,6 @@ if (process.env.ENABLE_CLEANUP_CRON !== 'false') {
   startCleanupCron();
 }
 
-startTripoSrHealthMonitor();
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

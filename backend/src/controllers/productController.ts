@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { generateUniqueProductSlug } from '../utils/slugify';
 import { Prisma } from '@prisma/client';
-import { processProductImagesAsync } from '../services/imageProcessingService';
 import { indexProductById, removeProductFromIndex } from '../services/searchIndexing.service';
 
 type IncomingVariantPayload = {
@@ -1025,11 +1024,6 @@ export const addProductImages = async (req: Request, res: Response) => {
         url: imageUrl,
         productId: Number(id),
       })),
-    });
-
-    // Trigger async image processing (bg removal + 3D generation)
-    processProductImagesAsync(Number(id)).catch((err) => {
-      console.error(`[Processing] Auto-processing failed for product ${id}:`, err);
     });
 
     syncProductIndex(Number(id));
