@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { 
   Loader2, AlertCircle, X, Users, Eye, 
   Mail, Phone, ShoppingBag, Calendar, Package, DollarSign
@@ -55,6 +56,8 @@ const Customers: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger] = useState(0);
+  const searchParams = useSearchParams();
+  const urlSearchQuery = (searchParams.get('search') || '').trim();
 
   // Detail modal
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -144,6 +147,13 @@ const Customers: React.FC = () => {
   useEffect(() => {
     fetchCustomers();
   }, [fetchCustomers, refreshTrigger]);
+
+  useEffect(() => {
+    if (urlSearchQuery && urlSearchQuery !== searchQuery) {
+      setSearchQuery(urlSearchQuery);
+      setPagination(prev => ({ ...prev, page: 1 }));
+    }
+  }, [urlSearchQuery, searchQuery]);
 
   // Fetch customer detail
   const handleViewDetail = async (customer: Customer) => {

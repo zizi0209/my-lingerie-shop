@@ -6,6 +6,7 @@ interface SearchInputProps {
   value?: string;
   onChange?: (value: string) => void;
   onSearch?: (value: string) => void;
+  onSubmit?: (value: string) => void;
   className?: string;
   debounceMs?: number;
   isDark?: boolean;
@@ -16,6 +17,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
   value: controlledValue,
   onChange,
   onSearch,
+  onSubmit,
   className = '',
   debounceMs = 500,
   isDark = false
@@ -55,6 +57,11 @@ const SearchInput: React.FC<SearchInputProps> = ({
         type="text" 
         value={localValue}
         onChange={(e) => handleChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            onSubmit?.(localValue);
+          }
+        }}
         placeholder={placeholder}
         className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500/50"
         style={{

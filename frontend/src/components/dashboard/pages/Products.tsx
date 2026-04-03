@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { useSearchParams } from 'next/navigation';
 import {
   Plus,
   Trash2,
@@ -117,6 +118,8 @@ const Products: React.FC = () => {
   // Size chart preview state
   const [sizeChartPreview, setSizeChartPreview] = useState<SizeChartData | null>(null);
   const [loadingSizeChart, setLoadingSizeChart] = useState(false);
+  const searchParams = useSearchParams();
+  const urlSearchQuery = (searchParams.get('search') || '').trim();
 
   const selectedCategory = categories.find(cat => cat.id.toString() === formData.categoryId);
   const selectedProductType = selectedCategory?.productType;
@@ -289,6 +292,13 @@ const Products: React.FC = () => {
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts, refreshTrigger]);
+
+  useEffect(() => {
+    if (urlSearchQuery && urlSearchQuery !== searchQuery) {
+      setSearchQuery(urlSearchQuery);
+      setPagination(prev => ({ ...prev, page: 1 }));
+    }
+  }, [urlSearchQuery, searchQuery]);
 
   const refreshVariantsAfterMutation = useCallback(async (productId: number) => {
     const res = await productApi.variants.list(productId);

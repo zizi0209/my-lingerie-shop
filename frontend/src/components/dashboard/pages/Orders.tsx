@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { 
   Filter, Eye, Loader2, AlertCircle, X, Package, Truck, 
   CheckCircle, XCircle, Clock, MapPin, Phone, User, Hash
@@ -19,6 +20,8 @@ const Orders: React.FC = () => {
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
+  const searchParams = useSearchParams();
+  const urlSearchQuery = (searchParams.get('search') || '').trim();
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -195,6 +198,13 @@ const Orders: React.FC = () => {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders, refreshTrigger]);
+
+  useEffect(() => {
+    if (urlSearchQuery && urlSearchQuery !== searchQuery) {
+      setSearchQuery(urlSearchQuery);
+      setPagination(prev => ({ ...prev, page: 1 }));
+    }
+  }, [urlSearchQuery, searchQuery]);
 
   // Get customer name
   const getCustomerName = (order: Order): string => {

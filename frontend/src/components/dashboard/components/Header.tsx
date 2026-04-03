@@ -5,7 +5,7 @@ import { useTheme } from './ThemeContext';
 import { useLanguage } from './LanguageContext';
 import SearchInput from './SearchInput';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import type { User as UserType } from '@/lib/adminApi';
 
@@ -22,6 +22,12 @@ const Header: React.FC<HeaderProps> = ({ isDark = false }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const lastSearchRef = useRef('');
+  const lastSyncedSearchRef = useRef('');
+  const searchKeyword = searchParams.get('q') ?? '';
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -38,6 +44,13 @@ const Header: React.FC<HeaderProps> = ({ isDark = false }) => {
   }, []);
 
   useEffect(() => {
+    if (!pathname.startsWith('/dashboard/search-results')) return;
+    if (!searchKeyword || lastSyncedSearchRef.current === searchKeyword) return;
+    lastSyncedSearchRef.current = searchKeyword;
+    setSearchQuery(searchKeyword);
+  }, [pathname, searchKeyword]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
@@ -50,6 +63,16 @@ const Header: React.FC<HeaderProps> = ({ isDark = false }) => {
   const handleLogout = () => {
     api.removeToken();
     router.push('/admin/login');
+  };
+
+  const handleSearch = (value: string) => {
+    const query = value.trim();
+    if (!query) return;
+    if (lastSearchRef.current === query && pathname.startsWith('/dashboard/search-results')) {
+      return;
+    }
+    lastSearchRef.current = query;
+    router.push(`/dashboard/search-results?q=${encodeURIComponent(query)}`);
   };
 
   return (
@@ -66,6 +89,9 @@ const Header: React.FC<HeaderProps> = ({ isDark = false }) => {
             placeholder={t('common.search')}
             className="flex-1"
             isDark={isDark}
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onSubmit={handleSearch}
           />
         </div>
 
