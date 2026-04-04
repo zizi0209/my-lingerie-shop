@@ -9,7 +9,8 @@ import { AUTH_CONFIG, isAdminRole } from '../config/auth';
 import {
   generateAccessToken,
   generateRefreshToken,
-  verifyRefreshToken,
+  getRefreshTokenRecord,
+  type RefreshTokenRecordWithSession,
   revokeRefreshToken,
   revokeAllUserTokens,
   getTokenExpiryInfo,
@@ -109,7 +110,7 @@ export const register = async (req: Request, res: Response) => {
     const expiryInfo = getTokenExpiryInfo(user.role?.name ?? null);
 
     // Set refresh token cookie
-    setRefreshTokenCookie(res, refreshToken, expiryInfo.refreshTokenExpiresIn);
+    setRefreshTokenCookie(res, refreshToken, expiryInfo.absoluteSessionExpiresIn);
 
     res.status(201).json({
       success: true,
@@ -248,7 +249,7 @@ export const login = async (req: Request, res: Response) => {
     const expiryInfo = getTokenExpiryInfo(user.role?.name ?? null);
 
     // Set refresh token cookie
-    setRefreshTokenCookie(res, refreshToken, expiryInfo.refreshTokenExpiresIn);
+    setRefreshTokenCookie(res, refreshToken, expiryInfo.absoluteSessionExpiresIn);
 
     res.json({
       success: true,
@@ -279,14 +280,30 @@ export const refresh = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Refresh token không tồn tại!' });
     }
 
-    const refreshTokenData = await verifyRefreshToken(token);
+    const refreshTokenRecord = (await getRefreshTokenRecord(token)) as RefreshTokenRecordWithSession | null;
 
-    if (!refreshTokenData) {
+    if (!refreshTokenRecord) {
       clearRefreshTokenCookie(res);
       return res.status(401).json({ error: 'Refresh token không hợp lệ hoặc đã hết hạn!' });
     }
 
-    const { user } = refreshTokenData;
+    if (refreshTokenRecord.revokedAt) {
+      await revokeAllUserTokens(refreshTokenRecord.userId);
+      clearRefreshTokenCookie(res);
+      return res.status(401).json({ error: 'Phiên đăng nhập đã bị thu hồi!' });
+    }
+
+    const now = new Date();
+    if (
+      refreshTokenRecord.expiresAt < now ||
+      refreshTokenRecord.idleExpiresAt < now ||
+      refreshTokenRecord.absoluteExpiresAt < now
+    ) {
+      clearRefreshTokenCookie(res);
+      return res.status(401).json({ error: 'Refresh token không hợp lệ hoặc đã hết hạn!' });
+    }
+
+    const { user } = refreshTokenRecord;
 
     if (!user.isActive || user.deletedAt) {
       clearRefreshTokenCookie(res);
@@ -298,11 +315,17 @@ export const refresh = async (req: Request, res: Response) => {
 
     // Generate new tokens
     const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = await generateRefreshToken(user, req);
+    const newRefreshToken = await generateRefreshToken(user, req, {
+      absoluteExpiresAt: refreshTokenRecord.absoluteExpiresAt,
+    });
     const expiryInfo = getTokenExpiryInfo(user.role?.name ?? null);
+    const refreshTokenMaxAge = Math.max(
+      0,
+      refreshTokenRecord.absoluteExpiresAt.getTime() - Date.now()
+    );
 
     // Set new refresh token cookie
-    setRefreshTokenCookie(res, newRefreshToken, expiryInfo.refreshTokenExpiresIn);
+    setRefreshTokenCookie(res, newRefreshToken, refreshTokenMaxAge || expiryInfo.absoluteSessionExpiresIn);
 
     res.json({
       success: true,

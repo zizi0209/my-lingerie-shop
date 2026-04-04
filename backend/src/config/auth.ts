@@ -3,8 +3,8 @@
 export const AUTH_CONFIG = {
   ACCESS_TOKEN: {
     USER: {
-      expiresInSeconds: 60 * 60, // 1 hour
-      expiresInMs: 60 * 60 * 1000,
+      expiresInSeconds: 30 * 60, // 30 minutes
+      expiresInMs: 30 * 60 * 1000,
     },
     ADMIN: {
       expiresInSeconds: 15 * 60, // 15 minutes  
@@ -13,12 +13,22 @@ export const AUTH_CONFIG = {
   },
   REFRESH_TOKEN: {
     USER: {
-      expiresInSeconds: 30 * 24 * 60 * 60, // 30 days
-      expiresInMs: 30 * 24 * 60 * 60 * 1000,
+      expiresInSeconds: 14 * 24 * 60 * 60, // 14 days
+      expiresInMs: 14 * 24 * 60 * 60 * 1000,
     },
     ADMIN: {
       expiresInSeconds: 24 * 60 * 60, // 24 hours
       expiresInMs: 24 * 60 * 60 * 1000,
+    },
+  },
+  SESSION: {
+    USER: {
+      idleExpiresInMs: 2 * 60 * 60 * 1000, // 2 hours
+      absoluteExpiresInMs: 14 * 24 * 60 * 60 * 1000, // 14 days
+    },
+    ADMIN: {
+      idleExpiresInMs: 30 * 60 * 1000, // 30 minutes
+      absoluteExpiresInMs: 24 * 60 * 60 * 1000, // 24 hours
     },
   },
   COOKIE: {

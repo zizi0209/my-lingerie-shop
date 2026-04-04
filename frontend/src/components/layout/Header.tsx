@@ -62,19 +62,38 @@ export default function Header() {
 
   // Fetch popular keywords
   const fetchPopularKeywords = useCallback(async () => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 4000);
     try {
-      const res = await fetch(`${baseUrl}/search/popular`);
+      const res = await fetch(`${baseUrl}/search/popular`, {
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setPopularKeywords(data.data);
       }
     } catch (err) {
-      console.error("Failed to fetch popular keywords:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("Popular keywords fetch skipped:", err);
+      }
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   }, [baseUrl]);
 
   useEffect(() => {
-    fetchPopularKeywords();
+    let isActive = true;
+    const run = async () => {
+      if (!isActive) return;
+      await fetchPopularKeywords();
+    };
+    run();
+    return () => {
+      isActive = false;
+    };
   }, [fetchPopularKeywords]);
 
   // Handle search submit

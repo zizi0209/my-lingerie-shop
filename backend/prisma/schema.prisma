@@ -75,18 +75,23 @@ model Permission {
 }
 
 model RefreshToken {
-  id        String    @id @default(uuid())
-  token     String    @unique
-  userId    Int
-  userAgent String?
-  ipAddress String?
-  expiresAt DateTime
-  createdAt DateTime  @default(now())
-  revokedAt DateTime?
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String    @id @default(uuid())
+  token             String    @unique
+  userId            Int
+  userAgent         String?
+  ipAddress         String?
+  expiresAt         DateTime
+  lastActivityAt    DateTime  @default(now())
+  idleExpiresAt     DateTime
+  absoluteExpiresAt DateTime
+  createdAt         DateTime  @default(now())
+  revokedAt         DateTime?
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([userId])
+  @@index([absoluteExpiresAt])
+  @@index([idleExpiresAt])
 }
 
 model Category {

@@ -1,4 +1,5 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
+import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
 import { Response } from 'express';
 import { prisma } from '../lib/prisma';
@@ -25,6 +26,34 @@ export interface UserForToken {
   roleId: number | null;
   role?: { name: string } | null;
   tokenVersion: number;
+}
+
+export type RefreshTokenRecordWithSession = NonNullable<Awaited<ReturnType<typeof getRefreshTokenRecord>>> & {
+  idleExpiresAt: Date;
+  absoluteExpiresAt: Date;
+  lastActivityAt: Date;
+};
+
+interface RefreshSessionOptions {
+  absoluteExpiresAt?: Date;
+}
+
+function getSessionConfig(roleName: string | null | undefined) {
+  const isAdmin = isAdminRole(roleName ?? null);
+  return isAdmin ? AUTH_CONFIG.SESSION.ADMIN : AUTH_CONFIG.SESSION.USER;
+}
+
+function buildSessionExpiry(roleName: string | null | undefined, absoluteExpiresAt?: Date) {
+  const now = new Date();
+  const sessionConfig = getSessionConfig(roleName);
+  const absolute = absoluteExpiresAt ?? new Date(now.getTime() + sessionConfig.absoluteExpiresInMs);
+  const idle = new Date(now.getTime() + sessionConfig.idleExpiresInMs);
+
+  return {
+    lastActivityAt: now,
+    idleExpiresAt: idle,
+    absoluteExpiresAt: absolute,
+  };
 }
 
 /**
@@ -55,7 +84,8 @@ export function generateAccessToken(user: UserForToken): string {
  */
 export async function generateRefreshToken(
   user: UserForToken,
-  req?: { ip?: string; headers?: { 'user-agent'?: string } }
+  req?: { ip?: string; headers?: { 'user-agent'?: string } },
+  session?: RefreshSessionOptions
 ): Promise<string> {
   const roleName = user.role?.name ?? null;
   const isAdmin = isAdminRole(roleName);
@@ -63,17 +93,23 @@ export async function generateRefreshToken(
 
   // Generate random token
   const token = crypto.randomBytes(64).toString('hex');
-  const expiresAt = new Date(Date.now() + config.expiresInMs);
+  const sessionExpiry = buildSessionExpiry(roleName, session?.absoluteExpiresAt);
+  const expiresAt = sessionExpiry.absoluteExpiresAt ?? new Date(Date.now() + config.expiresInMs);
 
   // Lưu vào database
+  const refreshTokenData = {
+    token,
+    userId: user.id,
+    expiresAt,
+    lastActivityAt: sessionExpiry.lastActivityAt,
+    idleExpiresAt: sessionExpiry.idleExpiresAt,
+    absoluteExpiresAt: sessionExpiry.absoluteExpiresAt,
+    userAgent: req?.headers?.['user-agent'] ?? null,
+    ipAddress: req?.ip ?? null,
+  } as unknown as Prisma.RefreshTokenUncheckedCreateInput;
+
   await prisma.refreshToken.create({
-    data: {
-      token,
-      userId: user.id,
-      expiresAt,
-      userAgent: req?.headers?.['user-agent'] ?? null,
-      ipAddress: req?.ip ?? null,
-    },
+    data: refreshTokenData,
   });
 
   return token;
@@ -95,8 +131,8 @@ export function verifyAccessToken(token: string): TokenPayload | null {
 /**
  * Verify refresh token từ database
  */
-export async function verifyRefreshToken(token: string) {
-  const refreshToken = await prisma.refreshToken.findUnique({
+export async function getRefreshTokenRecord(token: string) {
+  return prisma.refreshToken.findUnique({
     where: { token },
     include: {
       user: {
@@ -106,10 +142,17 @@ export async function verifyRefreshToken(token: string) {
       },
     },
   });
+}
+
+export async function verifyRefreshToken(token: string) {
+  const refreshToken = (await getRefreshTokenRecord(token)) as RefreshTokenRecordWithSession | null;
 
   if (!refreshToken) return null;
   if (refreshToken.revokedAt) return null;
-  if (refreshToken.expiresAt < new Date()) return null;
+  const now = new Date();
+  if (refreshToken.expiresAt < now) return null;
+  if (refreshToken.idleExpiresAt < now) return null;
+  if (refreshToken.absoluteExpiresAt < now) return null;
 
   return refreshToken;
 }
@@ -161,6 +204,12 @@ export function getTokenExpiryInfo(roleName: string | null) {
     refreshTokenExpiresIn: isAdmin
       ? AUTH_CONFIG.REFRESH_TOKEN.ADMIN.expiresInMs
       : AUTH_CONFIG.REFRESH_TOKEN.USER.expiresInMs,
+    idleSessionExpiresIn: isAdmin
+      ? AUTH_CONFIG.SESSION.ADMIN.idleExpiresInMs
+      : AUTH_CONFIG.SESSION.USER.idleExpiresInMs,
+    absoluteSessionExpiresIn: isAdmin
+      ? AUTH_CONFIG.SESSION.ADMIN.absoluteExpiresInMs
+      : AUTH_CONFIG.SESSION.USER.absoluteExpiresInMs,
   };
 }
 
