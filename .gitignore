@@ -90,3 +90,7 @@ _bmad-output
 
 triposr-service
 tryon-worker
+embedding-worker
+scripts
+temp-images
+e2e
