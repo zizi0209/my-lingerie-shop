@@ -1156,18 +1156,22 @@ export async function generateVideoFromExistingImage(req: Request, res: Response
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Lỗi không xác định';
+    if (signedImageUrl) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          resultImage: signedImageUrl,
+          resultImageGcsUri: inputImageGcsUri,
+          videoStatus: 'failed',
+          videoErrorMessage: message,
+        },
+      });
+    }
+
     return res.status(502).json({
       success: false,
       error: message,
       errorCode: error instanceof VertexApiError ? error.code : undefined,
-      data: signedImageUrl
-        ? {
-            resultImage: signedImageUrl,
-            resultImageGcsUri: inputImageGcsUri,
-            videoStatus: 'failed',
-            videoErrorMessage: message,
-          }
-        : undefined,
     });
   }
 }

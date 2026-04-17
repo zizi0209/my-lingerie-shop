@@ -1,6 +1,12 @@
 import { JWT } from 'google-auth-library';
 import sharp from 'sharp';
-import { downloadGcsUriAsBase64, getTryOnStorageProvider, isGcsUri, uploadBase64ToTryOnStorage } from './virtualTryOnStorage';
+import {
+  downloadGcsUriAsBase64,
+  findLatestVideoObjectInGcsPrefix,
+  getTryOnStorageProvider,
+  isGcsUri,
+  uploadBase64ToTryOnStorage,
+} from './virtualTryOnStorage';
 
 const VERTEX_PROJECT_ID = process.env.VERTEX_AI_PROJECT_ID
   || process.env.GCP_PROJECT_ID
@@ -19,6 +25,7 @@ const VERTEX_VEO_POLL_INTERVAL_MS = Number(process.env.VERTEX_VEO_POLL_INTERVAL_
 const VERTEX_VEO_MAX_POLL_ATTEMPTS = Number(process.env.VERTEX_VEO_MAX_POLL_ATTEMPTS || 40);
 const VERTEX_TRYON_TIMEOUT_MS = Number(process.env.VERTEX_TRYON_TIMEOUT_MS || '90000');
 const VERTEX_VEO_POLL_BUDGET_MS = Number(process.env.VERTEX_VEO_POLL_BUDGET_MS || '90000');
+const VERTEX_VEO_FALLBACK_LOOKBACK_MS = Number(process.env.VERTEX_VEO_FALLBACK_LOOKBACK_MS || '120000');
 const VERTEX_TRYON_MAX_IMAGE_SIZE = Number(process.env.VERTEX_TRYON_MAX_IMAGE_SIZE || '2000');
 const FREE_MODE_DISABLE_VIDEO = process.env.FREE_MODE_DISABLE_VIDEO === 'true';
 const VERTEX_AUTH_MODE = (process.env.VERTEX_AUTH_MODE || 'auto').toLowerCase();
@@ -68,9 +75,85 @@ interface VeoPollResponse {
   error?: { message?: string };
 }
 
+interface VeoResolvedVideo {
+  gcsUri: string;
+  mimeType: string;
+}
+
 interface CachedToken {
   token: string;
   expiresAt: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function pickString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+}
+
+function findFirstGcsUri(value: unknown, depth = 0): string | undefined {
+  if (depth > 7) return undefined;
+
+  if (typeof value === 'string' && value.startsWith('gs://')) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findFirstGcsUri(item, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const direct = pickString(value.gcsUri);
+  if (direct && direct.startsWith('gs://')) {
+    return direct;
+  }
+
+  for (const nested of Object.values(value)) {
+    const found = findFirstGcsUri(nested, depth + 1);
+    if (found) return found;
+  }
+
+  return undefined;
+}
+
+function summarizeVeoResponseShape(response: unknown): string {
+  if (!isRecord(response)) {
+    return 'response:non-object';
+  }
+
+  const keys = Object.keys(response);
+  const videos = Array.isArray(response.videos) ? response.videos.length : 0;
+  const outputs = Array.isArray(response.outputs) ? response.outputs.length : 0;
+  return `keys=${keys.slice(0, 8).join(',') || 'none'};videos=${videos};outputs=${outputs}`;
+}
+
+export function extractVeoVideoResult(pollData: VeoPollResponse): VeoResolvedVideo | null {
+  const response = pollData.response;
+  const gcsUri = findFirstGcsUri(response);
+  if (!gcsUri) {
+    return null;
+  }
+
+  let mimeType = 'video/mp4';
+  if (isRecord(response)) {
+    const videos = Array.isArray(response.videos) ? response.videos : [];
+    const firstVideo = videos.find((video) => isRecord(video)) as Record<string, unknown> | undefined;
+    const candidateMime = firstVideo ? pickString(firstVideo.mimeType) : undefined;
+    if (candidateMime) {
+      mimeType = candidateMime;
+    }
+  }
+
+  return { gcsUri, mimeType };
 }
 
 export class VertexApiError extends Error {
@@ -481,6 +564,35 @@ function buildVeoOutputStorageUri(): string {
   return `gs://${bucket}/${VERTEX_TRYON_OUTPUT_PREFIX}/videos`;
 }
 
+function normalizeVeoMimeTypeFromUri(gcsUri: string): string {
+  const lower = gcsUri.toLowerCase();
+  if (lower.endsWith('.mov')) return 'video/mov';
+  if (lower.endsWith('.mpeg')) return 'video/mpeg';
+  if (lower.endsWith('.avi')) return 'video/avi';
+  return 'video/mp4';
+}
+
+export async function resolveVeoVideoFromOutputPrefix(options: {
+  outputStorageUri: string;
+  requestStartedAtMs: number;
+}): Promise<VeoResolvedVideo | null> {
+  const minUpdatedAtMs = options.requestStartedAtMs - Math.max(0, VERTEX_VEO_FALLBACK_LOOKBACK_MS);
+  const latest = await findLatestVideoObjectInGcsPrefix({
+    gcsPrefixUri: options.outputStorageUri,
+    minUpdatedAtMs,
+    maxResults: 100,
+  });
+
+  if (!latest || !isGcsUri(latest.gcsUri)) {
+    return null;
+  }
+
+  return {
+    gcsUri: latest.gcsUri,
+    mimeType: normalizeVeoMimeTypeFromUri(latest.gcsUri),
+  };
+}
+
 export async function generateVeoVideoFromImage(params: {
   imageGcsUri: string;
   prompt?: string;
@@ -520,6 +632,7 @@ export async function generateVeoVideoFromImage(params: {
     },
   } satisfies Record<string, unknown>;
 
+  const requestStartedAtMs = Date.now();
   const startResponse = await callVertexApi(
     `publishers/google/models/${VERTEX_VEO_MODEL_ID}:predictLongRunning`,
     body,
@@ -561,14 +674,20 @@ export async function generateVeoVideoFromImage(params: {
       throw new Error(`Veo lỗi: ${pollData.error.message}`);
     }
 
-    const video = pollData.response?.videos?.[0];
-    if (!video?.gcsUri) {
-      throw new Error('Veo không trả về gcsUri video');
+    const extractedVideo = extractVeoVideoResult(pollData);
+    const video = extractedVideo ?? await resolveVeoVideoFromOutputPrefix({
+      outputStorageUri,
+      requestStartedAtMs,
+    });
+
+    if (!video) {
+      const responseShape = summarizeVeoResponseShape(pollData.response);
+      throw new Error(`Veo completed nhưng không có video URI trong response (${responseShape})`);
     }
 
     return {
       gcsUri: video.gcsUri,
-      mimeType: video.mimeType || 'video/mp4',
+      mimeType: video.mimeType,
     };
   }
 

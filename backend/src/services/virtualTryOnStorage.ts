@@ -155,6 +155,17 @@ function parseGcsUri(gcsUri: string): { bucket: string; objectPath: string } {
   return { bucket, objectPath };
 }
 
+function parseGcsPrefixUri(gcsUri: string): { bucket: string; prefix: string } {
+  const normalized = gcsUri.replace('gs://', '');
+  const parts = normalized.split('/');
+  const bucket = parts.shift();
+  const prefix = parts.join('/').replace(/^\/+/, '').replace(/\/+$/, '');
+  if (!bucket) {
+    throw new Error('Invalid GCS URI');
+  }
+  return { bucket, prefix };
+}
+
 export function isGcsUri(value: string): boolean {
   return value.startsWith('gs://');
 }
@@ -253,6 +264,57 @@ export async function getSignedReadUrlForGcsUri(gcsUri: string): Promise<string>
   const expires = Date.now() + getSignedUrlTtlSeconds() * 1000;
   const [signedUrl] = await file.getSignedUrl({ action: 'read', expires });
   return signedUrl;
+}
+
+export async function findLatestVideoObjectInGcsPrefix(options: {
+  gcsPrefixUri: string;
+  minUpdatedAtMs?: number;
+  maxResults?: number;
+}): Promise<{ gcsUri: string; updatedAtMs: number } | null> {
+  const storage = getGcsStorage();
+  if (!storage) {
+    throw new Error('GCS_TRYON_BUCKET not configured');
+  }
+
+  const { bucket, prefix } = parseGcsPrefixUri(options.gcsPrefixUri);
+  const maxResults = Number.isFinite(options.maxResults) && (options.maxResults || 0) > 0
+    ? Math.min(options.maxResults || 0, 200)
+    : 100;
+
+  const [files] = await storage.bucket(bucket).getFiles({
+    prefix,
+    autoPaginate: false,
+    maxResults,
+  });
+
+  const minUpdatedAtMs = typeof options.minUpdatedAtMs === 'number' && Number.isFinite(options.minUpdatedAtMs)
+    ? options.minUpdatedAtMs
+    : 0;
+
+  let latest: { gcsUri: string; updatedAtMs: number } | null = null;
+
+  for (const file of files) {
+    const fileName = file.name || '';
+    if (!fileName || fileName.endsWith('/')) continue;
+
+    const lower = fileName.toLowerCase();
+    const isVideo = lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.mpeg') || lower.endsWith('.avi');
+    if (!isVideo) continue;
+
+    const metadata = file.metadata as { updated?: string } | undefined;
+    const updatedAtMs = metadata?.updated ? Date.parse(metadata.updated) : NaN;
+    if (!Number.isFinite(updatedAtMs)) continue;
+    if (updatedAtMs < minUpdatedAtMs) continue;
+
+    if (!latest || updatedAtMs > latest.updatedAtMs) {
+      latest = {
+        gcsUri: `gs://${bucket}/${fileName}`,
+        updatedAtMs,
+      };
+    }
+  }
+
+  return latest;
 }
 
 export async function downloadGcsUriAsBase64(gcsUri: string): Promise<string> {
